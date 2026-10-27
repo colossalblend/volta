@@ -3,6 +3,8 @@ package com.ars3nb.volta.core.vpn
 import android.app.Notification
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.Network
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
@@ -47,6 +49,8 @@ class VoltaVpnService : VpnService() {
         const val EXTRA_SERVER_ID = "server_id"
 
         private const val SOCKS_PORT_DEFAULT = 10808
+        private const val HEALTH_ATTEMPTS = 3
+        private const val MAX_FAILOVERS = 4
 
         private val _state = MutableStateFlow(VpnConnectionState.DISCONNECTED)
         val state: StateFlow<VpnConnectionState> = _state.asStateFlow()
@@ -72,6 +76,14 @@ class VoltaVpnService : VpnService() {
          */
         @Volatile
         var failoverProvider: (suspend (failedServerId: Long) -> ConnectionPlan?)? = null
+
+        /**
+         * Set by the repository: raises the tunnel in the current connect mode. Used when
+         * Android itself starts the service — Always-on VPN, or a restart after the
+         * system killed the process — and no plan arrived with the intent.
+         */
+        @Volatile
+        var autoStartProvider: (suspend () -> Unit)? = null
 
         fun connect(context: Context, plan: ConnectionPlan) {
             val i = Intent(context, VoltaVpnService::class.java).apply {
@@ -135,6 +147,34 @@ class VoltaVpnService : VpnService() {
     private var perAppMode: PerAppMode = PerAppMode.OFF
     private var perAppPackages: Set<String> = emptySet()
     private var failoverAttempts = 0
+    private var healthJob: Job? = null
+    private var lastUnderlying: Network? = null
+
+    private val connectivity by lazy { getSystemService(ConnectivityManager::class.java) }
+
+    /**
+     * Follows the physical network under the tunnel (this app is excluded from its own
+     * VPN, so its default network *is* the underlying one). Like v2rayNG we hand it to
+     * setUnderlyingNetworks(): Android then reports the right metered/validated state
+     * and keeps the VPN usable across Wi-Fi ↔ LTE hand-overs. After a hand-over the old
+     * sockets to the server are dead, so the tunnel is re-checked straight away instead
+     * of waiting a minute for the watchdog.
+     */
+    private val underlyingCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) {
+            runCatching { setUnderlyingNetworks(arrayOf(network)) }
+            val previous = lastUnderlying
+            lastUnderlying = network
+            if (previous != null && previous != network && tunnelActive.get()) {
+                Log.i(TAG, "underlying network changed — re-checking the tunnel")
+                startHealthCheck("Сеть сменилась, а сервер не отвечает", initialDelayMs = 6_000)
+            }
+        }
+
+        override fun onLost(network: Network) {
+            if (network == lastUnderlying) runCatching { setUnderlyingNetworks(null) }
+        }
+    }
 
     private val probeClient by lazy {
         OkHttpClient.Builder()
@@ -148,6 +188,7 @@ class VoltaVpnService : VpnService() {
         super.onCreate()
         tun2Socks = Tun2Socks(filesDir)
         VpnNotificationHelper.ensureChannel(this)
+        runCatching { connectivity?.registerDefaultNetworkCallback(underlyingCallback) }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -229,6 +270,9 @@ class VoltaVpnService : VpnService() {
                 }
             }
 
+            // Always-on VPN (android.net.VpnService) or a sticky restart (null intent).
+            SERVICE_INTERFACE, null -> startOnItsOwn()
+
             else -> if (tunnelActive.get()) {
                 startForeground(
                     VpnNotificationHelper.NOTIFICATION_ID,
@@ -236,7 +280,64 @@ class VoltaVpnService : VpnService() {
                 )
             }
         }
-        return START_NOT_STICKY
+        // Sticky while a tunnel is wanted: if Android kills the process, it brings the
+        // service back and startOnItsOwn() reconnects in the same mode.
+        return if (tunnelActive.get() || _state.value == VpnConnectionState.CONNECTING) {
+            START_STICKY
+        } else {
+            START_NOT_STICKY
+        }
+    }
+
+    private fun startOnItsOwn() {
+        if (tunnelActive.get() || _state.value == VpnConnectionState.CONNECTING) {
+            startForeground(
+                VpnNotificationHelper.NOTIFICATION_ID,
+                buildNotification(lastServerName, connecting = !tunnelActive.get())
+            )
+            return
+        }
+        startForeground(
+            VpnNotificationHelper.NOTIFICATION_ID,
+            buildNotification(lastServerName, connecting = true)
+        )
+        _state.value = VpnConnectionState.CONNECTING
+        _error.value = null
+        val provider = autoStartProvider
+        scope.launch {
+            if (provider == null) {
+                fail("Не удалось запустить VPN автоматически")
+                return@launch
+            }
+            // The provider ends in connect(), which arrives here as ACTION_CONNECT.
+            runCatching { provider() }.onFailure { e ->
+                Log.w(TAG, "automatic start failed", e)
+                connectionMutex.withLock { fail(e.message ?: "Не удалось подключиться") }
+            }
+        }
+    }
+
+    /**
+     * A fresh tunnel says nothing about whether the server answers: the core starts
+     * fine against a dead node. Check right away (Happ/Hiddify do the same) and move
+     * on to the next node within seconds, not after the one-minute watchdog.
+     */
+    private fun startHealthCheck(reason: String, initialDelayMs: Long = 2_500) {
+        healthJob?.cancel()
+        healthJob = scope.launch {
+            delay(initialDelayMs)
+            repeat(HEALTH_ATTEMPTS) { attempt ->
+                if (!tunnelActive.get()) return@launch
+                if (probeThroughTunnel()) {
+                    failoverAttempts = 0
+                    return@launch
+                }
+                Log.w(TAG, "health check ${attempt + 1}/$HEALTH_ATTEMPTS failed")
+                delay(2_500)
+            }
+            // Separate launch: recovery restarts the tunnel, which cancels this job.
+            if (tunnelActive.get()) scope.launch { onTunnelBroken(reason) }
+        }
     }
 
     private suspend fun doConnect(config: String, name: String, mtu: Int) {
@@ -299,6 +400,7 @@ class VoltaVpnService : VpnService() {
 
             watchdogJob?.cancel()
             watchdogJob = scope.launch { watchdog() }
+            startHealthCheck("Сервер не отвечает")
         } catch (e: Exception) {
             Log.e(TAG, "connect failed", e)
             fail(e.message ?: "Не удалось подключиться")
@@ -362,20 +464,26 @@ class VoltaVpnService : VpnService() {
                     }
                 } else {
                     probeFailures = 0
+                    failoverAttempts = 0
                 }
             }
         }
     }
 
+    /**
+     * Any HTTP answer through the local proxy proves the exit works. Two unrelated
+     * hosts, so one CDN having a bad minute does not trigger a server switch.
+     */
     private suspend fun probeThroughTunnel(): Boolean = withContext(Dispatchers.IO) {
-        runCatching {
-            val client = probeClient.newBuilder()
-                .proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", socksPort)))
-                .build()
-            client.newCall(
-                Request.Builder().url(PingEngineProbeUrl).head().build()
-            ).execute().use { it.code in 100..599 }
-        }.getOrDefault(false)
+        val client = probeClient.newBuilder()
+            .proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", socksPort)))
+            .build()
+        PROBE_URLS.any { url ->
+            runCatching {
+                client.newCall(Request.Builder().url(url).head().build())
+                    .execute().use { it.code in 100..599 }
+            }.getOrDefault(false)
+        }
     }
 
     private fun onCoreStoppedItself() {
@@ -387,8 +495,10 @@ class VoltaVpnService : VpnService() {
     private suspend fun onTunnelBroken(reason: String) = connectionMutex.withLock {
         if (!tunnelActive.get()) return@withLock
         val provider = failoverProvider
-        if (provider != null && failoverAttempts < 3) {
+        if (provider != null && failoverAttempts < MAX_FAILOVERS) {
             failoverAttempts++
+            // Short backoff so a flapping network is not hammered with reconnects.
+            delay(700L * failoverAttempts)
             _state.value = VpnConnectionState.CONNECTING
             startForeground(
                 VpnNotificationHelper.NOTIFICATION_ID,
@@ -432,6 +542,8 @@ class VoltaVpnService : VpnService() {
     private fun cleanup() {
         watchdogJob?.cancel()
         watchdogJob = null
+        healthJob?.cancel()
+        healthJob = null
         tunnelActive.set(false)
         _connectedSince.value = 0
         _traffic.value = TrafficStats()
@@ -452,6 +564,7 @@ class VoltaVpnService : VpnService() {
         )
 
     override fun onDestroy() {
+        runCatching { connectivity?.unregisterNetworkCallback(underlyingCallback) }
         cleanup()
         scope.cancel()
         if (_state.value != VpnConnectionState.DISCONNECTED &&
@@ -510,4 +623,7 @@ class VoltaVpnService : VpnService() {
     }.getOrDefault(false)
 }
 
-private const val PingEngineProbeUrl = "https://www.gstatic.com/generate_204"
+private val PROBE_URLS = listOf(
+    "https://www.gstatic.com/generate_204",
+    "https://cp.cloudflare.com/generate_204"
+)

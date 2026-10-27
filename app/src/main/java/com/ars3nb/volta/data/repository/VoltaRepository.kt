@@ -63,6 +63,20 @@ class VoltaRepository(private val context: Context) {
         .followRedirects(true)
         .build()
 
+    /**
+     * The same client routed through the running tunnel's HTTP inbound. When the local
+     * network blocks a provider's panel (typical on a whitelisted LTE), Happ and Hiddify
+     * retry the subscription through the VPN; so do we.
+     */
+    private val tunnelHttp: OkHttpClient by lazy {
+        http.newBuilder()
+            .proxy(java.net.Proxy(java.net.Proxy.Type.HTTP, java.net.InetSocketAddress("127.0.0.1", LOCAL_HTTP_PORT)))
+            .build()
+    }
+
+    /** Serialises connect requests from the button, the tiles, boot and Always-on. */
+    private val connectMutex = kotlinx.coroutines.sync.Mutex()
+
     val subscriptions: Flow<List<SubscriptionEntity>> = subDao.observeAll()
     val servers: Flow<List<ServerEntity>> = serverDao.observeAll()
     val selectedServer: Flow<ServerEntity?> = serverDao.observeSelected()
@@ -93,6 +107,8 @@ class VoltaRepository(private val context: Context) {
     init {
         // Lets the service recover from a dead exit without the UI process being alive.
         VoltaVpnService.failoverProvider = { failedId -> planAfterFailure(failedId) }
+        // Always-on VPN and sticky restarts reconnect in the user's current mode.
+        VoltaVpnService.autoStartProvider = { connectWithMode() }
     }
 
     fun hwid(): String = HwidProvider.getHwid(context)
@@ -142,7 +158,7 @@ class VoltaRepository(private val context: Context) {
 
     suspend fun refreshSubscription(id: Long) = withContext(Dispatchers.IO) {
         val sub = subDao.getById(id) ?: return@withContext
-        val fetched = fetchSubscription(sub.url)
+        val fetched = fetchSubscriptionResilient(sub.url, sub.userAgent)
         val body = fetched.body
         val parsed = ConfigParser.parseSubscriptionBody(body, subscriptionId = id)
 
@@ -280,7 +296,8 @@ class VoltaRepository(private val context: Context) {
             }
 
             geoData.isStale(subscriptionId, entity, existing) &&
-                geoData.download(subscriptionId, entity) ->
+                (geoData.download(subscriptionId, entity) ||
+                    (isConnected() && geoData.download(subscriptionId, entity, tunnelHttp))) ->
                 entity.copy(geoUpdatedAt = System.currentTimeMillis())
 
             else -> entity
@@ -721,6 +738,12 @@ class VoltaRepository(private val context: Context) {
     suspend fun connectWithMode(
         onPhase: (AutoBalancer.Phase) -> Unit = {}
     ): AutoBalancer.Decision? = withContext(Dispatchers.IO) {
+        connectMutex.withLock { connectWithModeLocked(onPhase) }
+    }
+
+    private suspend fun connectWithModeLocked(
+        onPhase: (AutoBalancer.Phase) -> Unit
+    ): AutoBalancer.Decision? {
         val scope = prefs.connectMode.first().scope
         val decision = scope?.let { runAutobalancer(it, onPhase) }
         if (decision != null && decision.selected == null) {
@@ -728,7 +751,7 @@ class VoltaRepository(private val context: Context) {
         }
         // A switch on a live tunnel already reconnected inside selectServer().
         if (!(isConnected() && decision?.switched == true)) connectSelected()
-        decision
+        return decision
     }
 
     /** Re-run the auto choice on a live tunnel, e.g. after Wi-Fi ↔ mobile data. */
@@ -760,7 +783,20 @@ class VoltaRepository(private val context: Context) {
         return value
     }
 
-    private suspend fun fetchSubscription(url: String): FetchedSubscription {
+    /** Direct first; if that fails while the VPN is up, once more through the tunnel. */
+    private suspend fun fetchSubscriptionResilient(url: String, userAgent: String): FetchedSubscription =
+        try {
+            fetchSubscription(url, userAgent, http)
+        } catch (direct: Exception) {
+            if (!isConnected()) throw direct
+            runCatching { fetchSubscription(url, userAgent, tunnelHttp) }.getOrElse { throw direct }
+        }
+
+    private suspend fun fetchSubscription(
+        url: String,
+        userAgent: String,
+        client: OkHttpClient
+    ): FetchedSubscription {
         val normalizedUrl = normalizeSubscriptionUrl(url)
         // Pasted content rather than a URL.
         if (normalizedUrl.startsWith("data:") ||
@@ -775,7 +811,7 @@ class VoltaRepository(private val context: Context) {
 
         val builder = Request.Builder()
             .url(normalizedUrl)
-            .header("User-Agent", "Volta/1.0 (Android)")
+            .header("User-Agent", userAgent.trim().ifBlank { "Volta/1.0 (Android)" })
             .header("x-device-os", "Android")
             .header("x-ver-os", android.os.Build.VERSION.RELEASE)
             .header("x-device-model", android.os.Build.MODEL)
@@ -787,7 +823,7 @@ class VoltaRepository(private val context: Context) {
         }
 
         val resp = try {
-            http.newCall(builder.build()).execute()
+            client.newCall(builder.build()).execute()
         } catch (e: UnknownHostException) {
             error("Нет связи с сервером подписки. Проверьте интернет.")
         } catch (e: SocketTimeoutException) {
@@ -861,6 +897,9 @@ class VoltaRepository(private val context: Context) {
     private companion object {
         /** Must match the port ConfigBuilder gives the socks inbound. */
         const val LOCAL_SOCKS_PORT = 10808
+
+        /** Must match the port ConfigBuilder gives the http inbound. */
+        const val LOCAL_HTTP_PORT = 10809
 
         val SUBSCRIPTION_COLORS = listOf(
             "#C4784A", "#4A8FC4", "#5FB07A", "#B05FA8", "#C4A24A", "#4AC4B8"
