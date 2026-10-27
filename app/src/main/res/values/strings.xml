@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Volta</string>
+    <string name="vpn_notification_channel">vpn_status</string>
+    <string name="vpn_notification_channel_name">Состояние VPN</string>
+    <string name="vpn_connected">Подключено</string>
+    <string name="vpn_disconnected">Отключено</string>
+    <string name="vpn_connecting">Подключение…</string>
+    <string name="action_connect">Подключить</string>
+    <string name="action_disconnect">Отключить</string>
+    <string name="action_toggle">Переключить</string>
+    <string name="tile_label">Volta VPN</string>
+    <string name="widget_description">Быстрое управление Volta</string>
+    <string name="accessibility_connect">Кнопка подключения VPN</string>
+</resources>

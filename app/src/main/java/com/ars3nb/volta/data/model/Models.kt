@@ -1,0 +1,316 @@
+package com.ars3nb.volta.data.model
+
+import androidx.room.Entity
+import androidx.room.ForeignKey
+import androidx.room.Index
+import androidx.room.PrimaryKey
+
+/** Role of a server for the app-level autobalancer. */
+enum class ServerRole {
+    /** Regular foreign exit (used when foreign sites are reachable). */
+    NORMAL,
+
+    /** Whitelist-bypass / white-list circumvention node. */
+    BYPASS_WHITELIST,
+
+    /** Can serve both roles. */
+    AUTO
+}
+
+enum class ServerPool {
+    ALL,
+    NORMAL,
+    BYPASS_WHITELIST,
+    AUTO
+}
+
+fun ServerPool.matches(role: ServerRole): Boolean = when (this) {
+    ServerPool.ALL -> true
+    ServerPool.NORMAL -> role == ServerRole.NORMAL
+    ServerPool.BYPASS_WHITELIST -> role == ServerRole.BYPASS_WHITELIST
+    ServerPool.AUTO -> role == ServerRole.AUTO
+}
+
+/**
+ * Everything Xray-core v26 can dial out with. HYSTERIA2 maps to the core's
+ * `hysteria` outbound (version 2), WIREGUARD to the `wireguard` outbound.
+ */
+enum class ProtocolType {
+    VLESS, VMESS, TROJAN, SHADOWSOCKS, SOCKS, HTTP, WIREGUARD, HYSTERIA2, RAW_JSON, UNKNOWN;
+
+    val label: String
+        get() = when (this) {
+            VLESS -> "VLESS"
+            VMESS -> "VMess"
+            TROJAN -> "Trojan"
+            SHADOWSOCKS -> "Shadowsocks"
+            SOCKS -> "SOCKS5"
+            HTTP -> "HTTP"
+            WIREGUARD -> "WireGuard"
+            HYSTERIA2 -> "Hysteria2"
+            RAW_JSON -> "JSON"
+            UNKNOWN -> "—"
+        }
+}
+
+enum class PingType {
+    /** Real end-to-end delay through the proxy, measured by the core. */
+    REAL_DELAY,
+
+    /** HTTP GET straight at the node endpoint — good for CDN-fronted hosts. */
+    HTTP_GET,
+
+    /** Plain TCP handshake to the node address. Cheapest, works offline-ish. */
+    TCP,
+
+    /** ICMP echo (often blocked by carriers). */
+    ICMP
+}
+
+/** Which set of nodes an app-side autobalancer run considers. */
+enum class BalancerScope {
+    /** Probe the network first, then pick from the pool that suits the result. */
+    ALL,
+
+    /** Regular exits only — no site probing. */
+    NORMAL,
+
+    /** Whitelist-bypass exits only — no site probing. */
+    BYPASS
+}
+
+enum class RouteOutbound {
+    PROXY, DIRECT, BLOCK
+}
+
+enum class VpnConnectionState {
+    DISCONNECTED, CONNECTING, CONNECTED, DISCONNECTING, ERROR
+}
+
+/** How traffic is split between apps on the device. */
+enum class PerAppMode {
+    /** Every app goes through the tunnel. */
+    OFF,
+
+    /** Only the listed apps are tunnelled. */
+    INCLUDE,
+
+    /** The listed apps bypass the tunnel. */
+    EXCLUDE
+}
+
+@Entity(tableName = "subscriptions")
+data class SubscriptionEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val nameLocked: Boolean = false,
+    val url: String,
+    val lastUpdated: Long = 0,
+    val userAgent: String = "",
+    val updateIntervalHours: Int = 12,
+    val isEnabled: Boolean = true,
+    val sortOrder: Int = 0,
+    /** Raw subscription body cache */
+    val rawBody: String = "",
+    val expireAt: Long = 0,
+    val trafficUsed: Long = 0,
+    val trafficTotal: Long = 0,
+    val supportUrl: String = "",
+    val announce: String = "",
+    val profileWebPageUrl: String = "",
+    /** Provider-supplied routing profile JSON (if any). */
+    val providerRoutingJson: String = "",
+    val hwidEnabled: Boolean = true,
+    val colorHex: String = "#C4784A",
+    /**
+     * Routing profile bound to THIS subscription. Isolation invariant: a profile
+     * whose [RoutingProfileEntity.sourceSubscriptionId] is set may only ever be
+     * referenced by that same subscription. 0 = "use the app default profile".
+     */
+    val routingProfileId: Long = 0
+)
+
+@Entity(
+    tableName = "servers",
+    foreignKeys = [
+        ForeignKey(
+            entity = SubscriptionEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["subscriptionId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("subscriptionId"), Index("remark")]
+)
+data class ServerEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val subscriptionId: Long? = null,
+    val remark: String,
+    val protocol: ProtocolType = ProtocolType.VLESS,
+    val address: String,
+    val port: Int,
+    /** UUID / password / auth secret, depending on protocol. */
+    val uuid: String = "",
+    val flow: String = "",
+    val encryption: String = "none",
+    val network: String = "tcp",
+    val security: String = "none",
+    val sni: String = "",
+    val fp: String = "",
+    val pbk: String = "",
+    val sid: String = "",
+    val spx: String = "",
+    val alpn: String = "",
+    val path: String = "",
+    val host: String = "",
+    val serviceName: String = "",
+    val headerType: String = "",
+    val rawLink: String = "",
+    /** Full Xray outbound/config fragment when imported as JSON. */
+    val rawJson: String = "",
+    /**
+     * Flat JSON map of every extra parameter the share link carried
+     * (mode, seed, extra, obfs, upmbps, wg keys, allowInsecure, …).
+     * Keeps new Xray knobs working without a schema migration each time.
+     */
+    val extraJson: String = "",
+    val latencyMs: Long = -1,
+    /** Smoothed latency used for ranking. -1 = never measured. */
+    val ewmaMs: Long = -1,
+    /** Consecutive failed measurements; reset on success. */
+    val failStreak: Int = 0,
+    val lastPingAt: Long = 0,
+    val isFavorite: Boolean = false,
+    val isSelected: Boolean = false,
+    val role: ServerRole = ServerRole.AUTO,
+    val roleManual: Boolean = false,
+    val sortOrder: Int = 0,
+    val tags: String = ""
+) {
+    /** Ranking score: lower is better. Unmeasured and flaky nodes sink. */
+    val score: Long
+        get() {
+            val base = when {
+                ewmaMs >= 0 -> ewmaMs
+                latencyMs >= 0 -> latencyMs
+                else -> return Long.MAX_VALUE / 4
+            }
+            return base + failStreak.toLong() * 1_000L - if (isFavorite) 60L else 0L
+        }
+
+    val isHealthy: Boolean get() = failStreak == 0 && (ewmaMs >= 0 || latencyMs >= 0)
+}
+
+@Entity(tableName = "routing_profiles")
+data class RoutingProfileEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val description: String = "",
+    /** Only meaningful for app-level profiles (sourceSubscriptionId == null). */
+    val isActive: Boolean = false,
+    val isBuiltIn: Boolean = false,
+    /**
+     * Non-null => this profile came from that subscription and is private to it.
+     * It never appears as an app-level choice and can never be bound elsewhere.
+     */
+    val sourceSubscriptionId: Long? = null,
+    /** When enabled, this profile may use provider rules stored with its subscription. */
+    val useProviderRules: Boolean = false,
+    /** Serialized list of RoutingRuleDto as JSON. */
+    val rulesJson: String = "[]",
+    val domainStrategy: String = "AsIs",
+    val remoteDns: String = "https://1.1.1.1/dns-query",
+    val domesticDns: String = "https://dns.google/dns-query",
+    val updatedAt: Long = System.currentTimeMillis()
+) {
+    /** True for profiles the user may bind to any subscription. */
+    val isShareable: Boolean get() = sourceSubscriptionId == null
+}
+
+data class RoutingRuleDto(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val name: String = "",
+    val enabled: Boolean = true,
+    val outbound: RouteOutbound = RouteOutbound.PROXY,
+    val domains: List<String> = emptyList(),
+    val ips: List<String> = emptyList(),
+    val ports: String = "",
+    val sourcePorts: String = "",
+    val network: String = "", // tcp/udp/empty
+    val protocol: List<String> = emptyList(), // http,tls,bittorrent
+    val inboundTags: List<String> = emptyList(),
+    val users: List<String> = emptyList(),
+    val attributes: String = "",
+    val source: String = "user", // user | provider | builtin
+    val sortOrder: Int = 0
+)
+
+data class PingResult(
+    val target: String,
+    val type: PingType,
+    val latencyMs: Long,
+    val success: Boolean,
+    val message: String = "",
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+data class SiteProbeResult(
+    val host: String,
+    val label: String,
+    val category: SiteCategory,
+    val latencyMs: Long,
+    val reachable: Boolean
+)
+
+enum class SiteCategory {
+    FOREIGN,
+    RU_WHITELIST
+}
+
+/** Network regime detected from startup probes. */
+enum class NetworkRegime {
+    /** Foreign sites reachable — use NORMAL servers. */
+    OPEN,
+
+    /** Only RU whitelist reachable — use BYPASS_WHITELIST servers. */
+    WHITELIST_ONLY,
+
+    /** Nothing reachable. */
+    BLOCKED,
+
+    /** Not measured yet. */
+    UNKNOWN
+}
+
+data class IpInfo(
+    val ip: String = "",
+    val country: String = "",
+    val city: String = "",
+    val isp: String = "",
+    val org: String = "",
+    val timezone: String = "",
+    val queriedAt: Long = 0
+)
+
+/** Live counters read from the running core. */
+data class TrafficStats(
+    val uplinkBytes: Long = 0,
+    val downlinkBytes: Long = 0,
+    val uplinkSpeed: Long = 0,
+    val downlinkSpeed: Long = 0
+)
+
+data class SubscriptionImportResult(
+    val servers: List<ServerEntity>,
+    val routingJson: String = "",
+    val title: String = "",
+    val expireAt: Long = 0,
+    val trafficUsed: Long = 0,
+    val trafficTotal: Long = 0,
+    val announce: String = "",
+    val supportUrl: String = "",
+    val webPageUrl: String = "",
+    val updateIntervalHours: Int = 12,
+    /** Links the parser recognised but the core cannot dial (tuic://, ssr://…). */
+    val skipped: List<String> = emptyList()
+)

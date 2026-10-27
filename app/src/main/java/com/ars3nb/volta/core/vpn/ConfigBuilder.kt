@@ -1,0 +1,727 @@
+package com.ars3nb.volta.core.vpn
+
+import com.ars3nb.volta.core.parser.ConfigParser
+import com.ars3nb.volta.core.routing.RoutingEngine
+import com.ars3nb.volta.data.model.ProtocolType
+import com.ars3nb.volta.data.model.RoutingProfileEntity
+import com.ars3nb.volta.data.model.ServerEntity
+import com.google.gson.JsonArray
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
+
+/**
+ * Builds an Xray-core v26 config from a server (or a pool of servers) plus a routing profile.
+ *
+ * Two exit shapes:
+ *  - single outbound tagged `proxy`;
+ *  - a pool `proxy-0 … proxy-N` behind an observatory-driven balancer, so the core
+ *    itself fails over to the fastest live node without reconnecting the tunnel.
+ */
+object ConfigBuilder {
+
+    const val PROXY_TAG = "proxy"
+    const val BALANCER_TAG = "proxy-balancer"
+    private const val POOL_PREFIX = "proxy-"
+    const val DEFAULT_PROBE_URL = "https://www.gstatic.com/generate_204"
+
+    /** Raised when the installed core physically cannot dial a node. */
+    class UnsupportedProtocolException(message: String) : IllegalStateException(message)
+
+    fun build(
+        server: ServerEntity,
+        profile: RoutingProfileEntity?,
+        providerRoutingJson: String = "",
+        socksPort: Int = 10808,
+        httpPort: Int = 10809,
+        batterySaver: Boolean = true,
+        localDns: Boolean = true,
+        enableStats: Boolean = true,
+        /** More than one entry switches on the in-core balancer. */
+        balancerPool: List<ServerEntity> = emptyList(),
+        probeUrl: String = DEFAULT_PROBE_URL,
+        probeIntervalSeconds: Int = 300
+    ): String {
+        val root = JsonObject()
+        root.add("log", JsonObject().apply {
+            addProperty("loglevel", if (batterySaver) "warning" else "info")
+            addProperty("access", "none")
+        })
+
+        root.add("inbounds", buildInbounds(socksPort, httpPort, batterySaver))
+
+        val pool = balancerPool
+            .distinctBy { it.id }
+            .filter { canDial(it) }
+        val useBalancer = pool.size > 1
+
+        val outbounds = JsonArray()
+        val chained = LinkedHashMap<String, JsonObject>()
+        if (useBalancer) {
+            pool.forEachIndexed { index, node ->
+                val tag = POOL_PREFIX + index
+                outbounds.add(outboundFor(node, tag))
+                chainedOutbounds(node, tag).forEach { extra ->
+                    extra.get("tag")?.asString?.let { chained.putIfAbsent(it, extra) }
+                }
+            }
+        } else {
+            outbounds.add(outboundFor(server, PROXY_TAG))
+            chainedOutbounds(server, PROXY_TAG).forEach { extra ->
+                extra.get("tag")?.asString?.let { chained.putIfAbsent(it, extra) }
+            }
+        }
+        // Nodes that dial through another outbound need that outbound present too.
+        chained.values.forEach { outbounds.add(it) }
+        outbounds.add(directOutbound())
+        outbounds.add(blockOutbound())
+        if (localDns) outbounds.add(dnsOutbound())
+        root.add("outbounds", outbounds)
+
+        if (useBalancer) {
+            root.add("observatory", JsonObject().apply {
+                add("subjectSelector", jsonArray(POOL_PREFIX))
+                addProperty("probeURL", probeUrl)
+                addProperty("probeInterval", "${probeIntervalSeconds}s")
+                addProperty("enableConcurrency", true)
+            })
+        }
+
+        val rules = resolveRules(server, profile, providerRoutingJson)
+        val routing = RoutingEngine.toXrayRouting(
+            rules = rules,
+            domainStrategy = profile?.domainStrategy?.ifBlank { null } ?: "IPIfNonMatch",
+            proxyBalancerTag = if (useBalancer) BALANCER_TAG else null,
+            dnsRuleEnabled = localDns
+        )
+        if (useBalancer) {
+            routing.add("balancers", JsonArray().apply {
+                add(JsonObject().apply {
+                    addProperty("tag", BALANCER_TAG)
+                    add("selector", jsonArray(POOL_PREFIX))
+                    addProperty("fallbackTag", POOL_PREFIX + "0")
+                    add("strategy", JsonObject().apply { addProperty("type", "leastPing") })
+                })
+            })
+        }
+        root.add("routing", routing)
+
+        if (localDns) root.add("dns", buildDns(profile))
+
+        if (enableStats) {
+            root.add("stats", JsonObject())
+            root.add("policy", JsonObject().apply {
+                add("system", JsonObject().apply {
+                    addProperty("statsOutboundUplink", true)
+                    addProperty("statsOutboundDownlink", true)
+                })
+            })
+        }
+
+        return root.toString()
+    }
+
+    /**
+     * Smallest config `Libv2ray.measureOutboundDelay` accepts: one proxy outbound,
+     * no inbounds, no routing. Used to time a node without touching the live tunnel.
+     */
+    fun buildProbe(server: ServerEntity): String {
+        val root = JsonObject()
+        root.add("log", JsonObject().apply { addProperty("loglevel", "none") })
+        root.add("outbounds", JsonArray().apply {
+            add(outboundFor(server, PROXY_TAG))
+            add(directOutbound())
+        })
+        return root.toString()
+    }
+
+    /** False when this build of the core has no transport/proxy for the node. */
+    fun canDial(server: ServerEntity): Boolean = runCatching {
+        outboundFor(server, PROXY_TAG)
+        true
+    }.getOrDefault(false)
+
+    /** Reason a node cannot be dialled, or null when it can. */
+    fun dialProblem(server: ServerEntity): String? = try {
+        outboundFor(server, PROXY_TAG)
+        null
+    } catch (e: Exception) {
+        e.message ?: "Сервер не поддерживается"
+    }
+
+    // -------------------------------------------------------------- inbounds
+
+    private fun buildInbounds(socksPort: Int, httpPort: Int, batterySaver: Boolean): JsonArray {
+        val arr = JsonArray()
+        arr.add(JsonObject().apply {
+            addProperty("tag", "socks")
+            addProperty("port", socksPort)
+            addProperty("listen", "127.0.0.1")
+            addProperty("protocol", "socks")
+            add("settings", JsonObject().apply {
+                addProperty("udp", true)
+                addProperty("auth", "noauth")
+            })
+            add("sniffing", JsonObject().apply {
+                addProperty("enabled", true)
+                add("destOverride", jsonArray("http", "tls", "quic"))
+                // routeOnly keeps the original destination for the outbound, which is
+                // what REALITY/SNI-pinned nodes need; only the routing table sees the host.
+                addProperty("routeOnly", true)
+            })
+        })
+        arr.add(JsonObject().apply {
+            addProperty("tag", "http")
+            addProperty("port", httpPort)
+            addProperty("listen", "127.0.0.1")
+            addProperty("protocol", "http")
+            add("settings", JsonObject().apply {
+                addProperty("allowTransparent", false)
+            })
+        })
+        return arr
+    }
+
+    // ------------------------------------------------------------- outbounds
+
+    private fun directOutbound() = JsonObject().apply {
+        addProperty("tag", "direct")
+        addProperty("protocol", "freedom")
+        add("settings", JsonObject().apply { addProperty("domainStrategy", "UseIP") })
+    }
+
+    private fun blockOutbound() = JsonObject().apply {
+        addProperty("tag", "block")
+        addProperty("protocol", "blackhole")
+        add("settings", JsonObject().apply {
+            add("response", JsonObject().apply { addProperty("type", "http") })
+        })
+    }
+
+    private fun dnsOutbound() = JsonObject().apply {
+        addProperty("tag", "dns-out")
+        addProperty("protocol", "dns")
+        add("settings", JsonObject().apply { addProperty("nonIPQuery", "skip") })
+    }
+
+    /**
+     * One proxy outbound for [server]. A verbatim JSON import wins over the
+     * field-by-field build so exotic provider configs survive untouched.
+     */
+    fun outboundFor(server: ServerEntity, tag: String): JsonObject {
+        rawOutbound(server)?.let { raw ->
+            raw.addProperty("tag", tag)
+            return raw
+        }
+        val ob = JsonObject()
+        ob.addProperty("tag", tag)
+        when (server.protocol) {
+            ProtocolType.VLESS -> {
+                ob.addProperty("protocol", "vless")
+                ob.add("settings", vnextSettings(server) { user ->
+                    user.addProperty("encryption", server.encryption.ifBlank { "none" })
+                    flowFor(server)?.let { user.addProperty("flow", it) }
+                })
+            }
+
+            ProtocolType.VMESS -> {
+                ob.addProperty("protocol", "vmess")
+                ob.add("settings", vnextSettings(server) { user ->
+                    user.addProperty("security", server.encryption.ifBlank { "auto" })
+                    val alterId = ConfigParser.extra(server.extraJson, "alterId", "aid")
+                        .toIntOrNull() ?: 0
+                    user.addProperty("alterId", alterId)
+                })
+            }
+
+            ProtocolType.TROJAN -> {
+                ob.addProperty("protocol", "trojan")
+                ob.add("settings", JsonObject().apply {
+                    add("servers", JsonArray().apply {
+                        add(JsonObject().apply {
+                            addProperty("address", server.address)
+                            addProperty("port", server.port)
+                            addProperty("password", server.uuid)
+                            flowFor(server)?.let { addProperty("flow", it) }
+                        })
+                    })
+                })
+            }
+
+            ProtocolType.SHADOWSOCKS -> {
+                require(server.encryption.isNotBlank()) { "Shadowsocks без метода шифрования" }
+                ob.addProperty("protocol", "shadowsocks")
+                ob.add("settings", JsonObject().apply {
+                    add("servers", JsonArray().apply {
+                        add(JsonObject().apply {
+                            addProperty("address", server.address)
+                            addProperty("port", server.port)
+                            addProperty("method", server.encryption)
+                            addProperty("password", server.uuid)
+                        })
+                    })
+                })
+            }
+
+            ProtocolType.SOCKS -> {
+                ob.addProperty("protocol", "socks")
+                val user = ConfigParser.extra(server.extraJson, "user", "username")
+                    .ifBlank { server.host }
+                ob.add("settings", JsonObject().apply {
+                    add("servers", JsonArray().apply {
+                        add(JsonObject().apply {
+                            addProperty("address", server.address)
+                            addProperty("port", server.port)
+                            if (user.isNotBlank()) {
+                                add("users", JsonArray().apply {
+                                    add(JsonObject().apply {
+                                        addProperty("user", user)
+                                        addProperty("pass", server.uuid)
+                                        addProperty("level", 0)
+                                    })
+                                })
+                            }
+                        })
+                    })
+                })
+            }
+
+            ProtocolType.HTTP -> {
+                ob.addProperty("protocol", "http")
+                val user = ConfigParser.extra(server.extraJson, "user", "username")
+                    .ifBlank { server.host }
+                ob.add("settings", JsonObject().apply {
+                    add("servers", JsonArray().apply {
+                        add(JsonObject().apply {
+                            addProperty("address", server.address)
+                            addProperty("port", server.port)
+                            if (user.isNotBlank()) {
+                                add("users", JsonArray().apply {
+                                    add(JsonObject().apply {
+                                        addProperty("user", user)
+                                        addProperty("pass", server.uuid)
+                                    })
+                                })
+                            }
+                        })
+                    })
+                })
+            }
+
+            ProtocolType.WIREGUARD -> {
+                ob.addProperty("protocol", "wireguard")
+                ob.add("settings", wireGuardSettings(server))
+                // WireGuard carries its own transport; no streamSettings.
+                return ob
+            }
+
+            ProtocolType.HYSTERIA2 -> {
+                ob.addProperty("protocol", "hysteria")
+                ob.add("settings", JsonObject().apply {
+                    addProperty("version", 2)
+                    addProperty("address", server.address)
+                    addProperty("port", server.port)
+                })
+            }
+
+            ProtocolType.RAW_JSON, ProtocolType.UNKNOWN ->
+                throw UnsupportedProtocolException(
+                    "«${server.remark}»: тип сервера не распознан, подключение невозможно"
+                )
+        }
+        ob.add("streamSettings", buildStreamSettings(server))
+        val mux = muxSettings(server)
+        if (mux != null) ob.add("mux", mux)
+        return ob
+    }
+
+    /**
+     * XTLS flow only exists over TLS/REALITY on the raw TCP transport. Copying it onto a
+     * ws/grpc/xhttp node produces a config the core accepts and then fails to dial, which
+     * looks to the user like a dead server, so it is dropped instead.
+     */
+    private fun flowFor(server: ServerEntity): String? {
+        val flow = server.flow.trim()
+        if (flow.isBlank()) return null
+        val security = server.security.lowercase()
+        val network = server.network.lowercase()
+        val tlsLike = security == "tls" || security == "reality"
+        val rawTransport = network.isBlank() || network == "tcp" || network == "raw"
+        return if (tlsLike && rawTransport) flow else null
+    }
+
+    private fun vnextSettings(
+        server: ServerEntity,
+        userBlock: (JsonObject) -> Unit
+    ): JsonObject {
+        require(server.uuid.isNotBlank()) { "«${server.remark}»: не указан ID пользователя" }
+        return JsonObject().apply {
+            add("vnext", JsonArray().apply {
+                add(JsonObject().apply {
+                    addProperty("address", server.address)
+                    addProperty("port", server.port)
+                    add("users", JsonArray().apply {
+                        add(JsonObject().apply {
+                            addProperty("id", server.uuid)
+                            addProperty("level", 0)
+                            userBlock(this)
+                        })
+                    })
+                })
+            })
+        }
+    }
+
+    private fun wireGuardSettings(server: ServerEntity): JsonObject {
+        val extras = server.extraJson
+        val secret = ConfigParser.extra(extras, "privateKey", "privatekey", "secretKey")
+            .ifBlank { server.uuid }
+        val publicKey = ConfigParser.extra(extras, "publicKey", "publickey", "peerPublicKey")
+            .ifBlank { server.pbk }
+        require(secret.isNotBlank() && publicKey.isNotBlank()) {
+            "«${server.remark}»: WireGuard без ключей"
+        }
+        val localAddresses = ConfigParser.extra(extras, "address", "localAddress", "ip")
+            .ifBlank { "172.16.0.2/32" }
+        val allowed = ConfigParser.extra(extras, "allowedIPs", "allowedips")
+            .ifBlank { "0.0.0.0/0,::/0" }
+        val preShared = ConfigParser.extra(extras, "preSharedKey", "presharedkey")
+        val reserved = ConfigParser.extra(extras, "reserved")
+        val mtu = ConfigParser.extra(extras, "mtu").toIntOrNull() ?: 1420
+
+        return JsonObject().apply {
+            addProperty("secretKey", secret)
+            add("address", jsonArray(*splitList(localAddresses).toTypedArray()))
+            addProperty("mtu", mtu)
+            // Userspace stack: a kernel TUN is not reachable from an unprivileged app.
+            addProperty("noKernelTun", true)
+            add("peers", JsonArray().apply {
+                add(JsonObject().apply {
+                    addProperty("publicKey", publicKey)
+                    addProperty("endpoint", "${server.address}:${server.port}")
+                    add("allowedIPs", jsonArray(*splitList(allowed).toTypedArray()))
+                    if (preShared.isNotBlank()) addProperty("preSharedKey", preShared)
+                    if (reserved.isNotBlank()) {
+                        add("reserved", JsonArray().apply {
+                            splitList(reserved).mapNotNull { it.toIntOrNull() }.forEach { add(it) }
+                        })
+                    }
+                })
+            })
+        }
+    }
+
+    /** Outbound protocols this build of Xray can actually dial. */
+    private val DIALABLE_PROTOCOLS = setOf(
+        "vless", "vmess", "trojan", "shadowsocks", "socks", "http", "wireguard", "hysteria"
+    )
+
+    /**
+     * Full config imported as JSON — reuse the provider's own outbound verbatim.
+     * The protocol is still checked, otherwise `canDial` would happily approve a node
+     * the core rejects and one bad entry would make the whole config unloadable.
+     */
+    private fun rawOutbound(server: ServerEntity): JsonObject? {
+        if (server.rawJson.isBlank() || !server.rawJson.contains("\"protocol\"")) return null
+        val outbound = runCatching {
+            val raw = JsonParser.parseString(server.rawJson).asJsonObject
+            raw.getAsJsonArray("outbounds")
+                ?.firstOrNull { it.isJsonObject && isProxyOutbound(it.asJsonObject) }
+                ?.asJsonObject
+                ?.deepCopy()
+                ?: raw.takeIf { isProxyOutbound(it) }?.deepCopy()
+        }.getOrNull() ?: return null
+
+        val protocol = outbound.get("protocol")?.takeIf { it.isJsonPrimitive }
+            ?.asString?.lowercase().orEmpty()
+        if (protocol !in DIALABLE_PROTOCOLS) {
+            throw UnsupportedProtocolException(
+                "«${server.remark}»: протокол «$protocol» не поддерживается этим ядром"
+            )
+        }
+        return outbound
+    }
+
+    /**
+     * Outbounds the imported one delegates to (`proxySettings.tag`, `sockopt.dialerProxy`).
+     * Without them the core cannot resolve the chain and refuses to start.
+     */
+    private fun chainedOutbounds(server: ServerEntity, primaryTag: String): List<JsonObject> {
+        if (server.rawJson.isBlank()) return emptyList()
+        return runCatching {
+            val raw = JsonParser.parseString(server.rawJson).asJsonObject
+            val all = raw.getAsJsonArray("outbounds") ?: return emptyList()
+            val byTag = all.mapNotNull { el ->
+                el.takeIf { it.isJsonObject }?.asJsonObject
+            }.associateBy { it.get("tag")?.takeIf { t -> t.isJsonPrimitive }?.asString.orEmpty() }
+
+            val wanted = LinkedHashSet<String>()
+            fun collect(from: JsonObject, depth: Int) {
+                if (depth > 4) return
+                from.getAsJsonObject("proxySettings")
+                    ?.get("tag")?.takeIf { it.isJsonPrimitive }?.asString
+                    ?.let { if (wanted.add(it)) byTag[it]?.let { next -> collect(next, depth + 1) } }
+                from.getAsJsonObject("streamSettings")
+                    ?.getAsJsonObject("sockopt")
+                    ?.get("dialerProxy")?.takeIf { it.isJsonPrimitive }?.asString
+                    ?.let { if (wanted.add(it)) byTag[it]?.let { next -> collect(next, depth + 1) } }
+            }
+            rawOutbound(server)?.let { collect(it, 0) }
+
+            wanted.mapNotNull { tag -> byTag[tag]?.deepCopy() }
+                .filter { it.get("tag")?.asString != primaryTag }
+        }.getOrDefault(emptyList())
+    }
+
+    private fun isProxyOutbound(outbound: JsonObject): Boolean {
+        val protocol = outbound.get("protocol")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
+        val tag = outbound.get("tag")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
+        return protocol.isNotBlank() &&
+            protocol !in setOf("freedom", "blackhole", "dns", "loopback") &&
+            tag !in setOf("direct", "block", "dns-out", "api")
+    }
+
+    // ------------------------------------------------------- streamSettings
+
+    private fun buildStreamSettings(server: ServerEntity): JsonObject {
+        val stream = JsonObject()
+        val extras = server.extraJson
+        val network = server.network.ifBlank { "tcp" }.lowercase()
+        val security = server.security.ifBlank { "none" }.lowercase()
+
+        // Xray v26 dropped the standalone h2 and quic transports.
+        val effectiveNetwork = when (network) {
+            "raw" -> "tcp"
+            "h2", "http" -> "xhttp"
+            "splithttp" -> "xhttp"
+            "mkcp" -> "kcp"
+            "quic" -> throw UnsupportedProtocolException(
+                "«${server.remark}»: транспорт QUIC удалён из этого ядра, попросите у сервиса ссылку с ws/grpc/xhttp"
+            )
+            else -> network
+        }
+        // An unrecognised security value makes the core reject the whole config, taking
+        // every other node down with it — refuse this one node loudly instead.
+        if (security !in setOf("none", "tls", "reality")) {
+            throw UnsupportedProtocolException(
+                "«${server.remark}»: шифрование «$security» не поддерживается этим ядром"
+            )
+        }
+        stream.addProperty("network", effectiveNetwork)
+        stream.addProperty("security", security)
+
+        when (security) {
+            "reality" -> {
+                require(server.pbk.isNotBlank()) { "«${server.remark}»: REALITY без публичного ключа" }
+                stream.add("realitySettings", JsonObject().apply {
+                    addProperty(
+                        "serverName",
+                        server.sni.ifBlank { server.host.ifBlank { server.address } }
+                    )
+                    addProperty("fingerprint", server.fp.ifBlank { "chrome" })
+                    addProperty("publicKey", server.pbk)
+                    addProperty("shortId", server.sid)
+                    if (server.spx.isNotBlank()) addProperty("spiderX", server.spx)
+                    ConfigParser.extra(extras, "pqv", "mldsa65Verify").takeIf { it.isNotBlank() }
+                        ?.let { addProperty("mldsa65Verify", it) }
+                    addProperty("show", false)
+                })
+            }
+
+            "tls" -> {
+                stream.add("tlsSettings", JsonObject().apply {
+                    addProperty("serverName", server.sni.ifBlank { server.host.ifBlank { server.address } })
+                    if (server.fp.isNotBlank()) addProperty("fingerprint", server.fp)
+                    if (server.alpn.isNotBlank()) {
+                        add("alpn", jsonArray(*splitList(server.alpn).toTypedArray()))
+                    }
+                    addProperty("allowInsecure", allowInsecure(server))
+                })
+            }
+        }
+
+        when (effectiveNetwork) {
+            "ws" -> stream.add("wsSettings", JsonObject().apply {
+                addProperty("path", server.path.ifBlank { "/" })
+                if (server.host.isNotBlank()) {
+                    addProperty("host", server.host)
+                    add("headers", JsonObject().apply { addProperty("Host", server.host) })
+                }
+            })
+
+            "httpupgrade" -> stream.add("httpupgradeSettings", JsonObject().apply {
+                addProperty("path", server.path.ifBlank { "/" })
+                if (server.host.isNotBlank()) addProperty("host", server.host)
+            })
+
+            "xhttp" -> stream.add("xhttpSettings", JsonObject().apply {
+                addProperty("path", server.path.ifBlank { "/" })
+                if (server.host.isNotBlank()) addProperty("host", server.host)
+                val mode = ConfigParser.extra(extras, "mode").ifBlank {
+                    if (server.network.equals("h2", true) ||
+                        server.network.equals("http", true)
+                    ) "stream-one" else "auto"
+                }
+                addProperty("mode", mode)
+                ConfigParser.extra(extras, "extra").takeIf { it.isNotBlank() }?.let { raw ->
+                    runCatching { JsonParser.parseString(raw) }
+                        .getOrNull()?.takeIf { it.isJsonObject }
+                        ?.let { add("extra", it.asJsonObject) }
+                }
+            })
+
+            "grpc" -> stream.add("grpcSettings", JsonObject().apply {
+                addProperty(
+                    "serviceName",
+                    server.serviceName.ifBlank { ConfigParser.extra(extras, "serviceName", "path") }
+                )
+                val mode = ConfigParser.extra(extras, "mode")
+                addProperty("multiMode", mode.equals("multi", ignoreCase = true))
+                ConfigParser.extra(extras, "authority").takeIf { it.isNotBlank() }
+                    ?.let { addProperty("authority", it) }
+            })
+
+            "kcp" -> stream.add("kcpSettings", JsonObject().apply {
+                addProperty("mtu", ConfigParser.extra(extras, "mtu").toIntOrNull() ?: 1350)
+                addProperty("tti", ConfigParser.extra(extras, "tti").toIntOrNull() ?: 50)
+                addProperty("uplinkCapacity", 12)
+                addProperty("downlinkCapacity", 100)
+                addProperty("congestion", ConfigParser.extra(extras, "congestion") == "true")
+                ConfigParser.extra(extras, "seed", "serviceName").takeIf { it.isNotBlank() }
+                    ?.let { addProperty("seed", it) }
+                add("header", JsonObject().apply {
+                    addProperty("type", server.headerType.ifBlank { "none" })
+                })
+            })
+
+            "hysteria" -> stream.add("hysteriaSettings", hysteriaSettings(server))
+
+            "tcp" -> {
+                if (server.headerType.equals("http", ignoreCase = true)) {
+                    stream.add("tcpSettings", JsonObject().apply {
+                        add("header", JsonObject().apply {
+                            addProperty("type", "http")
+                            add("request", JsonObject().apply {
+                                addProperty("version", "1.1")
+                                addProperty("method", "GET")
+                                add("path", jsonArray(server.path.ifBlank { "/" }))
+                                add("headers", JsonObject().apply {
+                                    if (server.host.isNotBlank()) {
+                                        add("Host", jsonArray(*splitList(server.host).toTypedArray()))
+                                    }
+                                })
+                            })
+                        })
+                    })
+                }
+            }
+        }
+
+        // Salamander obfuscation ships as a final-mask layer in this core.
+        val obfs = ConfigParser.extra(extras, "obfs")
+        val obfsPassword = ConfigParser.extra(extras, "obfs-password", "obfsPassword", "obfsParam")
+        if (obfs.equals("salamander", ignoreCase = true) && obfsPassword.isNotBlank()) {
+            stream.add("finalmask", JsonArray().apply {
+                add(JsonObject().apply {
+                    addProperty("type", "salamander")
+                    add("settings", JsonObject().apply {
+                        addProperty("password", obfsPassword)
+                    })
+                })
+            })
+        }
+
+        return stream
+    }
+
+    private fun hysteriaSettings(server: ServerEntity): JsonObject {
+        val extras = server.extraJson
+        val auth = server.uuid.ifBlank { ConfigParser.extra(extras, "auth", "password") }
+        require(auth.isNotBlank()) { "«${server.remark}»: Hysteria2 без пароля" }
+        return JsonObject().apply {
+            addProperty("version", 2)
+            addProperty("auth", auth)
+            val up = ConfigParser.extra(extras, "upmbps", "up", "upMbps")
+            val down = ConfigParser.extra(extras, "downmbps", "down", "downMbps")
+            if (up.isNotBlank() && down.isNotBlank()) {
+                addProperty("congestion", "brutal")
+                addProperty("brutalUp", "${up.filter { it.isDigit() }.ifBlank { "50" }}mbps")
+                addProperty("brutalDown", "${down.filter { it.isDigit() }.ifBlank { "50" }}mbps")
+            }
+            ConfigParser.extra(extras, "udpIdleTimeout").toIntOrNull()
+                ?.let { addProperty("udpIdleTimeout", it) }
+            val hopPorts = ConfigParser.extra(extras, "mport", "ports", "hopPorts")
+            if (hopPorts.isNotBlank()) {
+                add("udphop", JsonObject().apply {
+                    addProperty("port", hopPorts)
+                    addProperty(
+                        "interval",
+                        ConfigParser.extra(extras, "hopInterval").toIntOrNull() ?: 30
+                    )
+                })
+            }
+        }
+    }
+
+    /** Mux never helps XTLS-flow nodes and hurts UDP-heavy ones; keep it opt-in. */
+    private fun muxSettings(server: ServerEntity): JsonObject? {
+        if (flowFor(server) != null) return null
+        val concurrency = ConfigParser.extra(server.extraJson, "mux", "concurrency")
+            .toIntOrNull() ?: return null
+        if (concurrency <= 0) return null
+        return JsonObject().apply {
+            addProperty("enabled", true)
+            addProperty("concurrency", concurrency)
+            addProperty("xudpConcurrency", 8)
+            addProperty("xudpProxyUDP443", "reject")
+        }
+    }
+
+    private fun allowInsecure(server: ServerEntity): Boolean {
+        val raw = ConfigParser.extra(server.extraJson, "allowInsecure", "insecure", "skip-cert-verify")
+        return raw == "1" || raw.equals("true", ignoreCase = true)
+    }
+
+    // ------------------------------------------------------------- routing
+
+    private fun resolveRules(
+        server: ServerEntity,
+        profile: RoutingProfileEntity?,
+        providerRoutingJson: String
+    ) = RoutingEngine.mergeRules(
+        profileRules = profile?.let { RoutingEngine.parseRules(it.rulesJson) }.orEmpty(),
+        useProviderRules = profile?.useProviderRules ?: true,
+        providerRoutingJson = providerRoutingJson,
+        serverJsonRouting = if (server.rawJson.contains("\"routing\"")) {
+            runCatching {
+                JsonParser.parseString(server.rawJson).asJsonObject
+                    .getAsJsonObject("routing")?.toString().orEmpty()
+            }.getOrDefault("")
+        } else ""
+    )
+
+    private fun buildDns(profile: RoutingProfileEntity?): JsonObject {
+        val dns = JsonObject()
+        dns.addProperty("queryStrategy", "UseIP")
+        dns.addProperty("disableCache", false)
+        val servers = JsonArray()
+        val remote = profile?.remoteDns?.ifBlank { null } ?: "https://1.1.1.1/dns-query"
+        val domestic = profile?.domesticDns?.ifBlank { null } ?: "https://dns.google/dns-query"
+        servers.add(remote)
+        servers.add(JsonObject().apply {
+            addProperty("address", domestic)
+            add("domains", jsonArray("geosite:category-ru", "domain:ru", "domain:su", "domain:рф"))
+            add("expectIPs", jsonArray("geoip:ru"))
+        })
+        servers.add("localhost")
+        dns.add("servers", servers)
+        return dns
+    }
+
+    // --------------------------------------------------------------- helpers
+
+    private fun jsonArray(vararg items: String): JsonArray =
+        JsonArray().also { a -> items.forEach { a.add(it) } }
+
+    private fun splitList(value: String): List<String> =
+        value.split(',', ';', ' ').map { it.trim() }.filter { it.isNotEmpty() }
+}
