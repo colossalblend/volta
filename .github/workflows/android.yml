@@ -10,6 +10,9 @@ concurrency:
   group: apk-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -76,24 +79,56 @@ jobs:
           ERRS="${ERRS//$'\n'/'%0A'}"
           echo "::error title=Gradle build failed::${ERRS}"
 
-      - name: Upload release APK
-        uses: actions/upload-artifact@v5
-        with:
-          name: volta-release-apk
-          path: app/build/outputs/apk/release/*.apk
-          if-no-files-found: error
+      # Releases are not counted against the Actions artifact storage quota, which
+      # is shared by all of the owner's private repositories and fills up easily.
+      # One rolling pre-release per branch: always the latest build, never a pile.
+      - name: Publish APKs to a pre-release
+        id: release
+        continue-on-error: true
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          TAG="apk-${BRANCH//\//-}"
+          SHORT="${SHA::7}"
+          OUT="$RUNNER_TEMP/apk"
+          mkdir -p "$OUT"
+          cp "$(ls app/build/outputs/apk/release/*.apk | head -1)" "$OUT/volta-$SHORT-release.apk"
+          cp "$(ls app/build/outputs/apk/debug/*.apk | head -1)" "$OUT/volta-$SHORT-debug.apk"
+          gh release delete "$TAG" --cleanup-tag --yes 2>/dev/null || true
+          gh release create "$TAG" "$OUT"/*.apk \
+            --target "$SHA" --prerelease \
+            --title "Volta APK · $BRANCH · $SHORT" \
+            --notes "Сборка GitHub Actions: ветка \`$BRANCH\`, коммит $SHA.
 
-      - name: Upload debug APK
+          - \`volta-$SHORT-release.apk\` — для установки на телефон.
+          - \`volta-$SHORT-debug.apk\` — то же с отладкой, если нужно снять логи.
+
+          Обе подписаны одним ключом, так что новая сборка ставится поверх старой."
+          echo "url=https://github.com/$GH_REPO/releases/tag/$TAG" >> "$GITHUB_OUTPUT"
+          echo "### APK: https://github.com/$GH_REPO/releases/tag/$TAG" >> "$GITHUB_STEP_SUMMARY"
+
+      # Fallback when the release could not be made (e.g. a fork PR without write access).
+      - name: Upload APKs as an artifact
+        if: steps.release.outcome != 'success'
         uses: actions/upload-artifact@v5
         with:
-          name: volta-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: volta-apk
+          path: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/apk/debug/*.apk
+          retention-days: 7
           if-no-files-found: error
 
       - name: Upload test reports
         if: failure()
+        continue-on-error: true
         uses: actions/upload-artifact@v5
         with:
           name: test-reports
           path: app/build/reports/
+          retention-days: 7
           if-no-files-found: ignore
