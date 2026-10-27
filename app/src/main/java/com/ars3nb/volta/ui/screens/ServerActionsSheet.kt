@@ -117,7 +117,6 @@ fun ServerActionsSheet(
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             Column(Modifier.padding(horizontal = 24.dp)) {
                 Text("Роль сервера", style = MaterialTheme.typography.titleSmall)
-                Hint("Определяет, какой автоподбор будет его использовать.")
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ServerRole.entries.forEach { role ->

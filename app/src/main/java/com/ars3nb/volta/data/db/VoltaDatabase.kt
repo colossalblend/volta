@@ -27,7 +27,7 @@ class Converters {
 
     @TypeConverter
     fun toRole(value: String): ServerRole =
-        runCatching { ServerRole.valueOf(value) }.getOrDefault(ServerRole.AUTO)
+        runCatching { ServerRole.valueOf(value) }.getOrDefault(ServerRole.NORMAL)
 }
 
 @Database(

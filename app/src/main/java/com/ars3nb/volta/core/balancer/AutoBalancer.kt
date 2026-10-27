@@ -105,26 +105,28 @@ class AutoBalancer(
             }
         }
 
-        /** Nodes a scope may pick from. AUTO nodes serve both roles. */
+        /**
+         * Nodes a scope may pick from. Provider balancers (role AUTO) are in none of
+         * them: Volta balances by itself, a balancer behind it only hides which exit
+         * is actually in use.
+         */
         fun poolFor(servers: List<ServerEntity>, scope: BalancerScope): List<ServerEntity> =
             when (scope) {
-                BalancerScope.ALL -> servers
-                BalancerScope.NORMAL -> servers.filter {
-                    it.role == ServerRole.NORMAL || it.role == ServerRole.AUTO
-                }
-
-                BalancerScope.BYPASS -> servers.filter {
-                    it.role == ServerRole.BYPASS_WHITELIST || it.role == ServerRole.AUTO
-                }
+                BalancerScope.ALL -> servers.filter { it.role != ServerRole.AUTO }
+                BalancerScope.NORMAL -> servers.filter { it.role == ServerRole.NORMAL }
+                BalancerScope.BYPASS -> servers.filter { it.role == ServerRole.BYPASS_WHITELIST }
             }
 
         fun filterByRegime(
             servers: List<ServerEntity>,
             regime: NetworkRegime
-        ): List<ServerEntity> = when (regime) {
-            NetworkRegime.OPEN -> poolFor(servers, BalancerScope.NORMAL).ifEmpty { servers }
-            NetworkRegime.WHITELIST_ONLY -> poolFor(servers, BalancerScope.BYPASS).ifEmpty { servers }
-            NetworkRegime.BLOCKED, NetworkRegime.UNKNOWN -> servers
+        ): List<ServerEntity> {
+            val all = poolFor(servers, BalancerScope.ALL)
+            return when (regime) {
+                NetworkRegime.OPEN -> poolFor(servers, BalancerScope.NORMAL).ifEmpty { all }
+                NetworkRegime.WHITELIST_ONLY -> poolFor(servers, BalancerScope.BYPASS).ifEmpty { all }
+                NetworkRegime.BLOCKED, NetworkRegime.UNKNOWN -> all
+            }
         }
 
         /**
@@ -171,7 +173,9 @@ class AutoBalancer(
         val probes: List<SiteProbeResult>,
         val reason: String,
         /** True when nothing could be measured, so the caller should retry later. */
-        val retryLater: Boolean = false
+        val retryLater: Boolean = false,
+        /** Picked the fast way at connect time; a full comparison should follow. */
+        val quick: Boolean = false
     ) {
         val measured: Boolean get() = ranked.isNotEmpty()
     }
@@ -182,7 +186,11 @@ class AutoBalancer(
         current: ServerEntity? = null,
         pingType: PingType = PingType.REAL_DELAY,
         onPhase: (Phase) -> Unit = {},
-        remembered: Map<BalancerScope, Long> = emptyMap()
+        remembered: Map<BalancerScope, Long> = emptyMap(),
+        /** Connect-time mode: answer in a second or two, refine after connecting. */
+        quick: Boolean = false,
+        /** A fresh network check for this same network, so it need not be repeated. */
+        knownNetwork: NetworkProbe.Outcome? = null
     ): Decision {
         val dialable = servers.filter { ConfigBuilder.canDial(it) }
         if (dialable.isEmpty()) {
@@ -200,8 +208,10 @@ class AutoBalancer(
         val pool: List<ServerEntity>
 
         if (scope == BalancerScope.ALL) {
-            onPhase(Phase.PROBING_NETWORK)
-            val outcome = networkProbe.run()
+            val outcome = knownNetwork ?: run {
+                onPhase(Phase.PROBING_NETWORK)
+                if (quick) networkProbe.runFast() else networkProbe.run()
+            }
             regime = outcome.regime
             probes = outcome.probes
             if (!outcome.hasAnyNetwork) {
@@ -214,19 +224,18 @@ class AutoBalancer(
                     switched = false,
                     ranked = emptyList(),
                     probes = probes,
-                    reason = "Сети нет — ни один сайт не отвечает. Серверы не проверялись, " +
-                        "попробуем позже.",
+                    reason = "Нет интернета. Попробуйте позже.",
                     retryLater = true
                 )
             }
             pool = filterByRegime(dialable, regime)
         } else {
             pool = poolFor(dialable, scope)
-            if (pool.isEmpty()) {
-                // Not the current node: it belongs to the other group, and silently
-                // connecting there would ignore the group the user just chose.
-                return empty(scope, regime, null, "В этой группе нет серверов")
-            }
+        }
+        if (pool.isEmpty()) {
+            // Not the current node: it belongs to another group (or is a provider
+            // balancer), and connecting there would ignore the group the user chose.
+            return empty(scope, regime, null, "В этой группе нет серверов")
         }
 
         // The node to beat: the one in use if it belongs here, otherwise the one that
@@ -236,21 +245,45 @@ class AutoBalancer(
         val holder = current?.takeIf { c -> pool.any { it.id == c.id } }
             ?: remembered[group]?.let { id -> pool.firstOrNull { it.id == id } }
 
+        // Connect-time fast path: the node that worked last time in this group goes
+        // first, unmeasured. The health check right after connecting vouches for it
+        // (and fails over if it doesn't), and the full comparison runs once the
+        // tunnel is up — the user doesn't sit through it.
+        if (quick && holder != null && holder.failStreak == 0) {
+            return Decision(
+                scope = scope,
+                regime = regime,
+                selected = holder,
+                previous = current,
+                switched = holder.id != current?.id,
+                ranked = emptyList(),
+                probes = probes,
+                reason = "Подключаемся к «${holder.remark}»",
+                quick = true
+            )
+        }
+
         onPhase(Phase.MEASURING)
-        val first = pingEngine.pingServers(pool, pingType).toMap()
-        val samples = pool.associate { server ->
+        val first = if (quick) {
+            pingEngine.pingServersQuick(pool, pingType).toMap()
+        } else {
+            pingEngine.pingServers(pool, pingType).toMap()
+        }
+        // The quick sweep only judges some nodes; the rest keep their stored health.
+        val judged = if (quick) pool.filter { it.id in first } else pool
+        val samples = judged.associate { server ->
             val r = first[server.id]
             server.id to mutableListOf(if (r?.success == true && r.latencyMs >= 0) r.latencyMs else -1L)
         }
 
         // Stage two: the few fastest (and the holder) are measured again, so one lucky
         // sample cannot win and a jittery or lossy node loses to a steady one.
-        val alive = pool.filter { samples.getValue(it.id).first() > 0 }
+        val alive = judged.filter { samples.getValue(it.id).first() > 0 }
             .sortedBy { samples.getValue(it.id).first() }
         val finalists = alive.take(FINALISTS).let { top ->
             if (holder != null && holder in alive && top.none { it.id == holder.id }) top + holder else top
         }
-        if (finalists.size >= 2) {
+        if (!quick && finalists.size >= 2) {
             onPhase(Phase.REFINING)
             pingEngine.resample(finalists, pingType, REFINE_ROUNDS).forEach { (id, results) ->
                 samples[id]?.addAll(
@@ -259,7 +292,7 @@ class AutoBalancer(
             }
         }
 
-        val ranked = pool
+        val ranked = judged
             .map { server ->
                 val list = samples.getValue(server.id)
                 val q = quality(list)
@@ -298,7 +331,8 @@ class AutoBalancer(
             ranked = ranked,
             probes = probes,
             reason = describe(scope, regime, ranked, selected, switched, current),
-            retryLater = best == null
+            retryLater = best == null,
+            quick = quick
         )
     }
 
@@ -327,26 +361,19 @@ class AutoBalancer(
         previous: ServerEntity?
     ): String {
         val alive = ranked.count { it.ok }
-        val ms = ranked.firstOrNull { it.server.id == selected?.id }?.takeIf { it.ok }?.ewmaMs
+        val ms = ranked.firstOrNull { it.server.id == selected?.id }?.takeIf { it.ok }?.latencyMs
         val speed = ms?.let { " · $it мс" }.orEmpty()
-        val head = when (scope) {
-            BalancerScope.ALL -> when (regime) {
-                NetworkRegime.OPEN -> "Сеть Home"
-                NetworkRegime.WHITELIST_ONLY -> "Сеть LTE (белый список)"
-                NetworkRegime.BLOCKED -> "Сеть почти не отвечает"
-                NetworkRegime.UNKNOWN -> "Сеть не проверена"
-            }
-
-            BalancerScope.NORMAL -> "Авто Home"
-            BalancerScope.BYPASS -> "Авто LTE"
+        val group = when (groupOf(scope, regime)) {
+            BalancerScope.NORMAL -> "Home: "
+            BalancerScope.BYPASS -> "LTE: "
+            else -> ""
         }
-        val tail = when {
-            selected == null -> "подходящих серверов нет"
-            alive == 0 -> "ни один не ответил, оставили «${selected.remark}»"
-            switched -> "переключились на «${selected.remark}»$speed"
-            previous != null && previous.id == selected.id -> "оставили «${selected.remark}»$speed"
-            else -> "выбран «${selected.remark}»$speed"
+        return when {
+            selected == null -> "${group}подходящих серверов нет"
+            alive == 0 -> "${group}серверы не ответили, оставлен «${selected.remark}»"
+            switched -> "${group}выбран «${selected.remark}»$speed"
+            previous != null && previous.id == selected.id -> "${group}оставлен «${selected.remark}»$speed"
+            else -> "${group}выбран «${selected.remark}»$speed"
         }
-        return "$head · $tail · живых узлов: $alive из ${ranked.size}"
     }
 }

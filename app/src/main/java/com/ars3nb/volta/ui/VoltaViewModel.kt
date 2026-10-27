@@ -125,6 +125,8 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
     val autoRecheck = repo.autoRecheck
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+    val hideBalancers = repo.hideBalancers
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
     /**
      * Live speed for the graph, sampled every 2 s while connected. Sampled on a timer
@@ -331,8 +333,8 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     fun setRefreshOnLaunch(v: Boolean) = viewModelScope.launch { repo.setRefreshOnLaunch(v) }
     fun setFollowNetwork(v: Boolean) = viewModelScope.launch { repo.setFollowNetwork(v) }
     fun setAutoRecheck(v: Boolean) = viewModelScope.launch { repo.setAutoRecheck(v) }
+    fun setHideBalancers(v: Boolean) = viewModelScope.launch { repo.setHideBalancers(v) }
 
-    fun geoStatus(subscriptionId: Long) = repo.geoStatus(subscriptionId)
 
     fun disconnect() = repo.disconnect()
 

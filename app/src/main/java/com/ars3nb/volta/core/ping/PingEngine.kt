@@ -7,7 +7,12 @@ import com.ars3nb.volta.data.model.PingResult
 import com.ars3nb.volta.data.model.PingType
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.SiteProbeResult
+import java.net.InetSocketAddress
+import java.net.Socket
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -17,9 +22,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import java.net.InetSocketAddress
-import java.net.Socket
-import java.util.concurrent.TimeUnit
 
 /**
  * Measures how good a node is. Battery-friendly: short timeouts, bounded parallelism,
@@ -35,6 +37,12 @@ class PingEngine(
 ) {
     companion object {
         const val DELAY_TEST_URL = "https://www.gstatic.com/generate_204"
+
+        /** A finalist slower than this to answer is no good to connect to anyway. */
+        const val QUICK_TIMEOUT_MS = 4_500L
+
+        /** Home of native measurements that outlive their caller's timeout. */
+        private val detached = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
         /** Nodes worth spending a real-delay measurement on: the TCP-reachable ones. */
         internal fun reachableIds(tcpResults: List<Pair<Long, PingResult>>): Set<Long> =
@@ -112,7 +120,10 @@ class PingEngine(
     }
 
     /** Actual latency through the node, measured by the core itself. */
-    private suspend fun realDelay(server: ServerEntity): PingResult = withContext(Dispatchers.IO) {
+    private suspend fun realDelay(
+        server: ServerEntity,
+        timeoutMs: Long = (if (batterySaver) 6 else 10) * 1000L
+    ): PingResult = withContext(Dispatchers.IO) {
         val type = PingType.REAL_DELAY
         val problem = ConfigBuilder.dialProblem(server)
         if (problem != null) {
@@ -124,9 +135,13 @@ class PingEngine(
         }
         val config = runCatching { ConfigBuilder.buildProbe(server) }.getOrNull()
             ?: return@withContext PingResult(server.remark, type, -1, false, "Конфиг не собран")
-        val ms = withTimeoutOrNull((if (batterySaver) 6 else 10) * 1000L) {
+        // The native call blocks and ignores cancellation, so it runs detached: the
+        // timeout then really ends the wait instead of sitting out the core's own
+        // 10+ s deadline on a dead node.
+        val measuring = detached.async {
             XrayCore.measureOutboundDelay(context, config, DELAY_TEST_URL)
-        } ?: -1L
+        }
+        val ms = withTimeoutOrNull(timeoutMs) { measuring.await() } ?: -1L
         PingResult(
             target = server.remark,
             type = type,
@@ -186,6 +201,38 @@ class PingEngine(
      * ladder (foreign 204 endpoints, then Russian hosts over DNS/TCP/HEAD).
      */
     suspend fun probeSites(): List<SiteProbeResult> = NetworkProbe(batterySaver).run().probes
+
+    /**
+     * Connect-time measuring: a wide TCP sweep, then a real round trip through only the
+     * [finalists] nearest nodes, all at once and with a short deadline. Returns results
+     * only for nodes it actually judged — the TCP-dead and the finalists — so nodes it
+     * skipped are not marked as failed.
+     */
+    suspend fun pingServersQuick(
+        servers: List<ServerEntity>,
+        type: PingType,
+        finalists: Int = 4
+    ): List<Pair<Long, PingResult>> = coroutineScope {
+        if (servers.isEmpty()) return@coroutineScope emptyList()
+        val tcp = pingServers(servers, PingType.TCP, maxParallel = 16)
+        if (type == PingType.TCP) return@coroutineScope tcp
+
+        val dead = tcp.filter { !it.second.success }
+        val nearest = tcp.filter { it.second.success }
+            .sortedBy { it.second.latencyMs }
+            .take(finalists)
+            .mapNotNull { (id, _) -> servers.firstOrNull { it.id == id } }
+        val measured = nearest.map { server ->
+            async {
+                server.id to if (type == PingType.REAL_DELAY) {
+                    realDelay(server, QUICK_TIMEOUT_MS)
+                } else {
+                    pingServer(server, type)
+                }
+            }
+        }.awaitAll()
+        dead + measured
+    }
 
     /**
      * [rounds] more samples for each of a few finalists, one after another per node so

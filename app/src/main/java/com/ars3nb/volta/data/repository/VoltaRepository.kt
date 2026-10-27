@@ -28,28 +28,34 @@ import com.ars3nb.volta.data.model.RoutingRuleDto
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.ServerPool
 import com.ars3nb.volta.data.model.ServerRole
+import com.ars3nb.volta.data.model.SiteCategory
 import com.ars3nb.volta.data.model.SiteProbeResult
 import com.ars3nb.volta.data.model.SubscriptionEntity
 import com.ars3nb.volta.data.model.VpnConnectionState
 import com.ars3nb.volta.data.model.matches
 import com.ars3nb.volta.data.prefs.AppPreferences
 import com.ars3nb.volta.data.prefs.DesignTheme
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.Response
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
 
 class VoltaRepository(private val context: Context) {
 
@@ -106,6 +112,7 @@ class VoltaRepository(private val context: Context) {
     val refreshOnLaunch = prefs.refreshOnLaunch
     val followNetwork = prefs.followNetwork
     val autoRecheck = prefs.autoRecheck
+    val hideBalancers = prefs.hideBalancers
     val lastRegime = prefs.networkRegime
 
     private val _autoPicking = MutableStateFlow(false)
@@ -150,6 +157,13 @@ class VoltaRepository(private val context: Context) {
             if (routingDao.getActive() == null) {
                 routingDao.getAll().firstOrNull { it.isBuiltIn }
                     ?.let { routingDao.setActive(it.id) }
+            }
+            // Group rules change between versions (provider balancers became their own
+            // group): re-sort stored nodes now instead of waiting for the next refresh.
+            serverDao.getAll().forEach { server ->
+                if (server.roleManual) return@forEach
+                val role = ServerClassifier.classify(server.remark)
+                if (role != server.role) serverDao.updateAutoRole(server.id, role)
             }
         }
     }
@@ -619,8 +633,45 @@ class VoltaRepository(private val context: Context) {
         withContext(Dispatchers.IO) {
             val outcome = NetworkProbe(prefs.batterySaver.first()).run()
             prefs.setNetworkRegime(outcome.regime.name)
+            rememberNetwork(outcome)
             outcome.regime to outcome.probes
         }
+
+    /** The last network check, valid while the phone stays on the same network. */
+    private data class NetworkMemo(val key: String, val outcome: NetworkProbe.Outcome, val at: Long)
+
+    @Volatile
+    private var networkMemo: NetworkMemo? = null
+
+    /**
+     * Identity of the physical network this app sees (it is outside its own VPN).
+     * Android gives every new Wi-Fi association or mobile session a fresh id, so a
+     * changed network never inherits an old answer.
+     */
+    private fun networkKey(): String? = runCatching {
+        context.getSystemService(android.net.ConnectivityManager::class.java)
+            ?.activeNetwork?.toString()
+    }.getOrNull()
+
+    private fun rememberNetwork(outcome: NetworkProbe.Outcome) {
+        val key = networkKey() ?: return
+        networkMemo = if (outcome.hasAnyNetwork) {
+            NetworkMemo(key, outcome, System.currentTimeMillis())
+        } else {
+            null
+        }
+    }
+
+    private fun knownNetwork(): NetworkProbe.Outcome? {
+        val memo = networkMemo ?: return null
+        val fresh = System.currentTimeMillis() - memo.at < NETWORK_MEMO_TTL_MS
+        return memo.outcome.takeIf { fresh && memo.key == networkKey() }
+    }
+
+    /** Forget the network answer, e.g. when Wi-Fi ↔ mobile data changed under us. */
+    fun forgetNetwork() {
+        networkMemo = null
+    }
 
     /**
      * Runs one of the three user-facing autobalancers.
@@ -631,7 +682,8 @@ class VoltaRepository(private val context: Context) {
      */
     suspend fun runAutobalancer(
         scope: BalancerScope = BalancerScope.ALL,
-        onPhase: (AutoBalancer.Phase) -> Unit = {}
+        onPhase: (AutoBalancer.Phase) -> Unit = {},
+        quick: Boolean = false
     ): AutoBalancer.Decision = withContext(Dispatchers.IO) {
         val battery = prefs.batterySaver.first()
         val balancer = AutoBalancer(PingEngine(context, batterySaver = battery), NetworkProbe(battery))
@@ -646,7 +698,9 @@ class VoltaRepository(private val context: Context) {
             current = current,
             pingType = prefs.defaultPingType.first(),
             onPhase = onPhase,
-            remembered = remembered
+            remembered = remembered,
+            quick = quick,
+            knownNetwork = if (quick) knownNetwork() else null
         )
 
         decision.ranked.forEach { ranked ->
@@ -657,7 +711,23 @@ class VoltaRepository(private val context: Context) {
                 failStreak = if (ranked.ok) 0 else (ranked.server.failStreak + 1).coerceAtMost(9)
             )
         }
-        if (decision.probes.isNotEmpty()) prefs.setNetworkRegime(decision.regime.name)
+        if (decision.probes.isNotEmpty()) {
+            prefs.setNetworkRegime(decision.regime.name)
+            if (scope == BalancerScope.ALL) {
+                val homeOk = decision.probes.count { it.category == SiteCategory.FOREIGN && it.reachable }
+                val lteOk = decision.probes.count { it.category == SiteCategory.RU_WHITELIST && it.reachable }
+                rememberNetwork(
+                    NetworkProbe.Outcome(
+                        regime = decision.regime,
+                        probes = decision.probes,
+                        foreignOk = homeOk,
+                        foreignTotal = NetworkProbe.HOME_HOSTS.size,
+                        localOk = lteOk,
+                        localTotal = NetworkProbe.LTE_HOSTS.size
+                    )
+                )
+            }
+        }
         if (decision.ranked.isNotEmpty()) _lastDecision.value = decision
         decision.selected?.let { if (it.id != current?.id) selectServer(it.id) }
         decision
@@ -686,7 +756,9 @@ class VoltaRepository(private val context: Context) {
 
         var server = serverDao.getSelected()
         if (server == null || server.id == excludeServerId) {
-            server = all.filter { it.id != excludeServerId && ConfigBuilder.canDial(it) }
+            val dialable = all.filter { it.id != excludeServerId && ConfigBuilder.canDial(it) }
+            // A provider balancer only when nothing else is left.
+            server = (AutoBalancer.poolFor(dialable, BalancerScope.ALL).ifEmpty { dialable })
                 .minByOrNull { it.score }
                 ?: error("Нет доступных серверов для подключения")
             serverDao.selectServer(server.id)
@@ -732,7 +804,7 @@ class VoltaRepository(private val context: Context) {
                 // Stay inside the group the user asked for: an LTE exit is no use on
                 // Wi-Fi and a Home exit dies on a whitelisted mobile network.
                 val next = groupFor(candidates).minByOrNull { it.score }
-                    ?: candidates.minByOrNull { it.score }
+                    ?: AutoBalancer.poolFor(candidates, BalancerScope.ALL).minByOrNull { it.score }
                     ?: return@runCatching null
                 serverDao.selectServer(next.id)
                 buildConnectionPlan(excludeServerId = failedServerId)
@@ -795,24 +867,21 @@ class VoltaRepository(private val context: Context) {
                 failStreak = 0
             )
         }
-        val home = when (prefs.connectMode.first()) {
-            ConnectMode.AUTO_HOME -> true
-            ConnectMode.AUTO_LTE -> false
-            else -> when (server.role) {
-                ServerRole.NORMAL -> true
-                ServerRole.BYPASS_WHITELIST -> false
-                // A node that serves both: file it under the network it was used on.
-                else -> prefs.networkRegime.first() != NetworkRegime.WHITELIST_ONLY.name
-            }
+        // Remembered per group; provider balancers belong to none.
+        when (server.role) {
+            ServerRole.NORMAL -> prefs.setLastGood(home = true, serverId = server.id)
+            ServerRole.BYPASS_WHITELIST -> prefs.setLastGood(home = false, serverId = server.id)
+            ServerRole.AUTO -> Unit
         }
-        prefs.setLastGood(home, server.id)
     }
 
     private suspend fun connectWithModeLocked(
         onPhase: (AutoBalancer.Phase) -> Unit
     ): AutoBalancer.Decision? {
         val scope = prefs.connectMode.first().scope
-        val decision = scope?.let { runAutobalancer(it, onPhase) }
+        // Connect-time pick is the quick one: last good node or a short race, so the
+        // tunnel is up in seconds. The thorough comparison follows in the background.
+        val decision = scope?.let { runAutobalancer(it, onPhase, quick = true) }
         if (decision != null && decision.selected == null) {
             error(decision.reason)
         }
@@ -821,7 +890,23 @@ class VoltaRepository(private val context: Context) {
         val liveOnSelected = isConnected() &&
             VoltaVpnService.serverId.value == serverDao.getSelected()?.id
         if (!liveOnSelected) connectSelected()
+        if (decision?.quick == true) scheduleRefine()
         return decision
+    }
+
+    private val background = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var refineJob: Job? = null
+
+    /**
+     * After a quick connect, the full comparison (every node, finalists re-measured)
+     * once the tunnel has settled; a clearly better node then takes over.
+     */
+    private fun scheduleRefine() {
+        refineJob?.cancel()
+        refineJob = background.launch {
+            delay(REFINE_AFTER_CONNECT_MS)
+            if (isConnected()) runCatching { reevaluateAuto() }
+        }
     }
 
     /** Re-run the auto choice on a live tunnel, e.g. after Wi-Fi ↔ mobile data. */
@@ -839,9 +924,8 @@ class VoltaRepository(private val context: Context) {
     suspend fun setRefreshOnLaunch(v: Boolean) = prefs.setRefreshOnLaunch(v)
     suspend fun setFollowNetwork(v: Boolean) = prefs.setFollowNetwork(v)
     suspend fun setAutoRecheck(v: Boolean) = prefs.setAutoRecheck(v)
+    suspend fun setHideBalancers(v: Boolean) = prefs.setHideBalancers(v)
 
-    /** The subscription's own Happ geodata files, if any were downloaded. */
-    fun geoStatus(subscriptionId: Long): GeoNames? = geoData.installed(subscriptionId)
 
     fun disconnect() = VoltaVpnService.disconnect(context)
 
@@ -974,6 +1058,12 @@ class VoltaRepository(private val context: Context) {
 
         /** Must match the port ConfigBuilder gives the http inbound. */
         const val LOCAL_HTTP_PORT = 10809
+
+        /** A network check stays good this long on the same network. */
+        private const val NETWORK_MEMO_TTL_MS = 10 * 60_000L
+
+        /** After a quick connect: past the health check, before anyone notices. */
+        private const val REFINE_AFTER_CONNECT_MS = 20_000L
 
         val SUBSCRIPTION_COLORS = listOf(
             "#C4784A", "#4A8FC4", "#5FB07A", "#B05FA8", "#C4A24A", "#4AC4B8"

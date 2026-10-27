@@ -13,7 +13,11 @@ enum class ServerRole {
     /** Whitelist-bypass / white-list circumvention node. */
     BYPASS_WHITELIST,
 
-    /** Can serve both roles. */
+    /**
+     * A provider-side balancer («Авто», «Автовыбор», «Балансер»…): the provider picks
+     * the exit behind it. Never part of Home or LTE, and auto modes never pick it —
+     * Volta does the balancing itself. Listed as «Балансеры», hidden by default.
+     */
     AUTO
 }
 
@@ -26,9 +30,8 @@ enum class ServerPool {
 
 fun ServerPool.matches(role: ServerRole): Boolean = when (this) {
     ServerPool.ALL -> true
-    // Groups, not roles: a universal node belongs to both Home and LTE.
-    ServerPool.NORMAL -> role == ServerRole.NORMAL || role == ServerRole.AUTO
-    ServerPool.BYPASS_WHITELIST -> role == ServerRole.BYPASS_WHITELIST || role == ServerRole.AUTO
+    ServerPool.NORMAL -> role == ServerRole.NORMAL
+    ServerPool.BYPASS_WHITELIST -> role == ServerRole.BYPASS_WHITELIST
     ServerPool.AUTO -> role == ServerRole.AUTO
 }
 
@@ -210,7 +213,7 @@ data class ServerEntity(
     val lastPingAt: Long = 0,
     val isFavorite: Boolean = false,
     val isSelected: Boolean = false,
-    val role: ServerRole = ServerRole.AUTO,
+    val role: ServerRole = ServerRole.NORMAL,
     val roleManual: Boolean = false,
     val sortOrder: Int = 0,
     val tags: String = ""

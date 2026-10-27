@@ -55,6 +55,7 @@ class VoltaApp : Application() {
 
         // Wi-Fi ↔ mobile data: the right server group may have changed under the tunnel.
         NetworkWatcher(this, appScope) { _ ->
+            repository.forgetNetwork()
             if (repository.isConnected() &&
                 repository.followNetwork.first() &&
                 repository.connectMode.first() == ConnectMode.AUTO_HOME_LTE

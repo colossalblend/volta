@@ -87,14 +87,7 @@ fun SubscriptionsScreen(
                     )
                 }
             } else {
-                item {
-                    Hint(
-                        "Серверы всех подписок собраны в один список. Правила маршрутизации и " +
-                            "файлы geoip/geosite у каждой подписки свои и обновляются вместе с ней."
-                    )
-                }
                 items(state.subscriptions, key = { "sub-${it.id}" }) { sub ->
-                    val geo = remember(sub.id, sub.lastUpdated) { vm.geoStatus(sub.id) }
                     SubscriptionCard(
                         sub = sub,
                         serverCount = state.servers.count { it.subscriptionId == sub.id },
@@ -102,13 +95,7 @@ fun SubscriptionsScreen(
                         active = selected?.subscriptionId == sub.id,
                         onClick = { editing = sub },
                         onRefresh = { vm.refreshSubscription(sub.id) },
-                        onEdit = { editing = sub },
-                        geoText = when {
-                            geo == null -> ""
-                            geo.geoip != null && geo.geosite != null -> "свои geoip + geosite"
-                            geo.geoip != null -> "свой geoip"
-                            else -> "свой geosite"
-                        }
+                        onEdit = { editing = sub }
                     )
                 }
                 item { Spacer(Modifier.size(8.dp)) }

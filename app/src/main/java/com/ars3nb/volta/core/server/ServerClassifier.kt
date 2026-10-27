@@ -5,8 +5,13 @@ import com.ars3nb.volta.data.model.ServerRole
 
 /** Assigns a useful default role when a provider does not describe one. */
 object ServerClassifier {
+    /**
+     * Provider balancers: «Авто», «Автовыбор», «Автобалансер», «Балансер», "Auto",
+     * "Load balance", "URL-test", "Fallback". Checked before the LTE markers, so a
+     * «Балансер LTE» is still a balancer.
+     */
     private val autoWords = Regex(
-        "(auto|авто|autobalancer|auto.?balance|автоподбор|автобаланс|балансиров)",
+        "(auto|авто|баланс|balanc|url.?test|fallback|лучший\\s*сервер|best\\s*server)",
         RegexOption.IGNORE_CASE
     )
     /**

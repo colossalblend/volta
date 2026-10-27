@@ -16,6 +16,23 @@ class ServerClassifierTest {
     }
 
     @Test
+    fun providerBalancersAreTheirOwnGroupEvenWithLteMarkers() {
+        listOf(
+            "🇷🇺 Автовыбор",
+            "Авто",
+            "Автобалансер LTE",
+            "Балансер | обход белых списков",
+            "Load Balance 4G",
+            "URL-Test",
+            "Fallback"
+        ).forEach { name ->
+            assertEquals(name, ServerRole.AUTO, ServerClassifier.classify(name))
+        }
+        assertEquals(ServerRole.BYPASS_WHITELIST, ServerClassifier.classify("🇩🇪 Германия LTE"))
+        assertEquals(ServerRole.NORMAL, ServerClassifier.classify("🇳🇱 Нидерланды"))
+    }
+
+    @Test
     fun bypassAndNormalWordsAreClassified() {
         assertEquals(ServerRole.BYPASS_WHITELIST, ServerClassifier.classify("Белые списки Москва"))
         assertEquals(ServerRole.BYPASS_WHITELIST, ServerClassifier.classify("Анти-глушилка"))

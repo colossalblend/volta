@@ -34,6 +34,7 @@ import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Upload
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -41,6 +42,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -118,6 +120,10 @@ fun HomeScreen(
     }
     val lteCount = remember(state.servers) {
         AutoBalancer.poolFor(state.servers, BalancerScope.BYPASS).size
+    }
+    // Provider balancers are in no auto group, so they don't count here either.
+    val autoCount = remember(state.servers) {
+        AutoBalancer.poolFor(state.servers, BalancerScope.ALL).size
     }
     val working = phase != ConnectPhase.IDLE
 
@@ -214,7 +220,7 @@ fun HomeScreen(
                             mode = mode,
                             homeCount = homeCount,
                             lteCount = lteCount,
-                            totalCount = state.servers.size,
+                            totalCount = autoCount,
                             onSelect = vm::setConnectMode
                         )
                         AnimatedVisibility(visible = mode == ConnectMode.MANUAL) {
@@ -223,6 +229,16 @@ fun HomeScreen(
                                 onBackToAuto = { vm.setConnectMode(ConnectMode.AUTO_HOME_LTE) },
                                 modifier = Modifier.padding(top = 8.dp)
                             )
+                        }
+                        AnimatedVisibility(
+                            visible = mode != ConnectMode.MANUAL,
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        ) {
+                            TextButton(onClick = onOpenServers, modifier = Modifier.padding(top = 4.dp)) {
+                                Icon(Icons.Rounded.Tune, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Выбрать сервер вручную")
+                            }
                         }
                     }
                 }
@@ -441,10 +457,7 @@ private fun ServerIdentity(server: ServerEntity?, subscription: SubscriptionEnti
                         color = groupColor(home)
                     )
                     Text(
-                        " · " + listOfNotNull(
-                            server.protocol.label,
-                            subscription?.name
-                        ).joinToString(" · "),
+                        subscription?.name?.let { " · $it" }.orEmpty(),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,

@@ -253,12 +253,7 @@ fun AutoPickCard(summary: PickSummary, modifier: Modifier = Modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.AutoAwesome, null, tint = scheme.primary, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
-            Text("Как выбран сервер", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-            Text(
-                "живых ${summary.alive} из ${summary.measured}",
-                style = MaterialTheme.typography.labelSmall,
-                color = scheme.onSurfaceVariant
-            )
+            Text("Лучшие серверы", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
         }
         Spacer(Modifier.height(10.dp))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -281,10 +276,7 @@ fun AutoPickCard(summary: PickSummary, modifier: Modifier = Modifier) {
                             modifier = Modifier.weight(1f)
                         )
                         Text(
-                            buildString {
-                                append("${row.medianMs} мс")
-                                if (row.samples > 1) append(" ±${row.jitterMs / 2}")
-                            },
+                            "${row.medianMs} мс",
                             style = MaterialTheme.typography.labelMedium,
                             color = if (row.chosen) palette.latency(row.medianMs) else scheme.onSurfaceVariant
                         )
@@ -317,10 +309,5 @@ fun AutoPickCard(summary: PickSummary, modifier: Modifier = Modifier) {
                 }
             }
         }
-        Spacer(Modifier.height(10.dp))
-        Hint(
-            "Лучшие серверы замеряются несколько раз: выигрывает стабильный, а не тот, " +
-                "кому повезло с одним пингом."
-        )
     }
 }

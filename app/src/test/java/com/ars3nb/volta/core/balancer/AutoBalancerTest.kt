@@ -80,13 +80,14 @@ class AutoBalancerTest {
             server(3, ServerRole.AUTO)
         )
         val filtered = AutoBalancer.filterByRegime(pool, NetworkRegime.WHITELIST_ONLY)
-        assertEquals(listOf(2L, 3L), filtered.map { it.id })
+        assertEquals(listOf(2L), filtered.map { it.id })
 
-        // With no bypass nodes tagged at all, the user still gets something to connect to.
-        val onlyNormal = listOf(server(1, ServerRole.NORMAL))
+        // With no bypass nodes tagged at all, the user still gets something to connect to,
+        // but never a provider balancer.
+        val noBypass = listOf(server(1, ServerRole.NORMAL), server(3, ServerRole.AUTO))
         assertEquals(
-            onlyNormal,
-            AutoBalancer.filterByRegime(onlyNormal, NetworkRegime.WHITELIST_ONLY)
+            listOf(1L),
+            AutoBalancer.filterByRegime(noBypass, NetworkRegime.WHITELIST_ONLY).map { it.id }
         )
     }
 
@@ -145,7 +146,7 @@ class AutoBalancerTest {
     // ------------------------------------------------------------------ scopes
 
     @Test
-    fun eachScopePicksItsOwnPoolAndAutoNodesServeBoth() {
+    fun eachScopePicksItsOwnPoolAndProviderBalancersAreInNone() {
         val pool = listOf(
             server(1, ServerRole.NORMAL),
             server(2, ServerRole.BYPASS_WHITELIST),
@@ -153,15 +154,15 @@ class AutoBalancerTest {
         )
 
         assertEquals(
-            listOf(1L, 2L, 3L),
+            listOf(1L, 2L),
             AutoBalancer.poolFor(pool, BalancerScope.ALL).map { it.id }
         )
         assertEquals(
-            listOf(1L, 3L),
+            listOf(1L),
             AutoBalancer.poolFor(pool, BalancerScope.NORMAL).map { it.id }
         )
         assertEquals(
-            listOf(2L, 3L),
+            listOf(2L),
             AutoBalancer.poolFor(pool, BalancerScope.BYPASS).map { it.id }
         )
     }

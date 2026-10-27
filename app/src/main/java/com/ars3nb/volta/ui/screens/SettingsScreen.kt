@@ -120,23 +120,21 @@ fun SettingsScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
                 VoltaCard {
                     ToggleRow(
                         title = "Следить за сменой сети",
-                        subtitle = "В режиме «Авто Home+LTE» при переходе Wi-Fi ↔ мобильный " +
-                            "интернет сеть проверяется заново и сервер меняется на нужную группу.",
+                        subtitle = "При переходе между Wi-Fi и мобильным интернетом сервер " +
+                            "меняется сам.",
                         checked = followNetwork,
                         onChecked = vm::setFollowNetwork
                     )
                     ToggleRow(
-                        title = "Фоновая перепроверка группы",
-                        subtitle = "Как url-test в Clash: пока VPN включён, серверы группы " +
-                            "замеряются раз в 15 минут, и Volta переходит на заметно более " +
-                            "быстрый. Мелкие колебания пинга переключений не вызывают.",
+                        title = "Улучшать выбор сервера",
+                        subtitle = "Пока VPN включён, Volta иногда проверяет серверы и " +
+                            "переходит на заметно более быстрый.",
                         checked = autoRecheck,
                         onChecked = vm::setAutoRecheck
                     )
                     ToggleRow(
                         title = "Обновлять подписки при запуске",
-                        subtitle = "Как в Happ: серверы, правила маршрутизации и geoip/geosite " +
-                            "каждой подписки подтягиваются при открытии приложения.",
+                        subtitle = "Серверы и правила обновляются при открытии приложения.",
                         checked = refreshOnLaunch,
                         onChecked = vm::setRefreshOnLaunch
                     )
@@ -160,9 +158,8 @@ fun SettingsScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
                                 style = MaterialTheme.typography.titleSmall
                             )
                             Hint(
-                                "Android сам поднимет Volta после перезагрузки или если " +
-                                    "система выгрузит приложение. Там же можно запретить " +
-                                    "интернет без VPN. Откройте шестерёнку у Volta."
+                                "Android будет сам включать Volta. Откройте шестерёнку " +
+                                    "рядом с Volta."
                             )
                         }
                         Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null)
@@ -174,10 +171,7 @@ fun SettingsScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
             item {
                 VoltaCard {
                     Text("Home+LTE, Home и LTE", style = MaterialTheme.typography.titleSmall)
-                    Hint(
-                        "Три кнопки для шторки уведомлений. Нажатие включает VPN в режиме " +
-                            "плитки, повторное нажатие на горящую плитку выключает."
-                    )
+                    Hint("Нажатие включает VPN в этом режиме, повторное — выключает.")
                     Spacer(Modifier.height(10.dp))
                     if (TileInstaller.supported) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -228,8 +222,7 @@ fun SettingsScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
                     Spacer(Modifier.height(10.dp))
                     ToggleRow(
                         title = "Проверять сеть при запуске",
-                        subtitle = "Сразу видно, какая сейчас сеть: Home (открытый интернет) " +
-                            "или LTE (только белый список).",
+                        subtitle = "Сразу видно, какая сейчас сеть: Home или LTE.",
                         checked = pingOnStart,
                         onChecked = vm::setPingOnStart
                     )
@@ -241,14 +234,13 @@ fun SettingsScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
                 VoltaCard {
                     ToggleRow(
                         title = "Менять сервер при обрыве",
-                        subtitle = "Если узел перестал отвечать, приложение молча перейдёт " +
-                            "на следующий лучший.",
+                        subtitle = "Если сервер перестал отвечать, Volta перейдёт на другой.",
                         checked = autoFailover,
                         onChecked = vm::setAutoFailover
                     )
                     ToggleRow(
                         title = "Свой DNS в туннеле",
-                        subtitle = "Запросы DNS уходят через VPN — меньше утечек и блокировок.",
+                        subtitle = "Меньше блокировок сайтов.",
                         checked = localDns,
                         onChecked = vm::setLocalDns
                     )
@@ -363,12 +355,10 @@ private fun pingLabel(t: PingType) = when (t) {
 }
 
 private fun pingHint(t: PingType) = when (t) {
-    PingType.REAL_DELAY -> "Точнее всего: реальный запрос через сервер силами ядра. " +
-        "Работает даже при включённом VPN."
-    PingType.HTTP_GET -> "GET-запрос прямо на адрес сервера. Хорошо ловит узлы за CDN, " +
-        "которым мало простого TCP-рукопожатия."
-    PingType.TCP -> "Быстро и дёшево, но показывает только доступность адреса."
-    PingType.ICMP -> "Обычный ping. Многие операторы его режут."
+    PingType.REAL_DELAY -> "Точнее всего, рекомендуем."
+    PingType.HTTP_GET -> "Подходит для серверов за CDN."
+    PingType.TCP -> "Быстро, но менее точно."
+    PingType.ICMP -> "Обычный ping, у многих операторов не работает."
 }
 
 private fun themeLabel(t: DesignTheme) = when (t) {

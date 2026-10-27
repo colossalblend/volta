@@ -3,10 +3,15 @@ package com.ars3nb.volta.core.ping
 import com.ars3nb.volta.data.model.NetworkRegime
 import com.ars3nb.volta.data.model.SiteCategory
 import com.ars3nb.volta.data.model.SiteProbeResult
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
@@ -19,6 +24,7 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.SocketTimeoutException
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -88,6 +94,57 @@ class NetworkProbe(
         )
     }
 
+    /**
+     * The connect-time variant: answers as soon as the answer is clear instead of
+     * waiting for every probe to time out.
+     *
+     *  - Any Home host answering settles it at once: open internet (typically <0.5 s).
+     *  - LTE hosts answering while no Home host has after [FAST_MIN_WAIT_MS] means a
+     *    whitelist: blocked hosts never answer, so waiting out their whole timeout
+     *    ladder (≈12 s) told us nothing new.
+     *  - Nothing at all: wait for the single attempt per host to finish.
+     *
+     * Probes run in their own scope, so returning early doesn't wait for sockets that
+     * are still blocked in connect().
+     */
+    suspend fun runFast(): Outcome {
+        val started = System.currentTimeMillis()
+        val results = ConcurrentHashMap<String, SiteProbeResult>()
+        val probeScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        val all = homeHosts.map { it to SiteCategory.FOREIGN } + lteHosts.map { it to SiteCategory.RU_WHITELIST }
+        val jobs = all.map { (host, category) ->
+            probeScope.launch {
+                results[host.first] = hostProbe(host.first, host.second, category, attempts = 1)
+            }
+        }
+        try {
+            while (true) {
+                val done = results.values
+                if (done.any { it.category == SiteCategory.FOREIGN && it.reachable }) break
+                val lteOk = done.any { it.category == SiteCategory.RU_WHITELIST && it.reachable }
+                if (lteOk && System.currentTimeMillis() - started >= FAST_MIN_WAIT_MS) break
+                if (jobs.all { it.isCompleted }) break
+                delay(40)
+            }
+        } finally {
+            probeScope.cancel()
+        }
+
+        val probes = all.map { (host, category) ->
+            results[host.first] ?: SiteProbeResult(host.first, host.second, category, -1, false)
+        }
+        val homeOk = probes.count { it.category == SiteCategory.FOREIGN && it.reachable }
+        val lteOk = probes.count { it.category == SiteCategory.RU_WHITELIST && it.reachable }
+        return Outcome(
+            regime = classify(homeOk, lteOk),
+            probes = probes,
+            foreignOk = homeOk,
+            foreignTotal = homeHosts.size,
+            localOk = lteOk,
+            localTotal = lteHosts.size
+        )
+    }
+
     /** Half or more of the endpoints answering counts as "the open internet works". */
     fun isMajority(success: Int, total: Int): Boolean = total > 0 && success * 2 >= total
 
@@ -96,9 +153,10 @@ class NetworkProbe(
     private suspend fun hostProbe(
         host: String,
         label: String,
-        category: SiteCategory
+        category: SiteCategory,
+        attempts: Int = ATTEMPTS
     ): SiteProbeResult {
-        repeat(ATTEMPTS) {
+        repeat(attempts) {
             val ms = hostAttempt(host)
             if (ms >= 0) return SiteProbeResult(host, label, category, ms, true)
         }
@@ -201,6 +259,9 @@ class NetworkProbe(
         }
 
         private const val ATTEMPTS = 2
+
+        /** Long enough for a Home host's DNS + TCP on a slow but open network. */
+        const val FAST_MIN_WAIT_MS = 2_000L
         private const val DNS_TIMEOUT_MS = 1200L
         private const val TCP_TIMEOUT_MS = 1200
         private const val HTTP_TIMEOUT_MS = 1800L

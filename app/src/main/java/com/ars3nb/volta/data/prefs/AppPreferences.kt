@@ -45,6 +45,7 @@ class AppPreferences(private val context: Context) {
         val refreshOnLaunch = booleanPreferencesKey("refresh_on_launch")
         val followNetwork = booleanPreferencesKey("follow_network")
         val autoRecheck = booleanPreferencesKey("auto_recheck")
+        val hideBalancers = booleanPreferencesKey("hide_balancers")
         val lastGoodHome = longPreferencesKey("last_good_home")
         val lastGoodLte = longPreferencesKey("last_good_lte")
     }
@@ -67,6 +68,13 @@ class AppPreferences(private val context: Context) {
     /** The node that last carried traffic in each group, tried first next time. */
     val lastGoodHome: Flow<Long> = context.dataStore.data.map { it[Keys.lastGoodHome] ?: 0L }
     val lastGoodLte: Flow<Long> = context.dataStore.data.map { it[Keys.lastGoodLte] ?: 0L }
+
+    /** Provider balancers («Авто», «Балансер») out of the server list. */
+    val hideBalancers: Flow<Boolean> = context.dataStore.data.map { it[Keys.hideBalancers] ?: true }
+
+    suspend fun setHideBalancers(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.hideBalancers] = enabled }
+    }
 
     suspend fun setAutoRecheck(enabled: Boolean) {
         context.dataStore.edit { it[Keys.autoRecheck] = enabled }

@@ -2,6 +2,7 @@ package com.ars3nb.volta.ui.screens
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,6 +31,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -37,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -45,6 +48,7 @@ import com.ars3nb.volta.core.vpn.ConfigBuilder
 import com.ars3nb.volta.data.model.BalancerScope
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.ServerPool
+import com.ars3nb.volta.data.model.ServerRole
 import com.ars3nb.volta.data.model.matches
 import com.ars3nb.volta.ui.VoltaViewModel
 import com.ars3nb.volta.ui.components.EmptyState
@@ -65,6 +69,7 @@ fun ServersScreen(
     val pool by vm.serverPool.collectAsStateWithLifecycle()
     val query by vm.query.collectAsStateWithLifecycle()
     val runningScope by vm.runningScope.collectAsStateWithLifecycle()
+    val hideBalancers by vm.hideBalancers.collectAsStateWithLifecycle()
     var sort by remember { mutableStateOf(ServerSort.BEST) }
     var favoritesOnly by remember { mutableStateOf(false) }
     var sheetServer by remember { mutableStateOf<ServerEntity?>(null) }
@@ -77,9 +82,15 @@ fun ServersScreen(
         state.servers.associate { it.id to ConfigBuilder.canDial(it) }
     }
 
-    val visible = remember(state.servers, pool, query, sort, favoritesOnly, supported, subscriptionFilter) {
+    val balancerCount = remember(state.servers) { state.servers.count { it.role == ServerRole.AUTO } }
+
+    val visible = remember(
+        state.servers, pool, query, sort, favoritesOnly, supported, subscriptionFilter, hideBalancers
+    ) {
         state.servers
             .filter { pool.matches(it.role) }
+            // Provider balancers stay out of the list unless their own chip is open.
+            .filter { !(hideBalancers && pool != ServerPool.AUTO && it.role == ServerRole.AUTO) }
             .filter { subscriptionFilter == null || it.subscriptionId == subscriptionFilter }
             .filter { !favoritesOnly || it.isFavorite }
             .filter { matchesQuery(it, query, subsById[it.subscriptionId]?.name.orEmpty()) }
@@ -136,10 +147,16 @@ fun ServersScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     ServerPool.entries.forEach { option ->
+                        if (option == ServerPool.AUTO && balancerCount == 0) return@forEach
                         FilterChip(
                             selected = pool == option,
                             onClick = { vm.setServerPool(option) },
-                            label = { Text(poolLabel(option)) }
+                            label = {
+                                Text(
+                                    if (option == ServerPool.AUTO) "${poolLabel(option)} · $balancerCount"
+                                    else poolLabel(option)
+                                )
+                            }
                         )
                     }
                     FilterChip(
@@ -206,9 +223,21 @@ fun ServersScreen(
                 }
             }
 
-            item {
-                SectionHeader("Найдено: ${visible.size}") { Hint("всего ${state.servers.size}") }
+            if (pool == ServerPool.AUTO && balancerCount > 0) {
+                item {
+                    VoltaCard {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Скрывать балансеры", style = MaterialTheme.typography.titleSmall)
+                                Hint("Серверы «Авто» и «Балансер» не показываются в списке")
+                            }
+                            Switch(checked = hideBalancers, onCheckedChange = vm::setHideBalancers)
+                        }
+                    }
+                }
             }
+
+            item { SectionHeader("Серверов: ${visible.size}") }
 
             if (visible.isEmpty()) {
                 item {
@@ -290,13 +319,6 @@ private fun AutobalancerBar(
                 )
             }
         }
-        Spacer(Modifier.height(8.dp))
-        Hint(
-            "Home+LTE сначала проверяет google.com, ars3nb.ru, calculator888.ru и vk.ru, " +
-                "ya.ru, appbank.pw: отвечают зарубежные — берёт Home, только российские — " +
-                "LTE. Home и LTE сразу пингуют свою группу. Выбор сервера вручную включает " +
-                "режим «Свой сервер»."
-        )
     }
 }
 
@@ -325,10 +347,10 @@ private fun matchesQuery(server: ServerEntity, query: String, subName: String): 
 }
 
 private fun poolLabel(pool: ServerPool): String = when (pool) {
-    ServerPool.ALL -> "Все группы"
+    ServerPool.ALL -> "Все"
     ServerPool.NORMAL -> "Home"
     ServerPool.BYPASS_WHITELIST -> "LTE"
-    ServerPool.AUTO -> "Home+LTE"
+    ServerPool.AUTO -> "Балансеры"
 }
 
 private fun sortLabel(sort: ServerSort): String = when (sort) {

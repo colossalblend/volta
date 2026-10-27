@@ -135,6 +135,10 @@ interface ServerDao {
     @Query("UPDATE servers SET role = :role, roleManual = 1 WHERE id = :id")
     suspend fun updateRole(id: Long, role: ServerRole)
 
+    /** Re-sorting by name, not a user choice: the role stays automatic. */
+    @Query("UPDATE servers SET role = :role WHERE id = :id AND roleManual = 0")
+    suspend fun updateAutoRole(id: Long, role: ServerRole)
+
     @Query("UPDATE servers SET isFavorite = :favorite WHERE id = :id")
     suspend fun setFavorite(id: Long, favorite: Boolean)
 

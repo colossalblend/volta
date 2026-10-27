@@ -117,8 +117,7 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
 
             Spacer(Modifier.height(4.dp))
             SectionHeader("Одна ссылка или JSON")
-            Hint("Ссылка на сервер (vless://, vmess://, trojan://, ss://, hysteria2://, " +
-                "socks://, wireguard://) или готовый Xray-конфиг в JSON.")
+            Hint("Ссылка на сервер или готовый конфиг.")
 
             OutlinedTextField(
                 value = paste,
@@ -155,12 +154,6 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
                         AssistChip(onClick = {}, label = { Text(proto) })
                     }
                 }
-                Spacer(Modifier.height(8.dp))
-                Hint(
-                    "Транспорты: TCP, WebSocket, gRPC, HTTPUpgrade, XHTTP, mKCP, QUIC-Hysteria. " +
-                        "Шифрование: TLS, REALITY, XTLS-Vision. " +
-                        "TUIC, ShadowsocksR и Hysteria v1 это ядро не поддерживает."
-                )
             }
             Spacer(Modifier.height(16.dp))
         }

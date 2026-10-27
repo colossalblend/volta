@@ -49,7 +49,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.ars3nb.volta.core.ping.NetworkProbe
 import com.ars3nb.volta.data.model.NetworkRegime
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.ServerRole
@@ -136,11 +135,7 @@ fun ServerRow(
                     )
                 }
                 Text(
-                    buildString {
-                        append(server.protocol.label)
-                        if (server.security != "none") append(" · ${server.security}")
-                        if (subscriptionName.isNotBlank()) append(" · $subscriptionName")
-                    },
+                    subscriptionName.ifBlank { "Свой сервер" },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -148,7 +143,7 @@ fun ServerRow(
                 )
                 if (!supported) {
                     Text(
-                        "Не поддерживается ядром",
+                        "Не поддерживается",
                         style = MaterialTheme.typography.labelSmall,
                         color = palette.poor
                     )
@@ -204,14 +199,14 @@ fun ServerRow(
 fun roleLabel(role: ServerRole): String = when (role) {
     ServerRole.NORMAL -> "Home"
     ServerRole.BYPASS_WHITELIST -> "LTE"
-    ServerRole.AUTO -> "Home + LTE"
+    ServerRole.AUTO -> "Балансер"
 }
 
-/** Group badge text and whether it is the Home (true) or LTE (false) colour. */
-fun groupLabel(role: ServerRole): Pair<String, Boolean> = when (role) {
+/** Group badge text and whether it is Home (true), LTE (false) or a balancer (null). */
+fun groupLabel(role: ServerRole): Pair<String, Boolean?> = when (role) {
     ServerRole.NORMAL -> "HOME" to true
     ServerRole.BYPASS_WHITELIST -> "LTE" to false
-    ServerRole.AUTO -> "HOME+LTE" to true
+    ServerRole.AUTO -> "БАЛАНСЕР" to null
 }
 
 /**
@@ -243,9 +238,7 @@ fun SubscriptionCard(
     onClick: () -> Unit,
     onRefresh: () -> Unit,
     onEdit: () -> Unit,
-    modifier: Modifier = Modifier,
-    /** Happ geodata status, e.g. "свои geoip/geosite". Empty = bundled lists. */
-    geoText: String = ""
+    modifier: Modifier = Modifier
 ) {
     val palette = VoltaTheme.palette
     val dot = remember(sub.colorHex) {
@@ -283,9 +276,6 @@ fun SubscriptionCard(
                     icon = Icons.Rounded.Bolt,
                     modifier = Modifier.weight(1f, fill = false)
                 )
-            }
-            if (geoText.isNotBlank()) {
-                StatusPill(geoText, palette.home, icon = Icons.Rounded.Public)
             }
         }
 
@@ -334,88 +324,28 @@ fun NetworkStatusCard(
 ) {
     val palette = VoltaTheme.palette
     val (label, color) = when (regime) {
-        NetworkRegime.OPEN -> "Сеть Home — открытый интернет" to palette.home
-        NetworkRegime.WHITELIST_ONLY -> "Сеть LTE — работает только белый список" to palette.lte
-        NetworkRegime.BLOCKED -> "Сеть не отвечает" to palette.poor
-        NetworkRegime.UNKNOWN -> "Сеть ещё не проверена" to MaterialTheme.colorScheme.onSurfaceVariant
+        NetworkRegime.OPEN -> "Сеть Home" to palette.home
+        NetworkRegime.WHITELIST_ONLY -> "Сеть LTE" to palette.lte
+        NetworkRegime.BLOCKED -> "Нет интернета" to palette.poor
+        NetworkRegime.UNKNOWN -> "Сеть не проверена" to MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val icon = when (regime) {
+        NetworkRegime.OPEN -> Icons.Rounded.Public
+        else -> Icons.Rounded.Language
     }
 
-    VoltaCard(modifier = modifier) {
+    VoltaCard(modifier = modifier, contentPadding = 12) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            StatusPill(label, color, modifier = Modifier.weight(1f, fill = false))
-            Spacer(Modifier.weight(1f))
+            Icon(icon, null, tint = color, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(10.dp))
+            Text(
+                label,
+                style = MaterialTheme.typography.titleSmall,
+                color = color,
+                modifier = Modifier.weight(1f)
+            )
             IconButton(onClick = onRecheck, modifier = Modifier.size(32.dp)) {
                 Icon(Icons.Rounded.Refresh, "Проверить сеть", Modifier.size(17.dp))
-            }
-        }
-        Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ProbeColumn(
-                title = "Home",
-                icon = Icons.Rounded.Public,
-                hosts = NetworkProbe.HOME_HOSTS.map { it.first },
-                probes = probes,
-                tint = palette.home,
-                modifier = Modifier.weight(1f)
-            )
-            ProbeColumn(
-                title = "LTE",
-                icon = Icons.Rounded.Language,
-                hosts = NetworkProbe.LTE_HOSTS.map { it.first },
-                probes = probes,
-                tint = palette.lte,
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-@Composable
-private fun ProbeColumn(
-    title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    hosts: List<String>,
-    probes: List<SiteProbeResult>,
-    tint: Color,
-    modifier: Modifier = Modifier
-) {
-    val palette = VoltaTheme.palette
-    Surface(
-        modifier = modifier,
-        shape = SmallShape,
-        color = tint.copy(alpha = 0.07f)
-    ) {
-        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, null, tint = tint, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(5.dp))
-                Text(title, style = MaterialTheme.typography.labelLarge, color = tint, fontWeight = FontWeight.Bold)
-            }
-            hosts.forEach { host ->
-                val probe = probes.firstOrNull { it.host == host }
-                val dot = when {
-                    probe == null -> MaterialTheme.colorScheme.outline
-                    probe.reachable -> palette.good
-                    else -> palette.poor
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(7.dp).clip(CircleShape).background(dot))
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        host,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.weight(1f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (probe?.reachable == true) {
-                        Text(
-                            "${probe.latencyMs}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
             }
         }
     }

@@ -215,6 +215,10 @@ fun ManualModeStrip(
     }
 }
 
-/** Colour for a group badge. */
+/** Colour for a group badge; provider balancers get a neutral one. */
 @Composable
-fun groupColor(home: Boolean): Color = if (home) VoltaTheme.palette.home else VoltaTheme.palette.lte
+fun groupColor(home: Boolean?): Color = when (home) {
+    true -> VoltaTheme.palette.home
+    false -> VoltaTheme.palette.lte
+    null -> MaterialTheme.colorScheme.onSurfaceVariant
+}
