@@ -24,6 +24,26 @@ android {
         buildConfigField("String", "APP_BRAND", "\"Volta\"")
     }
 
+    signingConfigs {
+        // One fixed debug key for every machine and CI run, so a newer APK always
+        // installs over an older one instead of failing on a signature mismatch.
+        getByName("debug") {
+            storeFile = file("ci-debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+        create("release") {
+            val keystore = System.getenv("VOLTA_KEYSTORE_FILE")
+            if (!keystore.isNullOrBlank() && file(keystore).exists()) {
+                storeFile = file(keystore)
+                storePassword = System.getenv("VOLTA_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("VOLTA_KEY_ALIAS")
+                keyPassword = System.getenv("VOLTA_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -32,9 +52,12 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            val releaseKey = signingConfigs.getByName("release")
+            signingConfig = if (releaseKey.storeFile != null) releaseKey else signingConfigs.getByName("debug")
         }
         debug {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
