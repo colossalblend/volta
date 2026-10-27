@@ -41,6 +41,54 @@ class AutoBalancer(
         /** Weight of a fresh sample in the smoothed latency. */
         private const val EWMA_ALPHA = 0.4
 
+        /** How many of the fastest nodes get extra samples before the final pick. */
+        const val FINALISTS = 3
+
+        /** Extra samples per finalist. */
+        const val REFINE_ROUNDS = 2
+
+        /** A lost sample costs as much as this much extra latency. */
+        const val LOSS_PENALTY_MS = 1_200L
+
+        /** Each recent failure in a row adds this to a node's figure. */
+        const val FAIL_STREAK_PENALTY_MS = 120L
+
+        /** Folds a node's samples (-1 = no answer) into median, spread and loss. */
+        fun quality(samples: List<Long>): Quality {
+            val good = samples.filter { it > 0 }.sorted()
+            if (good.isEmpty()) return Quality(-1, 0, 1.0)
+            val mid = good.size / 2
+            val median = if (good.size % 2 == 1) good[mid] else (good[mid - 1] + good[mid]) / 2
+            return Quality(
+                medianMs = median,
+                jitterMs = good.last() - good.first(),
+                loss = 1.0 - good.size.toDouble() / samples.size
+            )
+        }
+
+        /**
+         * One comparable figure per node: the median, plus half the jitter (a node that
+         * swings 80↔400 ms feels worse than a steady 150), plus lost samples and recent
+         * failures. -1 when the node never answered.
+         */
+        fun effectiveMs(q: Quality, failStreak: Int): Long {
+            if (q.medianMs < 0) return -1
+            return q.medianMs + q.jitterMs / 2 +
+                (q.loss * LOSS_PENALTY_MS).toLong() +
+                failStreak.coerceIn(0, 5) * FAIL_STREAK_PENALTY_MS
+        }
+
+        /** Which group a run serves, to know whose remembered node to favour. */
+        fun groupOf(scope: BalancerScope, regime: NetworkRegime): BalancerScope? = when (scope) {
+            BalancerScope.ALL -> when (regime) {
+                NetworkRegime.OPEN -> BalancerScope.NORMAL
+                NetworkRegime.WHITELIST_ONLY -> BalancerScope.BYPASS
+                else -> null
+            }
+
+            else -> scope
+        }
+
         fun blendEwma(previous: Long, sample: Long): Long {
             if (sample < 0) return previous
             if (previous < 0) return sample
@@ -93,13 +141,17 @@ class AutoBalancer(
     }
 
     /** What a run is doing right now, for the connect button's caption. */
-    enum class Phase { PROBING_NETWORK, MEASURING }
+    enum class Phase { PROBING_NETWORK, MEASURING, REFINING }
+
+    data class Quality(val medianMs: Long, val jitterMs: Long, val loss: Double)
 
     data class Ranked(
         val server: ServerEntity,
         val latencyMs: Long,
         val ewmaMs: Long,
-        val ok: Boolean
+        val ok: Boolean,
+        val jitterMs: Long = 0,
+        val samples: Int = 1
     ) {
         val score: Long
             get() = when {
@@ -129,7 +181,8 @@ class AutoBalancer(
         scope: BalancerScope,
         current: ServerEntity? = null,
         pingType: PingType = PingType.REAL_DELAY,
-        onPhase: (Phase) -> Unit = {}
+        onPhase: (Phase) -> Unit = {},
+        remembered: Map<BalancerScope, Long> = emptyMap()
     ): Decision {
         val dialable = servers.filter { ConfigBuilder.canDial(it) }
         if (dialable.isEmpty()) {
@@ -176,56 +229,65 @@ class AutoBalancer(
             }
         }
 
+        // The node to beat: the one in use if it belongs here, otherwise the one that
+        // last carried traffic in this group (Wi-Fi → LTE → back to Wi-Fi resumes on
+        // the Home node that worked, instead of a fresh lottery).
+        val group = groupOf(scope, regime)
+        val holder = current?.takeIf { c -> pool.any { it.id == c.id } }
+            ?: remembered[group]?.let { id -> pool.firstOrNull { it.id == id } }
+
         onPhase(Phase.MEASURING)
-        val measurements = pingEngine.pingServers(pool, pingType).toMap()
+        val first = pingEngine.pingServers(pool, pingType).toMap()
+        val samples = pool.associate { server ->
+            val r = first[server.id]
+            server.id to mutableListOf(if (r?.success == true && r.latencyMs >= 0) r.latencyMs else -1L)
+        }
+
+        // Stage two: the few fastest (and the holder) are measured again, so one lucky
+        // sample cannot win and a jittery or lossy node loses to a steady one.
+        val alive = pool.filter { samples.getValue(it.id).first() > 0 }
+            .sortedBy { samples.getValue(it.id).first() }
+        val finalists = alive.take(FINALISTS).let { top ->
+            if (holder != null && holder in alive && top.none { it.id == holder.id }) top + holder else top
+        }
+        if (finalists.size >= 2) {
+            onPhase(Phase.REFINING)
+            pingEngine.resample(finalists, pingType, REFINE_ROUNDS).forEach { (id, results) ->
+                samples[id]?.addAll(
+                    results.map { if (it.success && it.latencyMs >= 0) it.latencyMs else -1L }
+                )
+            }
+        }
 
         val ranked = pool
             .map { server ->
-                val result: PingResult? = measurements[server.id]
-                val ok = result?.success == true && result.latencyMs >= 0
+                val list = samples.getValue(server.id)
+                val q = quality(list)
+                val figure = effectiveMs(q, server.failStreak)
+                val ok = figure >= 0
                 Ranked(
                     server = server,
-                    latencyMs = if (ok) result!!.latencyMs else -1,
-                    ewmaMs = if (ok) blendEwma(server.ewmaMs, result!!.latencyMs) else server.ewmaMs,
-                    ok = ok
+                    latencyMs = if (ok) q.medianMs else -1,
+                    ewmaMs = if (ok) blendEwma(server.ewmaMs, figure) else server.ewmaMs,
+                    ok = ok,
+                    jitterMs = q.jitterMs,
+                    samples = list.size
                 )
             }
             .sortedBy { it.score }
 
         val best = ranked.firstOrNull { it.ok }
-        val currentRank = current?.let { c -> ranked.firstOrNull { it.server.id == c.id } }
+        val holderRank = holder?.let { h -> ranked.firstOrNull { it.server.id == h.id } }
 
-        val selected: ServerEntity?
-        val switched: Boolean
-        when {
-            best == null -> {
-                // Nothing answered — keep what we had rather than jumping to a dead node,
-                // as long as it is in the group asked for.
-                selected = current?.takeIf { c -> pool.any { it.id == c.id } }
-                    ?: pool.minByOrNull { it.score }
-                switched = false
-            }
-
-            currentRank == null || !currentRank.ok -> {
-                selected = best.server
-                switched = current?.id != best.server.id
-            }
-
-            best.server.id == currentRank.server.id -> {
-                selected = currentRank.server
-                switched = false
-            }
-
-            beats(best, currentRank) -> {
-                selected = best.server
-                switched = true
-            }
-
-            else -> {
-                selected = currentRank.server
-                switched = false
-            }
+        val selected: ServerEntity? = when {
+            // Nothing answered — keep what we had rather than jump to a dead node.
+            best == null -> holder ?: pool.minByOrNull { it.score }
+            holderRank == null || !holderRank.ok -> best.server
+            best.server.id == holderRank.server.id -> holderRank.server
+            beats(best, holderRank) -> best.server
+            else -> holderRank.server
         }
+        val switched = selected != null && selected.id != current?.id
 
         return Decision(
             scope = scope,

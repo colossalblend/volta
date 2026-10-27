@@ -9,6 +9,7 @@ import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.util.Log
+import android.widget.Toast
 import com.ars3nb.volta.data.model.PerAppMode
 import com.ars3nb.volta.data.model.TrafficStats
 import com.ars3nb.volta.data.model.VpnConnectionState
@@ -40,6 +41,8 @@ class VoltaVpnService : VpnService() {
         const val ACTION_CONNECT = "com.ars3nb.volta.CONNECT"
         const val ACTION_DISCONNECT = "com.ars3nb.volta.DISCONNECT"
         const val ACTION_TOGGLE = "com.ars3nb.volta.TOGGLE"
+        const val ACTION_AUTO_CONNECT = "com.ars3nb.volta.AUTO_CONNECT"
+        const val EXTRA_MODE = "mode"
         const val EXTRA_CONFIG = "config"
         const val EXTRA_SERVER_NAME = "server_name"
         const val EXTRA_MTU = "mtu"
@@ -83,7 +86,11 @@ class VoltaVpnService : VpnService() {
          * system killed the process — and no plan arrived with the intent.
          */
         @Volatile
-        var autoStartProvider: (suspend () -> Unit)? = null
+        var autoStartProvider: (suspend (modeName: String?) -> Unit)? = null
+
+        /** Told which node just proved it carries traffic, so auto-pick can start there. */
+        @Volatile
+        var healthyListener: (suspend (serverId: Long) -> Unit)? = null
 
         fun connect(context: Context, plan: ConnectionPlan) {
             val i = Intent(context, VoltaVpnService::class.java).apply {
@@ -96,6 +103,23 @@ class VoltaVpnService : VpnService() {
                 putExtra(EXTRA_PER_APP_MODE, plan.perAppMode.name)
                 putExtra(EXTRA_PER_APP_PACKAGES, plan.perAppPackages.toTypedArray())
             }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(i)
+            } else {
+                context.startService(i)
+            }
+        }
+
+        /**
+         * Raises the tunnel in a connect mode (or the saved one), with the service in the
+         * foreground from the first moment. Tiles and boot use this: the pick takes
+         * seconds, and Android only lets a background app start a foreground service
+         * right after the tap or broadcast, not once the measuring is done.
+         */
+        fun autoConnect(context: Context, modeName: String? = null) {
+            val i = Intent(context, VoltaVpnService::class.java)
+                .setAction(ACTION_AUTO_CONNECT)
+                .putExtra(EXTRA_MODE, modeName)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(i)
             } else {
@@ -272,6 +296,8 @@ class VoltaVpnService : VpnService() {
                 }
             }
 
+            ACTION_AUTO_CONNECT -> startOnItsOwn(intent.getStringExtra(EXTRA_MODE))
+
             // Always-on VPN (android.net.VpnService) or a sticky restart (null intent).
             SERVICE_INTERFACE, null -> startOnItsOwn()
 
@@ -291,7 +317,7 @@ class VoltaVpnService : VpnService() {
         }
     }
 
-    private fun startOnItsOwn() {
+    private fun startOnItsOwn(modeName: String? = null) {
         if (tunnelActive.get() || _state.value == VpnConnectionState.CONNECTING) {
             startForeground(
                 VpnNotificationHelper.NOTIFICATION_ID,
@@ -315,9 +341,16 @@ class VoltaVpnService : VpnService() {
                 return@launch
             }
             // The provider ends in connect(), which arrives here as ACTION_CONNECT.
-            runCatching { provider() }.onFailure { e ->
+            runCatching { provider(modeName) }.onFailure { e ->
                 Log.w(TAG, "automatic start failed", e)
-                connectionMutex.withLock { fail(e.message ?: "Не удалось подключиться") }
+                val message = e.message ?: "Не удалось подключиться"
+                // Started from a tile or at boot, there is no screen to show the error on.
+                // Posted to the main looper: it must outlive this service's scope.
+                val app = applicationContext
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    Toast.makeText(app, "Volta: $message", Toast.LENGTH_LONG).show()
+                }
+                connectionMutex.withLock { fail(message) }
             }
         }
     }
@@ -338,6 +371,8 @@ class VoltaVpnService : VpnService() {
                 if (!hasUnderlyingNetwork()) return@launch
                 if (probeThroughTunnel()) {
                     failoverAttempts = 0
+                    val id = lastServerId
+                    healthyListener?.let { listener -> runCatching { listener(id) } }
                     return@launch
                 }
                 Log.w(TAG, "health check ${attempt + 1}/$HEALTH_ATTEMPTS failed")

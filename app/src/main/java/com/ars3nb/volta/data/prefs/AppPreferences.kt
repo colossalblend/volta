@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.ars3nb.volta.data.model.ConnectMode
@@ -43,6 +44,9 @@ class AppPreferences(private val context: Context) {
         val connectMode = stringPreferencesKey("connect_mode")
         val refreshOnLaunch = booleanPreferencesKey("refresh_on_launch")
         val followNetwork = booleanPreferencesKey("follow_network")
+        val autoRecheck = booleanPreferencesKey("auto_recheck")
+        val lastGoodHome = longPreferencesKey("last_good_home")
+        val lastGoodLte = longPreferencesKey("last_good_lte")
     }
 
     /** What the big button connects to. Home+LTE by default: it works everywhere. */
@@ -56,6 +60,23 @@ class AppPreferences(private val context: Context) {
 
     /** Re-pick the group when the phone moves between Wi-Fi and mobile data. */
     val followNetwork: Flow<Boolean> = context.dataStore.data.map { it[Keys.followNetwork] ?: true }
+
+    /** Clash url-test style: re-measure the group in the background while connected. */
+    val autoRecheck: Flow<Boolean> = context.dataStore.data.map { it[Keys.autoRecheck] ?: true }
+
+    /** The node that last carried traffic in each group, tried first next time. */
+    val lastGoodHome: Flow<Long> = context.dataStore.data.map { it[Keys.lastGoodHome] ?: 0L }
+    val lastGoodLte: Flow<Long> = context.dataStore.data.map { it[Keys.lastGoodLte] ?: 0L }
+
+    suspend fun setAutoRecheck(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.autoRecheck] = enabled }
+    }
+
+    suspend fun setLastGood(home: Boolean, serverId: Long) {
+        context.dataStore.edit {
+            if (home) it[Keys.lastGoodHome] = serverId else it[Keys.lastGoodLte] = serverId
+        }
+    }
 
     suspend fun setConnectMode(mode: ConnectMode) {
         context.dataStore.edit { it[Keys.connectMode] = mode.name }

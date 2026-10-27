@@ -3,7 +3,9 @@ package com.ars3nb.volta.worker
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.net.VpnService
 import com.ars3nb.volta.VoltaApp
+import com.ars3nb.volta.core.vpn.VoltaVpnService
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -16,8 +18,11 @@ class BootReceiver : BroadcastReceiver() {
         val pending = goAsync()
         app.appScope.launch {
             try {
-                if (app.repository.autoConnect.first()) {
-                    runCatching { app.repository.connectWithMode() }
+                // The boot broadcast allows a foreground-service start only for a short
+                // while: hand over to the service now and let it pick the node there.
+                // Without VPN consent (or with another VPN set) Android won't allow it.
+                if (app.repository.autoConnect.first() && VpnService.prepare(context) == null) {
+                    runCatching { VoltaVpnService.autoConnect(context) }
                 }
             } finally {
                 pending.finish()

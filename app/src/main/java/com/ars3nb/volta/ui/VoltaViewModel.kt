@@ -24,6 +24,7 @@ import com.ars3nb.volta.data.model.TrafficStats
 import com.ars3nb.volta.data.model.VpnConnectionState
 import com.ars3nb.volta.data.prefs.DesignTheme
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +32,11 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -99,8 +105,17 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     /** Which balancer button is currently working, for the spinner in the UI. */
     val runningScope = _runningScope.asStateFlow()
 
-    /** What the big button is doing before the service takes over. */
-    val connectPhase = _connectPhase.asStateFlow()
+    /**
+     * What the big button is doing before the service takes over. Also lights up when
+     * a tile or Always-on started the pick, not only the button.
+     */
+    val connectPhase = combine(_connectPhase, repo.autoPicking, repo.pickPhase) { own, picking, phase ->
+        when {
+            own != ConnectPhase.IDLE -> own
+            picking -> phase?.let(ConnectPhase::of) ?: ConnectPhase.PREPARING
+            else -> ConnectPhase.IDLE
+        }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, ConnectPhase.IDLE)
 
     val connectMode = repo.connectMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ConnectMode.AUTO_HOME_LTE)
@@ -108,6 +123,39 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
     val followNetwork = repo.followNetwork
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+    val autoRecheck = repo.autoRecheck
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    /**
+     * Live speed for the graph, sampled every 2 s while connected. Sampled on a timer
+     * rather than per traffic update: an idle tunnel emits nothing, yet the graph must
+     * still scroll to show the quiet.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val speedHistory: StateFlow<SpeedHistory> = repo.vpnState
+        .map { it == VpnConnectionState.CONNECTED }
+        .distinctUntilChanged()
+        .flatMapLatest { connected ->
+            if (!connected) {
+                flowOf(SpeedHistory())
+            } else {
+                flow {
+                    var history = SpeedHistory()
+                    while (true) {
+                        val t = repo.traffic.value
+                        history = history.push(t.downlinkSpeed, t.uplinkSpeed)
+                        emit(history)
+                        delay(2_000)
+                    }
+                }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SpeedHistory())
+
+    /** Why the auto mode picked what it picked: the best few with their numbers. */
+    val pickSummary: StateFlow<PickSummary?> = repo.lastDecision
+        .map { decision -> decision?.let(PickSummary::of) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val connection = combine(
         repo.vpnState, repo.selectedServer, repo.traffic, repo.connectedSince, repo.vpnError
@@ -227,7 +275,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
 
     fun toggleConnect() {
         // A tap during probing/pinging cancels nothing yet — ignore it.
-        if (_connectPhase.value != ConnectPhase.IDLE) return
+        if (connectPhase.value != ConnectPhase.IDLE) return
         when (uiState.value.vpnState) {
             VpnConnectionState.CONNECTED, VpnConnectionState.CONNECTING -> disconnect()
             else -> connect()
@@ -253,10 +301,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
             _connectPhase.value = ConnectPhase.PREPARING
             try {
                 val decision = repo.connectWithMode { phase ->
-                    _connectPhase.value = when (phase) {
-                        AutoBalancer.Phase.PROBING_NETWORK -> ConnectPhase.PROBING
-                        AutoBalancer.Phase.MEASURING -> ConnectPhase.MEASURING
-                    }
+                    _connectPhase.value = ConnectPhase.of(phase)
                 }
                 if (decision != null) {
                     if (decision.probes.isNotEmpty()) {
@@ -285,6 +330,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setRefreshOnLaunch(v: Boolean) = viewModelScope.launch { repo.setRefreshOnLaunch(v) }
     fun setFollowNetwork(v: Boolean) = viewModelScope.launch { repo.setFollowNetwork(v) }
+    fun setAutoRecheck(v: Boolean) = viewModelScope.launch { repo.setAutoRecheck(v) }
 
     fun geoStatus(subscriptionId: Long) = repo.geoStatus(subscriptionId)
 
@@ -578,11 +624,83 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
 
 private const val RETRY_DELAY_MS = 20_000L
 
+/** The last [CAPACITY] speed samples, oldest first. [version] grows with each sample. */
+data class SpeedHistory(
+    val down: List<Long> = emptyList(),
+    val up: List<Long> = emptyList(),
+    val version: Long = 0
+) {
+    fun push(downSpeed: Long, upSpeed: Long) = SpeedHistory(
+        down = (down + downSpeed.coerceAtLeast(0)).takeLast(CAPACITY),
+        up = (up + upSpeed.coerceAtLeast(0)).takeLast(CAPACITY),
+        version = version + 1
+    )
+
+    companion object {
+        const val CAPACITY = 40
+    }
+}
+
+/** One finalist of an auto pick, as the "why this node" card shows it. */
+data class PickRow(
+    val serverId: Long,
+    val name: String,
+    val medianMs: Long,
+    val jitterMs: Long,
+    val samples: Int,
+    val chosen: Boolean
+)
+
+data class PickSummary(
+    val reason: String,
+    val rows: List<PickRow>,
+    val measured: Int,
+    val alive: Int,
+    val at: Long
+) {
+    companion object {
+        fun of(decision: AutoBalancer.Decision): PickSummary? {
+            val alive = decision.ranked.filter { it.ok }
+            if (alive.isEmpty()) return null
+            val chosenId = decision.selected?.id
+            val top = alive.take(3).toMutableList()
+            alive.firstOrNull { it.server.id == chosenId }
+                ?.takeIf { c -> top.none { it.server.id == c.server.id } }
+                ?.let { top[top.lastIndex] = it }
+            return PickSummary(
+                reason = decision.reason,
+                rows = top.map {
+                    PickRow(
+                        serverId = it.server.id,
+                        name = it.server.remark,
+                        medianMs = it.latencyMs,
+                        jitterMs = it.jitterMs,
+                        samples = it.samples,
+                        chosen = it.server.id == chosenId
+                    )
+                },
+                measured = decision.ranked.size,
+                alive = alive.size,
+                at = System.currentTimeMillis()
+            )
+        }
+    }
+}
+
 enum class ConnectPhase(val caption: String) {
     IDLE(""),
     PREPARING("Готовлю подключение…"),
     PROBING("Проверяю сеть: Home или LTE…"),
-    MEASURING("Ищу самый быстрый сервер…")
+    MEASURING("Ищу самый быстрый сервер…"),
+    REFINING("Сравниваю лучшие серверы…");
+
+    companion object {
+        fun of(phase: AutoBalancer.Phase): ConnectPhase = when (phase) {
+            AutoBalancer.Phase.PROBING_NETWORK -> PROBING
+            AutoBalancer.Phase.MEASURING -> MEASURING
+            AutoBalancer.Phase.REFINING -> REFINING
+        }
+    }
 }
 
 private fun Throwable.userMessage(fallback: String): String =

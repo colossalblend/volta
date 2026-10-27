@@ -1,5 +1,6 @@
 package com.ars3nb.volta.ui.screens
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -7,6 +8,9 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -62,6 +66,7 @@ import com.ars3nb.volta.data.model.SubscriptionEntity
 import com.ars3nb.volta.data.model.VpnConnectionState
 import com.ars3nb.volta.ui.ConnectPhase
 import com.ars3nb.volta.ui.VoltaViewModel
+import com.ars3nb.volta.ui.components.AutoPickCard
 import com.ars3nb.volta.ui.components.CardShape
 import com.ars3nb.volta.ui.components.ConnectionHeadline
 import com.ars3nb.volta.ui.components.EmptyState
@@ -70,7 +75,9 @@ import com.ars3nb.volta.ui.components.ManualModeStrip
 import com.ars3nb.volta.ui.components.ModeSelector
 import com.ars3nb.volta.ui.components.NetworkStatusCard
 import com.ars3nb.volta.ui.components.PowerButton
+import com.ars3nb.volta.ui.components.SignalBars
 import com.ars3nb.volta.ui.components.SmallShape
+import com.ars3nb.volta.ui.components.SpeedGraph
 import com.ars3nb.volta.ui.components.StatTile
 import com.ars3nb.volta.ui.components.VoltaCard
 import com.ars3nb.volta.ui.components.flagOf
@@ -91,6 +98,8 @@ fun HomeScreen(
     val state by vm.uiState.collectAsStateWithLifecycle()
     val mode by vm.connectMode.collectAsStateWithLifecycle()
     val phase by vm.connectPhase.collectAsStateWithLifecycle()
+    val speed by vm.speedHistory.collectAsStateWithLifecycle()
+    val pick by vm.pickSummary.collectAsStateWithLifecycle()
     val palette = VoltaTheme.palette
 
     // Ticks only while the tunnel is up, so an idle screen costs nothing.
@@ -228,6 +237,16 @@ fun HomeScreen(
 
                 item {
                     AnimatedVisibility(
+                        visible = pick != null && mode != ConnectMode.MANUAL && !working,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
+                    ) {
+                        pick?.let { AutoPickCard(it) }
+                    }
+                }
+
+                item {
+                    AnimatedVisibility(
                         visible = state.isConnected,
                         enter = fadeIn() + expandVertically(),
                         exit = fadeOut() + shrinkVertically()
@@ -254,6 +273,16 @@ fun HomeScreen(
                                 modifier = Modifier.weight(1f)
                             )
                         }
+                    }
+                }
+
+                item {
+                    AnimatedVisibility(
+                        visible = state.isConnected,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
+                    ) {
+                        SpeedGraph(speed)
                     }
                 }
 
@@ -347,66 +376,88 @@ private fun CurrentServerCard(
     val palette = VoltaTheme.palette
     VoltaCard(onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(server?.let { flagOf(it.remark) } ?: "🌐", fontSize = 22.sp)
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    server?.remark ?: "Сервер не выбран",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (server != null) {
-                        val (label, home) = groupLabel(server.role)
-                        Text(
-                            label,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = groupColor(home)
-                        )
-                        Text(
-                            " · " + listOfNotNull(
-                                server.protocol.label,
-                                subscription?.name
-                            ).joinToString(" · "),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    } else {
-                        Text(
-                            "Откройте список, чтобы выбрать",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+            // A new node rolls in from below, so an automatic switch is noticed.
+            AnimatedContent(
+                targetState = server,
+                contentKey = { it?.id },
+                transitionSpec = {
+                    (slideInVertically { it } + fadeIn()) togetherWith
+                        (slideOutVertically { -it } + fadeOut())
+                },
+                modifier = Modifier.weight(1f),
+                label = "server"
+            ) { shown ->
+                ServerIdentity(shown, subscription)
             }
             val ms = server?.let { it.ewmaMs.takeIf { v -> v >= 0 } ?: it.latencyMs } ?: -1
             if (ms >= 0) {
-                Text(
-                    "$ms мс",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = palette.latency(ms),
-                    fontWeight = FontWeight.SemiBold
-                )
+                Column(horizontalAlignment = Alignment.End) {
+                    SignalBars(ms)
+                    Text(
+                        "$ms мс",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = palette.latency(ms),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
             Icon(
                 Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                 null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+@Composable
+private fun ServerIdentity(server: ServerEntity?, subscription: SubscriptionEntity?) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(server?.let { flagOf(it.remark) } ?: "🌐", fontSize = 22.sp)
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                server?.remark ?: "Сервер не выбран",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (server != null) {
+                    val (label, home) = groupLabel(server.role)
+                    Text(
+                        label,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = groupColor(home)
+                    )
+                    Text(
+                        " · " + listOfNotNull(
+                            server.protocol.label,
+                            subscription?.name
+                        ).joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                } else {
+                    Text(
+                        "Откройте список, чтобы выбрать",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }

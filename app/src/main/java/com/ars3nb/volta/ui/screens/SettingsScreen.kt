@@ -2,6 +2,7 @@ package com.ars3nb.volta.ui.screens
 
 import android.content.Intent
 import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -39,6 +41,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.PerAppMode
 import com.ars3nb.volta.data.model.PingType
 import com.ars3nb.volta.data.prefs.DesignTheme
@@ -47,7 +50,10 @@ import com.ars3nb.volta.ui.components.Hint
 import com.ars3nb.volta.ui.components.SectionHeader
 import com.ars3nb.volta.ui.components.StatusPill
 import com.ars3nb.volta.ui.components.VoltaCard
+import com.ars3nb.volta.ui.components.modeIcon
 import com.ars3nb.volta.ui.theme.VoltaTheme
+import com.ars3nb.volta.ui.tile.GroupTileService
+import com.ars3nb.volta.ui.tile.TileInstaller
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,6 +70,7 @@ fun SettingsScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
     val pingType by vm.defaultPingType.collectAsStateWithLifecycle()
     val refreshOnLaunch by vm.refreshOnLaunch.collectAsStateWithLifecycle()
     val followNetwork by vm.followNetwork.collectAsStateWithLifecycle()
+    val autoRecheck by vm.autoRecheck.collectAsStateWithLifecycle()
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val palette = VoltaTheme.palette
@@ -119,6 +126,14 @@ fun SettingsScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
                         onChecked = vm::setFollowNetwork
                     )
                     ToggleRow(
+                        title = "Фоновая перепроверка группы",
+                        subtitle = "Как url-test в Clash: пока VPN включён, серверы группы " +
+                            "замеряются раз в 15 минут, и Volta переходит на заметно более " +
+                            "быстрый. Мелкие колебания пинга переключений не вызывают.",
+                        checked = autoRecheck,
+                        onChecked = vm::setAutoRecheck
+                    )
+                    ToggleRow(
                         title = "Обновлять подписки при запуске",
                         subtitle = "Как в Happ: серверы, правила маршрутизации и geoip/geosite " +
                             "каждой подписки подтягиваются при открытии приложения.",
@@ -151,6 +166,42 @@ fun SettingsScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
                             )
                         }
                         Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null)
+                    }
+                }
+            }
+
+            item { SectionHeader("Плитки в шторке") }
+            item {
+                VoltaCard {
+                    Text("Home+LTE, Home и LTE", style = MaterialTheme.typography.titleSmall)
+                    Hint(
+                        "Три кнопки для шторки уведомлений. Нажатие включает VPN в режиме " +
+                            "плитки, повторное нажатие на горящую плитку выключает."
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    if (TileInstaller.supported) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(
+                                ConnectMode.AUTO_HOME_LTE,
+                                ConnectMode.AUTO_HOME,
+                                ConnectMode.AUTO_LTE
+                            ).forEach { mode ->
+                                FilledTonalButton(
+                                    onClick = {
+                                        TileInstaller.request(context, mode) { text ->
+                                            Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(modeIcon(mode), null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.size(8.dp))
+                                    Text("Добавить плитку «${GroupTileService.label(mode)}»")
+                                }
+                            }
+                        }
+                    } else {
+                        Hint(TileInstaller.MANUAL_HINT)
                     }
                 }
             }

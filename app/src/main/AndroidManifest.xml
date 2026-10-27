@@ -96,14 +96,45 @@
         </service>
 
         <service
-            android:name=".ui.tile.ModeTileService"
+            android:name=".ui.tile.HomeLteTileService"
             android:exported="true"
             android:icon="@drawable/ic_mode_auto"
-            android:label="@string/tile_mode_label"
+            android:label="@string/tile_home_lte_label"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="true" />
+        </service>
+
+        <service
+            android:name=".ui.tile.HomeTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_mode_home"
+            android:label="@string/tile_home_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="true" />
+        </service>
+
+        <service
+            android:name=".ui.tile.LteTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_mode_lte"
+            android:label="@string/tile_lte_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="true" />
         </service>
 
         <receiver

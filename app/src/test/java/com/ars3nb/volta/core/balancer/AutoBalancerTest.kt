@@ -207,4 +207,42 @@ class AutoBalancerTest {
         assertFalse(flaky.isHealthy)
         assertFalse(unmeasured.isHealthy)
     }
+
+    @Test
+    fun medianAndSpreadIgnoreLostSamples() {
+        val q = AutoBalancer.quality(listOf(120, -1, 80, 100))
+        assertEquals(100L, q.medianMs)
+        assertEquals(40L, q.jitterMs)
+        assertEquals(0.25, q.loss, 1e-9)
+        assertEquals(-1L, AutoBalancer.quality(listOf(-1, -1)).medianMs)
+    }
+
+    @Test
+    fun steadyNodeBeatsAJitteryOneWithTheSameMedian() {
+        val steady = AutoBalancer.effectiveMs(AutoBalancer.quality(listOf(150, 155, 160)), 0)
+        val jittery = AutoBalancer.effectiveMs(AutoBalancer.quality(listOf(60, 150, 600)), 0)
+        assertTrue("steady=$steady jittery=$jittery", steady < jittery)
+    }
+
+    @Test
+    fun lostSamplesAndRecentFailuresOutweighAFewMilliseconds() {
+        val clean = AutoBalancer.effectiveMs(AutoBalancer.quality(listOf(200, 210, 205)), 0)
+        val lossy = AutoBalancer.effectiveMs(AutoBalancer.quality(listOf(90, -1, 95)), 0)
+        assertTrue("clean=$clean lossy=$lossy", clean < lossy)
+
+        val once = AutoBalancer.quality(listOf(100))
+        assertTrue(AutoBalancer.effectiveMs(once, 2) > AutoBalancer.effectiveMs(once, 0))
+        assertEquals(-1L, AutoBalancer.effectiveMs(AutoBalancer.quality(listOf(-1, -1)), 0))
+    }
+
+    @Test
+    fun homeLteRunRemembersTheGroupTheNetworkNeeds() {
+        assertEquals(BalancerScope.NORMAL, AutoBalancer.groupOf(BalancerScope.ALL, NetworkRegime.OPEN))
+        assertEquals(
+            BalancerScope.BYPASS,
+            AutoBalancer.groupOf(BalancerScope.ALL, NetworkRegime.WHITELIST_ONLY)
+        )
+        assertEquals(null, AutoBalancer.groupOf(BalancerScope.ALL, NetworkRegime.BLOCKED))
+        assertEquals(BalancerScope.BYPASS, AutoBalancer.groupOf(BalancerScope.BYPASS, NetworkRegime.UNKNOWN))
+    }
 }

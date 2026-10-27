@@ -188,6 +188,27 @@ class PingEngine(
     suspend fun probeSites(): List<SiteProbeResult> = NetworkProbe(batterySaver).run().probes
 
     /**
+     * [rounds] more samples for each of a few finalists, one after another per node so
+     * the samples are spread in time, nodes in parallel.
+     */
+    suspend fun resample(
+        servers: List<ServerEntity>,
+        type: PingType,
+        rounds: Int
+    ): Map<Long, List<PingResult>> = coroutineScope {
+        val gate = Semaphore(if (batterySaver) 2 else 4)
+        servers.map { server ->
+            async {
+                gate.withPermit {
+                    val results = ArrayList<PingResult>(rounds)
+                    repeat(rounds) { results += pingServer(server, type) }
+                    server.id to results.toList()
+                }
+            }
+        }.awaitAll().toMap()
+    }
+
+    /**
      * Measures a whole list. Real-delay runs are expensive, so a cheap TCP sweep
      * filters out dead addresses first and only the reachable ones are timed properly.
      */

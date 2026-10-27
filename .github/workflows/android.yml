@@ -96,18 +96,26 @@ jobs:
           SHORT="${SHA::7}"
           OUT="$RUNNER_TEMP/apk"
           mkdir -p "$OUT"
-          cp "$(ls app/build/outputs/apk/release/*.apk | head -1)" "$OUT/volta-$SHORT-release.apk"
-          cp "$(ls app/build/outputs/apk/debug/*.apk | head -1)" "$OUT/volta-$SHORT-debug.apk"
+          # app-<abi>-release.apk → volta-<sha>-<abi>.apk
+          for f in app/build/outputs/apk/release/*.apk; do
+            abi=$(basename "$f" .apk); abi=${abi#app-}; abi=${abi%-release}
+            cp "$f" "$OUT/volta-$SHORT-$abi.apk"
+          done
+          cp app/build/outputs/apk/debug/*arm64-v8a*.apk "$OUT/volta-$SHORT-arm64-v8a-debug.apk"
+          ls -la "$OUT"
           gh release delete "$TAG" --cleanup-tag --yes 2>/dev/null || true
           gh release create "$TAG" "$OUT"/*.apk \
             --target "$SHA" --prerelease \
             --title "Volta APK · $BRANCH · $SHORT" \
             --notes "Сборка GitHub Actions: ветка \`$BRANCH\`, коммит $SHA.
 
-          - \`volta-$SHORT-release.apk\` — для установки на телефон.
-          - \`volta-$SHORT-debug.apk\` — то же с отладкой, если нужно снять логи.
+          - **\`volta-$SHORT-arm64-v8a.apk\`** — для почти всех телефонов, ставьте этот.
+          - \`volta-$SHORT-armeabi-v7a.apk\` — для старых 32-битных телефонов.
+          - \`volta-$SHORT-universal.apk\` — подходит всем, но весит ~150 МБ.
+          - \`volta-$SHORT-x86_64.apk\` — для эмулятора.
+          - \`volta-$SHORT-arm64-v8a-debug.apk\` — отладочная, если нужно снять логи.
 
-          Обе подписаны одним ключом, так что новая сборка ставится поверх старой."
+          Все подписаны одним ключом, так что новая сборка ставится поверх старой."
           echo "url=https://github.com/$GH_REPO/releases/tag/$TAG" >> "$GITHUB_OUTPUT"
           echo "### APK: https://github.com/$GH_REPO/releases/tag/$TAG" >> "$GITHUB_STEP_SUMMARY"
 
@@ -117,9 +125,7 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: volta-apk
-          path: |
-            app/build/outputs/apk/release/*.apk
-            app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/release/*arm64-v8a*.apk
           retention-days: 7
           if-no-files-found: error
 

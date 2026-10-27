@@ -10,7 +10,9 @@
     <string name="action_disconnect">Отключить</string>
     <string name="action_toggle">Переключить</string>
     <string name="tile_label">Volta VPN</string>
-    <string name="tile_mode_label">Режим Volta</string>
+    <string name="tile_home_lte_label">Volta Home+LTE</string>
+    <string name="tile_home_label">Volta Home</string>
+    <string name="tile_lte_label">Volta LTE</string>
     <string name="action_repick">Подобрать сервер</string>
     <string name="widget_description">Быстрое управление Volta</string>
     <string name="accessibility_connect">Кнопка подключения VPN</string>

@@ -62,11 +62,8 @@ class VoltaTileService : TileService() {
             openApp()
             return
         }
-        // The tile's own scope dies with onDestroy moments after the click; the
-        // application scope outlives it, so the connect actually completes.
-        VoltaApp.instance.appScope.launch {
-            runCatching { VoltaApp.instance.repository.connectWithMode() }
-        }
+        // Into the foreground service at once; it picks the node and connects there.
+        VoltaVpnService.autoConnect(this)
     }
 
     private fun openApp() {

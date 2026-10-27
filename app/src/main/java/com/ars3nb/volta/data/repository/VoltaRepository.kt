@@ -36,6 +36,9 @@ import com.ars3nb.volta.data.prefs.AppPreferences
 import com.ars3nb.volta.data.prefs.DesignTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -102,13 +105,33 @@ class VoltaRepository(private val context: Context) {
     val connectMode = prefs.connectMode
     val refreshOnLaunch = prefs.refreshOnLaunch
     val followNetwork = prefs.followNetwork
+    val autoRecheck = prefs.autoRecheck
     val lastRegime = prefs.networkRegime
+
+    private val _autoPicking = MutableStateFlow(false)
+
+    /** True while a connect is choosing its node, whoever asked (button, tile, boot). */
+    val autoPicking: StateFlow<Boolean> = _autoPicking.asStateFlow()
+
+    private val _pickPhase = MutableStateFlow<AutoBalancer.Phase?>(null)
+    val pickPhase: StateFlow<AutoBalancer.Phase?> = _pickPhase.asStateFlow()
+
+    private val _lastDecision = MutableStateFlow<AutoBalancer.Decision?>(null)
+
+    /** The latest auto pick with its measurements, for the "why this node" card. */
+    val lastDecision: StateFlow<AutoBalancer.Decision?> = _lastDecision.asStateFlow()
 
     init {
         // Lets the service recover from a dead exit without the UI process being alive.
         VoltaVpnService.failoverProvider = { failedId -> planAfterFailure(failedId) }
         // Always-on VPN and sticky restarts reconnect in the user's current mode.
-        VoltaVpnService.autoStartProvider = { connectWithMode() }
+        VoltaVpnService.autoStartProvider = { modeName ->
+            modeName?.let { name -> runCatching { ConnectMode.valueOf(name) }.getOrNull() }
+                ?.let { prefs.setConnectMode(it) }
+            connectWithMode()
+        }
+        // A node that passed the post-connect check is remembered for its group.
+        VoltaVpnService.healthyListener = { id -> rememberHealthy(id) }
     }
 
     fun hwid(): String = HwidProvider.getHwid(context)
@@ -613,12 +636,17 @@ class VoltaRepository(private val context: Context) {
         val battery = prefs.batterySaver.first()
         val balancer = AutoBalancer(PingEngine(context, batterySaver = battery), NetworkProbe(battery))
         val current = serverDao.getSelected()
+        val remembered = buildMap {
+            prefs.lastGoodHome.first().takeIf { it > 0 }?.let { put(BalancerScope.NORMAL, it) }
+            prefs.lastGoodLte.first().takeIf { it > 0 }?.let { put(BalancerScope.BYPASS, it) }
+        }
         val decision = balancer.choose(
             servers = serverDao.getAll(),
             scope = scope,
             current = current,
             pingType = prefs.defaultPingType.first(),
-            onPhase = onPhase
+            onPhase = onPhase,
+            remembered = remembered
         )
 
         decision.ranked.forEach { ranked ->
@@ -630,6 +658,7 @@ class VoltaRepository(private val context: Context) {
             )
         }
         if (decision.probes.isNotEmpty()) prefs.setNetworkRegime(decision.regime.name)
+        if (decision.ranked.isNotEmpty()) _lastDecision.value = decision
         decision.selected?.let { if (it.id != current?.id) selectServer(it.id) }
         decision
     }
@@ -738,7 +767,45 @@ class VoltaRepository(private val context: Context) {
     suspend fun connectWithMode(
         onPhase: (AutoBalancer.Phase) -> Unit = {}
     ): AutoBalancer.Decision? = withContext(Dispatchers.IO) {
-        connectMutex.withLock { connectWithModeLocked(onPhase) }
+        connectMutex.withLock {
+            _autoPicking.value = true
+            try {
+                connectWithModeLocked { phase ->
+                    _pickPhase.value = phase
+                    onPhase(phase)
+                }
+            } finally {
+                _autoPicking.value = false
+                _pickPhase.value = null
+            }
+        }
+    }
+
+    /**
+     * The tunnel on [serverId] answered its first health check: clear its failure
+     * streak and remember it as the node to start from next time in its group.
+     */
+    private suspend fun rememberHealthy(serverId: Long) = withContext(Dispatchers.IO) {
+        val server = serverDao.getById(serverId) ?: return@withContext
+        if (server.failStreak != 0) {
+            serverDao.updateHealth(
+                id = server.id,
+                latency = server.latencyMs,
+                ewma = server.ewmaMs,
+                failStreak = 0
+            )
+        }
+        val home = when (prefs.connectMode.first()) {
+            ConnectMode.AUTO_HOME -> true
+            ConnectMode.AUTO_LTE -> false
+            else -> when (server.role) {
+                ServerRole.NORMAL -> true
+                ServerRole.BYPASS_WHITELIST -> false
+                // A node that serves both: file it under the network it was used on.
+                else -> prefs.networkRegime.first() != NetworkRegime.WHITELIST_ONLY.name
+            }
+        }
+        prefs.setLastGood(home, server.id)
     }
 
     private suspend fun connectWithModeLocked(
@@ -759,15 +826,19 @@ class VoltaRepository(private val context: Context) {
 
     /** Re-run the auto choice on a live tunnel, e.g. after Wi-Fi ↔ mobile data. */
     suspend fun reevaluateAuto(): AutoBalancer.Decision? = withContext(Dispatchers.IO) {
-        if (!isConnected()) return@withContext null
-        val scope = prefs.connectMode.first().scope ?: return@withContext null
-        // runAutobalancer → selectServer reconnects by itself when the node changes.
-        runAutobalancer(scope)
+        // Same lock as a connect: a background re-check must not race the button.
+        connectMutex.withLock {
+            if (!isConnected()) return@withLock null
+            val scope = prefs.connectMode.first().scope ?: return@withLock null
+            // runAutobalancer → selectServer reconnects by itself when the node changes.
+            runAutobalancer(scope)
+        }
     }
 
     suspend fun setConnectMode(mode: ConnectMode) = prefs.setConnectMode(mode)
     suspend fun setRefreshOnLaunch(v: Boolean) = prefs.setRefreshOnLaunch(v)
     suspend fun setFollowNetwork(v: Boolean) = prefs.setFollowNetwork(v)
+    suspend fun setAutoRecheck(v: Boolean) = prefs.setAutoRecheck(v)
 
     /** The subscription's own Happ geodata files, if any were downloaded. */
     fun geoStatus(subscriptionId: Long): GeoNames? = geoData.installed(subscriptionId)

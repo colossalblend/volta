@@ -61,6 +61,18 @@ android {
         }
     }
 
+    // The Xray core is ~35 MB per CPU type and is stored uncompressed (see packaging),
+    // so a universal APK weighs 150 MB. One APK per ABI keeps a phone download at ~40 MB;
+    // the universal one stays for anyone unsure which to take.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = true
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
