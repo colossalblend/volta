@@ -17,7 +17,7 @@ class BootReceiver : BroadcastReceiver() {
         app.appScope.launch {
             try {
                 if (app.repository.autoConnect.first()) {
-                    runCatching { app.repository.connectSelected() }
+                    runCatching { app.repository.connectWithMode() }
                 }
             } finally {
                 pending.finish()

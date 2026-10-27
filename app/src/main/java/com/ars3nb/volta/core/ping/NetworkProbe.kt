@@ -25,39 +25,32 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
 /**
- * Decides what the *local* network currently allows, using the two-stage ladder from
- * the SpeedTester project.
+ * Decides what the *local* network currently allows, so the app knows which server
+ * group can work here.
  *
- * Stage 1 — foreign captive-portal endpoints over plain HTTP GET, accepting only a
- * literal `204`. A majority of successes means the open internet is reachable and
- * stage 2 is skipped entirely.
+ * Six hosts are probed in parallel, each tried DNS → TCP:443 → TCP:80 → HTTPS HEAD →
+ * HTTP HEAD, so a host that answers on any layer counts as reachable:
  *
- * Stage 2 — Russian hosts, each tried DNS → TCP:443 → TCP:80 → HTTPS HEAD → HTTP HEAD,
- * so a host that answers on any layer still counts as reachable.
+ *  - Home probes — google.com, ars3nb.ru, calculator888.ru. Any of them answering
+ *    means the open internet works: [NetworkRegime.OPEN], use Home servers.
+ *  - LTE probes — vk.ru, ya.ru, appbank.pw. When only these answer the device sits
+ *    behind a mobile whitelist: [NetworkRegime.WHITELIST_ONLY], use LTE servers.
  *
- * Nothing answering on either stage means there is no usable network at all, which is
- * reported as [NetworkRegime.BLOCKED] — the caller must not waste a ping sweep on it.
+ * Nothing answering means there is no usable network at all, which is reported as
+ * [NetworkRegime.BLOCKED] — the caller must not waste a ping sweep on it.
+ *
+ * This app is excluded from its own tunnel, so the probe describes the real network
+ * even while the VPN is up.
  */
 class NetworkProbe(
     private val batterySaver: Boolean = true
 ) {
 
-    /** Foreign endpoints that answer 204 on an unrestricted connection. */
-    val foreignTargets: List<Pair<String, String>> = listOf(
-        "https://www.google.com/generate_204" to "Google",
-        "https://www.gstatic.com/generate_204" to "Google Static",
-        "https://connectivitycheck.gstatic.com/generate_204" to "GStatic",
-        "http://connect.rom.miui.com/generate_204" to "MIUI"
-    )
+    /** Hosts that only answer on an unrestricted (home) connection. */
+    val homeHosts: List<Pair<String, String>> = HOME_HOSTS
 
-    /** Russian hosts that stay reachable under a white-list regime. */
-    val localHosts: List<Pair<String, String>> = listOf(
-        "ya.ru" to "Яндекс",
-        "rzd.ru" to "РЖД",
-        "ozon.ru" to "Ozon",
-        "alfabank.ru" to "Альфа-Банк",
-        "max.ru" to "Max"
-    )
+    /** Hosts that stay reachable under a mobile-operator whitelist. */
+    val lteHosts: List<Pair<String, String>> = LTE_HOSTS
 
     data class Outcome(
         val regime: NetworkRegime,
@@ -70,96 +63,46 @@ class NetworkProbe(
         val hasAnyNetwork: Boolean get() = foreignOk > 0 || localOk > 0
     }
 
-    /**
-     * Runs the ladder. Stage 2 only happens when stage 1 fails to reach a majority,
-     * so an open connection costs four parallel requests and nothing more.
-     */
+    /** All six hosts at once: an answer costs the slowest probe, not the sum. */
     suspend fun run(): Outcome = coroutineScope {
-        val gate = Semaphore(if (batterySaver) 3 else 5)
+        val gate = Semaphore(if (batterySaver) 4 else 6)
 
-        val foreign = foreignTargets.map { (url, label) ->
-            async { gate.withPermit { connectivityProbe(url, label) } }
-        }.awaitAll()
-        val foreignOk = foreign.count { it.reachable }
-
-        if (isMajority(foreignOk, foreign.size)) {
-            return@coroutineScope Outcome(
-                regime = NetworkRegime.OPEN,
-                probes = foreign,
-                foreignOk = foreignOk,
-                foreignTotal = foreign.size,
-                localOk = 0,
-                localTotal = 0
-            )
+        val home = homeHosts.map { (host, label) ->
+            async { gate.withPermit { hostProbe(host, label, SiteCategory.FOREIGN) } }
         }
-
-        val local = localHosts.map { (host, label) ->
-            async { gate.withPermit { hostProbe(host, label) } }
-        }.awaitAll()
-        val localOk = local.count { it.reachable }
-
-        val regime = when {
-            foreignOk == 0 && localOk == 0 -> NetworkRegime.BLOCKED
-            foreignOk > 0 -> NetworkRegime.OPEN
-            else -> NetworkRegime.WHITELIST_ONLY
+        val lte = lteHosts.map { (host, label) ->
+            async { gate.withPermit { hostProbe(host, label, SiteCategory.RU_WHITELIST) } }
         }
+        val homeResults = home.awaitAll()
+        val lteResults = lte.awaitAll()
+        val homeOk = homeResults.count { it.reachable }
+        val lteOk = lteResults.count { it.reachable }
 
         Outcome(
-            regime = regime,
-            probes = foreign + local,
-            foreignOk = foreignOk,
-            foreignTotal = foreign.size,
-            localOk = localOk,
-            localTotal = local.size
+            regime = classify(homeOk, lteOk),
+            probes = homeResults + lteResults,
+            foreignOk = homeOk,
+            foreignTotal = homeResults.size,
+            localOk = lteOk,
+            localTotal = lteResults.size
         )
     }
 
     /** Half or more of the endpoints answering counts as "the open internet works". */
     fun isMajority(success: Int, total: Int): Boolean = total > 0 && success * 2 >= total
 
-    // ------------------------------------------------------------------ stage 1
+    // ------------------------------------------------------------------ probing
 
-    private suspend fun connectivityProbe(url: String, label: String): SiteProbeResult {
-        repeat(ATTEMPTS) {
-            val ms = connectivityAttempt(url)
-            if (ms >= 0) {
-                return SiteProbeResult(url, label, SiteCategory.FOREIGN, ms, true)
-            }
-        }
-        return SiteProbeResult(url, label, SiteCategory.FOREIGN, -1, false)
-    }
-
-    private suspend fun connectivityAttempt(url: String): Long = withContext(Dispatchers.IO) {
-        val host = runCatching { java.net.URL(url).host }.getOrNull()
-            ?: return@withContext -1L
-        if (resolve(host) < 0) return@withContext -1L
-
-        val request = Request.Builder()
-            .url(url)
-            .get()
-            .header("User-Agent", USER_AGENT)
-            // A cached 204 would make a blocked network look open.
-            .cacheControl(CacheControl.FORCE_NETWORK)
-            .build()
-        val start = System.nanoTime()
-        runCatching {
-            client.newCall(request).execute().use { response ->
-                // Only a literal 204 counts: a portal or a block page answers 200.
-                if (response.code == 204) elapsed(start) else -1L
-            }
-        }.getOrDefault(-1L)
-    }
-
-    // ------------------------------------------------------------------ stage 2
-
-    private suspend fun hostProbe(host: String, label: String): SiteProbeResult {
+    private suspend fun hostProbe(
+        host: String,
+        label: String,
+        category: SiteCategory
+    ): SiteProbeResult {
         repeat(ATTEMPTS) {
             val ms = hostAttempt(host)
-            if (ms >= 0) {
-                return SiteProbeResult(host, label, SiteCategory.RU_WHITELIST, ms, true)
-            }
+            if (ms >= 0) return SiteProbeResult(host, label, category, ms, true)
         }
-        return SiteProbeResult(host, label, SiteCategory.RU_WHITELIST, -1, false)
+        return SiteProbeResult(host, label, category, -1, false)
     }
 
     private suspend fun hostAttempt(host: String): Long = withContext(Dispatchers.IO) {
@@ -235,6 +178,28 @@ class NetworkProbe(
     }
 
     companion object {
+        val HOME_HOSTS: List<Pair<String, String>> = listOf(
+            "google.com" to "Google",
+            "ars3nb.ru" to "ars3nb",
+            "calculator888.ru" to "calculator888"
+        )
+
+        val LTE_HOSTS: List<Pair<String, String>> = listOf(
+            "vk.ru" to "VK",
+            "ya.ru" to "Яндекс",
+            "appbank.pw" to "appbank"
+        )
+
+        /**
+         * Any Home host answering wins: whitelists never let google.com through, so a
+         * single success proves the open internet. Only LTE hosts → mobile whitelist.
+         */
+        fun classify(homeOk: Int, lteOk: Int): NetworkRegime = when {
+            homeOk > 0 -> NetworkRegime.OPEN
+            lteOk > 0 -> NetworkRegime.WHITELIST_ONLY
+            else -> NetworkRegime.BLOCKED
+        }
+
         private const val ATTEMPTS = 2
         private const val DNS_TIMEOUT_MS = 1200L
         private const val TCP_TIMEOUT_MS = 1200

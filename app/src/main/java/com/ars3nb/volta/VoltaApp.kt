@@ -7,7 +7,9 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.ars3nb.volta.core.HwidProvider
+import com.ars3nb.volta.core.vpn.NetworkWatcher
 import com.ars3nb.volta.core.vpn.VoltaVpnService
+import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.repository.VoltaRepository
 import com.ars3nb.volta.ui.widget.VoltaWidget
 import com.ars3nb.volta.worker.SubscriptionRefreshWorker
@@ -17,6 +19,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
@@ -47,6 +50,16 @@ class VoltaApp : Application() {
                 runCatching { VoltaWidget().updateAll(this@VoltaApp) }
             }
         }
+
+        // Wi-Fi ↔ mobile data: the right server group may have changed under the tunnel.
+        NetworkWatcher(this, appScope) { _ ->
+            if (repository.isConnected() &&
+                repository.followNetwork.first() &&
+                repository.connectMode.first() == ConnectMode.AUTO_HOME_LTE
+            ) {
+                repository.reevaluateAuto()
+            }
+        }.start()
 
         // Quiet background refresh. The worker itself honours each subscription's own
         // update interval, so waking hourly costs almost nothing; UPDATE (not KEEP) lets

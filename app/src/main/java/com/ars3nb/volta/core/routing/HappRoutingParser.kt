@@ -26,7 +26,15 @@ object HappRoutingParser {
         val remoteDns: String = "",
         val domesticDns: String = "",
         val rawJson: String = "",
-        val activate: Boolean = true
+        val activate: Boolean = true,
+        /** Happ `Geoipurl` — the provider's own geoip.dat. */
+        val geoipUrl: String = "",
+        /** Happ `Geositeurl` — the provider's own geosite.dat. */
+        val geositeUrl: String = "",
+        /** Happ `LastUpdated` — bumped by the provider when the lists change. */
+        val geoVersion: String = "",
+        /** Happ `DnsHosts` as a flat JSON object. */
+        val dnsHostsJson: String = ""
     )
 
     fun extractFromBodyAndHeaders(body: String, routingHeader: String = ""): ParsedRouting? {
@@ -170,16 +178,16 @@ object HappRoutingParser {
 
             val name = o.str("Name").ifBlank { "Правила подписки" }
             val domainStrategy = o.str("DomainStrategy").ifBlank { "AsIs" }
-            val remoteDns = listOf(
-                o.str("RemoteDNSDomain"),
-                o.str("RemoteDNSIP"),
-                o.str("RemoteDns")
-            ).firstOrNull { it.isNotBlank() }.orEmpty()
-            val domesticDns = listOf(
-                o.str("DomesticDNSDomain"),
-                o.str("DomesticDNSIP"),
-                o.str("DomesticDns")
-            ).firstOrNull { it.isNotBlank() }.orEmpty()
+            val remoteDns = dnsAddress(
+                type = o.str("RemoteDNSType"),
+                domain = o.str("RemoteDNSDomain"),
+                ip = o.str("RemoteDNSIP")
+            ).ifBlank { o.str("RemoteDns") }
+            val domesticDns = dnsAddress(
+                type = o.str("DomesticDNSType"),
+                domain = o.str("DomesticDNSDomain"),
+                ip = o.str("DomesticDNSIP")
+            ).ifBlank { o.str("DomesticDns") }
 
             val rules = mutableListOf<RoutingRuleDto>()
             var order = 0
@@ -269,11 +277,55 @@ object HappRoutingParser {
                 remoteDns = remoteDns,
                 domesticDns = domesticDns,
                 rawJson = json,
-                activate = activate
+                activate = activate,
+                geoipUrl = o.str("Geoipurl").ifBlank { o.str("GeoipUrl") }.trim(),
+                geositeUrl = o.str("Geositeurl").ifBlank { o.str("GeositeUrl") }.trim(),
+                geoVersion = o.str("LastUpdated").trim(),
+                dnsHostsJson = dnsHosts(o)
             )
         } catch (_: Exception) {
             null
         }
+    }
+
+    /**
+     * Happ describes a DNS server as type + domain + ip. DoH wants a URL, plain DNS
+     * (DoU/UDP) wants the bare address; whichever half is present fills the gap.
+     */
+    fun dnsAddress(type: String, domain: String, ip: String): String {
+        val d = domain.trim()
+        val i = ip.trim()
+        return when (type.trim().lowercase()) {
+            "dou", "udp", "dns", "plain" -> i.ifBlank { d.substringAfter("://").substringBefore('/') }
+            "dot", "tls" -> when {
+                d.isNotBlank() -> if (d.contains("://")) d else "tls://$d"
+                i.isNotBlank() -> "tls://$i"
+                else -> ""
+            }
+
+            "doh", "https" -> when {
+                d.startsWith("https://", ignoreCase = true) -> d
+                d.isNotBlank() -> "https://$d/dns-query"
+                i.isNotBlank() -> "https://$i/dns-query"
+                else -> ""
+            }
+
+            else -> d.ifBlank { i }
+        }
+    }
+
+    /** `DnsHosts` arrives either as an object or as a JSON string holding one. */
+    private fun dnsHosts(o: JsonObject): String {
+        if (!o.has("DnsHosts") || o.get("DnsHosts").isJsonNull) return ""
+        val el = o.get("DnsHosts")
+        val obj = when {
+            el.isJsonObject -> el.asJsonObject
+            el.isJsonPrimitive -> runCatching {
+                JsonParser.parseString(el.asString).asJsonObject
+            }.getOrNull()
+            else -> null
+        } ?: return ""
+        return if (obj.size() == 0) "" else obj.toString()
     }
 
     private fun parseXrayRouting(routing: JsonObject, activate: Boolean): ParsedRouting {

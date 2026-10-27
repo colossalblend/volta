@@ -1,6 +1,13 @@
 package com.ars3nb.volta.ui.theme
 
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Shapes
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -27,7 +34,13 @@ data class VoltaPalette(
     val poor: Color,
     val cardBorder: Color,
     val elevated: Color,
-    val isDark: Boolean
+    val isDark: Boolean,
+    /** Content drawn on a filled good/accent surface (the lit power dial). */
+    val onAccent: Color = Color(0xFF07150E),
+    /** Home group colour (Wi-Fi / open internet). */
+    val home: Color = Color(0xFF5AA9E6),
+    /** LTE group colour (mobile whitelist). */
+    val lte: Color = Color(0xFFE0B341)
 ) {
     val heroBrush: Brush get() = Brush.verticalGradient(listOf(heroTop, heroBottom))
 
@@ -159,16 +172,28 @@ private val EmberScheme = darkColorScheme(
     onError = Color.White
 )
 
+private val VoltaShapes = Shapes(
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(18.dp),
+    large = RoundedCornerShape(26.dp),
+    extraLarge = RoundedCornerShape(34.dp)
+)
+
 @Composable
 fun VoltaTheme(
     design: DesignTheme = DesignTheme.VOLTA,
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
+    val dynamic = design == DesignTheme.DYNAMIC && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val useLight = design == DesignTheme.LIGHT ||
-        (design == DesignTheme.SYSTEM && !darkTheme)
+        ((design == DesignTheme.SYSTEM || design == DesignTheme.DYNAMIC) && !darkTheme)
+    val context = LocalContext.current
 
     val scheme = when {
+        dynamic && useLight -> dynamicLightColorScheme(context)
+        dynamic -> dynamicDarkColorScheme(context)
         useLight -> VoltaLightScheme
         design == DesignTheme.OCEAN -> OceanScheme
         design == DesignTheme.EMBER -> EmberScheme
@@ -176,6 +201,21 @@ fun VoltaTheme(
     }
 
     val palette = when {
+        dynamic -> VoltaPalette(
+            heroTop = scheme.primaryContainer.copy(alpha = 0.55f),
+            heroBottom = scheme.background,
+            glow = scheme.primary,
+            good = if (useLight) Color(0xFF2C7F5B) else VoltaSuccess,
+            fair = if (useLight) Color(0xFFB07C15) else VoltaWarning,
+            poor = scheme.error,
+            cardBorder = scheme.outlineVariant,
+            elevated = scheme.surfaceContainerHigh,
+            isDark = !useLight,
+            onAccent = if (useLight) Color.White else Color(0xFF07150E),
+            home = scheme.primary,
+            lte = scheme.tertiary
+        )
+
         useLight -> VoltaPalette(
             heroTop = Color(0xFFFFE3CE),
             heroBottom = LightBackground,
@@ -185,7 +225,10 @@ fun VoltaTheme(
             poor = Color(0xFFBE3B32),
             cardBorder = LightOutline,
             elevated = LightSurfaceHigh,
-            isDark = false
+            isDark = false,
+            onAccent = Color.White,
+            home = Color(0xFF2F74B5),
+            lte = Color(0xFFA9710E)
         )
 
         design == DesignTheme.OCEAN -> VoltaPalette(
@@ -229,6 +272,7 @@ fun VoltaTheme(
         MaterialTheme(
             colorScheme = scheme,
             typography = VoltaTypography,
+            shapes = VoltaShapes,
             content = content
         )
     }

@@ -36,7 +36,7 @@ class Converters {
         ServerEntity::class,
         RoutingProfileEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -103,6 +103,17 @@ abstract class VoltaDatabase : RoomDatabase() {
             }
         }
 
+        /** v6: Happ routing geodata (Geoipurl/Geositeurl/LastUpdated) and DnsHosts. */
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE routing_profiles ADD COLUMN geoipUrl TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE routing_profiles ADD COLUMN geositeUrl TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE routing_profiles ADD COLUMN geoVersion TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE routing_profiles ADD COLUMN geoUpdatedAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE routing_profiles ADD COLUMN dnsHostsJson TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         @Volatile
         private var INSTANCE: VoltaDatabase? = null
 
@@ -113,7 +124,7 @@ abstract class VoltaDatabase : RoomDatabase() {
                     VoltaDatabase::class.java,
                     "volta.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .build()
                     .also { INSTANCE = it }
             }

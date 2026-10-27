@@ -92,6 +92,9 @@ class AutoBalancer(
         }
     }
 
+    /** What a run is doing right now, for the connect button's caption. */
+    enum class Phase { PROBING_NETWORK, MEASURING }
+
     data class Ranked(
         val server: ServerEntity,
         val latencyMs: Long,
@@ -125,7 +128,8 @@ class AutoBalancer(
         servers: List<ServerEntity>,
         scope: BalancerScope,
         current: ServerEntity? = null,
-        pingType: PingType = PingType.REAL_DELAY
+        pingType: PingType = PingType.REAL_DELAY,
+        onPhase: (Phase) -> Unit = {}
     ): Decision {
         val dialable = servers.filter { ConfigBuilder.canDial(it) }
         if (dialable.isEmpty()) {
@@ -143,6 +147,7 @@ class AutoBalancer(
         val pool: List<ServerEntity>
 
         if (scope == BalancerScope.ALL) {
+            onPhase(Phase.PROBING_NETWORK)
             val outcome = networkProbe.run()
             regime = outcome.regime
             probes = outcome.probes
@@ -169,6 +174,7 @@ class AutoBalancer(
             }
         }
 
+        onPhase(Phase.MEASURING)
         val measurements = pingEngine.pingServers(pool, pingType).toMap()
 
         val ranked = pool
@@ -259,14 +265,14 @@ class AutoBalancer(
         val speed = ms?.let { " · $it мс" }.orEmpty()
         val head = when (scope) {
             BalancerScope.ALL -> when (regime) {
-                NetworkRegime.OPEN -> "Интернет открыт"
-                NetworkRegime.WHITELIST_ONLY -> "Работает только «белый список»"
+                NetworkRegime.OPEN -> "Сеть Home"
+                NetworkRegime.WHITELIST_ONLY -> "Сеть LTE (белый список)"
                 NetworkRegime.BLOCKED -> "Сеть почти не отвечает"
                 NetworkRegime.UNKNOWN -> "Сеть не проверена"
             }
 
-            BalancerScope.NORMAL -> "Обычные серверы"
-            BalancerScope.BYPASS -> "Серверы обхода"
+            BalancerScope.NORMAL -> "Авто Home"
+            BalancerScope.BYPASS -> "Авто LTE"
         }
         val tail = when {
             selected == null -> "подходящих серверов нет"

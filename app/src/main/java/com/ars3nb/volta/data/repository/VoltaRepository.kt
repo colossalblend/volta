@@ -7,6 +7,8 @@ import com.ars3nb.volta.core.parser.ConfigParser
 import com.ars3nb.volta.core.ping.IpChecker
 import com.ars3nb.volta.core.ping.NetworkProbe
 import com.ars3nb.volta.core.ping.PingEngine
+import com.ars3nb.volta.core.routing.GeoDataManager
+import com.ars3nb.volta.core.routing.GeoNames
 import com.ars3nb.volta.core.routing.HappRoutingParser
 import com.ars3nb.volta.core.routing.RoutingEngine
 import com.ars3nb.volta.core.routing.RoutingResolver
@@ -15,6 +17,7 @@ import com.ars3nb.volta.core.vpn.ConfigBuilder
 import com.ars3nb.volta.core.vpn.VoltaVpnService
 import com.ars3nb.volta.data.db.VoltaDatabase
 import com.ars3nb.volta.data.model.BalancerScope
+import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.IpInfo
 import com.ars3nb.volta.data.model.NetworkRegime
 import com.ars3nb.volta.data.model.PerAppMode
@@ -52,6 +55,7 @@ class VoltaRepository(private val context: Context) {
     private val subDao = db.subscriptionDao()
     private val serverDao = db.serverDao()
     private val routingDao = db.routingDao()
+    private val geoData = GeoDataManager(context.filesDir)
 
     private val http = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
@@ -81,6 +85,10 @@ class VoltaRepository(private val context: Context) {
     val sendHwid = prefs.sendHwid
     val autoConnect = prefs.autoConnect
     val localDns = prefs.localDns
+    val connectMode = prefs.connectMode
+    val refreshOnLaunch = prefs.refreshOnLaunch
+    val followNetwork = prefs.followNetwork
+    val lastRegime = prefs.networkRegime
 
     init {
         // Lets the service recover from a dead exit without the UI process being alive.
@@ -163,18 +171,24 @@ class VoltaRepository(private val context: Context) {
             serverDao.getBySubscription(id).firstOrNull()?.let { serverDao.selectServer(it.id) }
         }
 
-        // Routing shipped by the provider (routing header, happ://, JSON, Xray config).
-        val routing = HappRoutingParser.extractFromBodyAndHeaders(
-            body = body,
-            routingHeader = fetched.routingHeader
-        ) ?: parsed.routingJson.takeIf { it.isNotBlank() }?.let {
-            HappRoutingParser.extractFromBodyAndHeaders(it, "")
-        }
+        // Routing shipped by the provider (routing header, happ://, Happ JSON).
+        // A JSON subscription keeps its routing inside every config: that is used as-is
+        // at connect time and is deliberately NOT turned into a separate profile.
+        val jsonConfigs = looksLikeXrayConfigs(body)
+        val routing = HappRoutingParser.parseRoutingLink(fetched.routingHeader)
+            ?: if (jsonConfigs) {
+                null
+            } else {
+                HappRoutingParser.extractFromBodyAndHeaders(body = body, routingHeader = "")
+                    ?: parsed.routingJson.takeIf { it.isNotBlank() }?.let {
+                        HappRoutingParser.extractFromBodyAndHeaders(it, "")
+                    }
+            }
 
-        val providerRoutingJson = if (routing != null) {
-            routing.rawJson.ifBlank { RoutingEngine.serializeRules(routing.rules) }
-        } else {
-            parsed.routingJson
+        val providerRoutingJson = when {
+            routing != null -> routing.rawJson.ifBlank { RoutingEngine.serializeRules(routing.rules) }
+            jsonConfigs -> ""
+            else -> parsed.routingJson
         }
 
         var boundProfileId = sub.routingProfileId
@@ -188,6 +202,7 @@ class VoltaRepository(private val context: Context) {
                 routingDao.delete(stale)
                 if (boundProfileId == stale.id) boundProfileId = 0L
             }
+            geoData.delete(id)
         }
 
         subDao.update(
@@ -247,21 +262,53 @@ class VoltaRepository(private val context: Context) {
             domesticDns = routing.domesticDns.ifBlank {
                 existing?.domesticDns ?: "https://dns.google/dns-query"
             },
-            updatedAt = System.currentTimeMillis()
+            updatedAt = System.currentTimeMillis(),
+            geoipUrl = routing.geoipUrl,
+            geositeUrl = routing.geositeUrl,
+            geoVersion = routing.geoVersion,
+            geoUpdatedAt = existing?.geoUpdatedAt ?: 0,
+            dnsHostsJson = routing.dnsHostsJson
         )
 
+        // Happ behaviour: the provider's own geoip/geosite follow the profile and are
+        // fetched again whenever it says the lists changed. A failed download keeps the
+        // previous files; the next refresh tries again.
+        val withGeo = when {
+            entity.geoipUrl.isBlank() && entity.geositeUrl.isBlank() -> {
+                geoData.delete(subscriptionId)
+                entity.copy(geoUpdatedAt = 0)
+            }
+
+            geoData.isStale(subscriptionId, entity, existing) &&
+                geoData.download(subscriptionId, entity) ->
+                entity.copy(geoUpdatedAt = System.currentTimeMillis())
+
+            else -> entity
+        }
+
         return if (existing != null) {
-            routingDao.update(entity)
+            routingDao.update(withGeo)
             existing.id
         } else {
-            routingDao.insert(entity)
+            routingDao.insert(withGeo)
         }
+    }
+
+    /** A body made of full Xray configs (v2rayNG-style JSON subscription). */
+    private fun looksLikeXrayConfigs(body: String): Boolean {
+        val payload = body.lineSequence()
+            .filterNot { it.trimStart().startsWith("#") }
+            .joinToString("\n")
+            .trim()
+        return (payload.startsWith("[") || payload.startsWith("{")) &&
+            payload.contains("\"outbounds\"")
     }
 
     suspend fun deleteSubscription(id: Long) = withContext(Dispatchers.IO) {
         routingDao.getBySubscription(id)?.let { subDao.unbindRoutingProfile(it.id) }
         serverDao.deleteBySubscription(id)
         routingDao.deleteBySubscription(id)
+        geoData.delete(id)
         subDao.deleteById(id)
         if (serverDao.getSelected() == null) {
             serverDao.getAll().firstOrNull()?.let { serverDao.selectServer(it.id) }
@@ -411,10 +458,30 @@ class VoltaRepository(private val context: Context) {
      *  3. provider rule JSON is only ever read from the server's own subscription,
      *     and only when the active profile is that subscription's provider profile.
      */
-    private suspend fun routingFor(server: ServerEntity): Pair<RoutingProfileEntity?, String> {
+    private data class RoutingChoice(
+        val profile: RoutingProfileEntity?,
+        val providerJson: String,
+        val geo: GeoNames?,
+        val preferServerRouting: Boolean
+    )
+
+    private suspend fun routingFor(server: ServerEntity): RoutingChoice {
         val sub = server.subscriptionId?.let { subDao.getById(it) }
-        val profile = RoutingResolver.resolve(sub, routingDao.getAll())
-        return profile to RoutingResolver.providerJsonFor(sub, profile)
+        val profiles = routingDao.getAll()
+        val profile = RoutingResolver.resolve(sub, profiles)
+        // Geodata is private to its subscription: only that subscription's own profile
+        // may point its rules at the downloaded files.
+        val geo = if (sub != null && profile?.sourceSubscriptionId == sub.id) {
+            geoData.installed(sub.id)
+        } else null
+        val explicitAppProfile = sub != null && sub.routingProfileId > 0 &&
+            profiles.firstOrNull { it.id == sub.routingProfileId }?.sourceSubscriptionId == null
+        return RoutingChoice(
+            profile = profile,
+            providerJson = RoutingResolver.providerJsonFor(sub, profile),
+            geo = geo,
+            preferServerRouting = sub != null && !explicitAppProfile
+        )
     }
 
     /** The profile that would actually be used for this subscription right now. */
@@ -523,7 +590,8 @@ class VoltaRepository(private val context: Context) {
      * every server being marked dead.
      */
     suspend fun runAutobalancer(
-        scope: BalancerScope = BalancerScope.ALL
+        scope: BalancerScope = BalancerScope.ALL,
+        onPhase: (AutoBalancer.Phase) -> Unit = {}
     ): AutoBalancer.Decision = withContext(Dispatchers.IO) {
         val battery = prefs.batterySaver.first()
         val balancer = AutoBalancer(PingEngine(context, batterySaver = battery), NetworkProbe(battery))
@@ -532,7 +600,8 @@ class VoltaRepository(private val context: Context) {
             servers = serverDao.getAll(),
             scope = scope,
             current = current,
-            pingType = prefs.defaultPingType.first()
+            pingType = prefs.defaultPingType.first(),
+            onPhase = onPhase
         )
 
         decision.ranked.forEach { ranked ->
@@ -578,13 +647,15 @@ class VoltaRepository(private val context: Context) {
         }
         ConfigBuilder.dialProblem(server)?.let { error(it) }
 
-        val (profile, providerJson) = routingFor(server)
+        val routing = routingFor(server)
         val config = ConfigBuilder.build(
             server = server,
-            profile = profile,
-            providerRoutingJson = providerJson,
+            profile = routing.profile,
+            providerRoutingJson = routing.providerJson,
             batterySaver = prefs.batterySaver.first(),
-            localDns = prefs.localDns.first()
+            localDns = prefs.localDns.first(),
+            geo = routing.geo,
+            preferServerRouting = routing.preferServerRouting
         )
 
         VoltaVpnService.ConnectionPlan(
@@ -610,9 +681,13 @@ class VoltaRepository(private val context: Context) {
                         failStreak = (failed.failStreak + 1).coerceAtMost(9)
                     )
                 }
-                val next = serverDao.getAll()
+                val candidates = serverDao.getAll()
                     .filter { it.id != failedServerId && ConfigBuilder.canDial(it) }
-                    .minByOrNull { it.score } ?: return@runCatching null
+                // Stay inside the group the user asked for: an LTE exit is no use on
+                // Wi-Fi and a Home exit dies on a whitelisted mobile network.
+                val next = groupFor(candidates).minByOrNull { it.score }
+                    ?: candidates.minByOrNull { it.score }
+                    ?: return@runCatching null
                 serverDao.selectServer(next.id)
                 buildConnectionPlan(excludeServerId = failedServerId)
             }.getOrNull()
@@ -622,6 +697,54 @@ class VoltaRepository(private val context: Context) {
         val plan = buildConnectionPlan()
         VoltaVpnService.connect(context, plan)
     }
+
+    /** Servers of the group the current connect mode works with. */
+    private suspend fun groupFor(servers: List<ServerEntity>): List<ServerEntity> =
+        when (prefs.connectMode.first()) {
+            ConnectMode.AUTO_HOME -> AutoBalancer.poolFor(servers, BalancerScope.NORMAL)
+            ConnectMode.AUTO_LTE -> AutoBalancer.poolFor(servers, BalancerScope.BYPASS)
+            ConnectMode.AUTO_HOME_LTE -> AutoBalancer.filterByRegime(
+                servers,
+                runCatching { NetworkRegime.valueOf(prefs.networkRegime.first()) }
+                    .getOrDefault(NetworkRegime.UNKNOWN)
+            )
+
+            ConnectMode.MANUAL -> servers
+        }
+
+    /**
+     * The big button. Auto modes first pick the best node of their group (Home+LTE
+     * probes the network to learn which group that is), then raise the tunnel on it.
+     * A run that measured nothing still connects to the best node known so far: the
+     * probe can be wrong, the tunnel attempt tells the truth.
+     */
+    suspend fun connectWithMode(
+        onPhase: (AutoBalancer.Phase) -> Unit = {}
+    ): AutoBalancer.Decision? = withContext(Dispatchers.IO) {
+        val scope = prefs.connectMode.first().scope
+        val decision = scope?.let { runAutobalancer(it, onPhase) }
+        if (decision != null && decision.selected == null) {
+            error(decision.reason)
+        }
+        // A switch on a live tunnel already reconnected inside selectServer().
+        if (!(isConnected() && decision?.switched == true)) connectSelected()
+        decision
+    }
+
+    /** Re-run the auto choice on a live tunnel, e.g. after Wi-Fi ↔ mobile data. */
+    suspend fun reevaluateAuto(): AutoBalancer.Decision? = withContext(Dispatchers.IO) {
+        if (!isConnected()) return@withContext null
+        val scope = prefs.connectMode.first().scope ?: return@withContext null
+        // runAutobalancer → selectServer reconnects by itself when the node changes.
+        runAutobalancer(scope)
+    }
+
+    suspend fun setConnectMode(mode: ConnectMode) = prefs.setConnectMode(mode)
+    suspend fun setRefreshOnLaunch(v: Boolean) = prefs.setRefreshOnLaunch(v)
+    suspend fun setFollowNetwork(v: Boolean) = prefs.setFollowNetwork(v)
+
+    /** The subscription's own Happ geodata files, if any were downloaded. */
+    fun geoStatus(subscriptionId: Long): GeoNames? = geoData.installed(subscriptionId)
 
     fun disconnect() = VoltaVpnService.disconnect(context)
 

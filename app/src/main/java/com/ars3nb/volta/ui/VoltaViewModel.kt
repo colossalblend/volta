@@ -6,7 +6,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.ars3nb.volta.VoltaApp
 import com.ars3nb.volta.core.routing.RoutingEngine
+import com.ars3nb.volta.core.balancer.AutoBalancer
 import com.ars3nb.volta.data.model.BalancerScope
+import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.IpInfo
 import com.ars3nb.volta.data.model.NetworkRegime
 import com.ars3nb.volta.data.model.PerAppMode
@@ -87,6 +89,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     private val _serverPool = MutableStateFlow(ServerPool.ALL)
     private val _query = MutableStateFlow("")
     private val _runningScope = MutableStateFlow<BalancerScope?>(null)
+    private val _connectPhase = MutableStateFlow(ConnectPhase.IDLE)
     private var retryJob: Job? = null
 
     val needsVpnPermission = _needsVpnPermission.asStateFlow()
@@ -95,6 +98,16 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Which balancer button is currently working, for the spinner in the UI. */
     val runningScope = _runningScope.asStateFlow()
+
+    /** What the big button is doing before the service takes over. */
+    val connectPhase = _connectPhase.asStateFlow()
+
+    val connectMode = repo.connectMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ConnectMode.AUTO_HOME_LTE)
+    val refreshOnLaunch = repo.refreshOnLaunch
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+    val followNetwork = repo.followNetwork
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
     private val connection = combine(
         repo.vpnState, repo.selectedServer, repo.traffic, repo.connectedSince, repo.vpnError
@@ -170,7 +183,14 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     init {
         viewModelScope.launch {
             repo.ensureSeeded()
+            // Last verdict first, so the home screen is not blank while the probe runs.
+            _regime.value = runCatching { NetworkRegime.valueOf(repo.lastRegime.first()) }
+                .getOrDefault(NetworkRegime.UNKNOWN)
             if (repo.pingOnStart.first()) runStartupProbes()
+            // Happ-style: subscriptions and their routing are pulled on every launch.
+            if (repo.refreshOnLaunch.first()) {
+                launch { runCatching { repo.refreshAllSubscriptions() } }
+            }
             // The setting says "connect on launch", so honour it here too — the boot
             // receiver alone only covered a reboot.
             if (repo.autoConnect.first() &&
@@ -206,6 +226,8 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     // ------------------------------------------------------------- connection
 
     fun toggleConnect() {
+        // A tap during probing/pinging cancels nothing yet — ignore it.
+        if (_connectPhase.value != ConnectPhase.IDLE) return
         when (uiState.value.vpnState) {
             VpnConnectionState.CONNECTED, VpnConnectionState.CONNECTING -> disconnect()
             else -> connect()
@@ -228,23 +250,53 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     private fun doConnect() {
         viewModelScope.launch {
             _busy.value = true
+            _connectPhase.value = ConnectPhase.PREPARING
             try {
-                repo.connectSelected()
+                val decision = repo.connectWithMode { phase ->
+                    _connectPhase.value = when (phase) {
+                        AutoBalancer.Phase.PROBING_NETWORK -> ConnectPhase.PROBING
+                        AutoBalancer.Phase.MEASURING -> ConnectPhase.MEASURING
+                    }
+                }
+                if (decision != null) {
+                    if (decision.probes.isNotEmpty()) {
+                        _regime.value = decision.regime
+                        _probes.value = decision.probes
+                    }
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 _message.value = e.userMessage("Не удалось подключиться")
             } finally {
                 _busy.value = false
+                _connectPhase.value = ConnectPhase.IDLE
             }
         }
     }
+
+    /** Picking a mode while connected moves the tunnel to that group right away. */
+    fun setConnectMode(mode: ConnectMode) {
+        viewModelScope.launch {
+            repo.setConnectMode(mode)
+            if (uiState.value.isConnected && mode != ConnectMode.MANUAL) doConnect()
+        }
+    }
+
+    fun setRefreshOnLaunch(v: Boolean) = viewModelScope.launch { repo.setRefreshOnLaunch(v) }
+    fun setFollowNetwork(v: Boolean) = viewModelScope.launch { repo.setFollowNetwork(v) }
+
+    fun geoStatus(subscriptionId: Long) = repo.geoStatus(subscriptionId)
 
     fun disconnect() = repo.disconnect()
 
     // ---------------------------------------------------------------- servers
 
-    fun selectServer(id: Long) = viewModelScope.launch { repo.selectServer(id) }
+    /** Choosing a server by hand switches the button to "Свой сервер". */
+    fun selectServer(id: Long) = viewModelScope.launch {
+        repo.setConnectMode(ConnectMode.MANUAL)
+        repo.selectServer(id)
+    }
     fun toggleFavorite(id: Long) = viewModelScope.launch { repo.toggleFavorite(id) }
     fun setServerRole(id: Long, role: ServerRole) =
         viewModelScope.launch { repo.updateServerRole(id, role) }
@@ -525,6 +577,13 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
 }
 
 private const val RETRY_DELAY_MS = 20_000L
+
+enum class ConnectPhase(val caption: String) {
+    IDLE(""),
+    PREPARING("Готовлю подключение…"),
+    PROBING("Проверяю сеть: Home или LTE…"),
+    MEASURING("Ищу самый быстрый сервер…")
+}
 
 private fun Throwable.userMessage(fallback: String): String =
     message?.trim()?.takeIf { it.isNotEmpty() } ?: fallback

@@ -59,6 +59,8 @@ fun SettingsScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
     val autoConnect by vm.autoConnect.collectAsStateWithLifecycle()
     val sendHwid by vm.sendHwid.collectAsStateWithLifecycle()
     val pingType by vm.defaultPingType.collectAsStateWithLifecycle()
+    val refreshOnLaunch by vm.refreshOnLaunch.collectAsStateWithLifecycle()
+    val followNetwork by vm.followNetwork.collectAsStateWithLifecycle()
     val clipboard = LocalClipboardManager.current
     val palette = VoltaTheme.palette
 
@@ -102,6 +104,26 @@ fun SettingsScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
                 }
             }
 
+            item { SectionHeader("Подключение") }
+            item {
+                VoltaCard {
+                    ToggleRow(
+                        title = "Следить за сменой сети",
+                        subtitle = "В режиме «Авто Home+LTE» при переходе Wi-Fi ↔ мобильный " +
+                            "интернет сеть проверяется заново и сервер меняется на нужную группу.",
+                        checked = followNetwork,
+                        onChecked = vm::setFollowNetwork
+                    )
+                    ToggleRow(
+                        title = "Обновлять подписки при запуске",
+                        subtitle = "Как в Happ: серверы, правила маршрутизации и geoip/geosite " +
+                            "каждой подписки подтягиваются при открытии приложения.",
+                        checked = refreshOnLaunch,
+                        onChecked = vm::setRefreshOnLaunch
+                    )
+                }
+            }
+
             item { SectionHeader("Проверка серверов") }
             item {
                 VoltaCard {
@@ -124,8 +146,8 @@ fun SettingsScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
                     Spacer(Modifier.height(10.dp))
                     ToggleRow(
                         title = "Проверять сеть при запуске",
-                        subtitle = "Сразу видно, открыт ли интернет или работает только " +
-                            "«белый список».",
+                        subtitle = "Сразу видно, какая сейчас сеть: Home (открытый интернет) " +
+                            "или LTE (только белый список).",
                         checked = pingOnStart,
                         onChecked = vm::setPingOnStart
                     )
@@ -273,4 +295,5 @@ private fun themeLabel(t: DesignTheme) = when (t) {
     DesignTheme.LIGHT -> "Светлая"
     DesignTheme.OCEAN -> "Океан"
     DesignTheme.EMBER -> "Уголь"
+    DesignTheme.DYNAMIC -> "Обои (Material You)"
 }

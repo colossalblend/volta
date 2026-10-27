@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.PerAppMode
 import com.ars3nb.volta.data.model.PingType
 import androidx.datastore.preferences.core.stringSetPreferencesKey
@@ -17,7 +18,10 @@ import kotlinx.coroutines.flow.map
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "volta_prefs")
 
 enum class DesignTheme {
-    SYSTEM, VOLTA, LIGHT, OCEAN, EMBER
+    SYSTEM, VOLTA, LIGHT, OCEAN, EMBER,
+
+    /** Material You: colours taken from the wallpaper on Android 12+. */
+    DYNAMIC
 }
 
 class AppPreferences(private val context: Context) {
@@ -36,6 +40,33 @@ class AppPreferences(private val context: Context) {
         val batterySaver = booleanPreferencesKey("battery_saver")
         val autoConnect = booleanPreferencesKey("auto_connect")
         val lastIpJson = stringPreferencesKey("last_ip_json")
+        val connectMode = stringPreferencesKey("connect_mode")
+        val refreshOnLaunch = booleanPreferencesKey("refresh_on_launch")
+        val followNetwork = booleanPreferencesKey("follow_network")
+    }
+
+    /** What the big button connects to. Home+LTE by default: it works everywhere. */
+    val connectMode: Flow<ConnectMode> = context.dataStore.data.map {
+        runCatching { ConnectMode.valueOf(it[Keys.connectMode] ?: ConnectMode.AUTO_HOME_LTE.name) }
+            .getOrDefault(ConnectMode.AUTO_HOME_LTE)
+    }
+
+    /** Happ-style: pull every subscription (and its routing) when the app opens. */
+    val refreshOnLaunch: Flow<Boolean> = context.dataStore.data.map { it[Keys.refreshOnLaunch] ?: true }
+
+    /** Re-pick the group when the phone moves between Wi-Fi and mobile data. */
+    val followNetwork: Flow<Boolean> = context.dataStore.data.map { it[Keys.followNetwork] ?: true }
+
+    suspend fun setConnectMode(mode: ConnectMode) {
+        context.dataStore.edit { it[Keys.connectMode] = mode.name }
+    }
+
+    suspend fun setRefreshOnLaunch(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.refreshOnLaunch] = enabled }
+    }
+
+    suspend fun setFollowNetwork(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.followNetwork] = enabled }
     }
 
     val designTheme: Flow<DesignTheme> = context.dataStore.data.map {

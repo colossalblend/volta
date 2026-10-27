@@ -28,9 +28,10 @@ val VoltaTypography = Typography(
     ),
     headlineMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 22.sp,
-        lineHeight = 28.sp
+        fontWeight = FontWeight.Bold,
+        fontSize = 26.sp,
+        lineHeight = 32.sp,
+        letterSpacing = (-0.3).sp
     ),
     titleLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,

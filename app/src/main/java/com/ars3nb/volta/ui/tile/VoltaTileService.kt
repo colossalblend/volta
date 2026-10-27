@@ -1,14 +1,17 @@
 package com.ars3nb.volta.ui.tile
 
 import android.content.Intent
+import android.graphics.drawable.Icon
 import android.net.VpnService
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import androidx.annotation.RequiresApi
 import com.ars3nb.volta.MainActivity
+import com.ars3nb.volta.R
 import com.ars3nb.volta.VoltaApp
 import com.ars3nb.volta.core.vpn.VoltaVpnService
+import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.VpnConnectionState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -16,9 +19,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
-/** Быстрая кнопка в шторке уведомлений. */
+/** Быстрая кнопка в шторке: включает VPN в текущем режиме (Авто Home+LTE и т. д.). */
 @RequiresApi(Build.VERSION_CODES.N)
 class VoltaTileService : TileService() {
 
@@ -29,7 +33,12 @@ class VoltaTileService : TileService() {
         super.onStartListening()
         job?.cancel()
         job = scope.launch {
-            VoltaVpnService.state.collectLatest { updateTile(it) }
+            combine(
+                VoltaVpnService.state,
+                VoltaVpnService.serverName,
+                VoltaApp.instance.repository.connectMode
+            ) { state, server, mode -> Triple(state, server, mode) }
+                .collectLatest { (state, server, mode) -> updateTile(state, server, mode) }
         }
     }
 
@@ -56,7 +65,7 @@ class VoltaTileService : TileService() {
         // The tile's own scope dies with onDestroy moments after the click; the
         // application scope outlives it, so the connect actually completes.
         VoltaApp.instance.appScope.launch {
-            runCatching { VoltaApp.instance.repository.connectSelected() }
+            runCatching { VoltaApp.instance.repository.connectWithMode() }
         }
     }
 
@@ -79,27 +88,35 @@ class VoltaTileService : TileService() {
         }
     }
 
-    private fun updateTile(state: VpnConnectionState) {
+    private fun updateTile(state: VpnConnectionState, server: String, mode: ConnectMode) {
         val tile = qsTile ?: return
+        val subtitle: String
         when (state) {
             VpnConnectionState.CONNECTED -> {
                 tile.state = Tile.STATE_ACTIVE
-                tile.label = "Volta · вкл"
-                tile.contentDescription = "VPN включён, нажмите чтобы выключить"
+                tile.label = "Volta"
+                subtitle = server.ifBlank { mode.title }
+                tile.contentDescription = "VPN включён: $subtitle. Нажмите, чтобы выключить"
             }
 
             VpnConnectionState.CONNECTING, VpnConnectionState.DISCONNECTING -> {
-                tile.state = Tile.STATE_UNAVAILABLE
-                tile.label = "Volta…"
-                tile.contentDescription = "Переключение VPN"
+                // ACTIVE, not UNAVAILABLE: an unavailable tile swallows the tap that
+                // would let the user cancel a connect that hangs.
+                tile.state = Tile.STATE_ACTIVE
+                tile.label = "Volta"
+                subtitle = if (state == VpnConnectionState.CONNECTING) "Подключение…" else "Отключение…"
+                tile.contentDescription = subtitle
             }
 
             else -> {
                 tile.state = Tile.STATE_INACTIVE
                 tile.label = "Volta"
-                tile.contentDescription = "VPN выключен, нажмите чтобы включить"
+                subtitle = mode.title
+                tile.contentDescription = "VPN выключен. Нажмите, чтобы включить: ${mode.title}"
             }
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) tile.subtitle = subtitle
+        tile.icon = Icon.createWithResource(this, R.drawable.ic_vpn_key)
         tile.updateTile()
     }
 

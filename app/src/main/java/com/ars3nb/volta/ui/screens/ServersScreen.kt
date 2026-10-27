@@ -68,6 +68,7 @@ fun ServersScreen(
     var sort by remember { mutableStateOf(ServerSort.BEST) }
     var favoritesOnly by remember { mutableStateOf(false) }
     var sheetServer by remember { mutableStateOf<ServerEntity?>(null) }
+    var subscriptionFilter by remember { mutableStateOf<Long?>(null) }
 
     val subsById = remember(state.subscriptions) { state.subscriptions.associateBy { it.id } }
 
@@ -76,9 +77,10 @@ fun ServersScreen(
         state.servers.associate { it.id to ConfigBuilder.canDial(it) }
     }
 
-    val visible = remember(state.servers, pool, query, sort, favoritesOnly, supported) {
+    val visible = remember(state.servers, pool, query, sort, favoritesOnly, supported, subscriptionFilter) {
         state.servers
             .filter { pool.matches(it.role) }
+            .filter { subscriptionFilter == null || it.subscriptionId == subscriptionFilter }
             .filter { !favoritesOnly || it.isFavorite }
             .filter { matchesQuery(it, query, subsById[it.subscriptionId]?.name.orEmpty()) }
             .sortedWith(
@@ -101,7 +103,7 @@ fun ServersScreen(
             contentPadding = PaddingValues(16.dp, 0.dp, 16.dp, 24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            item { SectionHeader("Автоподбор") }
+            item { SectionHeader("Лучший сервер в группе") }
             item {
                 AutobalancerBar(
                     running = runningScope,
@@ -145,6 +147,31 @@ fun ServersScreen(
                         onClick = { favoritesOnly = !favoritesOnly },
                         label = { Text("Избранные") }
                     )
+                }
+            }
+
+            if (state.subscriptions.size > 1) {
+                item {
+                    // All subscriptions form one list; these chips only narrow it down.
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = subscriptionFilter == null,
+                            onClick = { subscriptionFilter = null },
+                            label = { Text("Все подписки") }
+                        )
+                        state.subscriptions.forEach { sub ->
+                            FilterChip(
+                                selected = subscriptionFilter == sub.id,
+                                onClick = {
+                                    subscriptionFilter = if (subscriptionFilter == sub.id) null else sub.id
+                                },
+                                label = { Text(sub.name, maxLines = 1) }
+                            )
+                        }
+                    }
                 }
             }
 
@@ -265,18 +292,18 @@ private fun AutobalancerBar(
         }
         Spacer(Modifier.height(8.dp))
         Hint(
-            "«Все» — сначала проверяет сайты: открыт интернет — берёт обычные серверы, " +
-                "работает только «белый список» — берёт серверы обхода, сети нет — ничего " +
-                "не пингует и повторит попытку позже. «Обычные» и «Обход» сразу проверяют " +
-                "свою группу."
+            "Home+LTE сначала проверяет google.com, ars3nb.ru, calculator888.ru и vk.ru, " +
+                "ya.ru, appbank.pw: отвечают зарубежные — берёт Home, только российские — " +
+                "LTE. Home и LTE сразу пингуют свою группу. Выбор сервера вручную включает " +
+                "режим «Свой сервер»."
         )
     }
 }
 
 private fun scopeLabel(scope: BalancerScope): String = when (scope) {
-    BalancerScope.ALL -> "Все"
-    BalancerScope.NORMAL -> "Обычные"
-    BalancerScope.BYPASS -> "Обход"
+    BalancerScope.ALL -> "Home+LTE"
+    BalancerScope.NORMAL -> "Home"
+    BalancerScope.BYPASS -> "LTE"
 }
 
 /** Explicit helper: an `if/else null` producing a composable lambda confuses inference. */
@@ -298,10 +325,10 @@ private fun matchesQuery(server: ServerEntity, query: String, subName: String): 
 }
 
 private fun poolLabel(pool: ServerPool): String = when (pool) {
-    ServerPool.ALL -> "Все"
-    ServerPool.NORMAL -> "Обычные"
-    ServerPool.BYPASS_WHITELIST -> "Обход"
-    ServerPool.AUTO -> "Универсальные"
+    ServerPool.ALL -> "Все группы"
+    ServerPool.NORMAL -> "Home"
+    ServerPool.BYPASS_WHITELIST -> "LTE"
+    ServerPool.AUTO -> "Home+LTE"
 }
 
 private fun sortLabel(sort: ServerSort): String = when (sort) {

@@ -3,11 +3,15 @@ package com.ars3nb.volta.ui.navigation
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Storage
@@ -39,6 +43,7 @@ import com.ars3nb.volta.ui.screens.PerAppScreen
 import com.ars3nb.volta.ui.screens.RoutingScreen
 import com.ars3nb.volta.ui.screens.ServersScreen
 import com.ars3nb.volta.ui.screens.SettingsScreen
+import com.ars3nb.volta.ui.screens.SubscriptionsScreen
 import com.ars3nb.volta.ui.theme.VoltaTheme
 
 object Routes {
@@ -48,6 +53,7 @@ object Routes {
     const val SETTINGS = "settings"
     const val IMPORT = "import"
     const val PER_APP = "per_app"
+    const val SUBSCRIPTIONS = "subscriptions"
 }
 
 private data class Tab(val route: String, val label: String, val icon: ImageVector)
@@ -55,6 +61,7 @@ private data class Tab(val route: String, val label: String, val icon: ImageVect
 private val TABS = listOf(
     Tab(Routes.HOME, "Главная", Icons.Rounded.Home),
     Tab(Routes.SERVERS, "Серверы", Icons.Rounded.Storage),
+    Tab(Routes.SUBSCRIPTIONS, "Подписки", Icons.Rounded.CloudSync),
     Tab(Routes.ROUTING, "Правила", Icons.Rounded.Tune),
     Tab(Routes.SETTINGS, "Настройки", Icons.Rounded.Settings)
 )
@@ -80,6 +87,8 @@ fun VoltaAppRoot(vm: VoltaViewModel = viewModel()) {
 
     VoltaTheme(design = design) {
         Scaffold(
+            // Each screen handles the status bar itself (the home screen draws under it).
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
             snackbarHost = { SnackbarHost(snackbar) },
             bottomBar = {
                 if (showBottomBar) {
@@ -109,22 +118,37 @@ fun VoltaAppRoot(vm: VoltaViewModel = viewModel()) {
             NavHost(
                 navController = nav,
                 startDestination = Routes.HOME,
-                modifier = Modifier.fillMaxSize().padding(padding),
-                enterTransition = { fadeIn(tween(180)) },
+                modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding),
+                enterTransition = { fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.97f) },
                 exitTransition = { fadeOut(tween(140)) },
-                popEnterTransition = { fadeIn(tween(180)) },
+                popEnterTransition = { fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.97f) },
                 popExitTransition = { fadeOut(tween(140)) }
             ) {
                 composable(Routes.HOME) {
                     HomeScreen(
                         vm = vm,
-                        onOpenServers = { nav.navigate(Routes.SERVERS) },
+                        onOpenServers = {
+                            nav.navigate(Routes.SERVERS) {
+                                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
                         onOpenImport = { nav.navigate(Routes.IMPORT) },
-                        onOpenRouting = { nav.navigate(Routes.ROUTING) }
+                        onOpenRouting = {
+                            nav.navigate(Routes.ROUTING) {
+                                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
                     )
                 }
                 composable(Routes.SERVERS) {
                     ServersScreen(vm = vm, onOpenImport = { nav.navigate(Routes.IMPORT) })
+                }
+                composable(Routes.SUBSCRIPTIONS) {
+                    SubscriptionsScreen(vm = vm, onOpenImport = { nav.navigate(Routes.IMPORT) })
                 }
                 composable(Routes.ROUTING) { RoutingScreen(vm = vm) }
                 composable(Routes.SETTINGS) {

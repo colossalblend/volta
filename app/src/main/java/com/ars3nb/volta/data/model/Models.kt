@@ -26,8 +26,9 @@ enum class ServerPool {
 
 fun ServerPool.matches(role: ServerRole): Boolean = when (this) {
     ServerPool.ALL -> true
-    ServerPool.NORMAL -> role == ServerRole.NORMAL
-    ServerPool.BYPASS_WHITELIST -> role == ServerRole.BYPASS_WHITELIST
+    // Groups, not roles: a universal node belongs to both Home and LTE.
+    ServerPool.NORMAL -> role == ServerRole.NORMAL || role == ServerRole.AUTO
+    ServerPool.BYPASS_WHITELIST -> role == ServerRole.BYPASS_WHITELIST || role == ServerRole.AUTO
     ServerPool.AUTO -> role == ServerRole.AUTO
 }
 
@@ -77,6 +78,33 @@ enum class BalancerScope {
 
     /** Whitelist-bypass exits only — no site probing. */
     BYPASS
+}
+
+/**
+ * What the big connect button does. The three auto modes map onto the server groups:
+ * Home = regular exits, LTE = whitelist-bypass exits, Home+LTE = probe the network
+ * first and pick the group that can actually work on it.
+ */
+enum class ConnectMode {
+    AUTO_HOME_LTE, AUTO_HOME, AUTO_LTE, MANUAL;
+
+    val scope: BalancerScope?
+        get() = when (this) {
+            AUTO_HOME_LTE -> BalancerScope.ALL
+            AUTO_HOME -> BalancerScope.NORMAL
+            AUTO_LTE -> BalancerScope.BYPASS
+            MANUAL -> null
+        }
+
+    val title: String
+        get() = when (this) {
+            AUTO_HOME_LTE -> "Авто Home+LTE"
+            AUTO_HOME -> "Авто Home"
+            AUTO_LTE -> "Авто LTE"
+            MANUAL -> "Свой сервер"
+        }
+
+    fun next(): ConnectMode = entries[(ordinal + 1) % entries.size]
 }
 
 enum class RouteOutbound {
@@ -221,7 +249,17 @@ data class RoutingProfileEntity(
     val domainStrategy: String = "AsIs",
     val remoteDns: String = "https://1.1.1.1/dns-query",
     val domesticDns: String = "https://dns.google/dns-query",
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    /** Happ `Geoipurl`: the provider's own geoip.dat, downloaded per subscription. */
+    val geoipUrl: String = "",
+    /** Happ `Geositeurl`: the provider's own geosite.dat, downloaded per subscription. */
+    val geositeUrl: String = "",
+    /** Happ `LastUpdated`: a change forces the geodata to be downloaded again. */
+    val geoVersion: String = "",
+    /** When the geodata files were last downloaded successfully (0 = never). */
+    val geoUpdatedAt: Long = 0,
+    /** Happ `DnsHosts` as a flat JSON object {"domain": "ip"}. */
+    val dnsHostsJson: String = ""
 ) {
     /** True for profiles the user may bind to any subscription. */
     val isShareable: Boolean get() = sourceSubscriptionId == null
@@ -263,7 +301,10 @@ data class SiteProbeResult(
 )
 
 enum class SiteCategory {
+    /** Home probes (google.com, ars3nb.ru, calculator888.ru): open internet. */
     FOREIGN,
+
+    /** LTE probes (vk.ru, ya.ru, appbank.pw): what survives a mobile whitelist. */
     RU_WHITELIST
 }
 

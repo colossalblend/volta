@@ -119,4 +119,14 @@ class ServerClassifierTest {
         isSelected = selected,
         latencyMs = latency
     )
+
+    @Test
+    fun lteMarkedNodesGoToTheLteGroup() {
+        assertEquals(ServerRole.BYPASS_WHITELIST, ServerClassifier.classify("🇷🇺 LTE обход моб. интернет"))
+        assertEquals(ServerRole.BYPASS_WHITELIST, ServerClassifier.classify("Москва | LTE"))
+        assertEquals(ServerRole.BYPASS_WHITELIST, ServerClassifier.classify("Для мобильного интернета"))
+        // Letters inside a word are not a marker.
+        assertEquals(ServerRole.NORMAL, ServerClassifier.classify("Deltexa 01"))
+        assertEquals(ServerRole.NORMAL, ServerClassifier.classify("🇩🇪 Germany"))
+    }
 }

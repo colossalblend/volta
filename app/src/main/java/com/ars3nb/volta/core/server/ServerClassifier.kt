@@ -9,8 +9,14 @@ object ServerClassifier {
         "(auto|авто|autobalancer|auto.?balance|автоподбор|автобаланс|балансиров)",
         RegexOption.IGNORE_CASE
     )
+    /**
+     * Markers providers put on whitelist-bypass ("LTE") nodes: the classic «обход» /
+     * «белые списки» wording plus the LTE / mobile-internet tags. `LTE` must stand on
+     * its own so a host name that merely contains the letters is not caught.
+     */
     private val bypassWords = Regex(
-        "(обход|бел(?:ый|ые|ого)?\\s*спис|white.?list|whitelist|глушилк|анти.?глуш|anti.?glush|bypass)",
+        "(обход|бел(?:ый|ые|ого)?\\s*спис|white.?list|whitelist|глушилк|анти.?глуш|anti.?glush|" +
+            "bypass|(?<![\\p{L}\\d])(?:lte|4g|5g)(?![\\p{L}\\d])|мобильн|моб\\.?\\s*инет|mobile)",
         RegexOption.IGNORE_CASE
     )
 

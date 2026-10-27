@@ -10,6 +10,8 @@
     <string name="action_disconnect">Отключить</string>
     <string name="action_toggle">Переключить</string>
     <string name="tile_label">Volta VPN</string>
+    <string name="tile_mode_label">Режим Volta</string>
+    <string name="action_repick">Подобрать сервер</string>
     <string name="widget_description">Быстрое управление Volta</string>
     <string name="accessibility_connect">Кнопка подключения VPN</string>
 </resources>

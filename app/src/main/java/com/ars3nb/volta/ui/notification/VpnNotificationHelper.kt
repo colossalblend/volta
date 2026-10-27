@@ -91,6 +91,18 @@ object VpnNotificationHelper {
                 context.getString(R.string.action_disconnect),
                 disconnectPi
             )
+            if (connected) {
+                builder.addAction(
+                    R.drawable.ic_swap,
+                    context.getString(R.string.action_repick),
+                    PendingIntent.getBroadcast(
+                        context,
+                        3,
+                        Intent(context, RepickReceiver::class.java),
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                )
+            }
         } else {
             builder.addAction(
                 R.drawable.ic_vpn_key,

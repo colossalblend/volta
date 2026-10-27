@@ -1,6 +1,7 @@
 package com.ars3nb.volta.core.vpn
 
 import com.ars3nb.volta.core.parser.ConfigParser
+import com.ars3nb.volta.core.routing.GeoNames
 import com.ars3nb.volta.core.routing.RoutingEngine
 import com.ars3nb.volta.data.model.ProtocolType
 import com.ars3nb.volta.data.model.RoutingProfileEntity
@@ -39,7 +40,14 @@ object ConfigBuilder {
         /** More than one entry switches on the in-core balancer. */
         balancerPool: List<ServerEntity> = emptyList(),
         probeUrl: String = DEFAULT_PROBE_URL,
-        probeIntervalSeconds: Int = 300
+        probeIntervalSeconds: Int = 300,
+        /** The subscription's own Happ geodata; null = the bundled geoip/geosite. */
+        geo: GeoNames? = null,
+        /**
+         * A JSON subscription carries its routing inside every config. Unless the user
+         * bound another profile explicitly, that routing is used exactly as shipped.
+         */
+        preferServerRouting: Boolean = false
     ): String {
         val root = JsonObject()
         root.add("log", JsonObject().apply {
@@ -86,10 +94,26 @@ object ConfigBuilder {
             })
         }
 
-        val rules = resolveRules(server, profile, providerRoutingJson)
+        val serverRouting = serverRoutingOf(server)
+        val serverRules = if (preferServerRouting) {
+            serverRouting?.let { RoutingEngine.parseRules(it.toString()) }.orEmpty()
+        } else {
+            emptyList()
+        }
+        val useServerRouting = serverRules.isNotEmpty()
+        val rules = if (useServerRouting) {
+            serverRules.map { it.copy(source = "provider") }
+        } else {
+            resolveRules(server, profile, providerRoutingJson)
+        }.let { list -> if (geo == null) list else list.map(geo::rewrite) }
+        val domainStrategy = if (useServerRouting) {
+            serverRouting?.get("domainStrategy")?.takeIf { it.isJsonPrimitive }?.asString
+        } else {
+            profile?.domainStrategy
+        }
         val routing = RoutingEngine.toXrayRouting(
             rules = rules,
-            domainStrategy = profile?.domainStrategy?.ifBlank { null } ?: "IPIfNonMatch",
+            domainStrategy = domainStrategy?.ifBlank { null } ?: "IPIfNonMatch",
             proxyBalancerTag = if (useBalancer) BALANCER_TAG else null,
             dnsRuleEnabled = localDns
         )
@@ -699,8 +723,22 @@ object ConfigBuilder {
         } else ""
     )
 
+    private fun serverRoutingOf(server: ServerEntity): JsonObject? {
+        if (!server.rawJson.contains("\"routing\"")) return null
+        return runCatching {
+            JsonParser.parseString(server.rawJson).asJsonObject.getAsJsonObject("routing")
+        }.getOrNull()
+    }
+
     private fun buildDns(profile: RoutingProfileEntity?): JsonObject {
         val dns = JsonObject()
+        // Happ DnsHosts: fixed answers the provider wants for its own domains.
+        profile?.dnsHostsJson?.takeIf { it.isNotBlank() }?.let { hosts ->
+            runCatching { JsonParser.parseString(hosts).asJsonObject }
+                .getOrNull()
+                ?.takeIf { it.size() > 0 }
+                ?.let { dns.add("hosts", it) }
+        }
         dns.addProperty("queryStrategy", "UseIP")
         dns.addProperty("disableCache", false)
         val servers = JsonArray()
