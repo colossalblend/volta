@@ -1,5 +1,7 @@
 package com.ars3nb.volta.ui.screens
 
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -32,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -62,6 +65,7 @@ fun SettingsScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
     val refreshOnLaunch by vm.refreshOnLaunch.collectAsStateWithLifecycle()
     val followNetwork by vm.followNetwork.collectAsStateWithLifecycle()
     val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
     val palette = VoltaTheme.palette
 
     Scaffold(
@@ -121,6 +125,33 @@ fun SettingsScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
                         checked = refreshOnLaunch,
                         onChecked = vm::setRefreshOnLaunch
                     )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                runCatching {
+                                    context.startActivity(
+                                        Intent(Settings.ACTION_VPN_SETTINGS)
+                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    )
+                                }
+                            }
+                            .padding(vertical = 10.dp)
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "Постоянный VPN",
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                            Hint(
+                                "Android сам поднимет Volta после перезагрузки или если " +
+                                    "система выгрузит приложение. Там же можно запретить " +
+                                    "интернет без VPN. Откройте шестерёнку у Volta."
+                            )
+                        }
+                        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null)
+                    }
                 }
             }
 

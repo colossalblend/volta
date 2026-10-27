@@ -61,6 +61,7 @@ jobs:
           VOLTA_KEY_PASSWORD: ${{ secrets.VOLTA_KEY_PASSWORD }}
         run: |
           set -o pipefail
+          chmod +x gradlew
           ./gradlew --no-configuration-cache --stacktrace "-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8" \
             :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease 2>&1 | tee "$RUNNER_TEMP/gradle.log"
 

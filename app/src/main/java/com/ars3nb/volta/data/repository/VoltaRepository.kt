@@ -749,8 +749,11 @@ class VoltaRepository(private val context: Context) {
         if (decision != null && decision.selected == null) {
             error(decision.reason)
         }
-        // A switch on a live tunnel already reconnected inside selectServer().
-        if (!(isConnected() && decision?.switched == true)) connectSelected()
+        // A live tunnel already on the chosen node stays as it is; a switch on a live
+        // tunnel was already started by selectServer() and the service drops the repeat.
+        val liveOnSelected = isConnected() &&
+            VoltaVpnService.serverId.value == serverDao.getSelected()?.id
+        if (!liveOnSelected) connectSelected()
         return decision
     }
 

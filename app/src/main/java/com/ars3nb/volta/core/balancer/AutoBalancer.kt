@@ -170,7 +170,9 @@ class AutoBalancer(
         } else {
             pool = poolFor(dialable, scope)
             if (pool.isEmpty()) {
-                return empty(scope, regime, current, "В этой группе нет серверов")
+                // Not the current node: it belongs to the other group, and silently
+                // connecting there would ignore the group the user just chose.
+                return empty(scope, regime, null, "В этой группе нет серверов")
             }
         }
 
@@ -197,8 +199,10 @@ class AutoBalancer(
         val switched: Boolean
         when {
             best == null -> {
-                // Nothing answered — keep what we had rather than jumping to a dead node.
-                selected = current ?: pool.minByOrNull { it.score }
+                // Nothing answered — keep what we had rather than jumping to a dead node,
+                // as long as it is in the group asked for.
+                selected = current?.takeIf { c -> pool.any { it.id == c.id } }
+                    ?: pool.minByOrNull { it.score }
                 switched = false
             }
 

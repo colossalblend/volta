@@ -255,7 +255,9 @@ class VoltaVpnService : VpnService() {
                 VpnConnectionState.DISCONNECTED, VpnConnectionState.ERROR -> {
                     val cfg = lastConfig
                     if (cfg == null) {
-                        stopSelf()
+                        // A fresh service knows no config; connect in the saved mode. Also
+                        // keeps the startForegroundService() promise, which stopSelf() broke.
+                        startOnItsOwn()
                     } else {
                         startForeground(
                             VpnNotificationHelper.NOTIFICATION_ID,
@@ -303,6 +305,9 @@ class VoltaVpnService : VpnService() {
         )
         _state.value = VpnConnectionState.CONNECTING
         _error.value = null
+        // The provider's connect may carry the very config this instance last used;
+        // it must not be dropped as a duplicate of a connect that is not running.
+        lastConfig = null
         val provider = autoStartProvider
         scope.launch {
             if (provider == null) {
@@ -328,6 +333,9 @@ class VoltaVpnService : VpnService() {
             delay(initialDelayMs)
             repeat(HEALTH_ATTEMPTS) { attempt ->
                 if (!tunnelActive.get()) return@launch
+                // No network at all is not the server's fault. The tunnel stays up and
+                // the check runs again when a network comes back (underlyingCallback).
+                if (!hasUnderlyingNetwork()) return@launch
                 if (probeThroughTunnel()) {
                     failoverAttempts = 0
                     return@launch
@@ -453,7 +461,7 @@ class VoltaVpnService : VpnService() {
             if (now - lastProbe >= 60_000) {
                 lastProbe = now
                 // Traffic in the last minute already proves the tunnel works.
-                if (downDelta > 0) {
+                if (downDelta > 0 || !hasUnderlyingNetwork()) {
                     probeFailures = 0
                 } else if (!probeThroughTunnel()) {
                     probeFailures++
@@ -610,15 +618,27 @@ class VoltaVpnService : VpnService() {
         }
     }
 
-    /** True when the underlying network actually has a routable IPv6 address. */
+    /** This app is outside its own VPN, so its active network is the physical one. */
+    private fun hasUnderlyingNetwork(): Boolean =
+        runCatching { connectivity?.activeNetwork != null }.getOrDefault(true)
+
+    /**
+     * True when the underlying network actually has a routable IPv6 address. Tunnel
+     * interfaces (ours or another VPN's) and ULA fd00::/8 addresses do not count: a
+     * router handing out only ULA has no IPv6 internet behind it.
+     */
     private fun hasGlobalIpv6(): Boolean = runCatching {
         java.net.NetworkInterface.getNetworkInterfaces().asSequence().any { nif ->
-            nif.isUp && !nif.isLoopback && nif.inetAddresses.asSequence().any { addr ->
-                addr is java.net.Inet6Address &&
-                    !addr.isLinkLocalAddress &&
-                    !addr.isLoopbackAddress &&
-                    !addr.isAnyLocalAddress
-            }
+            nif.isUp && !nif.isLoopback && !nif.isVirtual &&
+                !nif.name.startsWith("tun") &&
+                nif.inetAddresses.asSequence().any { addr ->
+                    addr is java.net.Inet6Address &&
+                        !addr.isLinkLocalAddress &&
+                        !addr.isLoopbackAddress &&
+                        !addr.isAnyLocalAddress &&
+                        !addr.isSiteLocalAddress &&
+                        (addr.address[0].toInt() and 0xfe) != 0xfc
+                }
         }
     }.getOrDefault(false)
 }
