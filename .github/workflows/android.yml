@@ -185,6 +185,37 @@ jobs:
           echo "xray=$(xray_of "$AAR")" >> "$GITHUB_OUTPUT"
           echo "adopted=$adopted" >> "$GITHUB_OUTPUT"
 
+      # OpenFlux: its core at the commit in openflux/VERSION plus Volta's small client
+      # (openflux/voltaflux), built with the NDK as a program for each CPU type. It goes
+      # in as lib/<abi>/libopenflux.so, where Android unpacks what an app may run.
+      - name: OpenFlux helper
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=auto
+          COMMIT=$(tr -d '[:space:]' < openflux/VERSION)
+          SRC="$RUNNER_TEMP/openflux"
+          git init -q "$SRC"
+          git -C "$SRC" remote add origin https://github.com/p1neappleXpress/OpenFlux
+          git -C "$SRC" fetch -q --depth 1 origin "$COMMIT"
+          git -C "$SRC" checkout -q FETCH_HEAD
+          mkdir -p "$SRC/mobile/cmd/voltaflux"
+          cp openflux/voltaflux/main.go "$SRC/mobile/cmd/voltaflux/"
+          NDK="${ANDROID_NDK_LATEST_HOME:-${ANDROID_NDK_HOME:-}}"
+          if [ -z "$NDK" ] || [ ! -d "$NDK" ]; then NDK=$(ls -d "$ANDROID_HOME"/ndk/* | sort -V | tail -1); fi
+          CC_DIR="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          for target in arm64-v8a:arm64:aarch64-linux-android26 \
+                        armeabi-v7a:arm:armv7a-linux-androideabi26 \
+                        x86_64:amd64:x86_64-linux-android26; do
+            IFS=: read -r abi arch cc <<<"$target"
+            mkdir -p "app/src/main/jniLibs/$abi"
+            (cd "$SRC/mobile" && CGO_ENABLED=1 GOOS=android GOARCH="$arch" GOARM=7 CC="$CC_DIR/$cc-clang" \
+              go build -trimpath -buildmode=pie -ldflags="-s -w -checklinkname=0" \
+              -o "$GITHUB_WORKSPACE/app/src/main/jniLibs/$abi/libopenflux.so" ./cmd/voltaflux)
+          done
+          ls -la app/src/main/jniLibs/*/
+          echo "openflux=$COMMIT" >> "$GITHUB_OUTPUT"
+        id: openflux
+
       - name: APKs
         env:
           VOLTA_KEYSTORE_PASSWORD: ${{ secrets.VOLTA_KEYSTORE_PASSWORD }}
@@ -220,6 +251,7 @@ jobs:
           SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           XRAY: ${{ steps.core.outputs.xray }}
           XRAY_UPDATED: ${{ steps.core.outputs.adopted }}
+          OPENFLUX: ${{ steps.openflux.outputs.openflux }}
         run: |
           TAG="$VOLTA_UPDATE_TAG"
           SHORT="${SHA::7}"
@@ -252,6 +284,7 @@ jobs:
             --title "Volta $VERSION · $BRANCH · $SHORT" \
             --notes "Сборка GitHub Actions: ветка \`$BRANCH\`, коммит $SHA.
           Ядро Xray: \`${XRAY:-—}\`$([ "$XRAY_UPDATED" = yes ] && echo ' (обновлено при сборке)').
+          OpenFlux: \`${OPENFLUX:-—}\` (GPL-3.0, https://github.com/p1neappleXpress/OpenFlux).
 
           - **\`volta-$SHORT-arm64-v8a.apk\`** — для почти всех телефонов, ставьте этот.
           - \`volta-$SHORT-armeabi-v7a.apk\` — для старых 32-битных телефонов.

@@ -1,5 +1,6 @@
 package com.ars3nb.volta.core.parser
 
+import com.ars3nb.volta.core.openflux.OpenFluxLink
 import com.ars3nb.volta.core.routing.HappRoutingParser
 import com.ars3nb.volta.data.model.ProtocolType
 import com.ars3nb.volta.data.model.ServerEntity
@@ -25,7 +26,7 @@ object ConfigParser {
 
     /** Schemes we can turn into a working outbound. */
     private const val SUPPORTED_SCHEMES =
-        "vless|vmess|trojan|ss|socks5|socks|hysteria2|hy2|wireguard|wg"
+        "vless|vmess|trojan|ss|socks5|socks|hysteria2|hy2|wireguard|wg|openflux|volta"
 
     /** A share link ends at any of these; everything else may legally appear in a remark. */
     private val LINK_TERMINATORS: Set<Char> = setOf(
@@ -244,6 +245,7 @@ object ConfigParser {
             head.startsWith("aHlzdG") || // hysteria
             head.startsWith("c29ja3") || // socks
             head.startsWith("d2lyZW") || // wireguard
+            head.startsWith("b3BlbmZsdX") || // openflux
             cleaned.length > 64
     }
 
@@ -258,10 +260,34 @@ object ConfigParser {
             "socks", "socks5" -> parseSocks(trimmed, subscriptionId)
             "hysteria2", "hy2" -> parseHysteria2(trimmed, subscriptionId)
             "wireguard", "wg" -> parseWireGuard(trimmed, subscriptionId)
+            "openflux" -> parseOpenFlux(trimmed, subscriptionId)
+            "volta" -> OpenFluxLink.unwrap(trimmed)?.let { parseOpenFlux(it, subscriptionId) }
             else -> if (trimmed.startsWith("{")) {
                 parseSingleOutboundJson(trimmed, subscriptionId)
             } else null
         }
+    }
+
+    // ------------------------------------------------------------- OpenFlux
+
+    /**
+     * An openflux:// link is kept whole: the OpenFlux core reads it when connecting.
+     * Only its name, carriers and exit address are read here, to list it.
+     */
+    private fun parseOpenFlux(link: String, subscriptionId: Long?): ServerEntity? {
+        val parsed = OpenFluxLink.parse(link) ?: return null
+        val (host, port) = parsed.endpoint
+        val carriers = parsed.transports.sortedByDescending { it.priority }.map { it.type }.distinct()
+        return ServerEntity(
+            subscriptionId = subscriptionId,
+            remark = parsed.name.ifBlank { "OpenFlux · ${parsed.carriersLabel}" },
+            protocol = ProtocolType.OPENFLUX,
+            address = host,
+            port = port,
+            network = carriers.joinToString("+"),
+            security = if (parsed.encrypted) "aes-gcm" else "none",
+            rawLink = link.filterNot { it.isWhitespace() }
+        )
     }
 
     // ---------------------------------------------------------------- VLESS

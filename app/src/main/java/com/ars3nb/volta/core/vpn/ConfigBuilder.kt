@@ -1,5 +1,6 @@
 package com.ars3nb.volta.core.vpn
 
+import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.parser.ConfigParser
 import com.ars3nb.volta.core.routing.GeoNames
 import com.ars3nb.volta.core.routing.RoutingEngine
@@ -345,6 +346,24 @@ object ConfigBuilder {
                     addProperty("address", server.address)
                     addProperty("port", server.port)
                 })
+            }
+
+            ProtocolType.OPENFLUX -> {
+                if (!OpenFluxRunner.available) {
+                    throw UnsupportedProtocolException("OpenFlux не входит в эту сборку Volta")
+                }
+                // The OpenFlux helper carries the traffic; the core only hands it over
+                // to the helper's local SOCKS5 port (see OpenFluxRunner).
+                ob.addProperty("protocol", "socks")
+                ob.add("settings", JsonObject().apply {
+                    add("servers", JsonArray().apply {
+                        add(JsonObject().apply {
+                            addProperty("address", "127.0.0.1")
+                            addProperty("port", OpenFluxRunner.PORT)
+                        })
+                    })
+                })
+                return ob
             }
 
             ProtocolType.RAW_JSON, ProtocolType.UNKNOWN ->

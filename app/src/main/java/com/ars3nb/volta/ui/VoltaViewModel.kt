@@ -5,6 +5,8 @@ import android.net.VpnService
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.ars3nb.volta.VoltaApp
+import com.ars3nb.volta.core.openflux.OpenFluxLink
+import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.routing.RoutingEngine
 import com.ars3nb.volta.core.balancer.AutoBalancer
 import com.ars3nb.volta.data.model.BalancerScope
@@ -228,6 +230,9 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     val defaultPingType = repo.defaultPingType
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PingType.REAL_DELAY)
 
+    /** The OpenFlux helper, for its captcha banner. */
+    val openFluxStatus = OpenFluxRunner.status
+
     /** A newer build on GitHub: found, downloading, ready to install. */
     val updateState = updater.state
     val updateAutoCheck = updater.autoCheck
@@ -241,6 +246,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     fun setUpdateToken(v: String) = viewModelScope.launch { updater.setToken(v) }
 
     fun coreAvailable(): Boolean = repo.isCoreAvailable()
+    fun openFluxAvailable(): Boolean = OpenFluxRunner.available
     fun coreVersion(): String = repo.coreVersion()
 
     init {
@@ -528,7 +534,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _busy.value = true
             try {
-                val value = link.trim()
+                val value = link.trim().let { OpenFluxLink.unwrap(it) ?: it }
                 when {
                     value.startsWith("http://", true) || value.startsWith("https://", true) -> {
                         val id = repo.addSubscription("", value)

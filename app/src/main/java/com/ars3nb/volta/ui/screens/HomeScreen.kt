@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ars3nb.volta.core.balancer.AutoBalancer
+import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.server.Countries
 import com.ars3nb.volta.data.model.BalancerScope
 import com.ars3nb.volta.data.model.ConnectMode
@@ -82,6 +83,7 @@ import com.ars3nb.volta.ui.components.SignalBars
 import com.ars3nb.volta.ui.components.SmallShape
 import com.ars3nb.volta.ui.components.SpeedGraph
 import com.ars3nb.volta.ui.components.StatTile
+import com.ars3nb.volta.ui.components.OpenFluxCaptchaBanner
 import com.ars3nb.volta.ui.components.UpdateBanner
 import com.ars3nb.volta.ui.components.offersInstall
 import com.ars3nb.volta.ui.components.VoltaCard
@@ -106,6 +108,7 @@ fun HomeScreen(
     val speed by vm.speedHistory.collectAsStateWithLifecycle()
     val pick by vm.pickSummary.collectAsStateWithLifecycle()
     val update by vm.updateState.collectAsStateWithLifecycle()
+    val openFlux by vm.openFluxStatus.collectAsStateWithLifecycle()
     val palette = VoltaTheme.palette
 
     // Ticks only while the tunnel is up, so an idle screen costs nothing.
@@ -198,6 +201,10 @@ fun HomeScreen(
 
             if (state.error != null && !state.isConnected && !working) {
                 item { ErrorBanner(state.error!!) }
+            }
+
+            (openFlux as? OpenFluxRunner.Status.Captcha)?.let { captcha ->
+                item { OpenFluxCaptchaBanner(captcha) }
             }
 
             if (update.offersInstall) {

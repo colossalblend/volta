@@ -151,6 +151,11 @@ class PingEngine(
         if (problem != null) {
             return@withContext PingResult(server.remark, type, -1, false, problem)
         }
+        if (server.protocol == ProtocolType.OPENFLUX) {
+            // OpenFlux only runs while connected through it; from outside, whether its
+            // carrier (the exit's port, or the document's host) answers is what shows.
+            return@withContext tcpPing(server.address, server.port).copy(type = type)
+        }
         if (!XrayCore.isCoreAvailable) {
             // No native core in this build: fall back to something honest.
             return@withContext tcpPing(server.address, server.port).copy(type = type)

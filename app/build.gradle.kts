@@ -96,9 +96,11 @@ android {
 
     packaging {
         jniLibs {
-            // false = load the .so straight from the APK. Legacy packaging extracts a
-            // second 33 MB copy of libgojni.so into /data on every install.
-            useLegacyPackaging = false
+            // Unpacked on install: the OpenFlux helper (libopenflux.so) is a program, and
+            // Android lets an app run programs only from its unpacked library folder.
+            // That costs an unpacked copy of the Xray core on the phone, but compressed
+            // libraries make the APK itself smaller to download.
+            useLegacyPackaging = true
         }
         resources {
             excludes += setOf(
@@ -138,6 +140,7 @@ dependencies {
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
     implementation(libs.okhttp)
+    implementation(libs.androidx.webkit)
     implementation(libs.gson)
 
     testImplementation(libs.junit)

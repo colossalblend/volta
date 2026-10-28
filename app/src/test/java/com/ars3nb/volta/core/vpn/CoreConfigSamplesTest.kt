@@ -90,7 +90,8 @@ class CoreConfigSamplesTest {
                 "&obfs-password=abc&upmbps=50&downmbps=200#HY",
             "wireguard" to "wireguard://$WG_PRIVATE@wg.example:51820?publickey=$WG_PUBLIC" +
                 "&address=10.7.0.2%2F32&mtu=1420&reserved=1,2,3#WG",
-            "socks" to "socks://${b64("user:pass")}@sox.example:1080#SOCKS"
+            "socks" to "socks://${b64("user:pass")}@sox.example:1080#SOCKS",
+            "openflux" to com.ars3nb.volta.core.openflux.OpenFluxLinkTest.SESSION
         )
     }
 }

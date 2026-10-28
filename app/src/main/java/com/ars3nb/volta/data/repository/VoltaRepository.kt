@@ -22,6 +22,7 @@ import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.IpInfo
 import com.ars3nb.volta.data.model.NetworkRegime
 import com.ars3nb.volta.data.model.PerAppMode
+import com.ars3nb.volta.data.model.ProtocolType
 import com.ars3nb.volta.data.model.PingResult
 import com.ars3nb.volta.data.model.PingType
 import com.ars3nb.volta.data.model.RoutingProfileEntity
@@ -797,7 +798,8 @@ class VoltaRepository(private val context: Context) {
             configJson = config,
             mtu = prefs.mtu.first(),
             perAppMode = prefs.perAppMode.first(),
-            perAppPackages = prefs.perAppPackages.first()
+            perAppPackages = prefs.perAppPackages.first(),
+            openFluxLink = if (server.protocol == ProtocolType.OPENFLUX) server.rawLink else ""
         )
     }
 

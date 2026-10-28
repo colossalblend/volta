@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.ui.draw.rotate
+import com.ars3nb.volta.core.openflux.OpenFluxLink
 import com.ars3nb.volta.core.server.Countries
 import com.ars3nb.volta.data.model.ProtocolType
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -353,12 +354,21 @@ fun protocolBadge(server: ServerEntity): String = when (server.protocol) {
     ProtocolType.HTTP -> "HTTP"
     ProtocolType.WIREGUARD -> "WG"
     ProtocolType.HYSTERIA2 -> "HY2"
+    ProtocolType.OPENFLUX -> "OF"
     ProtocolType.RAW_JSON -> "JSON"
     ProtocolType.UNKNOWN -> "?"
 }
 
-/** "VLESS · Reality · XHTTP": what a row inside a country card says under the name. */
+/**
+ * "VLESS · Reality · XHTTP": what a row inside a country card says under the name.
+ * An OpenFlux server names its carriers: "OpenFlux · Яндекс Документы + напрямую".
+ */
 fun transportLabel(server: ServerEntity): String {
+    if (server.protocol == ProtocolType.OPENFLUX) {
+        val carriers = server.network.split('+').filter { it.isNotBlank() }
+            .joinToString(" + ") { OpenFluxLink.carrierName(it) }
+        return listOf(server.protocol.label, carriers).filter { it.isNotBlank() }.joinToString(" · ")
+    }
     val transport = when (server.network.lowercase()) {
         "ws" -> "WS"
         "grpc" -> "gRPC"

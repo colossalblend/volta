@@ -7,6 +7,7 @@ import com.ars3nb.volta.data.model.BalancerScope
 import com.ars3nb.volta.data.model.NetworkRegime
 import com.ars3nb.volta.data.model.PingResult
 import com.ars3nb.volta.data.model.PingType
+import com.ars3nb.volta.data.model.ProtocolType
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.ServerRole
 import com.ars3nb.volta.data.model.SiteCategory
@@ -111,11 +112,17 @@ class AutoBalancer(
          * them: Volta balances by itself, a balancer behind it only hides which exit
          * is actually in use.
          */
+        /**
+         * The servers auto modes choose from. OpenFlux servers are picked by hand only:
+         * they run in their own process, so the core cannot time them like the rest.
+         */
         fun poolFor(servers: List<ServerEntity>, scope: BalancerScope): List<ServerEntity> =
-            when (scope) {
-                BalancerScope.ALL -> servers.filter { it.role != ServerRole.AUTO }
-                BalancerScope.NORMAL -> servers.filter { it.role == ServerRole.NORMAL }
-                BalancerScope.BYPASS -> servers.filter { it.role == ServerRole.BYPASS_WHITELIST }
+            servers.filter { it.protocol != ProtocolType.OPENFLUX }.let { pool ->
+                when (scope) {
+                    BalancerScope.ALL -> pool.filter { it.role != ServerRole.AUTO }
+                    BalancerScope.NORMAL -> pool.filter { it.role == ServerRole.NORMAL }
+                    BalancerScope.BYPASS -> pool.filter { it.role == ServerRole.BYPASS_WHITELIST }
+                }
             }
 
         fun filterByRegime(

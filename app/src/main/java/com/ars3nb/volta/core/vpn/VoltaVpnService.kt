@@ -1,5 +1,6 @@
 package com.ars3nb.volta.core.vpn
 
+import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import android.app.Notification
 import android.content.Context
 import android.content.Intent
@@ -50,6 +51,7 @@ class VoltaVpnService : VpnService() {
         const val EXTRA_PER_APP_MODE = "per_app_mode"
         const val EXTRA_PER_APP_PACKAGES = "per_app_packages"
         const val EXTRA_SERVER_ID = "server_id"
+        const val EXTRA_OPENFLUX_LINK = "openflux_link"
 
         private const val SOCKS_PORT_DEFAULT = 10808
         private const val HEALTH_ATTEMPTS = 3
@@ -102,6 +104,7 @@ class VoltaVpnService : VpnService() {
                 putExtra(EXTRA_SOCKS_PORT, plan.socksPort)
                 putExtra(EXTRA_PER_APP_MODE, plan.perAppMode.name)
                 putExtra(EXTRA_PER_APP_PACKAGES, plan.perAppPackages.toTypedArray())
+                putExtra(EXTRA_OPENFLUX_LINK, plan.openFluxLink)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(i)
@@ -152,7 +155,9 @@ class VoltaVpnService : VpnService() {
         val socksPort: Int = SOCKS_PORT_DEFAULT,
         /** Split tunnelling, applied to the VpnService.Builder. */
         val perAppMode: PerAppMode = PerAppMode.OFF,
-        val perAppPackages: Set<String> = emptySet()
+        val perAppPackages: Set<String> = emptySet(),
+        /** An OpenFlux server: the helper is started on this link before the core. */
+        val openFluxLink: String = ""
     )
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -164,6 +169,7 @@ class VoltaVpnService : VpnService() {
     private var watchdogJob: Job? = null
 
     private var lastConfig: String? = null
+    private var lastOpenFluxLink: String = ""
     private var lastServerName: String = ""
     private var lastServerId: Long = 0
     private var lastMtu: Int = 1420
@@ -220,12 +226,15 @@ class VoltaVpnService : VpnService() {
             ACTION_CONNECT -> {
                 val config = intent.getStringExtra(EXTRA_CONFIG).orEmpty()
                 val name = intent.getStringExtra(EXTRA_SERVER_NAME).orEmpty()
+                val openFluxLink = intent.getStringExtra(EXTRA_OPENFLUX_LINK).orEmpty()
                 // Foreground must be entered synchronously or Android kills the start.
                 startForeground(
                     VpnNotificationHelper.NOTIFICATION_ID,
                     buildNotification(name, connecting = true)
                 )
-                val sameConfig = config == lastConfig
+                // Every OpenFlux server has the same config (the helper's port): the
+                // link tells them apart.
+                val sameConfig = config == lastConfig && openFluxLink == lastOpenFluxLink
                 if ((_state.value == VpnConnectionState.CONNECTING ||
                         _state.value == VpnConnectionState.CONNECTED) && sameConfig
                 ) {
@@ -234,6 +243,7 @@ class VoltaVpnService : VpnService() {
                     // Switching servers must actually move the traffic, not just relabel it.
                     Log.i(TAG, "Reconnecting onto a new config")
                     lastConfig = config
+                    lastOpenFluxLink = openFluxLink
                     lastServerName = name
                     lastServerId = intent.getLongExtra(EXTRA_SERVER_ID, 0)
                     lastMtu = intent.getIntExtra(EXTRA_MTU, 1420)
@@ -251,6 +261,7 @@ class VoltaVpnService : VpnService() {
                     scope.launch { connectionMutex.withLock { doConnect(config, name, lastMtu) } }
                 } else {
                     lastConfig = config
+                    lastOpenFluxLink = openFluxLink
                     lastServerName = name
                     lastServerId = intent.getLongExtra(EXTRA_SERVER_ID, 0)
                     lastMtu = intent.getIntExtra(EXTRA_MTU, 1420)
@@ -395,6 +406,17 @@ class VoltaVpnService : VpnService() {
         try {
             cleanup()
 
+            // An OpenFlux server: its helper must carry traffic before the core hands
+            // anything to it. Waits for the carriers to reach the exit, or a captcha.
+            val openFluxLink = lastOpenFluxLink
+            if (openFluxLink.isNotBlank()) {
+                startForeground(
+                    VpnNotificationHelper.NOTIFICATION_ID,
+                    buildNotification(name, connecting = true)
+                )
+                OpenFluxRunner.start(this, openFluxLink).getOrThrow()
+            }
+
             // The core comes up first. Raising the TUN before it would black-hole every
             // packet on the device while geodata is unpacked and the core boots.
             val core = XrayCore(this) { onCoreStoppedItself() }.also { xray = it }
@@ -465,8 +487,13 @@ class VoltaVpnService : VpnService() {
             delay(2_000)
             if (!tunnelActive.get()) break
 
-            if (xray?.isRunning() != true || tun2Socks?.isRunning() != true) {
-                Log.w(TAG, "component died — core=${xray?.isRunning()} tun=${tun2Socks?.isRunning()}")
+            val openFluxDown = lastOpenFluxLink.isNotBlank() && !OpenFluxRunner.isRunning()
+            if (xray?.isRunning() != true || tun2Socks?.isRunning() != true || openFluxDown) {
+                Log.w(
+                    TAG,
+                    "component died — core=${xray?.isRunning()} tun=${tun2Socks?.isRunning()} " +
+                        "openflux=${!openFluxDown}"
+                )
                 // Launched separately: recovery restarts the tunnel, which cancels this job.
                 scope.launch { onTunnelBroken("Соединение прервалось") }
                 return
@@ -551,6 +578,7 @@ class VoltaVpnService : VpnService() {
             if (plan != null) {
                 Log.i(TAG, "failover #$failoverAttempts -> ${plan.serverName}")
                 lastConfig = plan.configJson
+                lastOpenFluxLink = plan.openFluxLink
                 lastServerName = plan.serverName
                 lastServerId = plan.serverId
                 lastMtu = plan.mtu
@@ -593,6 +621,7 @@ class VoltaVpnService : VpnService() {
         runCatching { tun2Socks?.stop() }
         runCatching { xray?.stop() }
         xray = null
+        runCatching { OpenFluxRunner.stop() }
         runCatching { tunFd?.close() }
         tunFd = null
     }

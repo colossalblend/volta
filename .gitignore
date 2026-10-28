@@ -15,3 +15,6 @@
 local.properties
 
 /.kotlin
+
+# Built in CI (OpenFlux helper), never committed.
+app/src/main/jniLibs/

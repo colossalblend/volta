@@ -390,6 +390,13 @@ fun SettingsScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
                                     "Ядро VPN не установлено — работает только интерфейс"
                                 }
                             )
+                            Hint(
+                                if (vm.openFluxAvailable()) {
+                                    "OpenFlux: github.com/p1neappleXpress/OpenFlux (GPL-3.0)"
+                                } else {
+                                    "OpenFlux не входит в эту сборку"
+                                }
+                            )
                         }
                         StatusPill(
                             if (vm.coreAvailable()) "Ядро на месте" else "Нет ядра",

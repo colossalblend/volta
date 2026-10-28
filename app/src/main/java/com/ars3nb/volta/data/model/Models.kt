@@ -40,7 +40,11 @@ fun ServerPool.matches(role: ServerRole): Boolean = when (this) {
  * `hysteria` outbound (version 2), WIREGUARD to the `wireguard` outbound.
  */
 enum class ProtocolType {
-    VLESS, VMESS, TROJAN, SHADOWSOCKS, SOCKS, HTTP, WIREGUARD, HYSTERIA2, RAW_JSON, UNKNOWN;
+    VLESS, VMESS, TROJAN, SHADOWSOCKS, SOCKS, HTTP, WIREGUARD, HYSTERIA2,
+
+    /** An openflux:// link: run by the OpenFlux helper, reached through its SOCKS5 port. */
+    OPENFLUX,
+    RAW_JSON, UNKNOWN;
 
     val label: String
         get() = when (this) {
@@ -52,6 +56,7 @@ enum class ProtocolType {
             HTTP -> "HTTP"
             WIREGUARD -> "WireGuard"
             HYSTERIA2 -> "Hysteria2"
+            OPENFLUX -> "OpenFlux"
             RAW_JSON -> "JSON"
             UNKNOWN -> "—"
         }

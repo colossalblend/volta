@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ars3nb.volta.core.openflux.OpenFluxLink
 import com.ars3nb.volta.ui.VoltaViewModel
 import com.ars3nb.volta.ui.navigation.VoltaAppRoot
 
@@ -93,6 +94,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun importDeepLink(uri: Uri) {
+        // volta://openflux://v1/… and volta://of/…: an OpenFlux server.
+        OpenFluxLink.unwrap(uri.toString())?.let {
+            vm.importLink(it)
+            return
+        }
         val value = if (uri.scheme.equals("volta", ignoreCase = true)) {
             uri.getQueryParameter("url")
                 ?: uri.getQueryParameter("link")
