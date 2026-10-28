@@ -1,10 +1,12 @@
 package com.ars3nb.volta.core.ping
 
 import android.content.Context
+import com.ars3nb.volta.core.vpn.CertPins
 import com.ars3nb.volta.core.vpn.ConfigBuilder
 import com.ars3nb.volta.core.vpn.XrayCore
 import com.ars3nb.volta.data.model.PingResult
 import com.ars3nb.volta.data.model.PingType
+import com.ars3nb.volta.data.model.ProtocolType
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.SiteProbeResult
 import java.net.InetSocketAddress
@@ -16,6 +18,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
@@ -41,8 +44,25 @@ class PingEngine(
         /** A finalist slower than this to answer is no good to connect to anyway. */
         const val QUICK_TIMEOUT_MS = 4_500L
 
+        /** UDP nodes measured at connect time on top of the TCP finalists. */
+        private const val UDP_FINALISTS = 2
+
+        /** The background check is patient: a slow mobile network is not a dead server. */
+        const val GUARD_TIMEOUT_MS = 7_000L
+        private const val GUARD_RETRY_PAUSE_MS = 1_500L
+
         /** Home of native measurements that outlive their caller's timeout. */
         private val detached = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+        /**
+         * QUIC/UDP nodes (Hysteria2, WireGuard, mKCP): a TCP handshake or an HTTP request
+         * says nothing about them, so they skip the TCP sweep and go straight to a real
+         * round trip instead of being written off before they were measured.
+         */
+        fun speaksUdp(server: ServerEntity): Boolean =
+            server.protocol == ProtocolType.HYSTERIA2 ||
+                server.protocol == ProtocolType.WIREGUARD ||
+                server.network.lowercase() in setOf("hysteria", "kcp", "mkcp")
 
         /** Nodes worth spending a real-delay measurement on: the TCP-reachable ones. */
         internal fun reachableIds(tcpResults: List<Pair<Long, PingResult>>): Set<Long> =
@@ -67,7 +87,9 @@ class PingEngine(
     private val httpCallTimeoutMs = if (batterySaver) 3000L else 5000L
 
     suspend fun pingServer(server: ServerEntity, type: PingType = PingType.TCP): PingResult =
-        when (type) {
+        if (speaksUdp(server) && (type == PingType.TCP || type == PingType.HTTP_GET)) {
+            realDelay(server).copy(type = type)
+        } else when (type) {
             PingType.TCP -> tcpPing(server.address, server.port)
             PingType.ICMP -> icmpPing(server.address)
             PingType.HTTP_GET -> httpGetPing(server)
@@ -139,7 +161,12 @@ class PingEngine(
         // timeout then really ends the wait instead of sitting out the core's own
         // 10+ s deadline on a dead node.
         val measuring = detached.async {
-            XrayCore.measureOutboundDelay(context, config, DELAY_TEST_URL)
+            // A certificate pin costs a handshake, so it is made here, under the deadline.
+            val pinned = CertPins.apply(server)
+            val probe = if (pinned === server) config else {
+                runCatching { ConfigBuilder.buildProbe(pinned) }.getOrDefault(config)
+            }
+            XrayCore.measureOutboundDelay(context, probe, DELAY_TEST_URL)
         }
         val ms = withTimeoutOrNull(timeoutMs) { measuring.await() } ?: -1L
         PingResult(
@@ -149,6 +176,22 @@ class PingEngine(
             success = ms > 0,
             message = if (ms > 0) "" else "Узел не ответил"
         )
+    }
+
+    /**
+     * Does [server] still carry traffic? A real round trip through it, made by this app,
+     * which is outside its own tunnel: the answer is about the server itself, not about
+     * the tunnel running on it. One more try before saying no, so a single lost packet
+     * is not taken for a dead server.
+     */
+    suspend fun stillAnswers(server: ServerEntity, attempts: Int = 2): PingResult {
+        var result = realDelay(server, GUARD_TIMEOUT_MS)
+        repeat(attempts - 1) {
+            if (result.success) return result
+            delay(GUARD_RETRY_PAUSE_MS)
+            result = realDelay(server, GUARD_TIMEOUT_MS)
+        }
+        return result
     }
 
     suspend fun httpPing(url: String): PingResult = withContext(Dispatchers.IO) {
@@ -214,15 +257,22 @@ class PingEngine(
         finalists: Int = 4
     ): List<Pair<Long, PingResult>> = coroutineScope {
         if (servers.isEmpty()) return@coroutineScope emptyList()
-        val tcp = pingServers(servers, PingType.TCP, maxParallel = 16)
-        if (type == PingType.TCP) return@coroutineScope tcp
+        val (udp, tcpBased) = servers.partition(::speaksUdp)
+        // UDP nodes have no TCP latency to rank by: the few with the best record so far.
+        val udpPicks = udp.sortedBy { it.score }.take(UDP_FINALISTS)
+        val tcp = pingServers(tcpBased, PingType.TCP, maxParallel = 16)
+        if (type == PingType.TCP) {
+            return@coroutineScope tcp + udpPicks.map { server ->
+                async { server.id to realDelay(server, QUICK_TIMEOUT_MS) }
+            }.awaitAll()
+        }
 
         val dead = tcp.filter { !it.second.success }
         val nearest = tcp.filter { it.second.success }
             .sortedBy { it.second.latencyMs }
             .take(finalists)
             .mapNotNull { (id, _) -> servers.firstOrNull { it.id == id } }
-        val measured = nearest.map { server ->
+        val measured = (nearest + udpPicks).map { server ->
             async {
                 server.id to if (type == PingType.REAL_DELAY) {
                     realDelay(server, QUICK_TIMEOUT_MS)
@@ -267,8 +317,8 @@ class PingEngine(
         if (servers.isEmpty()) return@coroutineScope emptyList()
 
         if (type == PingType.REAL_DELAY) {
-            val tcp = pingServers(servers, PingType.TCP, maxParallel)
-            val reachable = reachableIds(tcp)
+            val tcp = pingServers(servers.filterNot(::speaksUdp), PingType.TCP, maxParallel)
+            val reachable = reachableIds(tcp) + servers.filter(::speaksUdp).map { it.id }
             val heavyGate = Semaphore(if (batterySaver) 2 else 4)
             val measured = servers.filter { it.id in reachable }
                 .map { server ->

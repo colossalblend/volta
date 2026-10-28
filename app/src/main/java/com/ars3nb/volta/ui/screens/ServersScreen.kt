@@ -1,6 +1,15 @@
 package com.ars3nb.volta.ui.screens
 
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.SwapVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import com.ars3nb.volta.core.server.Countries
+import com.ars3nb.volta.ui.components.CountryCard
+import com.ars3nb.volta.ui.components.serversCount
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -71,9 +80,13 @@ fun ServersScreen(
     val runningScope by vm.runningScope.collectAsStateWithLifecycle()
     val hideBalancers by vm.hideBalancers.collectAsStateWithLifecycle()
     var sort by remember { mutableStateOf(ServerSort.BEST) }
+    var sortMenu by remember { mutableStateOf(false) }
+    var byCountry by remember { mutableStateOf(true) }
     var favoritesOnly by remember { mutableStateOf(false) }
     var sheetServer by remember { mutableStateOf<ServerEntity?>(null) }
     var subscriptionFilter by remember { mutableStateOf<Long?>(null) }
+    // null until the user folds something: then only the current server's country is open.
+    var openCountries by remember { mutableStateOf<Set<String>?>(null) }
 
     val subsById = remember(state.subscriptions) { state.subscriptions.associateBy { it.id } }
 
@@ -84,6 +97,10 @@ fun ServersScreen(
 
     val balancerCount = remember(state.servers) { state.servers.count { it.role == ServerRole.AUTO } }
 
+    val countryOf = remember(state.servers) {
+        state.servers.associate { it.id to Countries.of(it.remark) }
+    }
+
     val visible = remember(
         state.servers, pool, query, sort, favoritesOnly, supported, subscriptionFilter, hideBalancers
     ) {
@@ -93,11 +110,19 @@ fun ServersScreen(
             .filter { !(hideBalancers && pool != ServerPool.AUTO && it.role == ServerRole.AUTO) }
             .filter { subscriptionFilter == null || it.subscriptionId == subscriptionFilter }
             .filter { !favoritesOnly || it.isFavorite }
-            .filter { matchesQuery(it, query, subsById[it.subscriptionId]?.name.orEmpty()) }
+            .filter {
+                matchesQuery(
+                    it,
+                    query,
+                    subsById[it.subscriptionId]?.name.orEmpty(),
+                    countryOf[it.id]?.name.orEmpty()
+                )
+            }
             .sortedWith(
                 when (sort) {
                     ServerSort.BEST -> compareBy<ServerEntity> { supported[it.id] == false }
-                        .thenBy { it.score }
+                        .thenBy { it.failStreak > 0 }
+                        .thenBy { measuredMs(it).let { ms -> if (ms < 0) Long.MAX_VALUE else ms } }
 
                     ServerSort.NAME -> compareBy { it.remark.lowercase() }
                     ServerSort.SUBSCRIPTION -> compareBy<ServerEntity> { it.subscriptionId ?: 0 }
@@ -106,8 +131,56 @@ fun ServersScreen(
             )
     }
 
+    // All subscriptions together, one card per country, alphabetical; unnamed last.
+    val countries = remember(visible) {
+        visible.groupBy { countryOf[it.id] ?: Countries.UNKNOWN }
+            .toList()
+            .sortedWith(
+                compareBy<Pair<Countries.Country, List<ServerEntity>>> {
+                    it.first.code == Countries.UNKNOWN_CODE
+                }.thenBy { it.first.name }
+            )
+    }
+    val currentCountry = state.selectedServer?.let { countryOf[it.id]?.code }
+    val open = openCountries ?: setOfNotNull(currentCountry)
+
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Серверы", fontWeight = FontWeight.SemiBold) }) }
+        topBar = {
+            TopAppBar(
+                title = { Text("Серверы", fontWeight = FontWeight.SemiBold) },
+                actions = {
+                    IconButton(
+                        onClick = { vm.pingAll(pool = pool) },
+                        enabled = !state.busy && state.servers.isNotEmpty()
+                    ) {
+                        if (state.busy && runningScope == null) {
+                            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Rounded.Speed, "Проверить отклик всех")
+                        }
+                    }
+                    Box {
+                        IconButton(onClick = { sortMenu = true }) {
+                            Icon(Icons.Rounded.SwapVert, "Сортировка")
+                        }
+                        DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                            ServerSort.entries.forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text(sortLabel(option)) },
+                                    onClick = {
+                                        sort = option
+                                        sortMenu = false
+                                    },
+                                    trailingIcon = {
+                                        if (sort == option) Icon(Icons.Rounded.Check, null)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            )
+        }
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
@@ -137,6 +210,7 @@ fun ServersScreen(
                         }
                     },
                     singleLine = true,
+                    shape = RoundedCornerShape(28.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -192,37 +266,6 @@ fun ServersScreen(
                 }
             }
 
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    ServerSort.entries.forEach { option ->
-                        FilterChip(
-                            selected = sort == option,
-                            onClick = { sort = option },
-                            label = { Text(sortLabel(option)) }
-                        )
-                    }
-                }
-            }
-
-            item {
-                OutlinedButton(
-                    onClick = { vm.pingAll(pool = pool) },
-                    enabled = !state.busy && state.servers.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    if (state.busy && runningScope == null) {
-                        CircularProgressIndicator(Modifier.size(15.dp), strokeWidth = 2.dp)
-                    } else {
-                        Icon(Icons.Rounded.Speed, null, Modifier.size(17.dp))
-                    }
-                    Spacer(Modifier.size(8.dp))
-                    Text("Проверить отклик всех")
-                }
-            }
-
             if (pool == ServerPool.AUTO && balancerCount > 0) {
                 item {
                     VoltaCard {
@@ -237,7 +280,31 @@ fun ServersScreen(
                 }
             }
 
-            item { SectionHeader("Серверов: ${visible.size}") }
+            item {
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        if (byCountry) "${serversCount(visible.size)} · стран: ${countries.size}"
+                        else serversCount(visible.size),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SingleChoiceSegmentedButtonRow {
+                        listOf(true to "Страны", false to "Список").forEachIndexed { index, (value, label) ->
+                            SegmentedButton(
+                                selected = byCountry == value,
+                                onClick = { byCountry = value },
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = 2),
+                                icon = {},
+                                label = { Text(label, style = MaterialTheme.typography.labelMedium) }
+                            )
+                        }
+                    }
+                }
+            }
 
             if (visible.isEmpty()) {
                 item {
@@ -255,15 +322,45 @@ fun ServersScreen(
                 }
             }
 
-            items(visible, key = { it.id }) { server ->
-                ServerRow(
-                    server = server,
-                    selected = state.selectedServer?.id == server.id,
-                    subscriptionName = subsById[server.subscriptionId]?.name.orEmpty(),
-                    supported = supported[server.id] != false,
-                    onClick = { vm.selectServer(server.id) },
-                    onLongClick = { sheetServer = server }
-                )
+            if (byCountry) {
+                items(countries, key = { "country-${it.first.code}" }) { (country, servers) ->
+                    // While searching every match is shown; otherwise only the open ones.
+                    val expanded = query.isNotBlank() || country.code in open
+                    CountryCard(
+                        country = country,
+                        count = servers.size,
+                        bestMs = servers.map(::measuredMs).filter { it >= 0 }.minOrNull() ?: -1,
+                        expanded = expanded,
+                        current = country.code == currentCountry,
+                        onToggle = {
+                            openCountries = if (country.code in open) open - country.code
+                            else open + country.code
+                        }
+                    ) {
+                        servers.forEach { server ->
+                            ServerRow(
+                                server = server,
+                                selected = state.selectedServer?.id == server.id,
+                                subscriptionName = subsById[server.subscriptionId]?.name.orEmpty(),
+                                supported = supported[server.id] != false,
+                                onClick = { vm.selectServer(server.id) },
+                                onLongClick = { sheetServer = server },
+                                inGroup = true
+                            )
+                        }
+                    }
+                }
+            } else {
+                items(visible, key = { it.id }) { server ->
+                    ServerRow(
+                        server = server,
+                        selected = state.selectedServer?.id == server.id,
+                        subscriptionName = subsById[server.subscriptionId]?.name.orEmpty(),
+                        supported = supported[server.id] != false,
+                        onClick = { vm.selectServer(server.id) },
+                        onLongClick = { sheetServer = server }
+                    )
+                }
             }
 
             item { Spacer(Modifier.height(8.dp)) }
@@ -336,10 +433,20 @@ private fun emptyStateAction(
     { OutlinedButton(onClick = onOpenImport) { Text("Добавить") } }
 }
 
-private fun matchesQuery(server: ServerEntity, query: String, subName: String): Boolean {
+/** The last measurement, falling back to the smoothed one; -1 when never measured. */
+private fun measuredMs(server: ServerEntity): Long =
+    server.latencyMs.takeIf { it >= 0 } ?: server.ewmaMs
+
+private fun matchesQuery(
+    server: ServerEntity,
+    query: String,
+    subName: String,
+    countryName: String
+): Boolean {
     if (query.isBlank()) return true
     val q = query.trim().lowercase()
     return server.remark.lowercase().contains(q) ||
+        countryName.lowercase().contains(q) ||
         server.address.lowercase().contains(q) ||
         server.protocol.label.lowercase().contains(q) ||
         subName.lowercase().contains(q) ||

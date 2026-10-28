@@ -233,9 +233,14 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     init {
         viewModelScope.launch {
             repo.ensureSeeded()
-            // Last verdict first, so the home screen is not blank while the probe runs.
-            _regime.value = runCatching { NetworkRegime.valueOf(repo.lastRegime.first()) }
-                .getOrDefault(NetworkRegime.UNKNOWN)
+            // Last verdict first, so the home screen is not blank while the probe runs,
+            // then every later one, including those of the background check.
+            launch {
+                repo.lastRegime.collect { name ->
+                    _regime.value = runCatching { NetworkRegime.valueOf(name) }
+                        .getOrDefault(NetworkRegime.UNKNOWN)
+                }
+            }
             if (repo.pingOnStart.first()) runStartupProbes()
             // Happ-style: subscriptions and their routing are pulled on every launch.
             if (repo.refreshOnLaunch.first()) {

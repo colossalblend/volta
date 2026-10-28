@@ -174,7 +174,7 @@ class ConfigBuilderTest {
         assertEquals("s3cret", hy.get("auth").asString)
         assertEquals("brutal", hy.get("congestion").asString)
         // Salamander travels as a final-mask layer, not inside hysteriaSettings.
-        assertNotNull(stream.getAsJsonArray("finalmask"))
+        assertNotNull(stream.getAsJsonObject("finalmask").getAsJsonArray("udp"))
     }
 
     @Test
@@ -327,6 +327,26 @@ class ConfigBuilderTest {
         assertNull(probe.get("inbounds"))
         assertNull(probe.get("routing"))
         assertEquals("proxy", probe.getAsJsonArray("outbounds")[0].asJsonObject.get("tag").asString)
+    }
+
+    @Test
+    fun neverWritesTheRemovedAllowInsecureFlag() {
+        val insecure = vless().copy(extraJson = """{"allowInsecure":"1"}""")
+        val tls = proxyOutbound(ConfigBuilder.build(insecure, null))
+            .getAsJsonObject("streamSettings").getAsJsonObject("tlsSettings")
+
+        assertNull(tls.get("allowInsecure"))
+        assertTrue(ConfigBuilder.asksInsecure(insecure))
+    }
+
+    @Test
+    fun pinsTheCertificateFromTheLinkAndDropsMalformedPins() {
+        val hash = "AB:".repeat(31) + "AB"
+        val pinned = vless().copy(extraJson = """{"allowInsecure":"1","pcs":"$hash,nonsense"}""")
+        val tls = proxyOutbound(ConfigBuilder.build(pinned, null))
+            .getAsJsonObject("streamSettings").getAsJsonObject("tlsSettings")
+
+        assertEquals("ab".repeat(32), tls.get("pinnedPeerCertSha256").asString)
     }
 
     // ------------------------------------------------------------------ helpers

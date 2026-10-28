@@ -473,8 +473,7 @@ class VoltaVpnService : VpnService() {
             }
 
             // Xray resets a counter when it is read, so these are deltas.
-            val upDelta = xray?.queryStats(ConfigBuilder.PROXY_TAG, "uplink") ?: 0
-            val downDelta = xray?.queryStats(ConfigBuilder.PROXY_TAG, "downlink") ?: 0
+            val (upDelta, downDelta) = xray?.trafficDelta(ConfigBuilder.PROXY_TAG) ?: (0L to 0L)
             uplinkTotal += upDelta
             downlinkTotal += downDelta
             _traffic.value = TrafficStats(
@@ -495,8 +494,9 @@ class VoltaVpnService : VpnService() {
             val now = System.currentTimeMillis()
             if (now - lastProbe >= 60_000) {
                 lastProbe = now
-                // Traffic in the last minute already proves the tunnel works.
-                if (downDelta > 0 || !hasUnderlyingNetwork()) {
+                // Traffic in the last minute already proves the tunnel works. With the
+                // screen off the check waits: ConnectionGuard runs one as it comes on.
+                if (downDelta > 0 || !hasUnderlyingNetwork() || !ScreenState.on.value) {
                     probeFailures = 0
                 } else if (!probeThroughTunnel()) {
                     probeFailures++

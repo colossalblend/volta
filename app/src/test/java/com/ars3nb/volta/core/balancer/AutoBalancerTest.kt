@@ -111,12 +111,16 @@ class AutoBalancerTest {
 
     @Test
     fun marginallyFasterNodeDoesNotStealTheConnection() {
-        // 500 -> 460 is 40ms: below the absolute margin.
+        // 500 -> 460 clears 30ms but is only an 8% win.
         assertFalse(AutoBalancer.beats(ranked(2, 460), ranked(1, 500)))
-        // 200 -> 130 clears 60ms but not the 0.8 ratio... 130 <= 160, so it does.
+        // 120 -> 100 is 20ms: below the absolute margin.
+        assertFalse(AutoBalancer.beats(ranked(2, 100), ranked(1, 120)))
+        // 200 -> 130 clears both 30ms and the 0.85 ratio.
         assertTrue(AutoBalancer.beats(ranked(2, 130), ranked(1, 200)))
-        // 1000 -> 900 clears the 60ms margin but is only a 10% win.
+        // 1000 -> 900 clears the 30ms margin but is only a 10% win.
         assertFalse(AutoBalancer.beats(ranked(2, 900), ranked(1, 1000)))
+        // The case from the field: 44 ms waiting behind a 119 ms node in use.
+        assertTrue(AutoBalancer.beats(ranked(2, 44), ranked(1, 119)))
     }
 
     @Test

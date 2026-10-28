@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ars3nb.volta.core.balancer.AutoBalancer
+import com.ars3nb.volta.core.server.Countries
 import com.ars3nb.volta.data.model.BalancerScope
 import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.NetworkRegime
@@ -441,7 +442,7 @@ private fun ServerIdentity(server: ServerEntity?, subscription: SubscriptionEnti
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(
-                server?.remark ?: "Сервер не выбран",
+                server?.let { Countries.withoutLeadingFlag(it.remark) } ?: "Сервер не выбран",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,

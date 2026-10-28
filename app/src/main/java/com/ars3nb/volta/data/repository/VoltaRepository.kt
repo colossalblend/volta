@@ -13,6 +13,7 @@ import com.ars3nb.volta.core.routing.HappRoutingParser
 import com.ars3nb.volta.core.routing.RoutingEngine
 import com.ars3nb.volta.core.routing.RoutingResolver
 import com.ars3nb.volta.core.server.ServerClassifier
+import com.ars3nb.volta.core.vpn.CertPins
 import com.ars3nb.volta.core.vpn.ConfigBuilder
 import com.ars3nb.volta.core.vpn.VoltaVpnService
 import com.ars3nb.volta.data.db.VoltaDatabase
@@ -683,7 +684,15 @@ class VoltaRepository(private val context: Context) {
     suspend fun runAutobalancer(
         scope: BalancerScope = BalancerScope.ALL,
         onPhase: (AutoBalancer.Phase) -> Unit = {},
-        quick: Boolean = false
+        quick: Boolean = false,
+        instant: Boolean = true,
+        /** A node that just failed: not a candidate, and replaced only by one that answered. */
+        exclude: Long? = null,
+        /**
+         * Reuse the site check made moments ago instead of probing again. Every connect
+         * in Home+LTE (button, tiles, boot) probes the sites afresh.
+         */
+        reuseNetwork: Boolean = false
     ): AutoBalancer.Decision = withContext(Dispatchers.IO) {
         val battery = prefs.batterySaver.first()
         val balancer = AutoBalancer(PingEngine(context, batterySaver = battery), NetworkProbe(battery))
@@ -693,14 +702,15 @@ class VoltaRepository(private val context: Context) {
             prefs.lastGoodLte.first().takeIf { it > 0 }?.let { put(BalancerScope.BYPASS, it) }
         }
         val decision = balancer.choose(
-            servers = serverDao.getAll(),
+            servers = serverDao.getAll().filter { it.id != exclude },
             scope = scope,
             current = current,
             pingType = prefs.defaultPingType.first(),
             onPhase = onPhase,
             remembered = remembered,
             quick = quick,
-            knownNetwork = if (quick) knownNetwork() else null
+            knownNetwork = if (reuseNetwork) knownNetwork() else null,
+            instant = instant
         )
 
         decision.ranked.forEach { ranked ->
@@ -729,7 +739,12 @@ class VoltaRepository(private val context: Context) {
             }
         }
         if (decision.ranked.isNotEmpty()) _lastDecision.value = decision
-        decision.selected?.let { if (it.id != current?.id) selectServer(it.id) }
+        // Leaving a failed node for one nobody measured would only trade one guess for
+        // another; better to stay until something answers.
+        val next = decision.selected?.takeIf { pick ->
+            exclude == null || decision.ranked.any { it.ok && it.server.id == pick.id }
+        }
+        next?.let { if (it.id != current?.id) selectServer(it.id) }
         decision
     }
 
@@ -767,7 +782,7 @@ class VoltaRepository(private val context: Context) {
 
         val routing = routingFor(server)
         val config = ConfigBuilder.build(
-            server = server,
+            server = CertPins.apply(server),
             profile = routing.profile,
             providerRoutingJson = routing.providerJson,
             batterySaver = prefs.batterySaver.first(),
@@ -917,6 +932,96 @@ class VoltaRepository(private val context: Context) {
             val scope = prefs.connectMode.first().scope ?: return@withLock null
             // runAutobalancer → selectServer reconnects by itself when the node changes.
             runAutobalancer(scope)
+        }
+    }
+
+    // ------------------------------------------------------------ guard
+
+    /**
+     * One background check on a live tunnel, every two minutes while the screen is on
+     * (ConnectionGuard). In Home+LTE the sites go first: they are cheap and say whether
+     * the group in use still fits this network. Then the node in use is pinged directly;
+     * the group is measured only when the network moved or that node stopped answering.
+     * Everything here runs outside the tunnel (this app is excluded from its own VPN),
+     * so a dead server can't hide behind a working tunnel.
+     */
+    suspend fun guardCheck(full: Boolean) = withContext(Dispatchers.IO) {
+        if (!isConnected() || _autoPicking.value) return@withContext
+        val live = serverDao.getById(VoltaVpnService.serverId.value) ?: return@withContext
+        val mode = prefs.connectMode.first()
+        val battery = prefs.batterySaver.first()
+        val probe = NetworkProbe(battery)
+
+        if (mode == ConnectMode.AUTO_HOME_LTE) {
+            var network = probe.runFast()
+            // No site answers: there is no internet right now, and that is not the
+            // server's fault. Nothing to fix until the network is back.
+            if (!network.hasAnyNetwork) return@withContext
+            if (prefs.followNetwork.first()) {
+                val dialable = serverDao.getAll().filter { ConfigBuilder.canDial(it) }
+                val fits = { outcome: NetworkProbe.Outcome ->
+                    AutoBalancer.filterByRegime(dialable, outcome.regime).any { it.id == live.id }
+                }
+                if (!fits(network)) {
+                    // The quick check stops at the first answer; before moving to the
+                    // other group, hear every site out so one slow host can't flip it.
+                    network = probe.run()
+                    if (!network.hasAnyNetwork) return@withContext
+                    saveNetwork(network)
+                    if (!fits(network)) {
+                        moveOff(live, BalancerScope.ALL, failed = false)
+                        return@withContext
+                    }
+                }
+            }
+            saveNetwork(network)
+        }
+
+        val answer = PingEngine(context, batterySaver = battery).stillAnswers(live)
+        if (answer.success) {
+            persist(live, answer)
+            if (full) reevaluateAuto()
+            return@withContext
+        }
+
+        // Other modes don't watch the sites; ask them only now, to be sure it is the
+        // server that went quiet and not the internet.
+        if (mode != ConnectMode.AUTO_HOME_LTE && !probe.runFast().hasAnyNetwork) return@withContext
+        // The sites answered and the server didn't: the server is the problem.
+        val scope = mode.scope
+        if (scope != null) {
+            moveOff(live, scope, failed = true)
+        } else if (prefs.autoFailover.first()) {
+            connectMutex.withLock {
+                if (!isConnected() || VoltaVpnService.serverId.value != live.id) return@withLock
+                planAfterFailure(live.id)?.let { VoltaVpnService.connect(context, it) }
+            }
+        }
+    }
+
+    private suspend fun saveNetwork(outcome: NetworkProbe.Outcome) {
+        prefs.setNetworkRegime(outcome.regime.name)
+        rememberNetwork(outcome)
+    }
+
+    /**
+     * Takes a live tunnel off [from]: the group is measured (the network check just
+     * made is reused) and the tunnel moves to the best node that answered.
+     */
+    private suspend fun moveOff(from: ServerEntity, scope: BalancerScope, failed: Boolean) {
+        connectMutex.withLock {
+            // The button, a tile or the service's own failover got there first.
+            if (!isConnected() || VoltaVpnService.serverId.value != from.id) return@withLock
+            if (failed) persist(from, PingResult(from.remark, PingType.REAL_DELAY, -1, false))
+            val decision = runAutobalancer(
+                scope,
+                quick = true,
+                instant = false,
+                exclude = if (failed) from.id else null,
+                reuseNetwork = true
+            )
+            // runAutobalancer → selectServer has already started the move.
+            if (decision.selected != null && serverDao.getSelected()?.id != from.id) scheduleRefine()
         }
     }
 

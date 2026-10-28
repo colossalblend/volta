@@ -33,10 +33,10 @@ class AutoBalancer(
 
     companion object {
         /** A challenger must beat the current node by at least this much… */
-        const val SWITCH_MARGIN_MS = 60L
+        const val SWITCH_MARGIN_MS = 30L
 
         /** …and by this ratio, so 500ms→460ms does not trigger a reconnect. */
-        const val SWITCH_MARGIN_RATIO = 0.8
+        const val SWITCH_MARGIN_RATIO = 0.85
 
         /** Weight of a fresh sample in the smoothed latency. */
         private const val EWMA_ALPHA = 0.4
@@ -51,7 +51,7 @@ class AutoBalancer(
         const val LOSS_PENALTY_MS = 1_200L
 
         /** Each recent failure in a row adds this to a node's figure. */
-        const val FAIL_STREAK_PENALTY_MS = 120L
+        const val FAIL_STREAK_PENALTY_MS = 40L
 
         /** Folds a node's samples (-1 = no answer) into median, spread and loss. */
         fun quality(samples: List<Long>): Quality {
@@ -67,15 +67,16 @@ class AutoBalancer(
         }
 
         /**
-         * One comparable figure per node: the median, plus half the jitter (a node that
-         * swings 80↔400 ms feels worse than a steady 150), plus lost samples and recent
-         * failures. -1 when the node never answered.
+         * One comparable figure per node, from this run's samples: the median the user
+         * sees, nudged by a quarter of the spread (a node swinging 60↔600 ms is worse
+         * than a steady 155), lost samples and recent failures. Ordinary nodes end up
+         * within a few ms of their median. -1 when the node never answered.
          */
         fun effectiveMs(q: Quality, failStreak: Int): Long {
             if (q.medianMs < 0) return -1
-            return q.medianMs + q.jitterMs / 2 +
+            return q.medianMs + q.jitterMs / 4 +
                 (q.loss * LOSS_PENALTY_MS).toLong() +
-                failStreak.coerceIn(0, 5) * FAIL_STREAK_PENALTY_MS
+                failStreak.coerceIn(0, 3) * FAIL_STREAK_PENALTY_MS
         }
 
         /** Which group a run serves, to know whose remembered node to favour. */
@@ -131,11 +132,12 @@ class AutoBalancer(
 
         /**
          * Hysteresis: a challenger replaces the node in use only when it is both
-         * absolutely and relatively faster, so ordinary jitter cannot cause a reconnect.
+         * absolutely and relatively faster in this very run, so ordinary jitter cannot
+         * cause a reconnect while a clearly faster node always wins.
          */
         fun beats(challenger: Ranked, holder: Ranked): Boolean {
-            val c = challenger.ewmaMs
-            val h = holder.ewmaMs
+            val c = challenger.figureMs
+            val h = holder.figureMs
             if (c < 0) return false
             if (h < 0) return true
             return (h - c) >= SWITCH_MARGIN_MS && c <= h * SWITCH_MARGIN_RATIO
@@ -153,12 +155,14 @@ class AutoBalancer(
         val ewmaMs: Long,
         val ok: Boolean,
         val jitterMs: Long = 0,
-        val samples: Int = 1
+        val samples: Int = 1,
+        /** This run's figure ([effectiveMs]); the choice is made on it, not on history. */
+        val figureMs: Long = latencyMs
     ) {
         val score: Long
             get() = when {
                 !ok -> Long.MAX_VALUE / 4
-                ewmaMs >= 0 -> ewmaMs - if (server.isFavorite) 40 else 0
+                figureMs >= 0 -> figureMs - if (server.isFavorite) 40 else 0
                 else -> Long.MAX_VALUE / 8
             }
     }
@@ -190,7 +194,12 @@ class AutoBalancer(
         /** Connect-time mode: answer in a second or two, refine after connecting. */
         quick: Boolean = false,
         /** A fresh network check for this same network, so it need not be repeated. */
-        knownNetwork: NetworkProbe.Outcome? = null
+        knownNetwork: NetworkProbe.Outcome? = null,
+        /**
+         * Quick mode may take the remembered node unmeasured. Off when the caller wants
+         * numbers first, e.g. the background check after the group changed.
+         */
+        instant: Boolean = true
     ): Decision {
         val dialable = servers.filter { ConfigBuilder.canDial(it) }
         if (dialable.isEmpty()) {
@@ -249,7 +258,7 @@ class AutoBalancer(
         // first, unmeasured. The health check right after connecting vouches for it
         // (and fails over if it doesn't), and the full comparison runs once the
         // tunnel is up — the user doesn't sit through it.
-        if (quick && holder != null && holder.failStreak == 0) {
+        if (quick && instant && holder != null && holder.failStreak == 0) {
             return Decision(
                 scope = scope,
                 regime = regime,
@@ -304,7 +313,8 @@ class AutoBalancer(
                     ewmaMs = if (ok) blendEwma(server.ewmaMs, figure) else server.ewmaMs,
                     ok = ok,
                     jitterMs = q.jitterMs,
-                    samples = list.size
+                    samples = list.size,
+                    figureMs = figure
                 )
             }
             .sortedBy { it.score }

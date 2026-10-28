@@ -462,6 +462,18 @@ object ConfigBuilder {
                 "«${server.remark}»: протокол «$protocol» не поддерживается этим ядром"
             )
         }
+        return dropRetired(outbound)
+    }
+
+    /**
+     * Fields this core refuses outright. A provider's JSON may still carry them; without
+     * them the certificate is simply verified, while with them nothing would start.
+     */
+    private fun dropRetired(outbound: JsonObject): JsonObject {
+        runCatching {
+            outbound.getAsJsonObject("streamSettings")?.getAsJsonObject("tlsSettings")
+                ?.remove("allowInsecure")
+        }
         return outbound
     }
 
@@ -491,7 +503,7 @@ object ConfigBuilder {
             }
             rawOutbound(server)?.let { collect(it, 0) }
 
-            wanted.mapNotNull { tag -> byTag[tag]?.deepCopy() }
+            wanted.mapNotNull { tag -> byTag[tag]?.deepCopy()?.let(::dropRetired) }
                 .filter { it.get("tag")?.asString != primaryTag }
         }.getOrDefault(emptyList())
     }
@@ -553,12 +565,19 @@ object ConfigBuilder {
 
             "tls" -> {
                 stream.add("tlsSettings", JsonObject().apply {
-                    addProperty("serverName", server.sni.ifBlank { server.host.ifBlank { server.address } })
+                    addProperty("serverName", tlsServerName(server))
                     if (server.fp.isNotBlank()) addProperty("fingerprint", server.fp)
                     if (server.alpn.isNotBlank()) {
                         add("alpn", jsonArray(*splitList(server.alpn).toTypedArray()))
                     }
-                    addProperty("allowInsecure", allowInsecure(server))
+                    // The core dropped allowInsecure and refuses a config that sets it. A
+                    // self-signed server is trusted by pinning its certificate instead;
+                    // CertPins fills the pin in for links that still only say "insecure".
+                    // Without a pin the certificate is verified as usual.
+                    pinsOf(server).takeIf { it.isNotEmpty() }
+                        ?.let { addProperty("pinnedPeerCertSha256", it.joinToString(",")) }
+                    ConfigParser.extra(extras, "vcn", "verifyPeerCertByName").takeIf { it.isNotBlank() }
+                        ?.let { addProperty("verifyPeerCertByName", it) }
                 })
             }
         }
@@ -644,11 +663,14 @@ object ConfigBuilder {
         val obfs = ConfigParser.extra(extras, "obfs")
         val obfsPassword = ConfigParser.extra(extras, "obfs-password", "obfsPassword", "obfsParam")
         if (obfs.equals("salamander", ignoreCase = true) && obfsPassword.isNotBlank()) {
-            stream.add("finalmask", JsonArray().apply {
-                add(JsonObject().apply {
-                    addProperty("type", "salamander")
-                    add("settings", JsonObject().apply {
-                        addProperty("password", obfsPassword)
+            // finalmask is an object of per-transport mask lists; salamander masks UDP.
+            stream.add("finalmask", JsonObject().apply {
+                add("udp", JsonArray().apply {
+                    add(JsonObject().apply {
+                        addProperty("type", "salamander")
+                        add("settings", JsonObject().apply {
+                            addProperty("password", obfsPassword)
+                        })
                     })
                 })
             })
@@ -700,10 +722,22 @@ object ConfigBuilder {
         }
     }
 
-    private fun allowInsecure(server: ServerEntity): Boolean {
+    /** The share link asked to skip certificate checks (allowInsecure / insecure=1). */
+    fun asksInsecure(server: ServerEntity): Boolean {
+        if (!server.security.equals("tls", ignoreCase = true)) return false
         val raw = ConfigParser.extra(server.extraJson, "allowInsecure", "insecure", "skip-cert-verify")
         return raw == "1" || raw.equals("true", ignoreCase = true)
     }
+
+    /** Certificate SHA-256 pins from the link (pcs); malformed ones would sink the config. */
+    fun pinsOf(server: ServerEntity): List<String> =
+        ConfigParser.extra(server.extraJson, "pcs", "pinnedPeerCertSha256")
+            .split(',')
+            .map { it.trim().replace(":", "").lowercase() }
+            .filter { it.length == 64 && it.all { c -> c in '0'..'9' || c in 'a'..'f' } }
+
+    fun tlsServerName(server: ServerEntity): String =
+        server.sni.ifBlank { server.host.ifBlank { server.address } }
 
     // ------------------------------------------------------------- routing
 

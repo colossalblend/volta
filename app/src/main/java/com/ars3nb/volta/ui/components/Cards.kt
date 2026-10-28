@@ -1,6 +1,14 @@
 package com.ars3nb.volta.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.ui.draw.rotate
+import com.ars3nb.volta.core.server.Countries
+import com.ars3nb.volta.data.model.ProtocolType
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -57,6 +65,11 @@ import com.ars3nb.volta.data.model.SiteProbeResult
 import com.ars3nb.volta.data.model.SubscriptionEntity
 import com.ars3nb.volta.ui.theme.VoltaTheme
 
+/**
+ * One server. On its own it is a card with the country flag; inside a country card
+ * ([inGroup]) it is a flat row whose badge shows the protocol instead, since the flag
+ * is already in the country header.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ServerRow(
@@ -66,53 +79,77 @@ fun ServerRow(
     supported: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    inGroup: Boolean = false
 ) {
     val palette = VoltaTheme.palette
+    val scheme = MaterialTheme.colorScheme
     val container by animateColorAsState(
-        if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-        else MaterialTheme.colorScheme.surface,
+        when {
+            selected -> scheme.primary.copy(alpha = if (inGroup) 0.14f else 0.12f)
+            inGroup -> Color.Transparent
+            else -> scheme.surface
+        },
         label = "serverRow"
     )
-    val shown = server.ewmaMs.takeIf { it >= 0 } ?: server.latencyMs
+    // The last measurement, the same figure the auto pick compares.
+    val shown = server.latencyMs.takeIf { it >= 0 } ?: server.ewmaMs
     val latencyColor = palette.latency(shown)
+    val shape = if (inGroup) RoundedCornerShape(14.dp) else CardShape
 
     Surface(
-        shape = CardShape,
+        shape = shape,
         color = container,
-        border = androidx.compose.foundation.BorderStroke(
-            if (selected) 1.5.dp else 1.dp,
-            if (selected) MaterialTheme.colorScheme.primary else palette.cardBorder
-        ),
+        border = when {
+            inGroup -> null
+            else -> androidx.compose.foundation.BorderStroke(
+                if (selected) 1.5.dp else 1.dp,
+                if (selected) scheme.primary else palette.cardBorder
+            )
+        },
         modifier = modifier
             .fillMaxWidth()
-            .clip(CardShape)
+            .clip(shape)
             .combinedClickable(
                 onClick = onClick,
                 onLongClickLabel = "Действия сервера",
                 onLongClick = onLongClick
             )
     ) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.padding(horizontal = if (inGroup) 10.dp else 14.dp, vertical = if (inGroup) 10.dp else 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Box(
                 Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
+                    .size(if (inGroup) 38.dp else 40.dp)
+                    .clip(if (inGroup) RoundedCornerShape(11.dp) else CircleShape)
                     .background(
-                        if (supported) MaterialTheme.colorScheme.surfaceVariant
-                        else palette.poor.copy(alpha = 0.16f)
+                        when {
+                            !supported -> palette.poor.copy(alpha = 0.16f)
+                            selected -> scheme.primary.copy(alpha = 0.18f)
+                            else -> scheme.surfaceVariant
+                        }
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                if (supported) {
-                    Text(flagOf(server.remark), fontSize = 20.sp)
-                } else {
-                    Icon(
+                when {
+                    !supported -> Icon(
                         Icons.Rounded.Warning,
                         null,
                         tint = palette.poor,
                         modifier = Modifier.size(18.dp)
                     )
+
+                    inGroup -> Text(
+                        protocolBadge(server),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = if (selected) scheme.primary else scheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+
+                    else -> Text(flagOf(server.remark), fontSize = 20.sp)
                 }
             }
             Spacer(Modifier.width(12.dp))
@@ -122,22 +159,25 @@ fun ServerRow(
                         Icon(
                             Icons.Rounded.Star,
                             null,
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = scheme.primary,
                             modifier = Modifier.padding(end = 4.dp).size(15.dp)
                         )
                     }
                     Text(
-                        server.remark,
+                        Countries.withoutLeadingFlag(server.remark),
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Medium,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
                 Text(
-                    subscriptionName.ifBlank { "Свой сервер" },
+                    listOf(
+                        subscriptionName.ifBlank { "Свой сервер" },
+                        if (inGroup) transportLabel(server) else protocolBadge(server)
+                    ).filter { it.isNotBlank() }.joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = scheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -159,28 +199,23 @@ fun ServerRow(
             Column(horizontalAlignment = Alignment.End) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (shown >= 0) {
-                        Icon(
-                            Icons.Rounded.Speed,
-                            null,
-                            modifier = Modifier.size(13.dp),
-                            tint = latencyColor
-                        )
-                        Spacer(Modifier.width(3.dp))
+                        SignalBars(shown)
+                        Spacer(Modifier.width(5.dp))
                     }
                     Text(
                         formatLatency(shown),
                         style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = if (shown >= 0) latencyColor
-                        else MaterialTheme.colorScheme.onSurfaceVariant
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (shown >= 0) latencyColor else scheme.onSurfaceVariant
                     )
                 }
+                Spacer(Modifier.height(3.dp))
                 if (selected) {
                     Icon(
                         Icons.Rounded.CheckCircle,
                         contentDescription = "Выбран",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 3.dp).size(16.dp)
+                        tint = scheme.primary,
+                        modifier = Modifier.size(16.dp)
                     )
                 } else {
                     val (label, home) = groupLabel(server.role)
@@ -196,6 +231,152 @@ fun ServerRow(
     }
 }
 
+/**
+ * A country with its servers from every subscription. The header says how many there
+ * are and how fast the best one answered; tapping it folds the list open or shut.
+ */
+@Composable
+fun CountryCard(
+    country: Countries.Country,
+    count: Int,
+    bestMs: Long,
+    expanded: Boolean,
+    current: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    val palette = VoltaTheme.palette
+    val scheme = MaterialTheme.colorScheme
+    val turn by animateFloatAsState(if (expanded) 180f else 0f, label = "chevron")
+    val border by animateColorAsState(
+        if (current) scheme.primary.copy(alpha = 0.7f) else palette.cardBorder,
+        label = "countryBorder"
+    )
+
+    Surface(
+        shape = CardShape,
+        color = scheme.surface,
+        border = androidx.compose.foundation.BorderStroke(if (current) 1.5.dp else 1.dp, border),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.animateContentSize()) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onToggle)
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    Modifier
+                        .size(46.dp)
+                        .clip(CircleShape)
+                        .background(scheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(country.flag, fontSize = 25.sp)
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            country.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        if (current) {
+                            Spacer(Modifier.width(8.dp))
+                            StatusPill("Сейчас", scheme.primary)
+                        }
+                    }
+                    Text(
+                        serversCount(count),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = scheme.onSurfaceVariant
+                    )
+                }
+                if (bestMs >= 0) {
+                    Column(horizontalAlignment = Alignment.End) {
+                        SignalBars(bestMs)
+                        Text(
+                            "от $bestMs мс",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = palette.latency(bestMs)
+                        )
+                    }
+                    Spacer(Modifier.width(6.dp))
+                }
+                Icon(
+                    Icons.Rounded.ExpandMore,
+                    contentDescription = if (expanded) "Свернуть" else "Развернуть",
+                    tint = scheme.onSurfaceVariant,
+                    modifier = Modifier.rotate(turn)
+                )
+            }
+            if (expanded) {
+                HorizontalDivider(color = palette.cardBorder)
+                Column(
+                    Modifier.padding(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    content()
+                }
+            }
+        }
+    }
+}
+
+/** "1 сервер", "3 сервера", "12 серверов". */
+fun serversCount(n: Int): String {
+    val mod100 = n % 100
+    val mod10 = n % 10
+    val word = when {
+        mod100 in 11..14 -> "серверов"
+        mod10 == 1 -> "сервер"
+        mod10 in 2..4 -> "сервера"
+        else -> "серверов"
+    }
+    return "$n $word"
+}
+
+/** Short protocol name for a badge. */
+fun protocolBadge(server: ServerEntity): String = when (server.protocol) {
+    ProtocolType.VLESS -> "VLESS"
+    ProtocolType.VMESS -> "VMess"
+    ProtocolType.TROJAN -> "Trojan"
+    ProtocolType.SHADOWSOCKS -> "SS"
+    ProtocolType.SOCKS -> "SOCKS"
+    ProtocolType.HTTP -> "HTTP"
+    ProtocolType.WIREGUARD -> "WG"
+    ProtocolType.HYSTERIA2 -> "HY2"
+    ProtocolType.RAW_JSON -> "JSON"
+    ProtocolType.UNKNOWN -> "?"
+}
+
+/** "VLESS · Reality · XHTTP": what a row inside a country card says under the name. */
+fun transportLabel(server: ServerEntity): String {
+    val transport = when (server.network.lowercase()) {
+        "ws" -> "WS"
+        "grpc" -> "gRPC"
+        "xhttp", "splithttp" -> "XHTTP"
+        "httpupgrade" -> "HTTPUpgrade"
+        "kcp", "mkcp" -> "mKCP"
+        else -> ""
+    }
+    val security = when (server.security.lowercase()) {
+        "reality" -> "Reality"
+        "tls" -> "TLS"
+        else -> ""
+    }
+    return listOf(server.protocol.label, security, transport)
+        .filter { it.isNotBlank() }
+        .joinToString(" · ")
+}
+
 fun roleLabel(role: ServerRole): String = when (role) {
     ServerRole.NORMAL -> "Home"
     ServerRole.BYPASS_WHITELIST -> "LTE"
@@ -209,25 +390,8 @@ fun groupLabel(role: ServerRole): Pair<String, Boolean?> = when (role) {
     ServerRole.AUTO -> "БАЛАНСЕР" to null
 }
 
-/**
- * The country flag a provider put in the remark (🇩🇪 Germany), or a globe. Flags are
- * pairs of regional-indicator symbols, which live outside the BMP.
- */
-fun flagOf(remark: String): String {
-    var i = 0
-    while (i < remark.length) {
-        val cp = remark.codePointAt(i)
-        val next = i + Character.charCount(cp)
-        if (cp in 0x1F1E6..0x1F1FF && next < remark.length) {
-            val cp2 = remark.codePointAt(next)
-            if (cp2 in 0x1F1E6..0x1F1FF) {
-                return String(Character.toChars(cp)) + String(Character.toChars(cp2))
-            }
-        }
-        i = next
-    }
-    return "🌐"
-}
+/** The server's country flag (from its name), or a globe when it names none. */
+fun flagOf(remark: String): String = Countries.of(remark).flag
 
 @Composable
 fun SubscriptionCard(

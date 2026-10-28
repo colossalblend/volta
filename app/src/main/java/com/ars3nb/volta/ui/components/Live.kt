@@ -57,6 +57,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.ars3nb.volta.core.server.Countries
 import com.ars3nb.volta.ui.PickSummary
 import com.ars3nb.volta.ui.SpeedHistory
 import com.ars3nb.volta.ui.theme.VoltaTheme
@@ -247,7 +248,7 @@ fun SignalBars(ms: Long, modifier: Modifier = Modifier) {
 fun AutoPickCard(summary: PickSummary, modifier: Modifier = Modifier) {
     val palette = VoltaTheme.palette
     val scheme = MaterialTheme.colorScheme
-    val worst = (summary.rows.maxOfOrNull { it.medianMs + it.jitterMs / 2 } ?: 1L).coerceAtLeast(1L)
+    val worst = (summary.rows.maxOfOrNull { it.medianMs } ?: 1L).coerceAtLeast(1L)
 
     VoltaCard(modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -262,13 +263,13 @@ fun AutoPickCard(summary: PickSummary, modifier: Modifier = Modifier) {
                 LaunchedEffect(summary.at, row.serverId) {
                     grow.animateTo(1f, tween(650, delayMillis = 120 * index, easing = FastOutSlowInEasing))
                 }
-                val share = ((row.medianMs + row.jitterMs / 2).toFloat() / worst).coerceIn(0.08f, 1f)
+                val share = (row.medianMs.toFloat() / worst).coerceIn(0.08f, 1f)
                 val barColor = if (row.chosen) palette.latency(row.medianMs) else scheme.outline
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(flagOf(row.name), modifier = Modifier.padding(end = 6.dp))
                         Text(
-                            row.name,
+                            Countries.withoutLeadingFlag(row.name),
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = if (row.chosen) FontWeight.SemiBold else FontWeight.Normal,
                             maxLines = 1,

@@ -57,16 +57,136 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
           echo "VOLTA_KEYSTORE_FILE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
 
-      - name: Unit tests and APKs
+      - name: Unit tests
+        env:
+          VOLTA_CONFIG_DUMP: ${{ runner.temp }}/configs
+        run: |
+          set -o pipefail
+          chmod +x gradlew
+          ./gradlew --no-configuration-cache --stacktrace "-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8" \
+            :app:testDebugUnitTest 2>&1 | tee "$RUNNER_TEMP/gradle.log"
+
+      # The Xray core. The newest libv2ray.aar from 2dust/AndroidLibXrayLite replaces the
+      # committed one only when it is newer, still has every call Volta makes, and a
+      # desktop Xray of the very same version accepts every config Volta builds (the
+      # unit tests above wrote them out). The shipped core is checked the same way, so a
+      # config the core would refuse fails the build here instead of on the phone.
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+          cache: false
+
+      - name: Xray core
+        id: core
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONFIGS: ${{ runner.temp }}/configs
+        run: |
+          set -uo pipefail
+          export GOTOOLCHAIN=auto CGO_ENABLED=0
+          W="$RUNNER_TEMP/core"; mkdir -p "$W"
+          AAR=app/libs/libv2ray.aar
+
+          xray_of() {
+            unzip -p "$1" jni/arm64-v8a/libgojni.so | strings \
+              | awk '$1=="dep" && $2=="github.com/xtls/xray-core" {print $3; exit}'
+          }
+          # v1.YYMMDD.N tags and v1.x-0.YYYYMMDDhhmmss-hash commits as one sortable number.
+          key_of() {
+            if [[ "$1" =~ -0\.([0-9]{14})- ]]; then echo "${BASH_REMATCH[1]}"
+            elif [[ "$1" =~ ^v1\.([0-9]{6})\.([0-9]+)$ ]]; then echo "20${BASH_REMATCH[1]}$(printf '%06d' "${BASH_REMATCH[2]}")"
+            else echo 0; fi
+          }
+          api_ok() {
+            unzip -o -q "$1" classes.jar -d "$W/api" || return 1
+            local sig; sig=$(javap -classpath "$W/api/classes.jar" libv2ray.Libv2ray libv2ray.CoreController libv2ray.CoreCallbackHandler) || return 1
+            for need in \
+              'java.lang.String checkVersionX()' \
+              'void initCoreEnv(java.lang.String, java.lang.String)' \
+              'long measureOutboundDelay(java.lang.String, java.lang.String)' \
+              'java.lang.String fetchTlsCertSha256(java.lang.String)' \
+              'java.lang.String fetchQuicCertSha256(java.lang.String)' \
+              'libv2ray.CoreController newCoreController(libv2ray.CoreCallbackHandler)' \
+              'boolean getIsRunning()' \
+              'java.lang.String queryAllOutboundTrafficStats()' \
+              'void startLoop(java.lang.String, int)' \
+              'void stopLoop()' \
+              'long onEmitStatus(long, java.lang.String)' \
+              'long shutdown()' \
+              'long startup()'; do
+              grep -qF "$need" <<<"$sig" || { echo "missing: $need"; return 1; }
+            done
+            for f in jni/arm64-v8a/libgojni.so jni/armeabi-v7a/libgojni.so jni/x86_64/libgojni.so assets/geoip.dat assets/geosite.dat; do
+              unzip -l "$1" "$f" > /dev/null || { echo "missing: $f"; return 1; }
+            done
+          }
+          # 0 = every config accepted, 1 = some refused, 2 = could not check.
+          configs_ok() {
+            local ver; ver=$(xray_of "$1")
+            local bin="$W/xray-$ver" geo="$W/geo-$ver" bad=0 out f
+            if [ ! -x "$bin" ]; then
+              GOBIN="$W/bin-$ver" go install "github.com/xtls/xray-core/main@$ver" || return 2
+              mv "$W/bin-$ver/main" "$bin"
+            fi
+            mkdir -p "$geo"
+            unzip -o -q -j "$1" assets/geoip.dat assets/geosite.dat -d "$geo" || return 2
+            ls "$CONFIGS"/*.json > /dev/null 2>&1 || return 2
+            for f in "$CONFIGS"/*.json; do
+              out=$(XRAY_LOCATION_ASSET="$geo" "$bin" run -test -c "$f" 2>&1)
+              if ! grep -q "Configuration OK" <<<"$out"; then
+                echo "::warning title=Xray $ver refuses $(basename "$f")::$(tail -n 1 <<<"$out")"
+                bad=1
+              fi
+            done
+            return $bad
+          }
+
+          CUR=$(xray_of "$AAR")
+          echo "Committed core: $CUR"
+          adopted=no
+          if gh release download --repo 2dust/AndroidLibXrayLite --pattern libv2ray.aar --dir "$W" --clobber \
+            || curl -fsSL -o "$W/libv2ray.aar" https://github.com/2dust/AndroidLibXrayLite/releases/latest/download/libv2ray.aar; then
+            NEW=$(xray_of "$W/libv2ray.aar")
+            echo "Newest release: $NEW"
+            if [ "$(key_of "$NEW")" -le "$(key_of "$CUR")" ]; then
+              echo "The committed core is already the newest."
+            elif ! api_ok "$W/libv2ray.aar"; then
+              echo "::warning title=Xray core kept::$NEW changed the library interface; staying on $CUR"
+            else
+              configs_ok "$W/libv2ray.aar"; rc=$?
+              if [ $rc = 0 ]; then
+                cp "$W/libv2ray.aar" "$AAR"
+                adopted=yes
+                echo "::notice title=Xray core updated::$CUR -> $NEW"
+              else
+                echo "::warning title=Xray core kept::$NEW could not be verified with Volta's configs (code $rc); staying on $CUR"
+              fi
+            fi
+          else
+            echo "::warning title=Xray core kept::could not download the newest core; staying on $CUR"
+          fi
+
+          if [ $adopted = no ]; then
+            configs_ok "$AAR"; rc=$?
+            if [ $rc = 1 ]; then
+              echo "::error title=Configs refused::the shipped core $CUR refuses configs Volta builds (see warnings)"
+              exit 1
+            elif [ $rc = 2 ]; then
+              echo "::warning title=Configs not checked::could not build Xray $CUR to check the configs"
+            fi
+          fi
+          echo "xray=$(xray_of "$AAR")" >> "$GITHUB_OUTPUT"
+          echo "adopted=$adopted" >> "$GITHUB_OUTPUT"
+
+      - name: APKs
         env:
           VOLTA_KEYSTORE_PASSWORD: ${{ secrets.VOLTA_KEYSTORE_PASSWORD }}
           VOLTA_KEY_ALIAS: ${{ secrets.VOLTA_KEY_ALIAS }}
           VOLTA_KEY_PASSWORD: ${{ secrets.VOLTA_KEY_PASSWORD }}
         run: |
           set -o pipefail
-          chmod +x gradlew
           ./gradlew --no-configuration-cache --stacktrace "-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8" \
-            :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease 2>&1 | tee "$RUNNER_TEMP/gradle.log"
+            :app:assembleDebug :app:assembleRelease 2>&1 | tee -a "$RUNNER_TEMP/gradle.log"
 
       # Compiler and Gradle errors as one annotation, readable without the raw log.
       - name: Report build errors
@@ -91,6 +211,8 @@ jobs:
           GH_REPO: ${{ github.repository }}
           BRANCH: ${{ github.head_ref || github.ref_name }}
           SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          XRAY: ${{ steps.core.outputs.xray }}
+          XRAY_UPDATED: ${{ steps.core.outputs.adopted }}
         run: |
           TAG="apk-${BRANCH//\//-}"
           SHORT="${SHA::7}"
@@ -108,6 +230,7 @@ jobs:
             --target "$SHA" --prerelease \
             --title "Volta APK · $BRANCH · $SHORT" \
             --notes "Сборка GitHub Actions: ветка \`$BRANCH\`, коммит $SHA.
+          Ядро Xray: \`${XRAY:-—}\`$([ "$XRAY_UPDATED" = yes ] && echo ' (обновлено при сборке)').
 
           - **\`volta-$SHORT-arm64-v8a.apk\`** — для почти всех телефонов, ставьте этот.
           - \`volta-$SHORT-armeabi-v7a.apk\` — для старых 32-битных телефонов.

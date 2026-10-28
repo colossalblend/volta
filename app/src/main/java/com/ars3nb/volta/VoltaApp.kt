@@ -10,16 +10,15 @@ import com.ars3nb.volta.core.HwidProvider
 import com.ars3nb.volta.core.vpn.NetworkWatcher
 import com.ars3nb.volta.core.vpn.VoltaVpnService
 import com.ars3nb.volta.data.model.ConnectMode
-import com.ars3nb.volta.data.model.VpnConnectionState
 import com.ars3nb.volta.data.repository.VoltaRepository
 import com.ars3nb.volta.ui.widget.VoltaWidget
+import com.ars3nb.volta.worker.ConnectionGuard
 import com.ars3nb.volta.worker.SubscriptionRefreshWorker
 // updateAll is a top-level extension in androidx.glance.appwidget, not a member.
 import androidx.glance.appwidget.updateAll
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -64,25 +63,10 @@ class VoltaApp : Application() {
             }
         }.start()
 
-        // Clash url-test, Volta style: while connected in an auto mode, re-measure the
-        // group every 15 minutes (30 on battery saver). Hysteresis in the balancer means
-        // only a clearly faster node takes over, so this does not cause flapping.
-        appScope.launch {
-            VoltaVpnService.state.collectLatest { state ->
-                if (state != VpnConnectionState.CONNECTED) return@collectLatest
-                while (true) {
-                    val minutes = if (repository.batterySaver.first()) 30L else 15L
-                    delay(TimeUnit.MINUTES.toMillis(minutes))
-                    if (repository.autoRecheck.first() &&
-                        repository.connectMode.first().scope != null &&
-                        !repository.autoPicking.value
-                    ) {
-                        // Own job: a switch reconnects, which would cancel this collector.
-                        appScope.launch { runCatching { repository.reevaluateAuto() } }
-                    }
-                }
-            }
-        }
+        // Every two minutes while the VPN is on and the screen is on: the sites (Home+LTE
+        // only) and the server in use, pinged directly; a dead one or the wrong group
+        // is replaced.
+        ConnectionGuard(appScope, repository).start(this)
 
         // Quiet background refresh. The worker itself honours each subscription's own
         // update interval, so waking hourly costs almost nothing; UPDATE (not KEEP) lets

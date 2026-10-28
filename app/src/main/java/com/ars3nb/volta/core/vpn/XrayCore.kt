@@ -4,6 +4,8 @@ import android.content.Context
 import android.util.Base64
 import android.util.Log
 import com.ars3nb.volta.core.HwidProvider
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import java.io.File
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
@@ -19,7 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  *   Libv2ray.newCoreController(CoreCallbackHandler) -> CoreController
  *   Libv2ray.measureOutboundDelay(configJson, url) -> long
  *   CoreController.startLoop(configJson, tunFd)   // tunFd == 0 -> no TUN inbound
- *   CoreController.stopLoop() / getIsRunning() / queryStats(tag, direction)
+ *   CoreController.stopLoop() / getIsRunning() / queryAllOutboundTrafficStats()
  *
  * Each instance owns its own controller: measuring a node never disturbs a live tunnel.
  */
@@ -43,6 +45,24 @@ class XrayCore(
                 Log.w(TAG, "libv2ray not found — VPN core in stub mode")
                 false
             }
+        }
+
+        /** Sums one outbound's counters out of "tag,direction,value;…". */
+        internal fun parseTraffic(raw: String, tag: String): Pair<Long, Long> {
+            var up = 0L
+            var down = 0L
+            raw.split(';').forEach { entry ->
+                val parts = entry.split(',')
+                if (parts.size != 3) return@forEach
+                val name = parts[0]
+                if (name != tag && !name.startsWith("$tag-")) return@forEach
+                val bytes = parts[2].trim().toLongOrNull() ?: return@forEach
+                when (parts[1]) {
+                    "uplink" -> up += bytes
+                    "downlink" -> down += bytes
+                }
+            }
+            return up to down
         }
 
         fun version(): String = runCatching {
@@ -69,6 +89,36 @@ class XrayCore(
         }
 
         /**
+         * SHA-256 of the certificate a server presents (over QUIC for Hysteria2), read by
+         * the core without checking it. Null when the server didn't answer in time.
+         */
+        fun fetchCertSha256(
+            address: String,
+            port: Int,
+            serverName: String,
+            quic: Boolean,
+            timeoutMs: Long = 4_000
+        ): String? {
+            if (!isCoreAvailable) return null
+            return runCatching {
+                val request = JsonObject().apply {
+                    addProperty("address", address)
+                    addProperty("port", port)
+                    addProperty("serverName", serverName)
+                    addProperty("timeoutMs", timeoutMs)
+                }.toString()
+                val method = if (quic) "fetchQuicCertSha256" else "fetchTlsCertSha256"
+                val raw = Class.forName(LIB_CLASS)
+                    .getMethod(method, String::class.java)
+                    .invoke(null, request) as? String
+                JsonParser.parseString(raw.orEmpty()).asJsonObject
+                    .get("sha256")?.takeIf { !it.isJsonNull }?.asString
+                    ?.takeIf { it.length == 64 }
+            }.onFailure { Log.d(TAG, "cert fetch failed: ${it.cause?.message ?: it.message}") }
+                .getOrNull()
+        }
+
+        /**
          * Copies geoip/geosite out of the APK once and points the core at them.
          * The .dat files ship inside libv2ray.aar and are merged into app assets by AGP.
          */
@@ -85,12 +135,13 @@ class XrayCore(
         }
 
         private fun installGeodata(context: Context) {
-            // A new build ships new geoip/geosite; without a stamp the old copies would
-            // stay forever and routing rules would drift out of date.
+            // A new build ships new geoip/geosite with its core; without a stamp the old
+            // copies would stay forever and routing rules would drift out of date. Every
+            // install counts, since CI builds don't bump the version name.
             val stamp = File(context.filesDir, "geodata.version")
             val expected = runCatching {
-                context.packageManager.getPackageInfo(context.packageName, 0).versionName
-                    ?: "0"
+                val info = context.packageManager.getPackageInfo(context.packageName, 0)
+                "${info.versionName}-${info.lastUpdateTime}"
             }.getOrDefault("0")
             val current = runCatching { stamp.readText().trim() }.getOrDefault("")
             val reinstall = current != expected
@@ -194,17 +245,18 @@ class XrayCore(
     }
 
     /**
-     * Cumulative bytes for an outbound tag. `direction` is "uplink" or "downlink".
-     * Xray resets the counter on read, so callers accumulate deltas themselves.
+     * Bytes through [tag] (and its balancer members, "$tag-0"…) since the last call, as
+     * uplink to downlink. Xray resets a counter when it is read. The core reports every
+     * outbound at once as "tag,direction,value;…" — the only form newer cores still
+     * have; the per-counter call is gone.
      */
-    fun queryStats(tag: String, direction: String): Long {
-        val instance = controller ?: return 0
-        if (instance === STUB) return 0
-        return runCatching {
-            instance.javaClass
-                .getMethod("queryStats", String::class.java, String::class.java)
-                .invoke(instance, tag, direction) as? Long ?: 0L
-        }.getOrDefault(0L)
+    fun trafficDelta(tag: String): Pair<Long, Long> {
+        val instance = controller ?: return 0L to 0L
+        if (instance === STUB) return 0L to 0L
+        val raw = runCatching {
+            instance.javaClass.getMethod("queryAllOutboundTrafficStats").invoke(instance) as? String
+        }.getOrNull().orEmpty()
+        return parseTraffic(raw, tag)
     }
 
     private fun handleCallback(proxy: Any, method: Method, args: Array<out Any?>?): Any {

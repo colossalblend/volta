@@ -127,8 +127,9 @@ fun SettingsScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
                     )
                     ToggleRow(
                         title = "Улучшать выбор сервера",
-                        subtitle = "Пока VPN включён, Volta иногда проверяет серверы и " +
-                            "переходит на заметно более быстрый.",
+                        subtitle = "Раз в 15 минут при включённом экране сравнивает серверы " +
+                            "и переходит на заметно более быстрый. Неотвечающий сервер " +
+                            "заменяется всегда.",
                         checked = autoRecheck,
                         onChecked = vm::setAutoRecheck
                     )
