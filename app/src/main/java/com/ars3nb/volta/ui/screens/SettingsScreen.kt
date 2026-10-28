@@ -21,26 +21,36 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ars3nb.volta.BuildConfig
+import com.ars3nb.volta.core.update.UpdateInfo
+import com.ars3nb.volta.core.update.UpdateState
 import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.PerAppMode
 import com.ars3nb.volta.data.model.PingType
@@ -49,6 +59,9 @@ import com.ars3nb.volta.ui.VoltaViewModel
 import com.ars3nb.volta.ui.components.Hint
 import com.ars3nb.volta.ui.components.SectionHeader
 import com.ars3nb.volta.ui.components.StatusPill
+import com.ars3nb.volta.ui.components.UpdateAction
+import com.ars3nb.volta.ui.components.UpdateProgress
+import com.ars3nb.volta.ui.components.updateHint
 import com.ars3nb.volta.ui.components.VoltaCard
 import com.ars3nb.volta.ui.components.modeIcon
 import com.ars3nb.volta.ui.theme.VoltaTheme
@@ -71,6 +84,10 @@ fun SettingsScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
     val refreshOnLaunch by vm.refreshOnLaunch.collectAsStateWithLifecycle()
     val followNetwork by vm.followNetwork.collectAsStateWithLifecycle()
     val autoRecheck by vm.autoRecheck.collectAsStateWithLifecycle()
+    val update by vm.updateState.collectAsStateWithLifecycle()
+    val updateAutoCheck by vm.updateAutoCheck.collectAsStateWithLifecycle()
+    val updateToken by vm.updateToken.collectAsStateWithLifecycle()
+    var editingToken by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val palette = VoltaTheme.palette
@@ -303,12 +320,69 @@ fun SettingsScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
                 }
             }
 
+            item { SectionHeader("Обновления") }
+            item {
+                VoltaCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "Volta ${BuildConfig.VERSION_NAME}",
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                            Hint(
+                                when (val s = update) {
+                                    is UpdateState.Available,
+                                    is UpdateState.Downloading,
+                                    is UpdateState.Ready ->
+                                        "Новая версия ${updateInfo(s)?.versionName}. ${updateHint(s)}"
+
+                                    else -> updateHint(s)
+                                }
+                            )
+                        }
+                        Spacer(Modifier.size(8.dp))
+                        UpdateAction(update, onCheck = vm::checkForUpdate, onInstall = vm::installUpdate)
+                    }
+                    UpdateProgress(update)
+                    Spacer(Modifier.height(6.dp))
+                    ToggleRow(
+                        title = "Проверять автоматически",
+                        subtitle = "При запуске и раз в несколько часов в фоне. О новой версии " +
+                            "придёт уведомление.",
+                        checked = updateAutoCheck,
+                        onChecked = vm::setUpdateAutoCheck
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { editingToken = true }
+                            .padding(vertical = 10.dp)
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Токен GitHub", style = MaterialTheme.typography.titleSmall)
+                            Hint(
+                                if (updateToken.isBlank()) {
+                                    "Нужен, только если сборки лежат в закрытом репозитории."
+                                } else {
+                                    "Задан: …${updateToken.takeLast(4)}"
+                                }
+                            )
+                        }
+                        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null)
+                    }
+                }
+            }
+
             item { SectionHeader("О приложении") }
             item {
                 VoltaCard {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Volta 1.0.0", style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                "Volta ${BuildConfig.VERSION_NAME}",
+                                style = MaterialTheme.typography.titleSmall
+                            )
                             Hint(
                                 if (vm.coreAvailable()) {
                                     "Ядро: ${vm.coreVersion().ifBlank { "Xray" }}"
@@ -326,6 +400,62 @@ fun SettingsScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
             }
         }
     }
+
+    if (editingToken) {
+        TokenDialog(
+            current = updateToken,
+            onSave = {
+                vm.setUpdateToken(it)
+                editingToken = false
+            },
+            onDismiss = { editingToken = false }
+        )
+    }
+}
+
+/** A read-only GitHub token, for updates from the private repository. */
+@Composable
+private fun TokenDialog(current: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    var value by remember { mutableStateOf(current) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Токен GitHub") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Hint(
+                    "Токен с доступом «Contents: Read-only» только к репозиторию Volta. " +
+                        "Хранится на этом телефоне и уходит только на GitHub. Если сборки " +
+                        "лежат в публичном volta-releases, токен не нужен."
+                )
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = { value = it.trim() },
+                    singleLine = true,
+                    placeholder = { Text("github_pat_…") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(value) }) { Text("Сохранить") }
+        },
+        dismissButton = {
+            if (current.isNotBlank()) {
+                TextButton(onClick = { onSave("") }) { Text("Удалить") }
+            } else {
+                TextButton(onClick = onDismiss) { Text("Отмена") }
+            }
+        }
+    )
+}
+
+private fun updateInfo(state: UpdateState): UpdateInfo? = when (state) {
+    is UpdateState.Available -> state.info
+    is UpdateState.Downloading -> state.info
+    is UpdateState.Ready -> state.info
+    is UpdateState.Failed -> state.info
+    else -> null
 }
 
 @Composable

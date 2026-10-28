@@ -14,14 +14,25 @@ android {
         applicationId = "com.ars3nb.volta"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        // Every CI build is numbered by its run, so each one is newer than the last and
+        // the in-app updater can tell which build is the latest. Local builds stay at 1.
+        val run = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
+        versionCode = if (run != null) 100 + run else 1
+        versionName = if (run != null) "1.1.$run" else "1.1.0-dev"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Stable app identity for HWID salt (do not change after release)
         buildConfigField("String", "HWID_SALT", "\"volta-hwid-v1\"")
         buildConfigField("String", "APP_BRAND", "\"Volta\"")
+
+        // Where the in-app updater looks for newer builds: the rolling pre-release of the
+        // branch this build came from, in the public mirror first, then the repository
+        // itself (private, so only with a token entered in the app).
+        val repo = System.getenv("GITHUB_REPOSITORY") ?: "colossalblend/volta"
+        val mirror = repo.substringBefore('/') + "/volta-releases"
+        buildConfigField("String", "UPDATE_REPOS", "\"$mirror,$repo\"")
+        buildConfigField("String", "UPDATE_TAG", "\"${System.getenv("VOLTA_UPDATE_TAG") ?: "apk-main"}\"")
     }
 
     signingConfigs {

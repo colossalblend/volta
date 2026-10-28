@@ -1157,9 +1157,9 @@ class VoltaRepository(private val context: Context) {
 
     fun isConnected(): Boolean = vpnState.value == VpnConnectionState.CONNECTED
 
-    private companion object {
+    companion object {
         /** Must match the port ConfigBuilder gives the socks inbound. */
-        const val LOCAL_SOCKS_PORT = 10808
+        private const val LOCAL_SOCKS_PORT = 10808
 
         /** Must match the port ConfigBuilder gives the http inbound. */
         const val LOCAL_HTTP_PORT = 10809

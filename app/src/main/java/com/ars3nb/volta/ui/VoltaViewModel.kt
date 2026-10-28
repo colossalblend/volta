@@ -84,6 +84,7 @@ data class VoltaUiState(
 class VoltaViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo = (app as VoltaApp).repository
+    private val updater = (app as VoltaApp).updater
 
     private val _busy = MutableStateFlow(false)
     private val _message = MutableStateFlow<String?>(null)
@@ -227,6 +228,18 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     val defaultPingType = repo.defaultPingType
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PingType.REAL_DELAY)
 
+    /** A newer build on GitHub: found, downloading, ready to install. */
+    val updateState = updater.state
+    val updateAutoCheck = updater.autoCheck
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+    val updateToken = updater.token
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
+
+    fun checkForUpdate() = viewModelScope.launch { updater.check() }
+    fun installUpdate() = updater.downloadAndInstall()
+    fun setUpdateAutoCheck(v: Boolean) = viewModelScope.launch { updater.setAutoCheck(v) }
+    fun setUpdateToken(v: String) = viewModelScope.launch { updater.setToken(v) }
+
     fun coreAvailable(): Boolean = repo.isCoreAvailable()
     fun coreVersion(): String = repo.coreVersion()
 
@@ -241,6 +254,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
                         .getOrDefault(NetworkRegime.UNKNOWN)
                 }
             }
+            launch { runCatching { updater.checkOnLaunch() } }
             if (repo.pingOnStart.first()) runStartupProbes()
             // Happ-style: subscriptions and their routing are pulled on every launch.
             if (repo.refreshOnLaunch.first()) {

@@ -7,6 +7,7 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.ars3nb.volta.core.HwidProvider
+import com.ars3nb.volta.core.update.AppUpdater
 import com.ars3nb.volta.core.vpn.NetworkWatcher
 import com.ars3nb.volta.core.vpn.VoltaVpnService
 import com.ars3nb.volta.data.model.ConnectMode
@@ -30,6 +31,9 @@ class VoltaApp : Application() {
 
     lateinit var repository: VoltaRepository
         private set
+
+    /** New builds from GitHub: the settings screen, the home banner and the worker. */
+    val updater: AppUpdater by lazy { AppUpdater(this, appScope) }
 
     override fun onCreate() {
         super.onCreate()

@@ -48,6 +48,44 @@ class AppPreferences(private val context: Context) {
         val hideBalancers = booleanPreferencesKey("hide_balancers")
         val lastGoodHome = longPreferencesKey("last_good_home")
         val lastGoodLte = longPreferencesKey("last_good_lte")
+        val updateAutoCheck = booleanPreferencesKey("update_auto_check")
+        val updateToken = stringPreferencesKey("update_token")
+        val updateLastCheck = longPreferencesKey("update_last_check")
+        val updateNotified = intPreferencesKey("update_notified")
+        val reconnectAfterUpdate = booleanPreferencesKey("reconnect_after_update")
+    }
+
+    /** Look for a newer build on GitHub on launch and now and then in the background. */
+    val updateAutoCheck: Flow<Boolean> = context.dataStore.data.map { it[Keys.updateAutoCheck] ?: true }
+
+    /** A GitHub token that can read the private repository; blank for public releases. */
+    val updateToken: Flow<String> = context.dataStore.data.map { it[Keys.updateToken].orEmpty() }
+    val updateLastCheck: Flow<Long> = context.dataStore.data.map { it[Keys.updateLastCheck] ?: 0L }
+
+    /** The build last announced in a notification, so each one is announced once. */
+    val updateNotified: Flow<Int> = context.dataStore.data.map { it[Keys.updateNotified] ?: 0 }
+
+    /** The VPN was on when the update was installed: turn it back on after the restart. */
+    val reconnectAfterUpdate: Flow<Boolean> = context.dataStore.data.map { it[Keys.reconnectAfterUpdate] ?: false }
+
+    suspend fun setUpdateAutoCheck(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.updateAutoCheck] = enabled }
+    }
+
+    suspend fun setUpdateToken(token: String) {
+        context.dataStore.edit { it[Keys.updateToken] = token.trim() }
+    }
+
+    suspend fun setUpdateLastCheck(at: Long) {
+        context.dataStore.edit { it[Keys.updateLastCheck] = at }
+    }
+
+    suspend fun setUpdateNotified(versionCode: Int) {
+        context.dataStore.edit { it[Keys.updateNotified] = versionCode }
+    }
+
+    suspend fun setReconnectAfterUpdate(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.reconnectAfterUpdate] = enabled }
     }
 
     /** What the big button connects to. Home+LTE by default: it works everywhere. */

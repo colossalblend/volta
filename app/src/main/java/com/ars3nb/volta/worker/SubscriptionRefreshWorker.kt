@@ -8,7 +8,8 @@ import kotlinx.coroutines.flow.first
 
 /**
  * Background subscription refresh with low impact: only enabled subscriptions that
- * are actually due by their own `profile-update-interval`, one at a time.
+ * are actually due by their own `profile-update-interval`, one at a time. Also the
+ * occasional look for a newer build of the app.
  */
 class SubscriptionRefreshWorker(
     appContext: Context,
@@ -17,6 +18,8 @@ class SubscriptionRefreshWorker(
 
     override suspend fun doWork(): Result {
         val app = applicationContext as? VoltaApp ?: return Result.success()
+        // Every few hours: a newer Volta on GitHub is announced with a notification.
+        runCatching { app.updater.checkInBackground() }
         return try {
             val repo = app.repository
             val now = System.currentTimeMillis()

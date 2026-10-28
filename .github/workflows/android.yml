@@ -46,6 +46,13 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v5
 
+      # The rolling pre-release this build goes to. Baked into the APK as the channel
+      # its in-app updater follows (together with apk-main).
+      - name: Release channel
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: echo "VOLTA_UPDATE_TAG=apk-${BRANCH//\//-}" >> "$GITHUB_ENV"
+
       # Optional real release key: add VOLTA_KEYSTORE_BASE64, VOLTA_KEYSTORE_PASSWORD,
       # VOLTA_KEY_ALIAS and VOLTA_KEY_PASSWORD as repository secrets. Without them the
       # release APK is signed with the CI debug key so it still installs and updates.
@@ -214,8 +221,9 @@ jobs:
           XRAY: ${{ steps.core.outputs.xray }}
           XRAY_UPDATED: ${{ steps.core.outputs.adopted }}
         run: |
-          TAG="apk-${BRANCH//\//-}"
+          TAG="$VOLTA_UPDATE_TAG"
           SHORT="${SHA::7}"
+          VERSION="1.1.$GITHUB_RUN_NUMBER"
           OUT="$RUNNER_TEMP/apk"
           mkdir -p "$OUT"
           # app-<abi>-release.apk → volta-<sha>-<abi>.apk
@@ -224,11 +232,24 @@ jobs:
             cp "$f" "$OUT/volta-$SHORT-$abi.apk"
           done
           cp app/build/outputs/apk/debug/*arm64-v8a*.apk "$OUT/volta-$SHORT-arm64-v8a-debug.apk"
+          # What the in-app updater reads: this build's number and the APK for each CPU.
+          APKS='[]'
+          for f in "$OUT"/*.apk; do
+            name=$(basename "$f"); abi=${name#volta-$SHORT-}; abi=${abi%.apk}
+            APKS=$(jq -c --arg abi "$abi" --arg name "$name" --argjson size "$(stat -c %s "$f")" \
+              --arg sha "$(sha256sum "$f" | cut -d ' ' -f 1)" \
+              '. + [{abi: $abi, name: $name, size: $size, sha256: $sha}]' <<<"$APKS")
+          done
+          jq -n --argjson code "$((100 + GITHUB_RUN_NUMBER))" --arg name "$VERSION" --arg commit "$SHA" \
+            --arg branch "$BRANCH" --arg xray "${XRAY:-}" --argjson apks "$APKS" \
+            '{versionCode: $code, versionName: $name, commit: $commit, branch: $branch, xray: $xray, apks: $apks}' \
+            > "$OUT/update.json"
           ls -la "$OUT"
+          cat "$OUT/update.json"
           gh release delete "$TAG" --cleanup-tag --yes 2>/dev/null || true
-          gh release create "$TAG" "$OUT"/*.apk \
+          gh release create "$TAG" "$OUT"/*.apk "$OUT/update.json" \
             --target "$SHA" --prerelease \
-            --title "Volta APK · $BRANCH · $SHORT" \
+            --title "Volta $VERSION · $BRANCH · $SHORT" \
             --notes "Сборка GitHub Actions: ветка \`$BRANCH\`, коммит $SHA.
           Ядро Xray: \`${XRAY:-—}\`$([ "$XRAY_UPDATED" = yes ] && echo ' (обновлено при сборке)').
 
@@ -238,9 +259,35 @@ jobs:
           - \`volta-$SHORT-x86_64.apk\` — для эмулятора.
           - \`volta-$SHORT-arm64-v8a-debug.apk\` — отладочная, если нужно снять логи.
 
-          Все подписаны одним ключом, так что новая сборка ставится поверх старой."
+          Все подписаны одним ключом, так что новая сборка ставится поверх старой.
+          Версия $VERSION. Установленное приложение найдёт её само: Настройки → Обновления."
           echo "url=https://github.com/$GH_REPO/releases/tag/$TAG" >> "$GITHUB_OUTPUT"
           echo "### APK: https://github.com/$GH_REPO/releases/tag/$TAG" >> "$GITHUB_STEP_SUMMARY"
+
+      # The repository is private, so a phone can't download from it without a key. With
+      # a VOLTA_RELEASES_TOKEN secret (a token allowed to write to <owner>/volta-releases,
+      # a public repository with at least one commit) every build is copied there too,
+      # under the same tag, and the app updates from it with no key at all.
+      - name: Copy APKs to the public releases repository
+        if: steps.release.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.VOLTA_RELEASES_TOKEN }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "No VOLTA_RELEASES_TOKEN secret: builds stay in this repository only."
+            exit 0
+          fi
+          MIRROR="$GITHUB_REPOSITORY_OWNER/volta-releases"
+          VERSION="1.1.$GITHUB_RUN_NUMBER"
+          OUT="$RUNNER_TEMP/apk"
+          gh release delete "$VOLTA_UPDATE_TAG" --repo "$MIRROR" --cleanup-tag --yes 2>/dev/null || true
+          gh release create "$VOLTA_UPDATE_TAG" "$OUT"/*.apk "$OUT/update.json" \
+            --repo "$MIRROR" --prerelease \
+            --title "Volta $VERSION · ${SHA::7}" \
+            --notes "Volta $VERSION. **\`volta-${SHA::7}-arm64-v8a.apk\`** подходит почти всем телефонам."
+          echo "### Public copy: https://github.com/$MIRROR/releases/tag/$VOLTA_UPDATE_TAG" >> "$GITHUB_STEP_SUMMARY"
 
       # Fallback when the release could not be made (e.g. a fork PR without write access).
       - name: Upload APKs as an artifact

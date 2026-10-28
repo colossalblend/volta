@@ -82,6 +82,8 @@ import com.ars3nb.volta.ui.components.SignalBars
 import com.ars3nb.volta.ui.components.SmallShape
 import com.ars3nb.volta.ui.components.SpeedGraph
 import com.ars3nb.volta.ui.components.StatTile
+import com.ars3nb.volta.ui.components.UpdateBanner
+import com.ars3nb.volta.ui.components.offersInstall
 import com.ars3nb.volta.ui.components.VoltaCard
 import com.ars3nb.volta.ui.components.flagOf
 import com.ars3nb.volta.ui.components.formatBytes
@@ -103,6 +105,7 @@ fun HomeScreen(
     val phase by vm.connectPhase.collectAsStateWithLifecycle()
     val speed by vm.speedHistory.collectAsStateWithLifecycle()
     val pick by vm.pickSummary.collectAsStateWithLifecycle()
+    val update by vm.updateState.collectAsStateWithLifecycle()
     val palette = VoltaTheme.palette
 
     // Ticks only while the tunnel is up, so an idle screen costs nothing.
@@ -195,6 +198,10 @@ fun HomeScreen(
 
             if (state.error != null && !state.isConnected && !working) {
                 item { ErrorBanner(state.error!!) }
+            }
+
+            if (update.offersInstall) {
+                item { UpdateBanner(update, onInstall = vm::installUpdate) }
             }
 
             if (state.servers.isEmpty()) {

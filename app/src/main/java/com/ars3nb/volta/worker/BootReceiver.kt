@@ -18,10 +18,13 @@ class BootReceiver : BroadcastReceiver() {
         val pending = goAsync()
         app.appScope.launch {
             try {
+                // An in-app update restarted Volta while the VPN was on: turn it back on.
+                val updated = intent.action == Intent.ACTION_MY_PACKAGE_REPLACED &&
+                    app.updater.takeReconnectFlag()
                 // The boot broadcast allows a foreground-service start only for a short
                 // while: hand over to the service now and let it pick the node there.
                 // Without VPN consent (or with another VPN set) Android won't allow it.
-                if (app.repository.autoConnect.first() && VpnService.prepare(context) == null) {
+                if ((updated || app.repository.autoConnect.first()) && VpnService.prepare(context) == null) {
                     runCatching { VoltaVpnService.autoConnect(context) }
                 }
             } finally {
