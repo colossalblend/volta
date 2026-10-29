@@ -1,5 +1,7 @@
 package com.ars3nb.volta.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -10,11 +12,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ContentPaste
+import androidx.compose.material.icons.rounded.FileOpen
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -34,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -50,6 +55,18 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
     var paste by remember { mutableStateOf("") }
     val state by vm.uiState.collectAsStateWithLifecycle()
     val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    // A .conf from AmneziaVPN, AmneziaWG or WireGuard. Its type varies by file manager,
+    // so any file is offered; the parser decides.
+    val openFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val text = runCatching {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                String(input.readNBytesCompat(MAX_FILE_BYTES), Charsets.UTF_8)
+            }
+        }.getOrNull()
+        if (!text.isNullOrBlank()) vm.importLink(text.trim()) { ok -> if (ok) onBack() }
+    }
 
     Scaffold(
         topBar = {
@@ -116,8 +133,8 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
             }
 
             Spacer(Modifier.height(4.dp))
-            SectionHeader("Одна ссылка или JSON")
-            Hint("Ссылка на сервер или готовый конфиг.")
+            SectionHeader("Одна ссылка, ключ или конфиг")
+            Hint("Ссылка на сервер, ключ AmneziaVPN (vpn://), конфиг AmneziaWG / WireGuard или JSON.")
 
             OutlinedTextField(
                 value = paste,
@@ -139,6 +156,15 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
                 enabled = paste.isNotBlank() && !state.busy
             ) {
                 Text("Импортировать")
+            }
+            OutlinedButton(
+                onClick = { openFile.launch(arrayOf("*/*")) },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !state.busy
+            ) {
+                Icon(Icons.Rounded.FileOpen, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Открыть файл .conf")
             }
 
             Spacer(Modifier.height(4.dp))
@@ -162,5 +188,20 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
 
 private val SUPPORTED = listOf(
     "VLESS", "VMess", "Trojan", "Shadowsocks", "SS-2022",
-    "SOCKS5", "HTTP", "Hysteria2", "WireGuard"
+    "SOCKS5", "HTTP", "Hysteria2", "Hysteria", "WireGuard",
+    "AmneziaWG 1.0 – 3"
 )
+
+/** A config file is a few kilobytes; anything far bigger is not one. */
+private const val MAX_FILE_BYTES = 512 * 1024
+
+private fun java.io.InputStream.readNBytesCompat(limit: Int): ByteArray {
+    val out = java.io.ByteArrayOutputStream()
+    val buf = ByteArray(8192)
+    while (out.size() < limit) {
+        val n = read(buf, 0, minOf(buf.size, limit - out.size()))
+        if (n < 0) break
+        out.write(buf, 0, n)
+    }
+    return out.toByteArray()
+}

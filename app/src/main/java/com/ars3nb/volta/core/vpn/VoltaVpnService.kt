@@ -1,5 +1,6 @@
 package com.ars3nb.volta.core.vpn
 
+import com.ars3nb.volta.core.helper.ProxyHelper
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import android.app.Notification
 import android.content.Context
@@ -52,6 +53,8 @@ class VoltaVpnService : VpnService() {
         const val EXTRA_PER_APP_PACKAGES = "per_app_packages"
         const val EXTRA_SERVER_ID = "server_id"
         const val EXTRA_OPENFLUX_LINK = "openflux_link"
+        const val EXTRA_HELPER_KIND = "helper_kind"
+        const val EXTRA_HELPER_CONFIG = "helper_config"
 
         private const val SOCKS_PORT_DEFAULT = 10808
         private const val HEALTH_ATTEMPTS = 3
@@ -105,6 +108,8 @@ class VoltaVpnService : VpnService() {
                 putExtra(EXTRA_PER_APP_MODE, plan.perAppMode.name)
                 putExtra(EXTRA_PER_APP_PACKAGES, plan.perAppPackages.toTypedArray())
                 putExtra(EXTRA_OPENFLUX_LINK, plan.openFluxLink)
+                putExtra(EXTRA_HELPER_KIND, plan.helper?.kind)
+                putExtra(EXTRA_HELPER_CONFIG, plan.helper?.config)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(i)
@@ -157,7 +162,9 @@ class VoltaVpnService : VpnService() {
         val perAppMode: PerAppMode = PerAppMode.OFF,
         val perAppPackages: Set<String> = emptySet(),
         /** An OpenFlux server: the helper is started on this link before the core. */
-        val openFluxLink: String = ""
+        val openFluxLink: String = "",
+        /** AmneziaWG or Hysteria v1: the voltaproxy helper runs this before the core. */
+        val helper: ProxyHelper.Spec? = null
     )
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -170,6 +177,7 @@ class VoltaVpnService : VpnService() {
 
     private var lastConfig: String? = null
     private var lastOpenFluxLink: String = ""
+    private var lastHelper: ProxyHelper.Spec? = null
     private var lastServerName: String = ""
     private var lastServerId: Long = 0
     private var lastMtu: Int = 1420
@@ -234,14 +242,16 @@ class VoltaVpnService : VpnService() {
                 val config = intent.getStringExtra(EXTRA_CONFIG).orEmpty()
                 val name = intent.getStringExtra(EXTRA_SERVER_NAME).orEmpty()
                 val openFluxLink = intent.getStringExtra(EXTRA_OPENFLUX_LINK).orEmpty()
+                val helper = helperOf(intent)
                 // Foreground must be entered synchronously or Android kills the start.
                 startForeground(
                     VpnNotificationHelper.NOTIFICATION_ID,
                     buildNotification(name, connecting = true)
                 )
-                // Every OpenFlux server has the same config (the helper's port): the
-                // link tells them apart.
-                val sameConfig = config == lastConfig && openFluxLink == lastOpenFluxLink
+                // Every OpenFlux or voltaproxy server has the same config (the helper's
+                // port): the link tells them apart.
+                val sameConfig = config == lastConfig && openFluxLink == lastOpenFluxLink &&
+                    helper == lastHelper
                 if ((_state.value == VpnConnectionState.CONNECTING ||
                         _state.value == VpnConnectionState.CONNECTED) && sameConfig
                 ) {
@@ -257,7 +267,8 @@ class VoltaVpnService : VpnService() {
                         intent.getStringArrayExtra(EXTRA_PER_APP_PACKAGES)?.toSet().orEmpty()
                     // Only the exit changes: the VPN interface and its app list stay, and
                     // just the core is replaced. Apps see no drop and nothing leaks past
-                    // the tunnel in between. OpenFlux brings its own helper, so it can't.
+                    // the tunnel in between. OpenFlux brings its own helper, so it can't;
+                    // the voltaproxy helper is swapped along with the core.
                     val coreOnly = openFluxLink.isBlank() && lastOpenFluxLink.isBlank() &&
                         newMtu == lastMtu && newSocksPort == socksPort &&
                         newPerAppMode == perAppMode && newPackages == perAppPackages
@@ -267,6 +278,7 @@ class VoltaVpnService : VpnService() {
                     )
                     lastConfig = config
                     lastOpenFluxLink = openFluxLink
+                    lastHelper = helper
                     lastServerName = name
                     lastServerId = intent.getLongExtra(EXTRA_SERVER_ID, 0)
                     lastMtu = newMtu
@@ -287,6 +299,7 @@ class VoltaVpnService : VpnService() {
                 } else {
                     lastConfig = config
                     lastOpenFluxLink = openFluxLink
+                    lastHelper = helper
                     lastServerName = name
                     lastServerId = intent.getLongExtra(EXTRA_SERVER_ID, 0)
                     lastMtu = intent.getIntExtra(EXTRA_MTU, 1420)
@@ -442,6 +455,8 @@ class VoltaVpnService : VpnService() {
                 )
                 OpenFluxRunner.start(this, openFluxLink).getOrThrow()
             }
+            // AmneziaWG / Hysteria v1: the helper's proxy must listen before the core.
+            lastHelper?.let { ProxyHelper.start(it).getOrThrow() }
 
             // The core comes up first. Raising the TUN before it would black-hole every
             // packet on the device while geodata is unpacked and the core boots.
@@ -517,6 +532,9 @@ class VoltaVpnService : VpnService() {
         runCatching { xray?.stop() }
         xray = null
         try {
+            // The new node may need the helper, a different one, or none.
+            val helper = lastHelper
+            if (helper != null) ProxyHelper.start(helper).getOrThrow() else ProxyHelper.stop()
             val core = newCore().also { xray = it }
             core.start(config, tunFd = 0).getOrThrow()
             generation++
@@ -537,6 +555,12 @@ class VoltaVpnService : VpnService() {
             _serverId.value = serverId
             doConnect(config, name, lastMtu)
         }
+    }
+
+    private fun helperOf(intent: Intent): ProxyHelper.Spec? {
+        val kind = intent.getStringExtra(EXTRA_HELPER_KIND).orEmpty()
+        val config = intent.getStringExtra(EXTRA_HELPER_CONFIG).orEmpty()
+        return if (kind.isBlank() || config.isBlank()) null else ProxyHelper.Spec(kind, config)
     }
 
     /** A core whose own shutdown counts only while it still carries the tunnel. */
@@ -563,11 +587,12 @@ class VoltaVpnService : VpnService() {
             if (!tunnelActive.get()) break
 
             val openFluxDown = lastOpenFluxLink.isNotBlank() && !OpenFluxRunner.isRunning()
-            if (xray?.isRunning() != true || tun2Socks?.isRunning() != true || openFluxDown) {
+            val helperDown = lastHelper != null && !ProxyHelper.isRunning()
+            if (xray?.isRunning() != true || tun2Socks?.isRunning() != true || openFluxDown || helperDown) {
                 Log.w(
                     TAG,
                     "component died — core=${xray?.isRunning()} tun=${tun2Socks?.isRunning()} " +
-                        "openflux=${!openFluxDown}"
+                        "openflux=${!openFluxDown} helper=${!helperDown}"
                 )
                 // Launched separately: recovery restarts the tunnel, which cancels this job.
                 scope.launch { onTunnelBroken("Соединение прервалось", gen) }
@@ -656,6 +681,7 @@ class VoltaVpnService : VpnService() {
                 Log.i(TAG, "failover #$failoverAttempts -> ${plan.serverName}")
                 lastConfig = plan.configJson
                 lastOpenFluxLink = plan.openFluxLink
+                lastHelper = plan.helper
                 lastServerName = plan.serverName
                 lastServerId = plan.serverId
                 lastMtu = plan.mtu
@@ -699,6 +725,7 @@ class VoltaVpnService : VpnService() {
         runCatching { xray?.stop() }
         xray = null
         runCatching { OpenFluxRunner.stop() }
+        runCatching { ProxyHelper.stop() }
         runCatching { tunFd?.close() }
         tunFd = null
     }

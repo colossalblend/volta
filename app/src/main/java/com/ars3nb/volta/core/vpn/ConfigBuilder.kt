@@ -1,5 +1,6 @@
 package com.ars3nb.volta.core.vpn
 
+import com.ars3nb.volta.core.helper.ProxyHelper
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.parser.ConfigParser
 import com.ars3nb.volta.core.routing.GeoNames
@@ -384,16 +385,22 @@ object ConfigBuilder {
                 }
                 // The OpenFlux helper carries the traffic; the core only hands it over
                 // to the helper's local SOCKS5 port (see OpenFluxRunner).
-                ob.addProperty("protocol", "socks")
-                ob.add("settings", JsonObject().apply {
-                    add("servers", JsonArray().apply {
-                        add(JsonObject().apply {
-                            addProperty("address", "127.0.0.1")
-                            addProperty("port", OpenFluxRunner.PORT)
-                        })
-                    })
-                })
-                return ob
+                return localSocks(ob, OpenFluxRunner.PORT)
+            }
+
+            ProtocolType.AMNEZIAWG, ProtocolType.HYSTERIA -> {
+                val spec = helperSpec(server)
+                    ?: throw UnsupportedProtocolException("«${server.remark}»: в сервере нет конфига")
+                if (!ProxyHelper.available) {
+                    throw UnsupportedProtocolException(
+                        "${server.protocol.label} не входит в эту сборку Volta"
+                    )
+                }
+                if (spec.kind == ProxyHelper.Spec.HYSTERIA) hysteriaV1Problem(server)?.let {
+                    throw UnsupportedProtocolException(it)
+                }
+                // The voltaproxy helper carries the traffic (see ProxyHelper).
+                return localSocks(ob, ProxyHelper.PORT)
             }
 
             ProtocolType.RAW_JSON, ProtocolType.UNKNOWN ->
@@ -405,6 +412,42 @@ object ConfigBuilder {
         val mux = muxSettings(server)
         if (mux != null) ob.add("mux", mux)
         return ob
+    }
+
+    /** A SOCKS5 outbound to a helper process on this phone. */
+    private fun localSocks(ob: JsonObject, port: Int): JsonObject {
+        ob.addProperty("protocol", "socks")
+        ob.add("settings", JsonObject().apply {
+            add("servers", JsonArray().apply {
+                add(JsonObject().apply {
+                    addProperty("address", "127.0.0.1")
+                    addProperty("port", port)
+                })
+            })
+        })
+        return ob
+    }
+
+    /**
+     * What the voltaproxy helper must run for [server], or null when the core dials
+     * it by itself: AmneziaWG (its .conf) and Hysteria v1 (its link).
+     */
+    fun helperSpec(server: ServerEntity): ProxyHelper.Spec? = when (server.protocol) {
+        ProtocolType.AMNEZIAWG -> server.rawLink.takeIf { it.isNotBlank() }
+            ?.let { ProxyHelper.Spec(ProxyHelper.Spec.AWG, it) }
+
+        ProtocolType.HYSTERIA -> server.rawLink.takeIf { it.isNotBlank() }
+            ?.let { ProxyHelper.Spec(ProxyHelper.Spec.HYSTERIA, it) }
+
+        else -> null
+    }
+
+    /** Hysteria v1 over its fake-TCP or "wechat-video" modes: not in the helper. */
+    private fun hysteriaV1Problem(server: ServerEntity): String? {
+        val mode = ConfigParser.extra(server.extraJson, "protocol").lowercase()
+        return if (mode.isNotBlank() && mode != "udp") {
+            "«${server.remark}»: Hysteria в режиме $mode не поддерживается, только udp"
+        } else null
     }
 
     /**

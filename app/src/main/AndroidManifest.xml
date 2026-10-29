@@ -54,10 +54,12 @@
                 <data android:scheme="socks5" />
                 <data android:scheme="hysteria2" />
                 <data android:scheme="hy2" />
+                <data android:scheme="hysteria" />
                 <data android:scheme="wireguard" />
                 <data android:scheme="wg" />
                 <data android:scheme="volta" />
                 <data android:scheme="openflux" />
+                <data android:scheme="vpn" />
             </intent-filter>
 
             <!-- Share a link into the app -->

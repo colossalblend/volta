@@ -880,7 +880,8 @@ class VoltaRepository(private val context: Context) {
             mtu = prefs.mtu.first(),
             perAppMode = prefs.perAppMode.first(),
             perAppPackages = prefs.perAppPackages.first(),
-            openFluxLink = if (server.protocol == ProtocolType.OPENFLUX) server.rawLink else ""
+            openFluxLink = if (server.protocol == ProtocolType.OPENFLUX) server.rawLink else "",
+            helper = ConfigBuilder.helperSpec(server)
         )
     }
 
