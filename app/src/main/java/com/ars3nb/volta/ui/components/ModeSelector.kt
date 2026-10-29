@@ -185,7 +185,7 @@ fun ManualModeStrip(
             )
             Spacer(Modifier.width(10.dp))
             Text(
-                "Свой сервер: $serverName",
+                if (serverName.isBlank()) "Сервер выбран вручную" else "Свой сервер: $serverName",
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
                 maxLines = 1,

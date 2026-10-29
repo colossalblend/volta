@@ -200,6 +200,7 @@ fun PowerButton(
         }
     }
 
+    val dim by animateFloatAsState(if (enabled) 1f else 0.5f, tween(300), label = "dim")
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val press by animateFloatAsState(if (pressed) 0.94f else 1f, Motion.press(), label = "press")
@@ -264,6 +265,7 @@ fun PowerButton(
             Modifier
                 .size(size * DISC)
                 .scale(press)
+                .graphicsLayer { alpha = dim }
                 .clip(CircleShape)
                 .semantics { contentDescription = description }
                 .pointerInput(Unit) {
@@ -293,11 +295,13 @@ fun PowerButton(
             val r = this.size.minDimension / 2
             val c = Offset(r, r)
             val from = Offset(origin.x * this.size.width, origin.y * this.size.height)
-            val front = patina.value * (hypot(from.x - c.x, from.y - c.y) + r) * 1.04f
+            // At 1 the solid part of the patina reaches the far edge, wherever it started.
+            val front = patina.value * (hypot(from.x - c.x, from.y - c.y) + r * (1f + EDGE))
 
             drawCopper(c, r)
             if (front > 1f) drawPatina(c, r, from, front)
             drawSpecks(specks, c, r, from, front)
+            drawBand(c, r)
 
             // The mark turns patina-dark once the green has passed the middle.
             val passed = ((front - hypot(from.x - c.x, from.y - c.y)) / (r * 0.35f)).coerceIn(0f, 1f)
@@ -313,6 +317,9 @@ fun PowerButton(
 
 private const val DISC = 0.62f
 private const val RINGS = 3
+
+/** How wide the patina's soft front is, as a share of the disc's radius. */
+private const val EDGE = 0.12f
 
 /** Bare copper: lit from the top left, with the faint rings of a turned blank. */
 private fun DrawScope.drawCopper(c: Offset, r: Float) {
@@ -368,7 +375,7 @@ private fun DrawScope.drawPatina(c: Offset, r: Float, from: Offset, front: Float
             radius = r,
             center = c
         )
-        val soft = (r * 0.22f / front).coerceIn(0f, 0.9f)
+        val soft = (r * EDGE / front).coerceIn(0f, 0.9f)
         drawRect(
             brush = Brush.radialGradient(
                 0f to Color.White,
@@ -388,14 +395,14 @@ private class Speck(val x: Float, val y: Float, val radius: Float, val alpha: Fl
 /** Oxidation spots: a few run ahead of the patina's edge, the rest texture it. */
 private fun speckles(): List<Speck> {
     val random = Random(7)
-    return List(90) {
+    return List(46) {
         val a = random.nextFloat() * 2f * PI.toFloat()
-        val d = kotlin.math.sqrt(random.nextFloat()) * 0.94f
+        val d = kotlin.math.sqrt(random.nextFloat()) * 0.86f
         Speck(
             x = cos(a) * d,
             y = sin(a) * d,
-            radius = 0.006f + random.nextFloat() * 0.018f,
-            alpha = 0.25f + random.nextFloat() * 0.45f,
+            radius = 0.005f + random.nextFloat() * 0.011f,
+            alpha = 0.12f + random.nextFloat() * 0.22f,
             light = random.nextFloat() < 0.6f
         )
     }
@@ -443,6 +450,21 @@ private fun DrawScope.drawPowerMark(c: Offset, r: Float, ink: Color) {
     }
     mark(lip, Color.White.copy(alpha = 0.22f))
     mark(Offset.Zero, ink.copy(alpha = 0.88f))
+}
+
+/** The disc's turned edge stays bare copper, so the patina sits inside a rim. */
+private fun DrawScope.drawBand(c: Offset, r: Float) {
+    val width = r * 0.06f
+    drawCircle(
+        brush = Brush.linearGradient(
+            listOf(Metals.copperLight, Metals.copper, Metals.copperDark),
+            start = Offset(c.x - r, c.y - r),
+            end = Offset(c.x + r, c.y + r)
+        ),
+        radius = r - width / 2,
+        center = c,
+        style = Stroke(width = width)
+    )
 }
 
 /** A thin bevel: light on the top left edge, shade on the bottom right. */
@@ -520,6 +542,7 @@ fun ConnectionHeadline(
         phaseCaption.isNotBlank() -> phaseCaption
         state == VpnConnectionState.CONNECTED -> serverName
         state == VpnConnectionState.CONNECTING -> serverName.ifBlank { "Поднимаю туннель…" }
+        state == VpnConnectionState.DISCONNECTING -> "Закрываю туннель…"
         state == VpnConnectionState.ERROR -> "Нажмите на диск, чтобы попробовать снова"
         else -> idleCaption
     }

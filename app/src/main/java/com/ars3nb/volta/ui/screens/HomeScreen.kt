@@ -178,7 +178,7 @@ fun HomeContent(
             .background(MaterialTheme.colorScheme.background)
     ) {
         val viewport = maxHeight
-        val discSize = min(min(maxWidth * 0.82f, viewport * 0.42f), 340.dp)
+        val discSize = min(min(maxWidth * 0.92f, viewport * 0.47f), 380.dp)
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -275,8 +275,9 @@ fun HomeContent(
                                 onSelect = onSelectMode
                             )
                             AnimatedVisibility(visible = mode == ConnectMode.MANUAL) {
+                                // The capsule above already names the server.
                                 ManualModeStrip(
-                                    serverName = selected?.remark ?: "не выбран",
+                                    serverName = "",
                                     onBackToAuto = { onSelectMode(ConnectMode.AUTO_HOME_LTE) }
                                 )
                             }
