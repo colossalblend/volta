@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.ui.draw.rotate
 import com.ars3nb.volta.core.openflux.OpenFluxLink
+import com.ars3nb.volta.core.parser.AmneziaConfigs
 import com.ars3nb.volta.core.server.Countries
 import com.ars3nb.volta.data.model.ProtocolType
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -354,6 +355,8 @@ fun protocolBadge(server: ServerEntity): String = when (server.protocol) {
     ProtocolType.HTTP -> "HTTP"
     ProtocolType.WIREGUARD -> "WG"
     ProtocolType.HYSTERIA2 -> "HY2"
+    ProtocolType.AMNEZIAWG -> if (server.network == "wg") "WG" else "AWG"
+    ProtocolType.HYSTERIA -> "HY"
     ProtocolType.OPENFLUX -> "OF"
     ProtocolType.RAW_JSON -> "JSON"
     ProtocolType.UNKNOWN -> "?"
@@ -368,6 +371,10 @@ fun transportLabel(server: ServerEntity): String {
         val carriers = server.network.split('+').filter { it.isNotBlank() }
             .joinToString(" + ") { OpenFluxLink.carrierName(it) }
         return listOf(server.protocol.label, carriers).filter { it.isNotBlank() }.joinToString(" · ")
+    }
+    if (server.protocol == ProtocolType.AMNEZIAWG) {
+        // network holds the generation read from the .conf: awg3, awg2, awg1.5, awg1, wg.
+        return AmneziaConfigs.generationLabel(server.network)
     }
     val transport = when (server.network.lowercase()) {
         "ws" -> "WS"

@@ -1,6 +1,7 @@
 package com.ars3nb.volta.core.ping
 
 import android.content.Context
+import com.ars3nb.volta.core.helper.ProxyHelper
 import com.ars3nb.volta.core.vpn.CertPins
 import com.ars3nb.volta.core.vpn.ConfigBuilder
 import com.ars3nb.volta.core.vpn.XrayCore
@@ -72,13 +73,16 @@ class PingEngine(
         private val detached = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
         /**
-         * QUIC/UDP nodes (Hysteria2, WireGuard, mKCP): a TCP handshake or an HTTP request
-         * says nothing about them, so they skip the TCP sweep and go straight to a real
-         * round trip instead of being written off before they were measured.
+         * QUIC/UDP nodes (Hysteria, WireGuard, AmneziaWG, mKCP): a TCP handshake or an
+         * HTTP request says nothing about them, so they skip the TCP sweep and go
+         * straight to a real round trip instead of being written off before they were
+         * measured.
          */
         fun speaksUdp(server: ServerEntity): Boolean =
             server.protocol == ProtocolType.HYSTERIA2 ||
+                server.protocol == ProtocolType.HYSTERIA ||
                 server.protocol == ProtocolType.WIREGUARD ||
+                server.protocol == ProtocolType.AMNEZIAWG ||
                 server.network.lowercase() in setOf("hysteria", "kcp", "mkcp")
 
         /** Nodes worth spending a real-delay measurement on: the TCP-reachable ones. */
@@ -217,6 +221,19 @@ class PingEngine(
             // OpenFlux only runs while connected through it; from outside, whether its
             // carrier (the exit's port, or the document's host) answers is what shows.
             return@withContext tcpPing(server.address, server.port).copy(type = type)
+        }
+        ConfigBuilder.helperSpec(server)?.let { spec ->
+            // The core can't speak it: the voltaproxy helper makes the round trip, in a
+            // process of its own that a timeout here doesn't wait for.
+            val measuring = detached.async { ProxyHelper.probe(spec, DELAY_TEST_URL, timeoutMs) }
+            val ms = withTimeoutOrNull(timeoutMs) { measuring.await() } ?: -1L
+            return@withContext PingResult(
+                target = server.remark,
+                type = type,
+                latencyMs = ms,
+                success = ms > 0,
+                message = if (ms > 0) "" else "Узел не ответил"
+            )
         }
         if (!XrayCore.isCoreAvailable) {
             // No native core in this build: fall back to something honest.

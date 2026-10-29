@@ -105,6 +105,11 @@ class CoreConfigSamplesTest {
             "wireguard" to "wireguard://$WG_PRIVATE@wg.example:51820?publickey=$WG_PUBLIC" +
                 "&address=10.7.0.2%2F32&mtu=1420&reserved=1,2,3#WG",
             "socks" to "socks://${b64("user:pass")}@sox.example:1080#SOCKS",
+            "hysteria2-port-hopping" to "hysteria2://s3cret@hy.example:20000-30000/?sni=cdn.example#HOP",
+            // Run by the voltaproxy helper: the core only hands traffic to its SOCKS port.
+            "hysteria-v1" to "hysteria://hy.example:443?protocol=udp&auth=pw&peer=cdn.example#H1",
+            "amneziawg-link" to "wireguard://$WG_PRIVATE@wg.example:51820?publickey=$WG_PUBLIC" +
+                "&address=10.7.0.2%2F32&jc=4&jmin=40&jmax=70&s1=15&s2=18&h1=1&h2=2&h3=3&h4=4#AWG",
             "openflux" to com.ars3nb.volta.core.openflux.OpenFluxLinkTest.SESSION
         )
     }

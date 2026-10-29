@@ -14,8 +14,9 @@ import java.util.Base64
 
 /**
  * Parses everything a provider can hand us into [ServerEntity] rows:
- * share links (vless/vmess/trojan/ss/socks/hysteria2/wireguard), plain or
- * base64 subscription bodies, single Xray outbounds and full Xray configs.
+ * share links (vless/vmess/trojan/ss/socks/hysteria/hysteria2/wireguard), AmneziaWG
+ * and WireGuard `.conf` files and AmneziaVPN `vpn://` keys, plain or base64
+ * subscription bodies, single Xray outbounds and full Xray configs.
  *
  * Protocol-specific knobs that have no dedicated column live in
  * [ServerEntity.extraJson] so new core options keep working without a migration.
@@ -26,7 +27,7 @@ object ConfigParser {
 
     /** Schemes we can turn into a working outbound. */
     private const val SUPPORTED_SCHEMES =
-        "vless|vmess|trojan|ss|socks5|socks|hysteria2|hy2|wireguard|wg|openflux|volta"
+        "vless|vmess|trojan|ss|socks5|socks|hysteria2|hy2|hysteria|wireguard|wg|openflux|volta|vpn"
 
     /** A share link ends at any of these; everything else may legally appear in a remark. */
     private val LINK_TERMINATORS: Set<Char> = setOf(
@@ -37,7 +38,6 @@ object ConfigParser {
     private val UNSUPPORTED_SCHEMES = mapOf(
         "tuic" to "TUIC",
         "ssr" to "ShadowsocksR",
-        "hysteria" to "Hysteria v1",
         "snell" to "Snell",
         "juicity" to "Juicity",
         "anytls" to "AnyTLS"
@@ -59,6 +59,12 @@ object ConfigParser {
         val normalizedBody = body.removePrefix("\uFEFF").trim()
             .replace("\r\n", "\n")
             .replace('\r', '\n')
+        // A WireGuard / AmneziaWG .conf: its # lines are comments, not metadata.
+        if (AmneziaConfigs.looksLikeConf(normalizedBody)) {
+            return SubscriptionImportResult(
+                servers = listOfNotNull(AmneziaConfigs.parseConf(normalizedBody, subscriptionId))
+            )
+        }
         val metaLines = mutableListOf<String>()
         val payloadLines = mutableListOf<String>()
         normalizedBody.lineSequence().forEach { line ->
@@ -172,7 +178,14 @@ object ConfigParser {
         }
 
         // 4) Список ссылок (в т.ч. несколько в одной строке)
-        val servers = extractShareLinks(content).mapNotNull { parseShareLink(it, subscriptionId) }
+        val servers = extractShareLinks(content).flatMap { link ->
+            // An AmneziaVPN key can hold several protocols of one server.
+            if (link.startsWith("vpn://", ignoreCase = true)) {
+                AmneziaConfigs.parseAmneziaKey(link, subscriptionId)
+            } else {
+                listOfNotNull(parseShareLink(link, subscriptionId))
+            }
+        }
 
         return SubscriptionImportResult(
             servers = servers,
@@ -246,6 +259,7 @@ object ConfigParser {
             head.startsWith("c29ja3") || // socks
             head.startsWith("d2lyZW") || // wireguard
             head.startsWith("b3BlbmZsdX") || // openflux
+            head.startsWith("dnBuOi8v") || // vpn:// (AmneziaVPN)
             cleaned.length > 64
     }
 
@@ -259,7 +273,9 @@ object ConfigParser {
             "ss" -> parseShadowsocks(trimmed, subscriptionId)
             "socks", "socks5" -> parseSocks(trimmed, subscriptionId)
             "hysteria2", "hy2" -> parseHysteria2(trimmed, subscriptionId)
+            "hysteria" -> parseHysteria(trimmed, subscriptionId)
             "wireguard", "wg" -> parseWireGuard(trimmed, subscriptionId)
+            "vpn" -> AmneziaConfigs.parseAmneziaKey(trimmed, subscriptionId).firstOrNull()
             "openflux" -> parseOpenFlux(trimmed, subscriptionId)
             "volta" -> OpenFluxLink.unwrap(trimmed)?.let { parseOpenFlux(it, subscriptionId) }
             else -> if (trimmed.startsWith("{")) {
@@ -551,12 +567,14 @@ object ConfigParser {
         return try {
             val parts = splitShareLink(link, link.substringBefore("://")) ?: return null
             val params = parseQuery(parts.query)
-            val (address, port) = splitHostPort(parts.hostPort, 443)
+            val (hostPort, hopPorts) = cutPortRange(parts.hostPort)
+            val (address, port) = splitHostPort(hostPort, 443)
             if (address.isBlank()) return null
             // hysteria2://auth@host:port?sni=&obfs=&obfs-password=&insecure=1#name
             val auth = parts.userInfo.ifBlank { params["auth"].orEmpty() }
             val extras = params.toMutableMap()
             extras["auth"] = auth
+            if (hopPorts.isNotBlank() && extras["mport"].isNullOrBlank()) extras["mport"] = hopPorts
             ServerEntity(
                 subscriptionId = subscriptionId,
                 remark = parts.remark.ifBlank { "Hysteria2" },
@@ -576,6 +594,56 @@ object ConfigParser {
         }
     }
 
+    // ------------------------------------------------------------ Hysteria v1
+
+    /**
+     * hysteria://host:port?protocol=udp&auth=&peer=&insecure=1&upmbps=&downmbps=&obfsParam=#name.
+     * The core has no Hysteria v1, so the voltaproxy helper runs the link as it is.
+     */
+    private fun parseHysteria(link: String, subscriptionId: Long?): ServerEntity? {
+        return try {
+            val parts = splitShareLink(link, "hysteria") ?: return null
+            val params = parseQuery(parts.query)
+            val (hostPort, hopPorts) = cutPortRange(parts.hostPort)
+            val (address, port) = splitHostPort(hostPort, 443)
+            if (address.isBlank()) return null
+            val auth = params["auth"].orEmpty().ifBlank { params["auth_str"].orEmpty() }
+            val extras = params.toMutableMap()
+            if (hopPorts.isNotBlank() && extras["mport"].isNullOrBlank()) extras["mport"] = hopPorts
+            ServerEntity(
+                subscriptionId = subscriptionId,
+                remark = parts.remark.ifBlank { "Hysteria" },
+                protocol = ProtocolType.HYSTERIA,
+                address = address,
+                port = port,
+                uuid = auth,
+                network = "hysteria",
+                security = "tls",
+                sni = params["peer"].orEmpty().ifBlank { params["sni"].orEmpty() },
+                alpn = params["alpn"].orEmpty().ifBlank { "hysteria" },
+                rawLink = link,
+                extraJson = encodeExtras(extras)
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Port hopping written into the address ("host:20000-30000", "host:443,8443"):
+     * the address with its first port, and the whole port list.
+     */
+    private fun cutPortRange(hostPort: String): Pair<String, String> {
+        val hp = hostPort.trim().trim('/')
+        val colon = hp.lastIndexOf(':')
+        if (colon <= 0 || hp.endsWith("]")) return hp to ""
+        val spec = hp.substring(colon + 1)
+        if (!spec.contains('-') && !spec.contains(',')) return hp to ""
+        val first = spec.substringBefore(',').substringBefore('-')
+        if (first.toIntOrNull() == null) return hp to ""
+        return "${hp.substring(0, colon)}:$first" to spec
+    }
+
     // ------------------------------------------------------------ WireGuard
 
     private fun parseWireGuard(link: String, subscriptionId: Long?): ServerEntity? {
@@ -587,6 +655,10 @@ object ConfigParser {
                 params["privatekey"] ?: params["privateKey"].orEmpty()
             }
             if (address.isBlank() || privateKey.isBlank()) return null
+            // AmneziaWG fields in the link: the core's WireGuard can't speak them.
+            AmneziaConfigs.fromWireGuardLink(
+                privateKey, address, port, params, parts.remark, subscriptionId
+            )?.let { return it }
             val extras = params.toMutableMap()
             extras["privateKey"] = privateKey
             ServerEntity(

@@ -42,6 +42,13 @@ fun ServerPool.matches(role: ServerRole): Boolean = when (this) {
 enum class ProtocolType {
     VLESS, VMESS, TROJAN, SHADOWSOCKS, SOCKS, HTTP, WIREGUARD, HYSTERIA2,
 
+    /**
+     * AmneziaWG (and WireGuard from a .conf), and Hysteria v1: run by the voltaproxy
+     * helper, reached through its SOCKS5 port. [ServerEntity.rawLink] holds the .conf
+     * text or the hysteria:// link the helper reads.
+     */
+    AMNEZIAWG, HYSTERIA,
+
     /** An openflux:// link: run by the OpenFlux helper, reached through its SOCKS5 port. */
     OPENFLUX,
     RAW_JSON, UNKNOWN;
@@ -56,6 +63,8 @@ enum class ProtocolType {
             HTTP -> "HTTP"
             WIREGUARD -> "WireGuard"
             HYSTERIA2 -> "Hysteria2"
+            AMNEZIAWG -> "AmneziaWG"
+            HYSTERIA -> "Hysteria"
             OPENFLUX -> "OpenFlux"
             RAW_JSON -> "JSON"
             UNKNOWN -> "—"

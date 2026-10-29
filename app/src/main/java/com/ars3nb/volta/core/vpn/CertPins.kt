@@ -26,6 +26,8 @@ object CertPins {
         if (!ConfigBuilder.asksInsecure(server) || ConfigBuilder.pinsOf(server).isNotEmpty()) {
             return server
         }
+        // The voltaproxy helper reads the link as it is; a pin here would never reach it.
+        if (ConfigBuilder.helperSpec(server) != null) return server
         val serverName = ConfigBuilder.tlsServerName(server)
         val key = "${server.protocol}|${server.address}|${server.port}|$serverName"
         val now = System.currentTimeMillis()

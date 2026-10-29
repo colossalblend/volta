@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.ars3nb.volta.VoltaApp
 import com.ars3nb.volta.core.openflux.OpenFluxLink
+import com.ars3nb.volta.core.parser.AmneziaConfigs
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.routing.RoutingEngine
 import com.ars3nb.volta.core.balancer.AutoBalancer
@@ -632,6 +633,13 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
                         val id = repo.addSubscription("", value)
                         val count = repo.servers.first().count { it.subscriptionId == id }
                         _message.value = "Подписка добавлена: $count серверов"
+                    }
+
+                    // A WireGuard / AmneziaWG .conf, or an AmneziaVPN key with several protocols.
+                    AmneziaConfigs.looksLikeConf(value) || value.startsWith("vpn://", true) -> {
+                        val n = repo.importJson(value)
+                        require(n > 0) { "В конфиге нет ключей или адреса сервера" }
+                        _message.value = if (n == 1) "Сервер добавлен" else "Импортировано серверов: $n"
                     }
 
                     value.trimStart().startsWith("{") || value.trimStart().startsWith("[") -> {

@@ -7,6 +7,7 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.ars3nb.volta.core.HwidProvider
+import com.ars3nb.volta.core.helper.ProxyHelper
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.update.AppUpdater
 import com.ars3nb.volta.core.vpn.NetworkWatcher
@@ -40,6 +41,7 @@ class VoltaApp : Application() {
         super.onCreate()
         instance = this
         OpenFluxRunner.init(this)
+        ProxyHelper.init(this)
         // Constructing the repository also arms the VPN service failover provider.
         repository = VoltaRepository(this)
 
