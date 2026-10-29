@@ -1,20 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press on the launcher icon: straight into a group, or off. -->
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
     <shortcut
-        android:shortcutId="volta_toggle"
+        android:shortcutId="volta_auto"
         android:enabled="true"
-        android:icon="@drawable/ic_swap"
-        android:shortcutShortLabel="@string/action_toggle"
-        android:shortcutLongLabel="@string/action_toggle">
+        android:icon="@drawable/ic_shortcut_auto"
+        android:shortcutShortLabel="@string/shortcut_auto"
+        android:shortcutLongLabel="@string/shortcut_auto_long">
         <intent
-            android:action="com.ars3nb.volta.TOGGLE"
+            android:action="com.ars3nb.volta.CONNECT_MODE"
             android:targetPackage="com.ars3nb.volta"
-            android:targetClass="com.ars3nb.volta.MainActivity" />
+            android:targetClass="com.ars3nb.volta.MainActivity">
+            <extra android:name="mode" android:value="AUTO_HOME_LTE" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="volta_home"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_home"
+        android:shortcutShortLabel="@string/shortcut_home"
+        android:shortcutLongLabel="@string/shortcut_home_long">
+        <intent
+            android:action="com.ars3nb.volta.CONNECT_MODE"
+            android:targetPackage="com.ars3nb.volta"
+            android:targetClass="com.ars3nb.volta.MainActivity">
+            <extra android:name="mode" android:value="AUTO_HOME" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="volta_lte"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_lte"
+        android:shortcutShortLabel="@string/shortcut_lte"
+        android:shortcutLongLabel="@string/shortcut_lte_long">
+        <intent
+            android:action="com.ars3nb.volta.CONNECT_MODE"
+            android:targetPackage="com.ars3nb.volta"
+            android:targetClass="com.ars3nb.volta.MainActivity">
+            <extra android:name="mode" android:value="AUTO_LTE" />
+        </intent>
     </shortcut>
     <shortcut
         android:shortcutId="volta_disconnect"
         android:enabled="true"
-        android:icon="@drawable/ic_vpn_off"
+        android:icon="@drawable/ic_shortcut_off"
         android:shortcutShortLabel="@string/action_disconnect"
         android:shortcutLongLabel="@string/action_disconnect">
         <intent

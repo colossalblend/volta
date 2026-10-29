@@ -55,6 +55,7 @@ import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.PerAppMode
 import com.ars3nb.volta.data.model.PingType
 import com.ars3nb.volta.data.prefs.DesignTheme
+import com.ars3nb.volta.ui.components.AppIconPicker
 import com.ars3nb.volta.ui.VoltaViewModel
 import com.ars3nb.volta.ui.components.Hint
 import com.ars3nb.volta.ui.components.SectionHeader
@@ -292,6 +293,17 @@ fun SettingsScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
                             )
                         }
                     }
+                }
+            }
+            item {
+                VoltaCard {
+                    Text(
+                        "Иконка приложения",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    AppIconPicker()
                 }
             }
 

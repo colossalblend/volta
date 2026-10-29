@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon layer: the pixel "V" in one colour. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M32.75,39.15h4.70v4.70h-4.70zM38.15,39.15h4.70v4.70h-4.70zM65.15,39.15h4.70v4.70h-4.70zM70.55,39.15h4.70v4.70h-4.70zM32.75,44.55h4.70v4.70h-4.70zM38.15,44.55h4.70v4.70h-4.70zM65.15,44.55h4.70v4.70h-4.70zM70.55,44.55h4.70v4.70h-4.70zM38.15,49.95h4.70v4.70h-4.70zM43.55,49.95h4.70v4.70h-4.70zM59.75,49.95h4.70v4.70h-4.70zM65.15,49.95h4.70v4.70h-4.70zM38.15,55.35h4.70v4.70h-4.70zM43.55,55.35h4.70v4.70h-4.70zM59.75,55.35h4.70v4.70h-4.70zM65.15,55.35h4.70v4.70h-4.70zM43.55,60.75h4.70v4.70h-4.70zM48.95,60.75h4.70v4.70h-4.70zM54.35,60.75h4.70v4.70h-4.70zM59.75,60.75h4.70v4.70h-4.70zM48.95,66.15h4.70v4.70h-4.70zM54.35,66.15h4.70v4.70h-4.70z" />
+</vector>

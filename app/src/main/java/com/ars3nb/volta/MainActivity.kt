@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ars3nb.volta.core.openflux.OpenFluxLink
+import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.ui.VoltaViewModel
 import com.ars3nb.volta.ui.navigation.VoltaAppRoot
 
@@ -85,6 +86,9 @@ class MainActivity : ComponentActivity() {
             "com.ars3nb.volta.CONNECT" -> vm.connect()
             "com.ars3nb.volta.DISCONNECT" -> vm.disconnect()
             "com.ars3nb.volta.TOGGLE" -> vm.toggleConnect()
+            "com.ars3nb.volta.CONNECT_MODE" -> intent.getStringExtra("mode")
+                ?.let { name -> ConnectMode.entries.firstOrNull { it.name == name } }
+                ?.let(vm::connectIn)
             Intent.ACTION_VIEW -> intent.data?.let(::importDeepLink)
             Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)
                 ?.trim()?.takeIf { it.isNotBlank() }?.let { vm.importLink(it) }

@@ -13,6 +13,12 @@
     <string name="tile_home_lte_label">Volta Home+LTE</string>
     <string name="tile_home_label">Volta Home</string>
     <string name="tile_lte_label">Volta LTE</string>
+    <string name="shortcut_auto">Авто</string>
+    <string name="shortcut_auto_long">Подключить Авто Home+LTE</string>
+    <string name="shortcut_home">Home</string>
+    <string name="shortcut_home_long">Подключить Home</string>
+    <string name="shortcut_lte">LTE</string>
+    <string name="shortcut_lte_long">Подключить LTE</string>
     <string name="action_repick">Подобрать сервер</string>
     <string name="widget_description">Быстрое управление Volta</string>
     <string name="accessibility_connect">Кнопка подключения VPN</string>

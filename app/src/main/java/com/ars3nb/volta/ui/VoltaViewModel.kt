@@ -317,6 +317,17 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
         doConnect()
     }
 
+    /** A launcher shortcut: switch to [mode] and bring the tunnel up there. */
+    fun connectIn(mode: ConnectMode) {
+        viewModelScope.launch {
+            val same = repo.connectMode.first() == mode
+            repo.setConnectMode(mode)
+            // Already up in that group: nothing to do. Up elsewhere: move it here.
+            if (same && uiState.value.isConnected) return@launch
+            if (connectPhase.value == ConnectPhase.IDLE) connect()
+        }
+    }
+
     fun onVpnPermissionResult(granted: Boolean) {
         _needsVpnPermission.value = false
         if (granted) doConnect() else _message.value = "Нужно разрешение на VPN"
