@@ -15,7 +15,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -95,9 +94,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -426,82 +422,51 @@ private fun ActiveProfileHero(
                 )
             }
             Spacer(Modifier.height(14.dp))
-            MixBar(mix)
-            Spacer(Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Row(
-                    Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    MixLegend(outboundColor(RouteOutbound.PROXY), "VPN", mix.proxy)
-                    MixLegend(outboundColor(RouteOutbound.DIRECT), "Напрямую", mix.direct)
-                    MixLegend(outboundColor(RouteOutbound.BLOCK), "Блок", mix.block)
-                }
-                FilledTonalButton(onClick = onEdit, contentPadding = PaddingValues(horizontal = 14.dp)) {
-                    Icon(Icons.Rounded.Edit, null, Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Правила")
-                }
+            RouteSummary(mix)
+            Spacer(Modifier.height(14.dp))
+            FilledTonalButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Rounded.Edit, null, Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Изменить правила")
             }
         }
     }
 }
 
-/** One bar split by where the rules send traffic; slides when the profile changes. */
+/**
+ * Where the profile sends traffic, as pills. Whatever no rule matches goes through the
+ * VPN, so that is always the last one.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun MixBar(mix: RuleMix) {
-    val total = mix.total.coerceAtLeast(1).toFloat()
-    val proxy by animateFloatAsState(
-        if (mix.total == 0) 1f else mix.proxy / total, spring(dampingRatio = 0.8f), label = "proxy"
-    )
-    val direct by animateFloatAsState(
-        if (mix.total == 0) 0f else mix.direct / total, spring(dampingRatio = 0.8f), label = "direct"
-    )
-    val proxyColor = outboundColor(RouteOutbound.PROXY)
-    val directColor = outboundColor(RouteOutbound.DIRECT)
-    val blockColor = outboundColor(RouteOutbound.BLOCK)
-    val empty = mix.total == 0
-    Canvas(
-        Modifier
-            .fillMaxWidth()
-            .height(10.dp)
-            .clip(CircleShape)
+private fun RouteSummary(mix: RuleMix) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        val w = size.width
-        val h = size.height
-        val gap = 3.dp.toPx()
-        val radius = CornerRadius(h / 2, h / 2)
-        val parts = listOf(
-            proxy to proxyColor.copy(alpha = if (empty) 0.35f else 1f),
-            direct to directColor,
-            (1f - proxy - direct).coerceAtLeast(0f) to blockColor
-        )
-        var x = 0f
-        parts.forEach { (fraction, color) ->
-            val width = w * fraction - gap
-            if (width > 0.5f) {
-                drawRoundRect(color, Offset(x, 0f), Size(width, h), radius)
+        listOf(RouteOutbound.DIRECT, RouteOutbound.BLOCK, RouteOutbound.PROXY).forEach { o ->
+            val n = when (o) {
+                RouteOutbound.PROXY -> mix.proxy
+                RouteOutbound.DIRECT -> mix.direct
+                RouteOutbound.BLOCK -> mix.block
             }
-            x += w * fraction
+            if (n > 0) {
+                StatusPill(
+                    "${actionLabel(o)} · ${ruleCount(n)}",
+                    outboundColor(o),
+                    icon = outboundIcon(o)
+                )
+            }
         }
+        StatusPill(
+            "Остальное через VPN",
+            outboundColor(RouteOutbound.PROXY),
+            icon = Icons.Rounded.VpnLock
+        )
     }
 }
 
-@Composable
-private fun MixLegend(color: Color, label: String, count: Int) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(8.dp).clip(CircleShape).background(color))
-        Spacer(Modifier.width(5.dp))
-        AnimatedContent(targetState = count, label = "count") { n ->
-            Text(
-                "$label $n",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FiltersCard(
     adBlock: AdBlockMode,
@@ -526,7 +491,7 @@ private fun FiltersCard(
             exit = shrinkVertically() + fadeOut()
         ) {
             Column(Modifier.padding(start = 48.dp, top = 4.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
                         selected = adBlock == AdBlockMode.STANDARD,
                         onClick = { onAdBlock(AdBlockMode.STANDARD) },
@@ -771,7 +736,7 @@ private fun ProfileTile(
         AnimatedVisibility(visible = selected || onSelect == null) {
             Column {
                 Spacer(Modifier.height(10.dp))
-                MixBar(mix)
+                RouteSummary(mix)
             }
         }
         if (onToggleProviderRules != null) {
@@ -1039,7 +1004,11 @@ private fun addEntry(
     entry: Presets.Entry,
     outbound: RouteOutbound
 ): List<RoutingRuleDto> {
-    val name = "Свои сайты · " + actionLabel(outbound).lowercase()
+    val name = when (outbound) {
+        RouteOutbound.PROXY -> "Свои сайты через VPN"
+        RouteOutbound.DIRECT -> "Свои сайты напрямую"
+        RouteOutbound.BLOCK -> "Заблокированные сайты"
+    }
     val index = rules.indexOfFirst { it.name == name && it.source == "user" }
     val base = if (index >= 0) rules[index] else RoutingRuleDto(
         id = UUID.randomUUID().toString(),
@@ -1108,15 +1077,16 @@ private fun QuickAddCard(onAdd: (Presets.Entry, RouteOutbound) -> Unit) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun OutboundPicker(selected: RouteOutbound, onSelect: (RouteOutbound) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         RouteOutbound.entries.forEach { o ->
             val color = outboundColor(o)
             FilterChip(
                 selected = selected == o,
                 onClick = { onSelect(o) },
-                label = { Text(actionLabel(o)) },
+                label = { Text(shortLabel(o), maxLines = 1) },
                 leadingIcon = { Icon(outboundIcon(o), null, Modifier.size(16.dp)) },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = color.copy(alpha = 0.18f),
@@ -1433,7 +1403,7 @@ private fun outboundColor(o: RouteOutbound): Color {
     val palette = VoltaTheme.palette
     return when (o) {
         RouteOutbound.PROXY -> MaterialTheme.colorScheme.primary
-        RouteOutbound.DIRECT -> palette.home
+        RouteOutbound.DIRECT -> palette.good
         RouteOutbound.BLOCK -> palette.poor
     }
 }
@@ -1452,6 +1422,12 @@ private fun summary(rule: RoutingRuleDto): String {
         if (rule.protocol.isNotEmpty()) add(rule.protocol.joinToString("/"))
     }
     return if (parts.isEmpty()) "без условий" else parts.joinToString(", ")
+}
+
+private fun shortLabel(o: RouteOutbound) = when (o) {
+    RouteOutbound.PROXY -> "VPN"
+    RouteOutbound.DIRECT -> "Напрямую"
+    RouteOutbound.BLOCK -> "Блок"
 }
 
 private fun actionLabel(o: RouteOutbound) = when (o) {

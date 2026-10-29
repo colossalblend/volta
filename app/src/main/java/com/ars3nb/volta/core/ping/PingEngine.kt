@@ -317,36 +317,59 @@ class PingEngine(
     suspend fun pingServers(
         servers: List<ServerEntity>,
         type: PingType,
-        maxParallel: Int = if (batterySaver) 4 else 8
+        maxParallel: Int = if (batterySaver) 4 else 8,
+        heavyParallel: Int = if (batterySaver) 2 else 4,
+        realDelayTimeoutMs: Long? = null,
+        /** Called as each node is judged, so a long list fills in as it goes. */
+        onResult: (suspend (Long, PingResult) -> Unit)? = null
     ): List<Pair<Long, PingResult>> = coroutineScope {
         if (servers.isEmpty()) return@coroutineScope emptyList()
 
         if (type == PingType.REAL_DELAY) {
             val tcp = pingServers(servers.filterNot(::speaksUdp), PingType.TCP, maxParallel)
             val reachable = reachableIds(tcp) + servers.filter(::speaksUdp).map { it.id }
-            val heavyGate = Semaphore(if (batterySaver) 2 else 4)
+            val unreachable = servers.filter { it.id !in reachable }.map { server ->
+                server.id to PingResult(
+                    target = server.remark,
+                    type = type,
+                    latencyMs = -1,
+                    success = false,
+                    message = "Адрес недоступен"
+                )
+            }
+            unreachable.forEach { (id, result) -> onResult?.invoke(id, result) }
+            val heavyGate = Semaphore(heavyParallel)
             val measured = servers.filter { it.id in reachable }
                 .map { server ->
-                    async { heavyGate.withPermit { server.id to pingServer(server, type) } }
+                    async {
+                        heavyGate.withPermit {
+                            val result = if (realDelayTimeoutMs != null) {
+                                realDelay(server, realDelayTimeoutMs)
+                            } else {
+                                pingServer(server, type)
+                            }
+                            onResult?.invoke(server.id, result)
+                            server.id to result
+                        }
+                    }
                 }
                 .awaitAll()
                 .toMap()
-            return@coroutineScope servers.map { server ->
-                server.id to (
-                    measured[server.id] ?: PingResult(
-                        target = server.remark,
-                        type = type,
-                        latencyMs = -1,
-                        success = false,
-                        message = "Адрес недоступен"
-                    )
-                    )
+            val failed = unreachable.toMap()
+            return@coroutineScope servers.mapNotNull { server ->
+                (measured[server.id] ?: failed[server.id])?.let { server.id to it }
             }
         }
 
         val gate = Semaphore(maxParallel)
         servers.map { server ->
-            async { gate.withPermit { server.id to pingServer(server, type) } }
+            async {
+                gate.withPermit {
+                    val result = pingServer(server, type)
+                    onResult?.invoke(server.id, result)
+                    server.id to result
+                }
+            }
         }.awaitAll()
     }
 }

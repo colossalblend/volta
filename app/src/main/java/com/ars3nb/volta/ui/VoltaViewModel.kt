@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -101,6 +102,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     private val _runningScope = MutableStateFlow<BalancerScope?>(null)
     private val _connectPhase = MutableStateFlow(ConnectPhase.IDLE)
     private var retryJob: Job? = null
+    private var connectJob: Job? = null
 
     val needsVpnPermission = _needsVpnPermission.asStateFlow()
     val serverPool = _serverPool.asStateFlow()
@@ -270,6 +272,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
             launch { runCatching { updater.checkOnLaunch() } }
+            launch { followExitAddress() }
             if (repo.pingOnStart.first()) runStartupProbes()
             // Happ-style: subscriptions and their routing are pulled on every launch.
             if (repo.refreshOnLaunch.first()) {
@@ -284,6 +287,43 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
                 connect()
             }
         }
+    }
+
+    /**
+     * The address on top follows the tunnel: the exit while connected, looked up again
+     * after every switch to another server, and the real one once it is off.
+     */
+    private suspend fun followExitAddress() {
+        combine(repo.vpnState, repo.selectedServer) { state, server ->
+            state to (if (state == VpnConnectionState.CONNECTED) server?.id else null)
+        }
+            .distinctUntilChanged()
+            .collectLatest { (state, _) ->
+                when (state) {
+                    VpnConnectionState.CONNECTED -> {
+                        _ip.value = null
+                        // The core needs a moment before its local proxy answers.
+                        for (wait in longArrayOf(700, 2_000, 5_000)) {
+                            delay(wait)
+                            val info = runCatching { repo.fetchIp() }.getOrNull()
+                            if (info != null && info.ip.isNotBlank()) {
+                                _ip.value = info
+                                break
+                            }
+                        }
+                    }
+                    VpnConnectionState.DISCONNECTED -> {
+                        if (_ip.value != null) _ip.value = null
+                        delay(500)
+                        runCatching { repo.fetchIp() }.getOrNull()
+                            ?.takeIf { it.ip.isNotBlank() }
+                            ?.let { _ip.value = it }
+                    }
+                    else -> {
+                        _ip.value = null
+                    }
+                }
+            }
     }
 
     fun runStartupProbes() {
@@ -303,19 +343,37 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
                 _startupDone.value = true
             } catch (_: Exception) {
             }
-            runCatching { _ip.value = repo.fetchIp() }
+            runCatching { repo.fetchIp() }.getOrNull()
+                ?.takeIf { it.ip.isNotBlank() }
+                ?.let { _ip.value = it }
         }
     }
 
     // ------------------------------------------------------------- connection
 
     fun toggleConnect() {
-        // A tap during probing/pinging cancels nothing yet — ignore it.
-        if (connectPhase.value != ConnectPhase.IDLE) return
+        // A tap while the server is still being chosen stops the attempt.
+        if (connectPhase.value != ConnectPhase.IDLE) {
+            cancelConnect()
+            return
+        }
         when (uiState.value.vpnState) {
             VpnConnectionState.CONNECTED, VpnConnectionState.CONNECTING -> disconnect()
             else -> connect()
         }
+    }
+
+    /**
+     * Stops a connect that is still probing the network or measuring servers. A tunnel
+     * that was already up stays on its server; one that was off stays off.
+     */
+    fun cancelConnect() {
+        connectJob?.cancel()
+        connectJob = null
+        repo.cancelPick()
+        _connectPhase.value = ConnectPhase.IDLE
+        _busy.value = false
+        _message.value = "Подключение отменено"
     }
 
     fun connect() {
@@ -344,7 +402,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun doConnect() {
         _routingDirty.value = false
-        viewModelScope.launch {
+        connectJob = viewModelScope.launch {
             _busy.value = true
             _connectPhase.value = ConnectPhase.PREPARING
             try {
