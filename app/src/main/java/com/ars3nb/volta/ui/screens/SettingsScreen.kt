@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,7 +51,6 @@ import com.ars3nb.volta.BuildConfig
 import com.ars3nb.volta.core.update.UpdateInfo
 import com.ars3nb.volta.core.update.UpdateState
 import com.ars3nb.volta.data.model.ConnectMode
-import com.ars3nb.volta.data.model.PerAppMode
 import com.ars3nb.volta.data.model.PingType
 import com.ars3nb.volta.data.prefs.DesignTheme
 import com.ars3nb.volta.ui.components.AppIconPicker
@@ -71,10 +69,8 @@ import com.ars3nb.volta.ui.tile.TileInstaller
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
+fun SettingsScreen(vm: VoltaViewModel) {
     val state by vm.uiState.collectAsStateWithLifecycle()
-    val perAppMode by vm.perAppMode.collectAsStateWithLifecycle()
-    val perAppPackages by vm.perAppPackages.collectAsStateWithLifecycle()
     val autoFailover by vm.autoFailover.collectAsStateWithLifecycle()
     val pingOnStart by vm.pingOnStart.collectAsStateWithLifecycle()
     val batterySaver by vm.batterySaver.collectAsStateWithLifecycle()
@@ -101,38 +97,6 @@ fun SettingsScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
             contentPadding = PaddingValues(16.dp, 0.dp, 16.dp, 24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            item { SectionHeader("Приложения") }
-            item {
-                VoltaCard(onClick = onOpenPerApp) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Rounded.Apps,
-                            null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.size(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                "Раздельное туннелирование",
-                                style = MaterialTheme.typography.titleSmall
-                            )
-                            Hint(
-                                when (perAppMode) {
-                                    PerAppMode.OFF -> "Все приложения через VPN"
-                                    PerAppMode.INCLUDE ->
-                                        "Через VPN: выбрано ${perAppPackages.size}"
-
-                                    PerAppMode.EXCLUDE ->
-                                        "Мимо VPN: выбрано ${perAppPackages.size}"
-                                }
-                            )
-                        }
-                        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null)
-                    }
-                }
-            }
-
             item { SectionHeader("Подключение") }
             item {
                 VoltaCard {

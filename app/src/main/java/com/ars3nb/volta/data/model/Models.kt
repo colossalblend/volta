@@ -119,6 +119,17 @@ enum class RouteOutbound {
     PROXY, DIRECT, BLOCK
 }
 
+/** AdGuard DNS in the tunnel: ads and trackers answer with nothing. */
+enum class AdBlockMode(val dohUrl: String) {
+    OFF(""),
+
+    /** Ads, trackers and phishing. */
+    STANDARD("https://dns.adguard-dns.com/dns-query"),
+
+    /** The same plus adult sites and safe search. */
+    FAMILY("https://family.adguard-dns.com/dns-query")
+}
+
 enum class VpnConnectionState {
     DISCONNECTED, CONNECTING, CONNECTED, DISCONNECTING, ERROR
 }

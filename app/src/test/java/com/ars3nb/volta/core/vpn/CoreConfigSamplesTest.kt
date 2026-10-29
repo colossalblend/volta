@@ -42,6 +42,20 @@ class CoreConfigSamplesTest {
             out += "routing-$i" to ConfigBuilder.build(ws, profile)
         }
         out += "local-dns-off" to ConfigBuilder.build(ws, null, localDns = false)
+        // App-wide filters on top of a profile made of every ready-made site list.
+        val presets = com.ars3nb.volta.data.model.RoutingProfileEntity(
+            name = "presets",
+            rulesJson = RoutingEngine.serializeRules(
+                com.ars3nb.volta.core.routing.Presets.sites.map { it.toRule() }
+            )
+        )
+        out += "filters" to ConfigBuilder.build(
+            ws,
+            presets,
+            localDns = false,
+            adBlock = com.ars3nb.volta.data.model.AdBlockMode.FAMILY,
+            blockTorrents = true
+        )
         val pool = servers.values.take(3).mapIndexed { i, s -> s.copy(id = i + 1L) }
         out += "balancer" to ConfigBuilder.build(pool.first(), null, balancerPool = pool)
         out += "probe" to ConfigBuilder.buildProbe(servers.getValue("vless-reality-vision"))

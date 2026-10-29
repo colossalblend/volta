@@ -11,11 +11,11 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AltRoute
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Storage
-import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -62,7 +62,7 @@ private val TABS = listOf(
     Tab(Routes.HOME, "Главная", Icons.Rounded.Home),
     Tab(Routes.SERVERS, "Серверы", Icons.Rounded.Storage),
     Tab(Routes.SUBSCRIPTIONS, "Подписки", Icons.Rounded.CloudSync),
-    Tab(Routes.ROUTING, "Правила", Icons.Rounded.Tune),
+    Tab(Routes.ROUTING, "Маршруты", Icons.Rounded.AltRoute),
     Tab(Routes.SETTINGS, "Настройки", Icons.Rounded.Settings)
 )
 
@@ -150,9 +150,11 @@ fun VoltaAppRoot(vm: VoltaViewModel = viewModel()) {
                 composable(Routes.SUBSCRIPTIONS) {
                     SubscriptionsScreen(vm = vm, onOpenImport = { nav.navigate(Routes.IMPORT) })
                 }
-                composable(Routes.ROUTING) { RoutingScreen(vm = vm) }
+                composable(Routes.ROUTING) {
+                    RoutingScreen(vm = vm, onOpenPerApp = { nav.navigate(Routes.PER_APP) })
+                }
                 composable(Routes.SETTINGS) {
-                    SettingsScreen(vm = vm, onOpenPerApp = { nav.navigate(Routes.PER_APP) })
+                    SettingsScreen(vm = vm)
                 }
                 composable(
                     Routes.PER_APP,

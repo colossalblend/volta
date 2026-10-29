@@ -189,54 +189,17 @@ object RoutingEngine {
                 rulesJson = serializeRules(ruBypassRules()),
                 domainStrategy = "IPIfNonMatch",
                 updatedAt = now
-            ),
-            RoutingProfileEntity(
-                name = "Без рекламы",
-                description = "Рекламные и трекерные домены блокируются",
-                isBuiltIn = true,
-                rulesJson = serializeRules(
-                    listOf(
-                        RoutingRuleDto(
-                            name = "Реклама и трекеры",
-                            outbound = RouteOutbound.BLOCK,
-                            domains = listOf("geosite:category-ads-all"),
-                            source = "builtin"
-                        ),
-                        RoutingRuleDto(
-                            name = "Локальная сеть напрямую",
-                            outbound = RouteOutbound.DIRECT,
-                            ips = listOf("geoip:private"),
-                            source = "builtin"
-                        )
-                    )
-                ),
-                updatedAt = now
-            ),
-            RoutingProfileEntity(
-                name = "Максимальная маскировка",
-                description = "Всё через VPN, торренты заблокированы, локальный DNS",
-                isBuiltIn = true,
-                rulesJson = serializeRules(
-                    listOf(
-                        RoutingRuleDto(
-                            name = "Торренты заблокированы",
-                            outbound = RouteOutbound.BLOCK,
-                            protocol = listOf("bittorrent"),
-                            source = "builtin"
-                        ),
-                        RoutingRuleDto(
-                            name = "Локальная сеть напрямую",
-                            outbound = RouteOutbound.DIRECT,
-                            ips = listOf("geoip:private"),
-                            source = "builtin"
-                        )
-                    )
-                ),
-                domainStrategy = "AsIs",
-                updatedAt = now
             )
         )
     }
+
+    /**
+     * Built-in sets earlier versions shipped. Ads and torrents are app-wide filters now
+     * (AdGuard and the torrent switch), so these became duplicates and are removed on
+     * start; whoever used one gets the matching filter switched on instead.
+     */
+    const val RETIRED_NO_ADS = "Без рекламы"
+    const val RETIRED_STEALTH = "Максимальная маскировка"
 
     /** Domains known to work under Минцифры white-list (for direct rules / probes). */
     fun ruWhitelistDomains(): List<String> = listOf(

@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.ars3nb.volta.data.model.ConnectMode
+import com.ars3nb.volta.data.model.AdBlockMode
 import com.ars3nb.volta.data.model.PerAppMode
 import com.ars3nb.volta.data.model.PingType
 import androidx.datastore.preferences.core.stringSetPreferencesKey
@@ -35,6 +36,8 @@ class AppPreferences(private val context: Context) {
         val defaultPingType = stringPreferencesKey("default_ping_type")
         val pingOnStart = booleanPreferencesKey("ping_on_start")
         val localDns = booleanPreferencesKey("local_dns")
+        val adBlock = stringPreferencesKey("ad_block")
+        val blockTorrents = booleanPreferencesKey("block_torrents")
         val mtu = intPreferencesKey("mtu")
         val sendHwid = booleanPreferencesKey("send_hwid")
         val networkRegime = stringPreferencesKey("network_regime")
@@ -168,6 +171,11 @@ class AppPreferences(private val context: Context) {
 
     val pingOnStart: Flow<Boolean> = context.dataStore.data.map { it[Keys.pingOnStart] ?: true }
     val localDns: Flow<Boolean> = context.dataStore.data.map { it[Keys.localDns] ?: true }
+    val adBlock: Flow<AdBlockMode> = context.dataStore.data.map {
+        runCatching { AdBlockMode.valueOf(it[Keys.adBlock] ?: AdBlockMode.OFF.name) }
+            .getOrDefault(AdBlockMode.OFF)
+    }
+    val blockTorrents: Flow<Boolean> = context.dataStore.data.map { it[Keys.blockTorrents] ?: false }
     val sendHwid: Flow<Boolean> = context.dataStore.data.map { it[Keys.sendHwid] ?: false }
     val batterySaver: Flow<Boolean> = context.dataStore.data.map { it[Keys.batterySaver] ?: true }
     val autoConnect: Flow<Boolean> = context.dataStore.data.map { it[Keys.autoConnect] ?: false }
@@ -202,6 +210,14 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setLocalDns(enabled: Boolean) {
         context.dataStore.edit { it[Keys.localDns] = enabled }
+    }
+
+    suspend fun setAdBlock(mode: AdBlockMode) {
+        context.dataStore.edit { it[Keys.adBlock] = mode.name }
+    }
+
+    suspend fun setBlockTorrents(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.blockTorrents] = enabled }
     }
 
     suspend fun setSendHwid(enabled: Boolean) {
