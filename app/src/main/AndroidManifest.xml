@@ -35,6 +35,12 @@
             android:launchMode="singleTop"
             android:theme="@style/Theme.Vpnchik"
             android:windowSoftInputMode="adjustResize">
+            <!-- Long-press on any of the Quick Settings tiles opens the app, not App info. -->
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
             <!-- Import share links -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
