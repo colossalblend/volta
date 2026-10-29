@@ -14,6 +14,7 @@ import com.ars3nb.volta.VoltaApp
 import com.ars3nb.volta.core.vpn.VoltaVpnService
 import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.VpnConnectionState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -97,6 +98,8 @@ abstract class GroupTileService(private val mode: ConnectMode) : TileService() {
             // app in the foreground, so the reconnect is allowed).
             repo.setConnectMode(mode)
             runCatching { repo.connectWithMode() }.onFailure { e ->
+                // Cancelled from the app's button: nothing went wrong.
+                if (e is CancellationException) return@onFailure
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
                         app,

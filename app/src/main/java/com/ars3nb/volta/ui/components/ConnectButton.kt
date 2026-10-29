@@ -1,6 +1,7 @@
 package com.ars3nb.volta.ui.components
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
@@ -10,7 +11,9 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
@@ -25,6 +28,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -277,7 +281,8 @@ fun PowerButton(
                 .clip(CircleShape)
                 .semantics { contentDescription = description }
                 .clickable(
-                    enabled = enabled && !busy,
+                    // Tappable while connecting too: a second tap cancels the attempt.
+                    enabled = enabled && !draining,
                     interactionSource = interaction,
                     indication = null,
                     role = Role.Button
@@ -392,6 +397,18 @@ fun ConnectionHeadline(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center
+            )
+        }
+        AnimatedVisibility(
+            visible = phaseCaption.isNotBlank() || state == VpnConnectionState.CONNECTING,
+            enter = fadeIn(tween(400, delayMillis = 600)) + expandVertically(),
+            exit = fadeOut(tween(160)) + shrinkVertically()
+        ) {
+            Text(
+                "Нажмите ещё раз, чтобы отменить",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                modifier = Modifier.padding(top = 4.dp)
             )
         }
     }

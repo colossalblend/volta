@@ -252,7 +252,9 @@ class VoltaRepository(private val context: Context) {
         serverDao.replaceSubscription(id, servers)
 
         if (serverDao.getSelected() == null) {
-            serverDao.getBySubscription(id).firstOrNull()?.let { serverDao.selectServer(it.id) }
+            val fresh = serverDao.getBySubscription(id)
+            (fresh.firstOrNull { it.role != ServerRole.AUTO } ?: fresh.firstOrNull())
+                ?.let { serverDao.selectServer(it.id) }
         }
 
         // Routing shipped by the provider (routing header, happ://, Happ JSON).
@@ -396,7 +398,7 @@ class VoltaRepository(private val context: Context) {
         geoData.delete(id)
         subDao.deleteById(id)
         if (serverDao.getSelected() == null) {
-            serverDao.getAll().firstOrNull()?.let { serverDao.selectServer(it.id) }
+            replacementFor(gone = null)?.let { serverDao.selectServer(it.id) }
         }
         reconcileTunnel()
     }
@@ -449,7 +451,7 @@ class VoltaRepository(private val context: Context) {
         val parsed = ConfigParser.parseSubscriptionBody(json)
         parsed.servers.map(ServerClassifier::classify).forEach { serverDao.insert(it) }
         if (serverDao.getSelected() == null) {
-            serverDao.getAll().firstOrNull()?.let { serverDao.selectServer(it.id) }
+            replacementFor(gone = null)?.let { serverDao.selectServer(it.id) }
         }
         parsed.servers.size
     }
@@ -480,7 +482,9 @@ class VoltaRepository(private val context: Context) {
         val stillThere = serverDao.getById(liveId) != null
         if (stillThere) return
         // The node the tunnel runs on is gone: move to the next best or shut down.
-        val replacement = serverDao.getAll().firstOrNull { ConfigBuilder.canDial(it) }
+        // Whatever the deletion already selected in its place, else the best one left.
+        val replacement = serverDao.getSelected()?.takeIf { ConfigBuilder.canDial(it) }
+            ?: replacementFor(gone = null)
         if (replacement == null) {
             disconnect()
         } else {
@@ -493,9 +497,21 @@ class VoltaRepository(private val context: Context) {
         val server = serverDao.getById(id) ?: return@withContext
         serverDao.deleteById(id)
         if (server.isSelected) {
-            serverDao.getAll().firstOrNull()?.let { serverDao.selectServer(it.id) }
+            replacementFor(server)?.let { serverDao.selectServer(it.id) }
         }
         reconcileTunnel()
+    }
+
+    /**
+     * Who takes over when the selected server disappears: one of the same kind, the
+     * best measured first. A provider balancer only when nothing else is left — auto
+     * modes never pick those, and whoever chose a regular node did not ask for one.
+     */
+    private suspend fun replacementFor(gone: ServerEntity?): ServerEntity? {
+        val dialable = serverDao.getAll().filter { ConfigBuilder.canDial(it) }
+        val regular = dialable.filter { it.role != ServerRole.AUTO }
+        val sameKind = regular.filter { gone != null && it.role == gone.role }
+        return sameKind.ifEmpty { regular }.ifEmpty { dialable }.minByOrNull { it.score }
     }
 
     suspend fun updateServerRole(id: Long, role: ServerRole) = serverDao.updateRole(id, role)
@@ -514,9 +530,16 @@ class VoltaRepository(private val context: Context) {
             val pingType = type ?: prefs.defaultPingType.first()
             val all = serverDao.getAll().filter { pool.matches(it.role) }
             if (all.isEmpty()) return@withContext 0
-            val results = engine.pingServers(all, pingType)
             val byId = all.associateBy { it.id }
-            results.forEach { (id, r) -> byId[id]?.let { persist(it, r) } }
+            // Someone is watching the list, so this sweep is wider than the background
+            // ones, gives up on a node sooner and writes each result as it lands.
+            val results = engine.pingServers(
+                servers = all,
+                type = pingType,
+                maxParallel = 24,
+                heavyParallel = 8,
+                realDelayTimeoutMs = SWEEP_TIMEOUT_MS
+            ) { id, r -> byId[id]?.let { persist(it, r) } }
             results.count { it.second.success }
         }
 
@@ -894,6 +917,7 @@ class VoltaRepository(private val context: Context) {
         onPhase: (AutoBalancer.Phase) -> Unit = {}
     ): AutoBalancer.Decision? = withContext(Dispatchers.IO) {
         connectMutex.withLock {
+            pickJob = coroutineContext[Job]
             _autoPicking.value = true
             try {
                 connectWithModeLocked { phase ->
@@ -901,10 +925,25 @@ class VoltaRepository(private val context: Context) {
                     onPhase(phase)
                 }
             } finally {
+                pickJob = null
                 _autoPicking.value = false
                 _pickPhase.value = null
             }
         }
+    }
+
+    @Volatile
+    private var pickJob: Job? = null
+
+    /**
+     * Stops a connect that is still choosing a server, whoever started it: the button,
+     * a tile or Always-on. A tunnel that is already up is left as it is.
+     */
+    fun cancelPick() {
+        pickJob?.cancel()
+        // The button lets go now; the measurements wind down on their own deadlines.
+        _autoPicking.value = false
+        _pickPhase.value = null
     }
 
     /**
@@ -1201,6 +1240,9 @@ class VoltaRepository(private val context: Context) {
     companion object {
         /** Must match the port ConfigBuilder gives the socks inbound. */
         private const val LOCAL_SOCKS_PORT = 10808
+
+        /** A node that needs longer than this to answer is no use in the list anyway. */
+        private const val SWEEP_TIMEOUT_MS = 5_000L
 
         /** Must match the port ConfigBuilder gives the http inbound. */
         const val LOCAL_HTTP_PORT = 10809
