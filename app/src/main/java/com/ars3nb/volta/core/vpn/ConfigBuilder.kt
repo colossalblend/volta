@@ -4,8 +4,11 @@ import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.parser.ConfigParser
 import com.ars3nb.volta.core.routing.GeoNames
 import com.ars3nb.volta.core.routing.RoutingEngine
+import com.ars3nb.volta.data.model.AdBlockMode
 import com.ars3nb.volta.data.model.ProtocolType
+import com.ars3nb.volta.data.model.RouteOutbound
 import com.ars3nb.volta.data.model.RoutingProfileEntity
+import com.ars3nb.volta.data.model.RoutingRuleDto
 import com.ars3nb.volta.data.model.ServerEntity
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
@@ -48,8 +51,14 @@ object ConfigBuilder {
          * A JSON subscription carries its routing inside every config. Unless the user
          * bound another profile explicitly, that routing is used exactly as shipped.
          */
-        preferServerRouting: Boolean = false
+        preferServerRouting: Boolean = false,
+        /** AdGuard DNS for every lookup in the tunnel; switches the DNS module on. */
+        adBlock: AdBlockMode = AdBlockMode.OFF,
+        /** Drops BitTorrent traffic whatever the profile says. */
+        blockTorrents: Boolean = false
     ): String {
+        // Ad blocking lives in DNS, so it needs the core to answer the lookups itself.
+        val dnsInCore = localDns || adBlock != AdBlockMode.OFF
         val root = JsonObject()
         root.add("log", JsonObject().apply {
             addProperty("loglevel", if (batterySaver) "warning" else "info")
@@ -83,7 +92,7 @@ object ConfigBuilder {
         chained.values.forEach { outbounds.add(it) }
         outbounds.add(directOutbound())
         outbounds.add(blockOutbound())
-        if (localDns) outbounds.add(dnsOutbound())
+        if (dnsInCore) outbounds.add(dnsOutbound())
         root.add("outbounds", outbounds)
 
         if (useBalancer) {
@@ -107,6 +116,7 @@ object ConfigBuilder {
         } else {
             resolveRules(server, profile, providerRoutingJson)
         }.let { list -> if (geo == null) list else list.map(geo::rewrite) }
+            .let { list -> filterRules(blockTorrents) + list }
         val domainStrategy = if (useServerRouting) {
             serverRouting?.get("domainStrategy")?.takeIf { it.isJsonPrimitive }?.asString
         } else {
@@ -116,7 +126,7 @@ object ConfigBuilder {
             rules = rules,
             domainStrategy = domainStrategy?.ifBlank { null } ?: "IPIfNonMatch",
             proxyBalancerTag = if (useBalancer) BALANCER_TAG else null,
-            dnsRuleEnabled = localDns
+            dnsRuleEnabled = dnsInCore
         )
         if (useBalancer) {
             routing.add("balancers", JsonArray().apply {
@@ -130,7 +140,7 @@ object ConfigBuilder {
         }
         root.add("routing", routing)
 
-        if (localDns) root.add("dns", buildDns(profile))
+        if (dnsInCore) root.add("dns", buildDns(profile, adBlock))
 
         if (enableStats) {
             root.add("stats", JsonObject())
@@ -783,7 +793,21 @@ object ConfigBuilder {
         }.getOrNull()
     }
 
-    private fun buildDns(profile: RoutingProfileEntity?): JsonObject {
+    /** App-wide filters, ahead of every profile rule so no profile can undo them. */
+    private fun filterRules(blockTorrents: Boolean): List<RoutingRuleDto> = buildList {
+        if (blockTorrents) {
+            add(
+                RoutingRuleDto(
+                    name = "Торренты",
+                    outbound = RouteOutbound.BLOCK,
+                    protocol = listOf("bittorrent"),
+                    source = "builtin"
+                )
+            )
+        }
+    }
+
+    private fun buildDns(profile: RoutingProfileEntity?, adBlock: AdBlockMode): JsonObject {
         val dns = JsonObject()
         // Happ DnsHosts: fixed answers the provider wants for its own domains.
         profile?.dnsHostsJson?.takeIf { it.isNotBlank() }?.let { hosts ->
@@ -795,6 +819,14 @@ object ConfigBuilder {
         dns.addProperty("queryStrategy", "UseIP")
         dns.addProperty("disableCache", false)
         val servers = JsonArray()
+        // With AdGuard on it answers everything, Russian domains included: their ads are
+        // just as annoying. The system resolver stays as a last resort.
+        if (adBlock != AdBlockMode.OFF) {
+            servers.add(adBlock.dohUrl)
+            servers.add("localhost")
+            dns.add("servers", servers)
+            return dns
+        }
         val remote = profile?.remoteDns?.ifBlank { null } ?: "https://1.1.1.1/dns-query"
         val domestic = profile?.domesticDns?.ifBlank { null } ?: "https://dns.google/dns-query"
         servers.add(remote)

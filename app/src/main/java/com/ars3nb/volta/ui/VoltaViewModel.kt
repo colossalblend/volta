@@ -13,6 +13,7 @@ import com.ars3nb.volta.data.model.BalancerScope
 import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.IpInfo
 import com.ars3nb.volta.data.model.NetworkRegime
+import com.ars3nb.volta.data.model.AdBlockMode
 import com.ars3nb.volta.data.model.PerAppMode
 import com.ars3nb.volta.data.model.PingType
 import com.ars3nb.volta.data.model.RoutingProfileEntity
@@ -223,6 +224,14 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
     val localDns = repo.localDns
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+    val adBlock = repo.adBlock
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AdBlockMode.OFF)
+    val blockTorrents = repo.blockTorrents
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** Routing changed while the tunnel is up; it takes effect on the next connect. */
+    private val _routingDirty = MutableStateFlow(false)
+    val routingDirty = _routingDirty.asStateFlow()
     val sendHwid = repo.sendHwid
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     val autoConnect = repo.autoConnect
@@ -334,6 +343,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun doConnect() {
+        _routingDirty.value = false
         viewModelScope.launch {
             _busy.value = true
             _connectPhase.value = ConnectPhase.PREPARING
@@ -579,12 +589,40 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------------------------------------------------------------- routing
 
-    fun setActiveRouting(id: Long) = viewModelScope.launch { repo.setActiveRouting(id) }
+    private fun touchRouting() {
+        if (uiState.value.isConnected) _routingDirty.value = true
+    }
+
+    /** Reconnects so pending routing changes reach the running tunnel. */
+    fun applyRoutingNow() {
+        _routingDirty.value = false
+        if (uiState.value.isConnected && connectPhase.value == ConnectPhase.IDLE) doConnect()
+    }
+
+    fun setActiveRouting(id: Long) = viewModelScope.launch {
+        repo.setActiveRouting(id)
+        touchRouting()
+    }
+
+    fun setAdBlock(mode: AdBlockMode) = viewModelScope.launch {
+        repo.setAdBlock(mode)
+        touchRouting()
+    }
+
+    fun setBlockTorrents(v: Boolean) = viewModelScope.launch {
+        repo.setBlockTorrents(v)
+        touchRouting()
+    }
+
+    fun renameRoutingProfile(id: Long, name: String) = viewModelScope.launch {
+        repo.renameRoutingProfile(id, name)
+    }
 
     fun bindSubscriptionRouting(subscriptionId: Long, profileId: Long) {
         viewModelScope.launch {
             try {
                 repo.bindSubscriptionRouting(subscriptionId, profileId)
+                touchRouting()
                 _message.value = "Правила применены к подписке"
             } catch (e: Exception) {
                 _message.value = e.userMessage("Не удалось применить правила")
@@ -595,12 +633,15 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     fun saveRules(profileId: Long, rules: List<RoutingRuleDto>) {
         viewModelScope.launch {
             repo.updateRoutingRules(profileId, rules)
-            _message.value = "Правила сохранены"
+            touchRouting()
         }
     }
 
     fun setRoutingProviderRules(profileId: Long, enabled: Boolean) =
-        viewModelScope.launch { repo.setRoutingProviderRules(profileId, enabled) }
+        viewModelScope.launch {
+            repo.setRoutingProviderRules(profileId, enabled)
+            touchRouting()
+        }
 
     fun setRoutingDns(profileId: Long, remote: String, domestic: String) =
         viewModelScope.launch { repo.setRoutingDns(profileId, remote, domestic) }
@@ -636,9 +677,15 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     // --------------------------------------------------------------- settings
 
     fun setDesignTheme(t: DesignTheme) = viewModelScope.launch { repo.setDesignTheme(t) }
-    fun setPerAppMode(mode: PerAppMode) = viewModelScope.launch { repo.setPerAppMode(mode) }
+    fun setPerAppMode(mode: PerAppMode) = viewModelScope.launch {
+        repo.setPerAppMode(mode)
+        touchRouting()
+    }
     fun setPerAppPackages(packages: Set<String>) =
-        viewModelScope.launch { repo.setPerAppPackages(packages) }
+        viewModelScope.launch {
+            repo.setPerAppPackages(packages)
+            touchRouting()
+        }
     fun setAutoFailover(v: Boolean) = viewModelScope.launch { repo.setAutoFailover(v) }
     fun setPingOnStart(v: Boolean) = viewModelScope.launch { repo.setPingOnStart(v) }
     fun setDefaultPingType(t: PingType) = viewModelScope.launch { repo.setDefaultPingType(t) }

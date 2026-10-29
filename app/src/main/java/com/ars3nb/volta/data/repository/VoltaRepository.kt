@@ -17,6 +17,7 @@ import com.ars3nb.volta.core.vpn.CertPins
 import com.ars3nb.volta.core.vpn.ConfigBuilder
 import com.ars3nb.volta.core.vpn.VoltaVpnService
 import com.ars3nb.volta.data.db.VoltaDatabase
+import com.ars3nb.volta.data.model.AdBlockMode
 import com.ars3nb.volta.data.model.BalancerScope
 import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.IpInfo
@@ -110,6 +111,8 @@ class VoltaRepository(private val context: Context) {
     val sendHwid = prefs.sendHwid
     val autoConnect = prefs.autoConnect
     val localDns = prefs.localDns
+    val adBlock = prefs.adBlock
+    val blockTorrents = prefs.blockTorrents
     val connectMode = prefs.connectMode
     val refreshOnLaunch = prefs.refreshOnLaunch
     val followNetwork = prefs.followNetwork
@@ -156,6 +159,7 @@ class VoltaRepository(private val context: Context) {
             if (routingDao.count() == 0) {
                 RoutingEngine.builtInProfiles().forEach { routingDao.insert(it) }
             }
+            retireOldBuiltIns()
             if (routingDao.getActive() == null) {
                 routingDao.getAll().firstOrNull { it.isBuiltIn }
                     ?.let { routingDao.setActive(it.id) }
@@ -167,6 +171,31 @@ class VoltaRepository(private val context: Context) {
                 val role = ServerClassifier.classify(server.remark)
                 if (role != server.role) serverDao.updateAutoRole(server.id, role)
             }
+        }
+    }
+
+    /**
+     * "Без рекламы" and "Максимальная маскировка" became the AdGuard and torrent filters.
+     * Their users keep what they had: the filter goes on, the set itself goes away.
+     */
+    private suspend fun retireOldBuiltIns() {
+        val retired = routingDao.getAll().filter {
+            it.isBuiltIn && it.name in setOf(RoutingEngine.RETIRED_NO_ADS, RoutingEngine.RETIRED_STEALTH)
+        }
+        if (retired.isEmpty()) return
+        val boundIds = subDao.getAll().map { it.routingProfileId }.toSet()
+        retired.forEach { profile ->
+            if (profile.isActive || profile.id in boundIds) {
+                when (profile.name) {
+                    RoutingEngine.RETIRED_NO_ADS -> prefs.setAdBlock(AdBlockMode.STANDARD)
+                    RoutingEngine.RETIRED_STEALTH -> prefs.setBlockTorrents(true)
+                }
+            }
+            subDao.unbindRoutingProfile(profile.id)
+            routingDao.delete(profile)
+        }
+        if (routingDao.getActive() == null) {
+            routingDao.getAll().firstOrNull { it.isBuiltIn }?.let { routingDao.setActive(it.id) }
         }
     }
 
@@ -582,6 +611,12 @@ class VoltaRepository(private val context: Context) {
         )
     }
 
+    suspend fun renameRoutingProfile(profileId: Long, name: String) {
+        val profile = routingDao.getById(profileId) ?: return
+        if (profile.isBuiltIn || name.isBlank()) return
+        routingDao.update(profile.copy(name = name.trim(), updatedAt = System.currentTimeMillis()))
+    }
+
     suspend fun setRoutingProviderRules(profileId: Long, enabled: Boolean) {
         val profile = routingDao.getById(profileId) ?: return
         routingDao.update(
@@ -789,7 +824,9 @@ class VoltaRepository(private val context: Context) {
             batterySaver = prefs.batterySaver.first(),
             localDns = prefs.localDns.first(),
             geo = routing.geo,
-            preferServerRouting = routing.preferServerRouting
+            preferServerRouting = routing.preferServerRouting,
+            adBlock = prefs.adBlock.first(),
+            blockTorrents = prefs.blockTorrents.first()
         )
 
         VoltaVpnService.ConnectionPlan(
@@ -1155,6 +1192,8 @@ class VoltaRepository(private val context: Context) {
     suspend fun setSendHwid(v: Boolean) = prefs.setSendHwid(v)
     suspend fun setAutoConnect(v: Boolean) = prefs.setAutoConnect(v)
     suspend fun setLocalDns(v: Boolean) = prefs.setLocalDns(v)
+    suspend fun setAdBlock(mode: AdBlockMode) = prefs.setAdBlock(mode)
+    suspend fun setBlockTorrents(v: Boolean) = prefs.setBlockTorrents(v)
     suspend fun setMtu(v: Int) = prefs.setMtu(v)
 
     fun isConnected(): Boolean = vpnState.value == VpnConnectionState.CONNECTED

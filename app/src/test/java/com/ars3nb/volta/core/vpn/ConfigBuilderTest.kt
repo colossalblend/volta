@@ -1,6 +1,7 @@
 package com.ars3nb.volta.core.vpn
 
 import com.ars3nb.volta.core.routing.RoutingEngine
+import com.ars3nb.volta.data.model.AdBlockMode
 import com.ars3nb.volta.data.model.ProtocolType
 import com.ars3nb.volta.data.model.RouteOutbound
 import com.ars3nb.volta.data.model.RoutingProfileEntity
@@ -19,6 +20,50 @@ import org.junit.Test
 class ConfigBuilderTest {
 
     // ------------------------------------------------------------------ routing
+
+    @Test
+    fun adGuardAnswersEveryLookupEvenWithTheTunnelDnsOff() {
+        val root = root(
+            ConfigBuilder.build(vless(), null, localDns = false, adBlock = AdBlockMode.STANDARD)
+        )
+        val servers = root.getAsJsonObject("dns").getAsJsonArray("servers")
+        assertEquals(AdBlockMode.STANDARD.dohUrl, servers[0].asString)
+        assertFalse(servers.toString().contains("1.1.1.1"))
+        // Plain DNS from apps is handed to the core so AdGuard actually sees it.
+        val rules = root.getAsJsonObject("routing").getAsJsonArray("rules")
+        assertEquals("dns-out", rules[0].asJsonObject.get("outboundTag").asString)
+    }
+
+    @Test
+    fun torrentFilterComesBeforeProfileRules() {
+        val profile = RoutingProfileEntity(
+            name = "Everything direct",
+            rulesJson = RoutingEngine.serializeRules(
+                listOf(
+                    RoutingRuleDto(
+                        name = "All",
+                        outbound = RouteOutbound.DIRECT,
+                        ports = "0-65535",
+                        source = "user"
+                    )
+                )
+            )
+        )
+        val rules = root(ConfigBuilder.build(vless(), profile, blockTorrents = true))
+            .getAsJsonObject("routing").getAsJsonArray("rules")
+            .map { it.asJsonObject }
+        val torrent = rules.indexOfFirst { it.toString().contains("bittorrent") }
+        val direct = rules.indexOfFirst { it.get("port")?.asString == "0-65535" }
+        assertTrue(torrent in 0 until direct)
+        assertEquals("block", rules[torrent].get("outboundTag").asString)
+    }
+
+    @Test
+    fun filtersOffLeaveTheConfigAlone() {
+        val text = ConfigBuilder.build(vless(), null)
+        assertFalse(text.contains("bittorrent"))
+        assertFalse(text.contains("adguard"))
+    }
 
     @Test
     fun usesOnlyPassedSubscriptionProfileRules() {
