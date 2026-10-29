@@ -134,6 +134,10 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     val hideBalancers = repo.hideBalancers
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
+    /** Null until the stored value is read, so the app never flashes the wrong screen. */
+    val simpleMode = repo.simpleMode.map<Boolean, Boolean?> { it }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     /**
      * Live speed for the graph, sampled every 2 s while connected. Sampled on a timer
      * rather than per traffic update: an idle tunnel emits nothing, yet the graph must
@@ -294,16 +298,17 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
      * after every switch to another server, and the real one once it is off.
      */
     private suspend fun followExitAddress() {
-        combine(repo.vpnState, repo.selectedServer) { state, server ->
-            state to (if (state == VpnConnectionState.CONNECTED) server?.id else null)
+        combine(repo.vpnState, repo.liveServerId) { state, liveId ->
+            state to (if (state == VpnConnectionState.CONNECTED) liveId else null)
         }
             .distinctUntilChanged()
             .collectLatest { (state, _) ->
                 when (state) {
                     VpnConnectionState.CONNECTED -> {
                         _ip.value = null
-                        // The core needs a moment before its local proxy answers.
-                        for (wait in longArrayOf(700, 2_000, 5_000)) {
+                        // The core needs a moment before its local proxy answers, and a
+                        // node that is still warming up may drop the first lookups.
+                        for (wait in longArrayOf(500, 1_500, 3_000, 6_000, 12_000, 30_000)) {
                             delay(wait)
                             val info = runCatching { repo.fetchIp() }.getOrNull()
                             if (info != null && info.ip.isNotBlank()) {
@@ -438,6 +443,14 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     fun setFollowNetwork(v: Boolean) = viewModelScope.launch { repo.setFollowNetwork(v) }
     fun setAutoRecheck(v: Boolean) = viewModelScope.launch { repo.setAutoRecheck(v) }
     fun setHideBalancers(v: Boolean) = viewModelScope.launch { repo.setHideBalancers(v) }
+
+    fun setSimpleMode(v: Boolean) = viewModelScope.launch {
+        val wasElsewhere = uiState.value.isConnected &&
+            repo.connectMode.first() != ConnectMode.AUTO_HOME_LTE
+        repo.setSimpleMode(v)
+        // Switching on while connected in another mode moves the tunnel to Home+LTE.
+        if (v && wasElsewhere && connectPhase.value == ConnectPhase.IDLE) doConnect()
+    }
 
 
     fun disconnect() = repo.disconnect()

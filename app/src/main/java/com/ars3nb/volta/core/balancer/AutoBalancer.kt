@@ -48,6 +48,12 @@ class AutoBalancer(
         /** Extra samples per finalist. */
         const val REFINE_ROUNDS = 2
 
+        /**
+         * The remembered node is taken unmeasured at connect time unless it failed this
+         * many times in a row; one bad check (a network change) doesn't disqualify it.
+         */
+        const val INSTANT_MAX_FAILS = 2
+
         /** A lost sample costs as much as this much extra latency. */
         const val LOSS_PENALTY_MS = 1_200L
 
@@ -261,29 +267,38 @@ class AutoBalancer(
         val holder = current?.takeIf { c -> pool.any { it.id == c.id } }
             ?: remembered[group]?.let { id -> pool.firstOrNull { it.id == id } }
 
-        // Connect-time fast path: the node that worked last time in this group goes
-        // first, unmeasured. The health check right after connecting vouches for it
-        // (and fails over if it doesn't), and the full comparison runs once the
-        // tunnel is up — the user doesn't sit through it.
-        if (quick && instant && holder != null && holder.failStreak == 0) {
-            return Decision(
-                scope = scope,
-                regime = regime,
-                selected = holder,
-                previous = current,
-                switched = holder.id != current?.id,
-                ranked = emptyList(),
-                probes = probes,
-                reason = "Подключаемся к «${holder.remark}»",
-                quick = true
-            )
+        // Connect-time fast path: no measuring before the tunnel is up. The node that
+        // worked last time in this group goes first, else the best one on record, else
+        // whichever answers first. The health check right after connecting vouches for
+        // it (and fails over if it doesn't), and the full comparison runs once the
+        // tunnel is up and moves it to the fastest node — the user doesn't sit through it.
+        if (quick && instant) {
+            val known = holder?.takeIf { it.failStreak < INSTANT_MAX_FAILS }
+                ?: pool.filter { it.isHealthy && it.latencyMs > 0 }.minByOrNull { it.score }
+            val pick = known ?: run {
+                onPhase(Phase.MEASURING)
+                pingEngine.firstToAnswer(pool.sortedBy { it.score })
+            }
+            if (pick != null) {
+                return Decision(
+                    scope = scope,
+                    regime = regime,
+                    selected = pick,
+                    previous = current,
+                    switched = pick.id != current?.id,
+                    ranked = emptyList(),
+                    probes = probes,
+                    reason = "Подключаемся к «${pick.remark}»",
+                    quick = true
+                )
+            }
         }
 
         onPhase(Phase.MEASURING)
         val first = if (quick) {
             pingEngine.pingServersQuick(pool, pingType).toMap()
         } else {
-            pingEngine.pingServers(pool, pingType).toMap()
+            pingEngine.pingServers(pool, pingType, realDelayTimeoutMs = PingEngine.SWEEP_TIMEOUT_MS).toMap()
         }
         // The quick sweep only judges some nodes; the rest keep their stored health.
         val judged = if (quick) pool.filter { it.id in first } else pool

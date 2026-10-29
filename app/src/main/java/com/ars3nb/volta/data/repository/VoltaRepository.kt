@@ -47,15 +47,19 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -97,6 +101,9 @@ class VoltaRepository(private val context: Context) {
     val activeRouting: Flow<RoutingProfileEntity?> = routingDao.observeActive()
 
     val vpnState = VoltaVpnService.state
+
+    /** The node the tunnel is actually running on (changes only once a switch is done). */
+    val liveServerId: StateFlow<Long> = VoltaVpnService.serverId
     val vpnError = VoltaVpnService.error
     val traffic = VoltaVpnService.traffic
     val connectedSince = VoltaVpnService.connectedSince
@@ -118,6 +125,7 @@ class VoltaRepository(private val context: Context) {
     val followNetwork = prefs.followNetwork
     val autoRecheck = prefs.autoRecheck
     val hideBalancers = prefs.hideBalancers
+    val simpleMode = prefs.simpleMode
     val lastRegime = prefs.networkRegime
 
     private val _autoPicking = MutableStateFlow(false)
@@ -536,9 +544,9 @@ class VoltaRepository(private val context: Context) {
             val results = engine.pingServers(
                 servers = all,
                 type = pingType,
-                maxParallel = 24,
-                heavyParallel = 8,
-                realDelayTimeoutMs = SWEEP_TIMEOUT_MS
+                maxParallel = PingEngine.TCP_PARALLEL * 2,
+                heavyParallel = PingEngine.HEAVY_PARALLEL + 4,
+                realDelayTimeoutMs = PingEngine.SWEEP_TIMEOUT_MS
             ) { id, r -> byId[id]?.let { persist(it, r) } }
             results.count { it.second.success }
         }
@@ -722,9 +730,9 @@ class VoltaRepository(private val context: Context) {
         }
     }
 
-    private fun knownNetwork(): NetworkProbe.Outcome? {
+    private fun knownNetwork(maxAgeMs: Long = NETWORK_MEMO_TTL_MS): NetworkProbe.Outcome? {
         val memo = networkMemo ?: return null
-        val fresh = System.currentTimeMillis() - memo.at < NETWORK_MEMO_TTL_MS
+        val fresh = System.currentTimeMillis() - memo.at < maxAgeMs
         return memo.outcome.takeIf { fresh && memo.key == networkKey() }
     }
 
@@ -748,10 +756,15 @@ class VoltaRepository(private val context: Context) {
         /** A node that just failed: not a candidate, and replaced only by one that answered. */
         exclude: Long? = null,
         /**
-         * Reuse the site check made moments ago instead of probing again. Every connect
-         * in Home+LTE (button, tiles, boot) probes the sites afresh.
+         * Reuse a site check of this same network no older than this instead of probing
+         * again; 0 always probes afresh.
          */
-        reuseNetwork: Boolean = false
+        reuseNetworkMs: Long = 0,
+        /**
+         * Also move to the chosen node. Off for background runs, which measure first
+         * and commit with [commitPick] only once they hold the connect lock.
+         */
+        select: Boolean = true
     ): AutoBalancer.Decision = withContext(Dispatchers.IO) {
         val battery = prefs.batterySaver.first()
         val balancer = AutoBalancer(PingEngine(context, batterySaver = battery), NetworkProbe(battery))
@@ -768,7 +781,7 @@ class VoltaRepository(private val context: Context) {
             onPhase = onPhase,
             remembered = remembered,
             quick = quick,
-            knownNetwork = if (reuseNetwork) knownNetwork() else null,
+            knownNetwork = if (reuseNetworkMs > 0) knownNetwork(reuseNetworkMs) else null,
             instant = instant
         )
 
@@ -798,18 +811,26 @@ class VoltaRepository(private val context: Context) {
             }
         }
         if (decision.ranked.isNotEmpty()) _lastDecision.value = decision
+        if (select) commitPick(decision, exclude)
+        decision
+    }
+
+    /** Moves to the node [decision] chose; a live tunnel follows by itself. */
+    private suspend fun commitPick(decision: AutoBalancer.Decision, exclude: Long?) {
         // Leaving a failed node for one nobody measured would only trade one guess for
         // another; better to stay until something answers.
         val next = decision.selected?.takeIf { pick ->
             exclude == null || decision.ranked.any { it.ok && it.server.id == pick.id }
-        }
-        next?.let { if (it.id != current?.id) selectServer(it.id) }
-        decision
+        } ?: return
+        if (next.id != serverDao.getSelected()?.id) selectServer(next.id)
     }
 
-    /** While connected the lookup goes through the tunnel, so it shows the exit IP. */
+    /**
+     * While connected the lookup goes through the tunnel's own check port, which always
+     * leaves through the exit node, so it shows the exit IP whatever the routing says.
+     */
     suspend fun fetchIp(): IpInfo =
-        IpChecker.fetch(socksPort = if (isConnected()) LOCAL_SOCKS_PORT else null)
+        IpChecker.fetch(socksPort = if (isConnected()) ConfigBuilder.EXIT_CHECK_PORT else null)
 
     // ------------------------------------------------------------ connection
 
@@ -916,19 +937,26 @@ class VoltaRepository(private val context: Context) {
     suspend fun connectWithMode(
         onPhase: (AutoBalancer.Phase) -> Unit = {}
     ): AutoBalancer.Decision? = withContext(Dispatchers.IO) {
-        connectMutex.withLock {
-            pickJob = coroutineContext[Job]
-            _autoPicking.value = true
-            try {
-                connectWithModeLocked { phase ->
-                    _pickPhase.value = phase
-                    onPhase(phase)
+        // The user goes first: a background comparison still measuring gives way
+        // instead of making the button wait for it.
+        refineJob?.cancel()
+        backgroundPick?.cancel()
+        _autoPicking.value = true
+        try {
+            connectMutex.withLock {
+                pickJob = coroutineContext[Job]
+                try {
+                    connectWithModeLocked { phase ->
+                        _pickPhase.value = phase
+                        onPhase(phase)
+                    }
+                } finally {
+                    pickJob = null
                 }
-            } finally {
-                pickJob = null
-                _autoPicking.value = false
-                _pickPhase.value = null
             }
+        } finally {
+            _autoPicking.value = false
+            _pickPhase.value = null
         }
     }
 
@@ -971,10 +999,17 @@ class VoltaRepository(private val context: Context) {
     private suspend fun connectWithModeLocked(
         onPhase: (AutoBalancer.Phase) -> Unit
     ): AutoBalancer.Decision? {
+        // The simple screen can't show another mode, so a tile or shortcut that left one
+        // behind is put back to Home+LTE.
+        if (prefs.simpleMode.first() && prefs.connectMode.first() != ConnectMode.AUTO_HOME_LTE) {
+            prefs.setConnectMode(ConnectMode.AUTO_HOME_LTE)
+        }
         val scope = prefs.connectMode.first().scope
         // Connect-time pick is the quick one: last good node or a short race, so the
         // tunnel is up in seconds. The thorough comparison follows in the background.
-        val decision = scope?.let { runAutobalancer(it, onPhase, quick = true) }
+        val decision = scope?.let {
+            runAutobalancer(it, onPhase, quick = true, reuseNetworkMs = CONNECT_MEMO_TTL_MS)
+        }
         if (decision != null && decision.selected == null) {
             error(decision.reason)
         }
@@ -990,27 +1025,64 @@ class VoltaRepository(private val context: Context) {
     private val background = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var refineJob: Job? = null
 
+    /** A background comparison still measuring; a connect cancels it. */
+    @Volatile
+    private var backgroundPick: Job? = null
+
     /**
      * After a quick connect, the full comparison (every node, finalists re-measured)
-     * once the tunnel has settled; a clearly better node then takes over.
+     * as soon as the tunnel is up and past its first health check. It runs outside the
+     * tunnel and a clearly faster node then takes over in place.
      */
     private fun scheduleRefine() {
         refineJob?.cancel()
         refineJob = background.launch {
+            withTimeoutOrNull(REFINE_WAIT_FOR_TUNNEL_MS) {
+                vpnState.first { it == VpnConnectionState.CONNECTED }
+            } ?: return@launch
             delay(REFINE_AFTER_CONNECT_MS)
             if (isConnected()) runCatching { reevaluateAuto() }
         }
     }
 
+    /**
+     * Measures in the background without holding up the button: the work runs on its
+     * own and a connect may cancel it. Null when it was cancelled or failed.
+     */
+    private suspend fun <T> measureAside(block: suspend () -> T): T? {
+        val work = background.async { block() }
+        backgroundPick = work
+        return try {
+            work.await()
+        } catch (e: Exception) {
+            // Our own caller being cancelled is passed on (and takes the work along);
+            // the work alone being cancelled or failing just means no answer.
+            if (!currentCoroutineContext().isActive) {
+                work.cancel()
+                throw e
+            }
+            null
+        } finally {
+            if (backgroundPick === work) backgroundPick = null
+        }
+    }
+
     /** Re-run the auto choice on a live tunnel, e.g. after Wi-Fi ↔ mobile data. */
     suspend fun reevaluateAuto(): AutoBalancer.Decision? = withContext(Dispatchers.IO) {
-        // Same lock as a connect: a background re-check must not race the button.
+        if (!isConnected() || _autoPicking.value) return@withContext null
+        val scope = prefs.connectMode.first().scope ?: return@withContext null
+        val liveId = VoltaVpnService.serverId.value
+        // Measured without the connect lock, so the button never waits on it.
+        val decision = measureAside { runAutobalancer(scope, select = false) }
+            ?: return@withContext null
         connectMutex.withLock {
-            if (!isConnected()) return@withLock null
-            val scope = prefs.connectMode.first().scope ?: return@withLock null
-            // runAutobalancer → selectServer reconnects by itself when the node changes.
-            runAutobalancer(scope)
+            // The button, a tile or a failover moved the tunnel meanwhile: theirs stands.
+            if (!isConnected() || _autoPicking.value || VoltaVpnService.serverId.value != liveId) {
+                return@withLock
+            }
+            commitPick(decision, exclude = null)
         }
+        decision
     }
 
     // ------------------------------------------------------------ guard
@@ -1087,18 +1159,25 @@ class VoltaRepository(private val context: Context) {
      * made is reused) and the tunnel moves to the best node that answered.
      */
     private suspend fun moveOff(from: ServerEntity, scope: BalancerScope, failed: Boolean) {
-        connectMutex.withLock {
-            // The button, a tile or the service's own failover got there first.
-            if (!isConnected() || VoltaVpnService.serverId.value != from.id) return@withLock
-            if (failed) persist(from, PingResult(from.remark, PingType.REAL_DELAY, -1, false))
-            val decision = runAutobalancer(
+        if (!isConnected() || VoltaVpnService.serverId.value != from.id) return
+        if (failed) persist(from, PingResult(from.remark, PingType.REAL_DELAY, -1, false))
+        val exclude = if (failed) from.id else null
+        val decision = measureAside {
+            runAutobalancer(
                 scope,
                 quick = true,
                 instant = false,
-                exclude = if (failed) from.id else null,
-                reuseNetwork = true
+                exclude = exclude,
+                reuseNetworkMs = NETWORK_MEMO_TTL_MS,
+                select = false
             )
-            // runAutobalancer → selectServer has already started the move.
+        } ?: return
+        connectMutex.withLock {
+            // The button, a tile or the service's own failover got there first.
+            if (!isConnected() || _autoPicking.value || VoltaVpnService.serverId.value != from.id) {
+                return@withLock
+            }
+            commitPick(decision, exclude)
             if (decision.selected != null && serverDao.getSelected()?.id != from.id) scheduleRefine()
         }
     }
@@ -1108,6 +1187,12 @@ class VoltaRepository(private val context: Context) {
     suspend fun setFollowNetwork(v: Boolean) = prefs.setFollowNetwork(v)
     suspend fun setAutoRecheck(v: Boolean) = prefs.setAutoRecheck(v)
     suspend fun setHideBalancers(v: Boolean) = prefs.setHideBalancers(v)
+
+    /** The simple screen has no mode picker, so it always runs in Home+LTE. */
+    suspend fun setSimpleMode(v: Boolean) {
+        if (v) prefs.setConnectMode(ConnectMode.AUTO_HOME_LTE)
+        prefs.setSimpleMode(v)
+    }
 
 
     fun disconnect() = VoltaVpnService.disconnect(context)
@@ -1238,20 +1323,20 @@ class VoltaRepository(private val context: Context) {
     fun isConnected(): Boolean = vpnState.value == VpnConnectionState.CONNECTED
 
     companion object {
-        /** Must match the port ConfigBuilder gives the socks inbound. */
-        private const val LOCAL_SOCKS_PORT = 10808
-
-        /** A node that needs longer than this to answer is no use in the list anyway. */
-        private const val SWEEP_TIMEOUT_MS = 5_000L
-
         /** Must match the port ConfigBuilder gives the http inbound. */
         const val LOCAL_HTTP_PORT = 10809
 
         /** A network check stays good this long on the same network. */
         private const val NETWORK_MEMO_TTL_MS = 10 * 60_000L
 
-        /** After a quick connect: past the health check, before anyone notices. */
-        private const val REFINE_AFTER_CONNECT_MS = 20_000L
+        /** A connect trusts a network check this recent instead of probing again. */
+        private const val CONNECT_MEMO_TTL_MS = 3 * 60_000L
+
+        /** After a quick connect: right past the first health check. */
+        private const val REFINE_AFTER_CONNECT_MS = 4_000L
+
+        /** A tunnel not up by then failed; the comparison is not needed. */
+        private const val REFINE_WAIT_FOR_TUNNEL_MS = 30_000L
 
         val SUBSCRIPTION_COLORS = listOf(
             "#C4784A", "#4A8FC4", "#5FB07A", "#B05FA8", "#C4A24A", "#4AC4B8"

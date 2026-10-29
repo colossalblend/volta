@@ -1,11 +1,14 @@
 package com.ars3nb.volta.ui.navigation
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,6 +20,7 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -32,6 +36,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -43,6 +48,7 @@ import com.ars3nb.volta.ui.screens.PerAppScreen
 import com.ars3nb.volta.ui.screens.RoutingScreen
 import com.ars3nb.volta.ui.screens.ServersScreen
 import com.ars3nb.volta.ui.screens.SettingsScreen
+import com.ars3nb.volta.ui.screens.SimpleHomeScreen
 import com.ars3nb.volta.ui.screens.SubscriptionsScreen
 import com.ars3nb.volta.ui.theme.VoltaTheme
 
@@ -70,6 +76,7 @@ private val TABS = listOf(
 fun VoltaAppRoot(vm: VoltaViewModel = viewModel()) {
     val design by vm.designTheme.collectAsStateWithLifecycle()
     val state by vm.uiState.collectAsStateWithLifecycle()
+    val simple by vm.simpleMode.collectAsStateWithLifecycle()
     val nav = rememberNavController()
     val snackbar = remember { SnackbarHostState() }
 
@@ -86,90 +93,113 @@ fun VoltaAppRoot(vm: VoltaViewModel = viewModel()) {
     }
 
     VoltaTheme(design = design) {
-        Scaffold(
-            // Each screen handles the status bar itself (the home screen draws under it).
-            contentWindowInsets = WindowInsets(0, 0, 0, 0),
-            snackbarHost = { SnackbarHost(snackbar) },
-            bottomBar = {
-                if (showBottomBar) {
-                    NavigationBar {
-                        TABS.forEach { tab ->
-                            NavigationBarItem(
-                                selected = current == tab.route,
-                                onClick = {
-                                    if (current != tab.route) {
-                                        nav.navigate(tab.route) {
-                                            popUpTo(nav.graph.findStartDestination().id) {
-                                                saveState = true
-                                            }
-                                            launchSingleTop = true
-                                            restoreState = true
+        Crossfade(targetState = simple, animationSpec = tween(320), label = "simpleMode") { simpleMode ->
+            when (simpleMode) {
+                // The setting is still being read: an empty screen, not the wrong one.
+                null -> Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
+                true -> Scaffold(
+                    contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                    snackbarHost = { SnackbarHost(snackbar) }
+                ) { padding ->
+                    SimpleHomeScreen(vm = vm, modifier = Modifier.padding(padding))
+                }
+                false -> FullApp(vm, nav, snackbar, current, showBottomBar)
+            }
+        }
+    }
+}
+
+@Composable
+private fun FullApp(
+    vm: VoltaViewModel,
+    nav: NavHostController,
+    snackbar: SnackbarHostState,
+    current: String?,
+    showBottomBar: Boolean
+) {
+    Scaffold(
+        // Each screen handles the status bar itself (the home screen draws under it).
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        snackbarHost = { SnackbarHost(snackbar) },
+        bottomBar = {
+            if (showBottomBar) {
+                NavigationBar {
+                    TABS.forEach { tab ->
+                        NavigationBarItem(
+                            selected = current == tab.route,
+                            onClick = {
+                                if (current != tab.route) {
+                                    nav.navigate(tab.route) {
+                                        popUpTo(nav.graph.findStartDestination().id) {
+                                            saveState = true
                                         }
+                                        launchSingleTop = true
+                                        restoreState = true
                                     }
-                                },
-                                icon = { Icon(tab.icon, contentDescription = tab.label) },
-                                label = { Text(tab.label) }
-                            )
-                        }
+                                }
+                            },
+                            icon = { Icon(tab.icon, contentDescription = tab.label) },
+                            label = { Text(tab.label) }
+                        )
                     }
                 }
             }
-        ) { padding ->
-            NavHost(
-                navController = nav,
-                startDestination = Routes.HOME,
-                modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding),
-                enterTransition = { fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.97f) },
-                exitTransition = { fadeOut(tween(140)) },
-                popEnterTransition = { fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.97f) },
-                popExitTransition = { fadeOut(tween(140)) }
-            ) {
-                composable(Routes.HOME) {
-                    HomeScreen(
-                        vm = vm,
-                        onOpenServers = {
-                            nav.navigate(Routes.SERVERS) {
-                                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        onOpenImport = { nav.navigate(Routes.IMPORT) },
-                        onOpenRouting = {
-                            nav.navigate(Routes.ROUTING) {
-                                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
+        }
+    ) { padding ->
+        NavHost(
+            navController = nav,
+            startDestination = Routes.HOME,
+            modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding),
+            enterTransition = { fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.97f) },
+            exitTransition = { fadeOut(tween(140)) },
+            popEnterTransition = { fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.97f) },
+            popExitTransition = { fadeOut(tween(140)) }
+        ) {
+            composable(Routes.HOME) {
+                HomeScreen(
+                    vm = vm,
+                    onOpenServers = {
+                        nav.navigate(Routes.SERVERS) {
+                            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                    )
-                }
-                composable(Routes.SERVERS) {
-                    ServersScreen(vm = vm, onOpenImport = { nav.navigate(Routes.IMPORT) })
-                }
-                composable(Routes.SUBSCRIPTIONS) {
-                    SubscriptionsScreen(vm = vm, onOpenImport = { nav.navigate(Routes.IMPORT) })
-                }
-                composable(Routes.ROUTING) {
-                    RoutingScreen(vm = vm, onOpenPerApp = { nav.navigate(Routes.PER_APP) })
-                }
-                composable(Routes.SETTINGS) {
-                    SettingsScreen(vm = vm)
-                }
-                composable(
-                    Routes.PER_APP,
-                    enterTransition = { slideInVertically(tween(260)) { it / 3 } + fadeIn() },
-                    popExitTransition = { slideOutVertically(tween(220)) { it / 3 } + fadeOut() }
-                ) {
-                    PerAppScreen(vm = vm, onBack = { nav.popBackStack() })
-                }
-                composable(
-                    Routes.IMPORT,
-                    enterTransition = { slideInVertically(tween(260)) { it / 3 } + fadeIn() },
-                    popExitTransition = { slideOutVertically(tween(220)) { it / 3 } + fadeOut() }
-                ) {
-                    ImportScreen(vm = vm, onBack = { nav.popBackStack() })
-                }
+                    },
+                    onOpenImport = { nav.navigate(Routes.IMPORT) },
+                    onOpenRouting = {
+                        nav.navigate(Routes.ROUTING) {
+                            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                )
+            }
+            composable(Routes.SERVERS) {
+                ServersScreen(vm = vm, onOpenImport = { nav.navigate(Routes.IMPORT) })
+            }
+            composable(Routes.SUBSCRIPTIONS) {
+                SubscriptionsScreen(vm = vm, onOpenImport = { nav.navigate(Routes.IMPORT) })
+            }
+            composable(Routes.ROUTING) {
+                RoutingScreen(vm = vm, onOpenPerApp = { nav.navigate(Routes.PER_APP) })
+            }
+            composable(Routes.SETTINGS) {
+                SettingsScreen(vm = vm)
+            }
+            composable(
+                Routes.PER_APP,
+                enterTransition = { slideInVertically(tween(260)) { it / 3 } + fadeIn() },
+                popExitTransition = { slideOutVertically(tween(220)) { it / 3 } + fadeOut() }
+            ) {
+                PerAppScreen(vm = vm, onBack = { nav.popBackStack() })
+            }
+            composable(
+                Routes.IMPORT,
+                enterTransition = { slideInVertically(tween(260)) { it / 3 } + fadeIn() },
+                popExitTransition = { slideOutVertically(tween(220)) { it / 3 } + fadeOut() }
+            ) {
+                ImportScreen(vm = vm, onBack = { nav.popBackStack() })
             }
         }
     }

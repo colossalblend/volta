@@ -12,13 +12,17 @@ import com.ars3nb.volta.data.model.SiteProbeResult
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
@@ -43,6 +47,19 @@ class PingEngine(
 
         /** A finalist slower than this to answer is no good to connect to anyway. */
         const val QUICK_TIMEOUT_MS = 4_500L
+
+        /** In a whole-list sweep a node that needs longer than this is no use anyway. */
+        const val SWEEP_TIMEOUT_MS = 4_000L
+
+        /**
+         * TCP handshakes cost next to nothing, so a sweep opens many at once; real-delay
+         * runs each spin up a small core, so fewer of those overlap.
+         */
+        const val TCP_PARALLEL = 32
+        const val HEAVY_PARALLEL = 8
+
+        /** How long the connect-time race waits for any node to answer at all. */
+        const val RACE_DEADLINE_MS = 3_000L
 
         /** UDP nodes measured at connect time on top of the TCP finalists. */
         private const val UDP_FINALISTS = 2
@@ -130,14 +147,59 @@ class PingEngine(
             return@withContext PingResult(host, PingType.TCP, -1, false, "Пустой адрес")
         }
         val start = System.nanoTime()
+        val socket = Socket()
+        // A blocked connect() ignores cancellation; closing the socket ends it, so a
+        // cancelled sweep lets go at once instead of sitting out every timeout.
+        val closer = launch {
+            try {
+                delay(Long.MAX_VALUE)
+            } finally {
+                runCatching { socket.close() }
+            }
+        }
         try {
-            Socket().use { socket ->
-                socket.tcpNoDelay = true
-                socket.connect(InetSocketAddress(host, port), connectTimeoutMs)
+            socket.use {
+                it.tcpNoDelay = true
+                it.connect(InetSocketAddress(host, port), connectTimeoutMs)
             }
             PingResult(host, PingType.TCP, (System.nanoTime() - start) / 1_000_000, true)
         } catch (e: Exception) {
             PingResult(host, PingType.TCP, -1, false, e.message.orEmpty())
+        } finally {
+            closer.cancel()
+        }
+    }
+
+    /**
+     * Connect-time race: TCP handshakes to every node at once, and the first to answer
+     * wins. That is usually also the nearest one. Null when none answers in time.
+     */
+    suspend fun firstToAnswer(
+        servers: List<ServerEntity>,
+        deadlineMs: Long = RACE_DEADLINE_MS
+    ): ServerEntity? {
+        val candidates = servers.filterNot(::speaksUdp)
+        if (candidates.isEmpty()) return null
+        val race = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val winner = CompletableDeferred<ServerEntity?>()
+        val gate = Semaphore(TCP_PARALLEL)
+        val runners = candidates.map { server ->
+            race.launch {
+                gate.withPermit {
+                    if (!winner.isCompleted && tcpPing(server.address, server.port).success) {
+                        winner.complete(server)
+                    }
+                }
+            }
+        }
+        race.launch {
+            runners.joinAll()
+            winner.complete(null)
+        }
+        return try {
+            withTimeoutOrNull(deadlineMs) { winner.await() }
+        } finally {
+            race.cancel()
         }
     }
 
@@ -265,7 +327,7 @@ class PingEngine(
         val (udp, tcpBased) = servers.partition(::speaksUdp)
         // UDP nodes have no TCP latency to rank by: the few with the best record so far.
         val udpPicks = udp.sortedBy { it.score }.take(UDP_FINALISTS)
-        val tcp = pingServers(tcpBased, PingType.TCP, maxParallel = 16)
+        val tcp = pingServers(tcpBased, PingType.TCP, maxParallel = TCP_PARALLEL)
         if (type == PingType.TCP) {
             return@coroutineScope tcp + udpPicks.map { server ->
                 async { server.id to realDelay(server, QUICK_TIMEOUT_MS) }
@@ -298,7 +360,7 @@ class PingEngine(
         type: PingType,
         rounds: Int
     ): Map<Long, List<PingResult>> = coroutineScope {
-        val gate = Semaphore(if (batterySaver) 2 else 4)
+        val gate = Semaphore(if (batterySaver) 4 else 6)
         servers.map { server ->
             async {
                 gate.withPermit {
@@ -317,8 +379,8 @@ class PingEngine(
     suspend fun pingServers(
         servers: List<ServerEntity>,
         type: PingType,
-        maxParallel: Int = if (batterySaver) 4 else 8,
-        heavyParallel: Int = if (batterySaver) 2 else 4,
+        maxParallel: Int = TCP_PARALLEL,
+        heavyParallel: Int = if (batterySaver) HEAVY_PARALLEL - 2 else HEAVY_PARALLEL,
         realDelayTimeoutMs: Long? = null,
         /** Called as each node is judged, so a long list fills in as it goes. */
         onResult: (suspend (Long, PingResult) -> Unit)? = null
