@@ -115,6 +115,7 @@ import com.ars3nb.volta.data.model.RoutingProfileEntity
 import com.ars3nb.volta.data.model.RoutingRuleDto
 import com.ars3nb.volta.data.model.SubscriptionEntity
 import com.ars3nb.volta.ui.VoltaViewModel
+import com.ars3nb.volta.ui.components.barColors
 import com.ars3nb.volta.ui.components.CardShape
 import com.ars3nb.volta.ui.components.Hint
 import com.ars3nb.volta.ui.components.SectionHeader
@@ -165,6 +166,7 @@ fun RoutingScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
         } else Scaffold(
             topBar = {
                 TopAppBar(
+                    colors = barColors(),
                     title = { Text("Маршруты", fontWeight = FontWeight.SemiBold) },
                     actions = {
                         IconButton(onClick = { showNew = true }) {
@@ -383,19 +385,13 @@ private fun ActiveProfileHero(
     Surface(
         shape = CardShape,
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, palette.cardBorder),
         modifier = modifier.fillMaxWidth()
     ) {
-        Column(
-            Modifier
-                .background(palette.heroBrush)
-                .padding(18.dp)
-        ) {
+        Column(Modifier.padding(18.dp)) {
             Text(
-                "СЕЙЧАС РАБОТАЕТ",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.SemiBold
+                "Работает сейчас",
+                style = MaterialTheme.typography.labelMedium,
+                color = palette.good
             )
             Spacer(Modifier.height(4.dp))
             AnimatedContent(
@@ -879,6 +875,7 @@ private fun RuleEditorPage(
     Scaffold(
         topBar = {
             TopAppBar(
+                colors = barColors(),
                 title = {
                     Column {
                         Text(profile.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -1269,7 +1266,7 @@ private fun RuleCard(
                                             )
                                         )
                                     },
-                                    label = { Text(p.uppercase()) }
+                                    label = { Text(if (p == "bittorrent") "BitTorrent" else p.uppercase()) }
                                 )
                             }
                         }

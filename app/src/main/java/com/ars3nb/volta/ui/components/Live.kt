@@ -32,7 +32,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -60,6 +59,8 @@ import androidx.compose.ui.unit.dp
 import com.ars3nb.volta.core.server.Countries
 import com.ars3nb.volta.ui.PickSummary
 import com.ars3nb.volta.ui.SpeedHistory
+import com.ars3nb.volta.data.model.TrafficStats
+import com.ars3nb.volta.ui.theme.TABULAR
 import com.ars3nb.volta.ui.theme.VoltaTheme
 
 /**
@@ -68,7 +69,7 @@ import com.ars3nb.volta.ui.theme.VoltaTheme
  * moves continuously instead of jumping.
  */
 @Composable
-fun SpeedGraph(history: SpeedHistory, modifier: Modifier = Modifier) {
+fun SpeedGraph(history: SpeedHistory, modifier: Modifier = Modifier, totals: TrafficStats? = null) {
     val palette = VoltaTheme.palette
     val downColor = palette.good
     val upColor = MaterialTheme.colorScheme.primary
@@ -178,6 +179,14 @@ fun SpeedGraph(history: SpeedHistory, modifier: Modifier = Modifier) {
                 }
             }
         }
+        if (totals != null) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "За сеанс скачано ${formatBytes(totals.downlinkBytes)}, отправлено ${formatBytes(totals.uplinkBytes)}",
+                style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -251,11 +260,12 @@ fun AutoPickCard(summary: PickSummary, modifier: Modifier = Modifier) {
     val worst = (summary.rows.maxOfOrNull { it.medianMs } ?: 1L).coerceAtLeast(1L)
 
     VoltaCard(modifier = modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.AutoAwesome, null, tint = scheme.primary, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("Лучшие серверы", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-        }
+        Text("Почему этот сервер", style = MaterialTheme.typography.titleSmall)
+        Text(
+            "Проверено ${summary.measured}, ответили ${summary.alive}",
+            style = MaterialTheme.typography.bodySmall,
+            color = scheme.onSurfaceVariant
+        )
         Spacer(Modifier.height(10.dp))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             summary.rows.forEachIndexed { index, row ->

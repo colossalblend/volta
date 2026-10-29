@@ -17,11 +17,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarColors
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,10 +38,14 @@ import com.ars3nb.volta.ui.theme.VoltaTheme
 import java.util.Locale
 import kotlin.math.abs
 
-val CardShape = RoundedCornerShape(20.dp)
+val CardShape = RoundedCornerShape(22.dp)
 val SmallShape = RoundedCornerShape(14.dp)
 
-/** The one card style used across the app: tonal fill, hairline border, no shadow. */
+/**
+ * The one card style used across the app: a tonal fill a step above the background,
+ * no border and no shadow. Only a selected card gets an outline, so an outline always
+ * means "this one".
+ */
 @Composable
 fun VoltaCard(
     modifier: Modifier = Modifier,
@@ -48,11 +55,7 @@ fun VoltaCard(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val palette = VoltaTheme.palette
-    val border = if (selected) {
-        BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
-    } else {
-        BorderStroke(1.dp, palette.cardBorder)
-    }
+    val border = if (selected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = CardShape,
@@ -73,6 +76,17 @@ fun VoltaCard(
         )
     }
 }
+
+/**
+ * Top bars sit on the page itself and only take a surface once content scrolls under
+ * them, so a screen reads as one sheet rather than a band over a body.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun barColors(): TopAppBarColors = TopAppBarDefaults.topAppBarColors(
+    containerColor = MaterialTheme.colorScheme.background,
+    scrolledContainerColor = MaterialTheme.colorScheme.surface
+)
 
 @Composable
 fun SectionHeader(
@@ -150,8 +164,7 @@ fun StatTile(
     Surface(
         modifier = modifier,
         shape = SmallShape,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, VoltaTheme.palette.cardBorder)
+        color = MaterialTheme.colorScheme.surface
     ) {
         Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

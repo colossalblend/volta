@@ -74,7 +74,7 @@ object VoltaTheme {
 
 private val VoltaDarkScheme = darkColorScheme(
     primary = VoltaCopper,
-    onPrimary = Color(0xFF2A1508),
+    onPrimary = Color(0xFF2B1206),
     primaryContainer = VoltaCopperDeep,
     onPrimaryContainer = VoltaCopperSoft,
     secondary = VoltaCopperSoft,
@@ -176,8 +176,8 @@ private val VoltaShapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp),
     small = RoundedCornerShape(12.dp),
     medium = RoundedCornerShape(18.dp),
-    large = RoundedCornerShape(26.dp),
-    extraLarge = RoundedCornerShape(34.dp)
+    large = RoundedCornerShape(24.dp),
+    extraLarge = RoundedCornerShape(32.dp)
 )
 
 @Composable
@@ -256,7 +256,7 @@ fun VoltaTheme(
         )
 
         else -> VoltaPalette(
-            heroTop = Color(0xFF262A31),
+            heroTop = Color(0xFF1C2227),
             heroBottom = VoltaBackground,
             glow = VoltaCopper,
             good = VoltaSuccess,

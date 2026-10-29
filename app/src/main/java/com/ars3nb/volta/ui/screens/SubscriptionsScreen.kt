@@ -32,6 +32,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ars3nb.volta.core.routing.RoutingResolver
 import com.ars3nb.volta.data.model.SubscriptionEntity
 import com.ars3nb.volta.ui.VoltaViewModel
+import com.ars3nb.volta.ui.components.barColors
 import com.ars3nb.volta.ui.components.EmptyState
 import com.ars3nb.volta.ui.components.Hint
 import com.ars3nb.volta.ui.components.SubscriptionCard
@@ -53,6 +54,7 @@ fun SubscriptionsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                colors = barColors(),
                 title = { Text("Подписки", fontWeight = FontWeight.SemiBold) },
                 actions = {
                     if (state.subscriptions.isNotEmpty()) {

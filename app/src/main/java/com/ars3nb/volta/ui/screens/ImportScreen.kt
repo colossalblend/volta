@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ars3nb.volta.ui.VoltaViewModel
+import com.ars3nb.volta.ui.components.barColors
 import com.ars3nb.volta.ui.components.Hint
 import com.ars3nb.volta.ui.components.SectionHeader
 import com.ars3nb.volta.ui.components.VoltaCard
@@ -71,6 +72,7 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
+                colors = barColors(),
                 title = { Text("Добавить", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {

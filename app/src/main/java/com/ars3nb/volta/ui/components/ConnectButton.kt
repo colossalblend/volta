@@ -2,16 +2,15 @@ package com.ars3nb.volta.ui.components
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
 import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
@@ -41,56 +40,68 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.ars3nb.volta.data.model.TrafficStats
 import com.ars3nb.volta.data.model.VpnConnectionState
+import com.ars3nb.volta.ui.theme.Metals
+import com.ars3nb.volta.ui.theme.Motion
+import com.ars3nb.volta.ui.theme.TABULAR
 import com.ars3nb.volta.ui.theme.VoltaTheme
+import com.ars3nb.volta.ui.theme.rememberReducedMotion
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.hypot
+import kotlin.math.ln
 import kotlin.math.sin
+import kotlin.random.Random
 
 /**
- * The home screen centrepiece: a disc that fills up like a glass.
+ * The home screen's one bold thing: a copper disc, like the plates of Volta's pile.
  *
- *  - idle: an empty disc with the Volta "V" in it and a faint orbit around it;
- *  - working: the disc fills with the accent colour, a soft wave on top, while a
- *    spark runs round the orbit trailing a tail; the "V" flips colour where the
- *    liquid covers it;
- *  - connected: the disc floods solid, one ripple leaves it and the spark slows
- *    to a lazy circle;
- *  - disconnecting drains it, an error leaves a red puddle and a short shake.
+ *  - off: bare copper, turned like a coin, with the power mark cut into it;
+ *  - connecting: a spark runs round the rim and patina starts creeping out from where
+ *    the finger touched;
+ *  - on: the patina, the green that protects copper, has covered the disc, and faint
+ *    rings leave it in time with the traffic going through the tunnel;
+ *  - turning off scrapes the patina back; a failure flashes oxide red and shakes.
  *
- * Tapping sloshes the liquid a little, so the button feels like a physical thing.
+ * [activity] is 0..1, how busy the tunnel is right now.
  */
 @Composable
 fun PowerButton(
@@ -99,121 +110,107 @@ fun PowerButton(
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    size: Dp = 264.dp
+    size: Dp = 260.dp,
+    activity: Float = 0f
 ) {
-    val palette = VoltaTheme.palette
-    val scheme = MaterialTheme.colorScheme
     val connected = state == VpnConnectionState.CONNECTED
     val draining = state == VpnConnectionState.DISCONNECTING
     val busy = working || state == VpnConnectionState.CONNECTING || draining
     val failed = state == VpnConnectionState.ERROR && !busy
     val up = connected && !busy
     val haptics = LocalHapticFeedback.current
+    val still = rememberReducedMotion()
 
-    val liquidColor by animateColorAsState(
-        targetValue = when {
-            up -> palette.good
-            failed -> palette.poor
-            else -> scheme.primary
-        },
-        animationSpec = tween(520),
-        label = "liquid"
-    )
-    val onLiquid by animateColorAsState(
-        targetValue = if (up) palette.onAccent else scheme.onPrimary,
-        animationSpec = tween(520),
-        label = "onLiquid"
-    )
+    // Where the patina starts: the last touch, in the disc's own coordinates (0..1).
+    var origin by remember { mutableStateOf(Offset(0.5f, 0.5f)) }
 
-    // How full the disc is: below 0 hides the wave entirely, above 1 floods it.
-    val level = remember { Animatable(if (up) FULL else EMPTY) }
+    // How much of the disc the patina covers, 0..1.
+    val patina = remember { Animatable(if (up) 1f else 0f) }
     LaunchedEffect(up, busy, draining, failed) {
         when {
-            up -> level.animateTo(FULL, tween(750, easing = FastOutSlowInEasing))
-            draining -> level.animateTo(EMPTY, tween(700, easing = FastOutSlowInEasing))
-            // Rises fast, then creeps: the pick can take a while and must never look done.
-            busy -> level.animateTo(0.74f, tween(6_000, easing = CubicBezierEasing(0.1f, 0.7f, 0.3f, 1f)))
-            failed -> level.animateTo(0.16f, tween(600, easing = FastOutSlowInEasing))
-            else -> level.animateTo(EMPTY, tween(650, easing = FastOutSlowInEasing))
+            still -> patina.snapTo(if (up) 1f else 0f)
+            up -> patina.animateTo(1f, tween(900, easing = FastOutSlowInEasing))
+            draining -> patina.animateTo(0f, tween(650, easing = FastOutSlowInEasing))
+            // Creeps and never quite arrives: picking a server can take a while.
+            busy -> patina.animateTo(0.42f, tween(7_000, easing = CubicBezierEasing(0.1f, 0.6f, 0.3f, 1f)))
+            else -> patina.animateTo(0f, tween(600, easing = FastOutSlowInEasing))
         }
     }
 
-    // A tap or a state change sloshes the liquid; it settles by itself.
-    val slosh = remember { Animatable(0f) }
-    LaunchedEffect(up, busy) {
-        slosh.snapTo(1f)
-        slosh.animateTo(0f, tween(1_400, easing = LinearEasing))
+    val oxide = remember { Animatable(0f) }
+    val shake = remember { Animatable(0f) }
+    LaunchedEffect(failed) {
+        if (failed) {
+            oxide.snapTo(0.85f)
+            if (!still) for (x in listOf(10f, -8f, 6f, -4f, 2f, 0f)) shake.animateTo(x, tween(55))
+            oxide.animateTo(0.3f, tween(700))
+        } else {
+            oxide.animateTo(0f, tween(300))
+        }
     }
 
-    // One ripple and a haptic tick when the tunnel comes up.
+    // One ring and a tick on the hand when the tunnel comes up.
     val burst = remember { Animatable(1f) }
     LaunchedEffect(up) {
         if (up) {
             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-            burst.snapTo(0f)
-            burst.animateTo(1f, tween(1_100, easing = FastOutSlowInEasing))
+            if (!still) {
+                burst.snapTo(0f)
+                burst.animateTo(1f, tween(1_100, easing = FastOutSlowInEasing))
+            }
         }
     }
 
-    // A failure gets a short "no" shake.
-    val shake = remember { Animatable(0f) }
-    LaunchedEffect(failed) {
-        if (failed) {
-            for (x in listOf(10f, -8f, 6f, -4f, 2f, 0f)) shake.animateTo(x, tween(55))
-        }
-    }
-
-    // The spark and the wave move at speeds that ease between states, so nothing jumps.
-    val sparkSpeed by animateFloatAsState(
+    val sparkAlpha by animateFloatAsState(if (busy) 1f else 0f, tween(450), label = "spark")
+    val fieldAlpha by animateFloatAsState(
         targetValue = when {
-            busy -> 330f
-            up -> 40f
-            else -> 18f
+            up -> 1f
+            busy -> 0.45f
+            else -> 0f
         },
-        animationSpec = tween(1_000, easing = FastOutSlowInEasing),
-        label = "sparkSpeed"
+        animationSpec = tween(800),
+        label = "field"
     )
-    val waveSpeed by animateFloatAsState(if (busy) 4.2f else 1.6f, tween(800), label = "waveSpeed")
-    val sparkAlpha by animateFloatAsState(if (busy || up) 1f else 0f, tween(600), label = "sparkAlpha")
-    val tail by animateFloatAsState(if (busy) 1f else 0f, tween(700), label = "tail")
-    val speeds by rememberUpdatedState(sparkSpeed to waveSpeed)
+    val ringColor by animateColorAsState(
+        if (up) Metals.patina else Metals.copper,
+        tween(700),
+        label = "ringColor"
+    )
+
+    // Two clocks: the spark's angle and the field rings' phase. Their speeds ease, so
+    // nothing jumps when the state changes.
+    val sparkSpeed by animateFloatAsState(if (busy) 300f else 60f, tween(900), label = "sparkSpeed")
+    val fieldSpeed = 0.22f + 0.55f * activity.coerceIn(0f, 1f)
+    val speeds by rememberUpdatedState(sparkSpeed to fieldSpeed)
     var spark by remember { mutableFloatStateOf(-90f) }
-    var phase by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(Unit) {
+    var field by remember { mutableFloatStateOf(0f) }
+    val animating = !still && (busy || up || sparkAlpha > 0f || fieldAlpha > 0f)
+    LaunchedEffect(animating) {
+        if (!animating) return@LaunchedEffect
         var last = 0L
         while (true) {
             withFrameNanos { now ->
                 if (last != 0L) {
                     val dt = (now - last) / 1_000_000_000f
                     spark = (spark + speeds.first * dt) % 360f
-                    phase = (phase + speeds.second * dt) % (2f * PI.toFloat())
+                    field = (field + speeds.second * dt) % 1f
                 }
                 last = now
             }
         }
     }
 
+    val dim by animateFloatAsState(if (enabled) 1f else 0.5f, tween(300), label = "dim")
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    LaunchedEffect(pressed) {
-        if (pressed) slosh.animateTo(1f, tween(120))
-        else slosh.animateTo(0f, tween(1_400, easing = LinearEasing))
-    }
-    val press by animateFloatAsState(
-        targetValue = if (pressed) 0.93f else 1f,
-        animationSpec = spring(dampingRatio = 0.5f, stiffness = 420f),
-        label = "press"
-    )
+    val press by animateFloatAsState(if (pressed) 0.94f else 1f, Motion.press(), label = "press")
 
     val description = when {
-        busy -> "Подключение, подождите"
+        busy -> "Подключение, нажмите, чтобы отменить"
         connected -> "Отключить VPN"
         else -> "Подключить VPN"
     }
-
-    val ringColor = scheme.outlineVariant
-    val muted = scheme.onSurfaceVariant
-    val discColor = palette.elevated
+    val specks = remember { speckles() }
 
     Box(
         contentAlignment = Alignment.Center,
@@ -221,65 +218,69 @@ fun PowerButton(
             .size(size)
             .graphicsLayer { translationX = shake.value.dp.toPx() }
     ) {
-        // Orbit, spark and the connect ripple live outside the disc.
+        // Around the disc: its shadow, the field rings, the connect ring and the spark.
         Canvas(Modifier.fillMaxSize()) {
-            val center = Offset(this.size.width / 2, this.size.height / 2)
+            val c = center
             val outer = this.size.minDimension / 2
-            val orbit = outer * 0.86f
             val disc = outer * DISC
 
-            drawCircle(ringColor.copy(alpha = 0.7f), orbit, center, style = Stroke(1.dp.toPx()))
+            drawCircle(
+                brush = Brush.radialGradient(
+                    listOf(Color.Black.copy(alpha = 0.5f), Color.Transparent),
+                    center = c + Offset(0f, disc * 0.12f),
+                    radius = disc * 1.25f
+                ),
+                radius = disc * 1.25f,
+                center = c + Offset(0f, disc * 0.12f)
+            )
+
+            if (fieldAlpha > 0f) {
+                for (i in 0 until RINGS) {
+                    val t = (field + i / RINGS.toFloat()) % 1f
+                    val fade = (1f - t) * (1f - t)
+                    drawCircle(
+                        color = ringColor.copy(alpha = 0.32f * fade * fieldAlpha),
+                        radius = disc + (outer - disc) * t,
+                        center = c,
+                        style = Stroke(width = 1.2.dp.toPx())
+                    )
+                }
+            }
 
             if (burst.value < 1f) {
                 val t = burst.value
                 drawCircle(
-                    color = liquidColor.copy(alpha = (1f - t) * 0.5f),
+                    color = Metals.patinaLight.copy(alpha = (1f - t) * 0.55f),
                     radius = disc + (outer - disc) * t,
-                    center = center,
+                    center = c,
                     style = Stroke(width = (3f * (1f - t) + 1f).dp.toPx())
                 )
             }
 
-            if (sparkAlpha > 0f) {
-                if (tail > 0f) {
-                    // The tail: short arcs fading out behind the spark.
-                    val steps = 36
-                    val span = 110f * tail
-                    for (i in 0 until steps) {
-                        val a = spark - 90f - span * (i + 1) / steps
-                        drawArc(
-                            color = liquidColor.copy(alpha = sparkAlpha * 0.9f * (1f - i / steps.toFloat())),
-                            startAngle = a,
-                            sweepAngle = span / steps + 0.5f,
-                            useCenter = false,
-                            topLeft = Offset(center.x - orbit, center.y - orbit),
-                            size = Size(orbit * 2, orbit * 2),
-                            style = Stroke(width = 2.dp.toPx())
-                        )
-                    }
-                }
-                val rad = ((spark - 90f) * PI / 180f).toFloat()
-                val dot = Offset(center.x + cos(rad) * orbit, center.y + sin(rad) * orbit)
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        listOf(liquidColor.copy(alpha = 0.35f * sparkAlpha), Color.Transparent),
-                        center = dot,
-                        radius = 12.dp.toPx()
-                    ),
-                    radius = 12.dp.toPx(),
-                    center = dot
-                )
-                drawCircle(liquidColor.copy(alpha = sparkAlpha), 4.dp.toPx(), dot)
-            }
+            if (sparkAlpha > 0f) drawSpark(c, disc + 7.dp.toPx(), spark, sparkAlpha)
         }
 
-        // The disc: background, liquid, then the "V" in two inks.
+        // The disc itself.
         Canvas(
             Modifier
                 .size(size * DISC)
                 .scale(press)
+                .graphicsLayer { alpha = dim }
                 .clip(CircleShape)
                 .semantics { contentDescription = description }
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            event.changes.firstOrNull { it.pressed && !it.previousPressed }?.let {
+                                origin = Offset(
+                                    (it.position.x / this.size.width).coerceIn(0f, 1f),
+                                    (it.position.y / this.size.height).coerceIn(0f, 1f)
+                                )
+                            }
+                        }
+                    }
+                }
                 .clickable(
                     // Tappable while connecting too: a second tap cancels the attempt.
                     enabled = enabled && !draining,
@@ -292,99 +293,280 @@ fun PowerButton(
                 }
         ) {
             val r = this.size.minDimension / 2
-            val center = Offset(r, r)
-            drawCircle(discColor, r, center)
+            val c = Offset(r, r)
+            val from = Offset(origin.x * this.size.width, origin.y * this.size.height)
+            // At 1 the solid part of the patina reaches the far edge, wherever it started.
+            val front = patina.value * (hypot(from.x - c.x, from.y - c.y) + r * (1f + EDGE))
 
-            val amp = (1.5f + 2.5f * tail + 4f * slosh.value).dp.toPx()
-            val surface = this.size.height * (1f - level.value)
-            val front = wavePath(this.size, surface, amp, phase, r * 1.35f)
-            val back = wavePath(this.size, surface - 3.dp.toPx(), amp, phase + PI.toFloat(), r * 1.1f)
-            drawPath(back, liquidColor.copy(alpha = 0.45f))
-            drawPath(front, liquidColor)
-            // A faint highlight so the full disc doesn't read as flat paint.
-            drawCircle(
-                brush = Brush.verticalGradient(
-                    listOf(Color.White.copy(alpha = 0.10f), Color.Transparent),
-                    startY = 0f,
-                    endY = this.size.height * 0.6f
-                ),
-                radius = r,
-                center = center
-            )
+            drawCopper(c, r)
+            if (front > 1f) drawPatina(c, r, from, front)
+            drawSpecks(specks, c, r, from, front)
+            drawBand(c, r)
 
-            clipPath(front, ClipOp.Difference) { drawMark(center, r, muted) }
-            clipPath(front) { drawMark(center, r, onLiquid) }
+            // The mark turns patina-dark once the green has passed the middle.
+            val passed = ((front - hypot(from.x - c.x, from.y - c.y)) / (r * 0.35f)).coerceIn(0f, 1f)
+            drawPowerMark(c, r, lerp(Metals.copperInk, Metals.patinaInk, passed))
 
-            drawCircle(ringColor, r - 0.5.dp.toPx(), center, style = Stroke(1.dp.toPx()))
+            if (oxide.value > 0f) {
+                drawCircle(Metals.oxide.copy(alpha = oxide.value * 0.55f), r, c, blendMode = BlendMode.SrcAtop)
+            }
+            drawRim(c, r)
         }
     }
 }
 
 private const val DISC = 0.62f
-private const val EMPTY = -0.08f
-private const val FULL = 1.12f
+private const val RINGS = 3
 
-/** Liquid filling [size] up to [surface] (px from the top), its top a sine wave. */
-private fun wavePath(size: Size, surface: Float, amp: Float, phase: Float, wavelength: Float): Path =
-    Path().apply {
-        moveTo(0f, size.height)
-        var x = 0f
-        while (x <= size.width) {
-            lineTo(x, surface + amp * sin(2f * PI.toFloat() * x / wavelength + phase))
-            x += 3f
-        }
-        lineTo(size.width, surface + amp * sin(2f * PI.toFloat() * size.width / wavelength + phase))
-        lineTo(size.width, size.height)
-        close()
+/** How wide the patina's soft front is, as a share of the disc's radius. */
+private const val EDGE = 0.12f
+
+/** Bare copper: lit from the top left, with the faint rings of a turned blank. */
+private fun DrawScope.drawCopper(c: Offset, r: Float) {
+    drawCircle(
+        brush = Brush.radialGradient(
+            0f to Metals.copperLight,
+            0.55f to Metals.copper,
+            1f to Metals.copperDark,
+            center = c + Offset(-r * 0.35f, -r * 0.42f),
+            radius = r * 1.7f
+        ),
+        radius = r,
+        center = c
+    )
+    val turns = 16
+    for (k in 1..turns) {
+        drawCircle(
+            color = if (k % 2 == 0) Color.White.copy(alpha = 0.035f) else Color.Black.copy(alpha = 0.04f),
+            radius = r * k / turns,
+            center = c,
+            style = Stroke(width = 0.8.dp.toPx())
+        )
     }
-
-/** The Volta "V", same geometry as the launcher icon: a soft left arm, a solid right one. */
-private fun DrawScope.drawMark(center: Offset, radius: Float, color: Color) {
-    val s = radius * 0.80f / 46f
-    val left = Offset(center.x - 17f * s, center.y - 17.5f * s)
-    val bottom = Offset(center.x, center.y + 17.5f * s)
-    val right = Offset(center.x + 17f * s, center.y - 17.5f * s)
-    drawLine(color.copy(alpha = color.alpha * 0.6f), left, bottom, 11f * s, StrokeCap.Round)
-    drawLine(color, bottom, right, 11f * s, StrokeCap.Round)
+    // A brushed sheen that sits across the disc like light on a coin.
+    drawCircle(
+        brush = Brush.sweepGradient(
+            0f to Color.Transparent,
+            0.12f to Color.White.copy(alpha = 0.10f),
+            0.25f to Color.Transparent,
+            0.62f to Color.Transparent,
+            0.75f to Color.White.copy(alpha = 0.07f),
+            0.88f to Color.Transparent,
+            1f to Color.Transparent,
+            center = c
+        ),
+        radius = r,
+        center = c
+    )
 }
 
-/** Big state word under the dial, with a caption that animates between phases. */
+/** Patina out to [front] px from [from], with a soft, uneven edge. */
+private fun DrawScope.drawPatina(c: Offset, r: Float, from: Offset, front: Float) {
+    drawIntoCanvas { canvas ->
+        canvas.saveLayer(Rect(Offset.Zero, size), Paint())
+        drawCircle(
+            brush = Brush.radialGradient(
+                0f to Metals.patinaLight,
+                0.5f to Metals.patina,
+                1f to Metals.patinaDark,
+                center = c + Offset(-r * 0.35f, -r * 0.42f),
+                radius = r * 1.7f
+            ),
+            radius = r,
+            center = c
+        )
+        val soft = (r * EDGE / front).coerceIn(0f, 0.9f)
+        drawRect(
+            brush = Brush.radialGradient(
+                0f to Color.White,
+                (1f - soft) to Color.White,
+                1f to Color.Transparent,
+                center = from,
+                radius = front
+            ),
+            blendMode = BlendMode.DstIn
+        )
+        canvas.restore()
+    }
+}
+
+private class Speck(val x: Float, val y: Float, val radius: Float, val alpha: Float, val light: Boolean)
+
+/** Oxidation spots: a few run ahead of the patina's edge, the rest texture it. */
+private fun speckles(): List<Speck> {
+    val random = Random(7)
+    return List(46) {
+        val a = random.nextFloat() * 2f * PI.toFloat()
+        val d = kotlin.math.sqrt(random.nextFloat()) * 0.86f
+        Speck(
+            x = cos(a) * d,
+            y = sin(a) * d,
+            radius = 0.005f + random.nextFloat() * 0.011f,
+            alpha = 0.12f + random.nextFloat() * 0.22f,
+            light = random.nextFloat() < 0.6f
+        )
+    }
+}
+
+private fun DrawScope.drawSpecks(specks: List<Speck>, c: Offset, r: Float, from: Offset, front: Float) {
+    if (front <= 1f) return
+    val reach = front + r * 0.16f
+    specks.forEach { s ->
+        val p = Offset(c.x + s.x * r, c.y + s.y * r)
+        val d = hypot(p.x - from.x, p.y - from.y)
+        val shown = ((reach - d) / (r * 0.16f)).coerceIn(0f, 1f)
+        if (shown > 0f) {
+            drawCircle(
+                color = (if (s.light) Metals.patinaLight else Metals.patinaDark).copy(alpha = s.alpha * shown),
+                radius = s.radius * r,
+                center = p
+            )
+        }
+    }
+}
+
+/** The power mark, cut into the metal: a dark stroke with a lit lower lip. */
+private fun DrawScope.drawPowerMark(c: Offset, r: Float, ink: Color) {
+    val radius = r * 0.30f
+    val stroke = r * 0.085f
+    val lip = Offset(0f, 1.2.dp.toPx())
+    fun mark(offset: Offset, color: Color) {
+        drawArc(
+            color = color,
+            startAngle = -58f,
+            sweepAngle = 296f,
+            useCenter = false,
+            topLeft = Offset(c.x - radius, c.y - radius) + offset,
+            size = Size(radius * 2, radius * 2),
+            style = Stroke(width = stroke, cap = StrokeCap.Round)
+        )
+        drawLine(
+            color = color,
+            start = Offset(c.x, c.y - radius * 1.18f) + offset,
+            end = Offset(c.x, c.y - radius * 0.28f) + offset,
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+    }
+    mark(lip, Color.White.copy(alpha = 0.22f))
+    mark(Offset.Zero, ink.copy(alpha = 0.88f))
+}
+
+/** The disc's turned edge stays bare copper, so the patina sits inside a rim. */
+private fun DrawScope.drawBand(c: Offset, r: Float) {
+    val width = r * 0.06f
+    drawCircle(
+        brush = Brush.linearGradient(
+            listOf(Metals.copperLight, Metals.copper, Metals.copperDark),
+            start = Offset(c.x - r, c.y - r),
+            end = Offset(c.x + r, c.y + r)
+        ),
+        radius = r - width / 2,
+        center = c,
+        style = Stroke(width = width)
+    )
+}
+
+/** A thin bevel: light on the top left edge, shade on the bottom right. */
+private fun DrawScope.drawRim(c: Offset, r: Float) {
+    drawCircle(
+        brush = Brush.linearGradient(
+            listOf(Color.White.copy(alpha = 0.35f), Color.Transparent, Color.Black.copy(alpha = 0.35f)),
+            start = Offset(c.x - r, c.y - r),
+            end = Offset(c.x + r, c.y + r)
+        ),
+        radius = r - 0.75.dp.toPx(),
+        center = c,
+        style = Stroke(width = 1.5.dp.toPx())
+    )
+}
+
+/** The spark on the rim, trailing a tail that fades behind it. */
+private fun DrawScope.drawSpark(c: Offset, orbit: Float, angle: Float, alpha: Float) {
+    val steps = 28
+    val span = 120f
+    for (i in 0 until steps) {
+        val a = angle - 90f - span * (i + 1) / steps
+        drawArc(
+            color = Metals.copperLight.copy(alpha = alpha * 0.85f * (1f - i / steps.toFloat())),
+            startAngle = a,
+            sweepAngle = span / steps + 0.6f,
+            useCenter = false,
+            topLeft = Offset(c.x - orbit, c.y - orbit),
+            size = Size(orbit * 2, orbit * 2),
+            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+        )
+    }
+    val rad = ((angle - 90f) * PI / 180f).toFloat()
+    val dot = Offset(c.x + cos(rad) * orbit, c.y + sin(rad) * orbit)
+    drawCircle(
+        brush = Brush.radialGradient(
+            listOf(Metals.spark.copy(alpha = 0.55f * alpha), Color.Transparent),
+            center = dot,
+            radius = 14.dp.toPx()
+        ),
+        radius = 14.dp.toPx(),
+        center = dot
+    )
+    drawCircle(Metals.spark.copy(alpha = alpha), 3.5.dp.toPx(), dot)
+}
+
+/** How busy the tunnel is, 0..1, from the download speed on a log scale. */
+fun trafficActivity(traffic: TrafficStats): Float {
+    val bps = (traffic.downlinkSpeed + traffic.uplinkSpeed).coerceAtLeast(0L)
+    if (bps < 1024) return 0f
+    // 1 KB/s -> 0, ~10 MB/s -> 1.
+    return (ln(bps / 1024.0) / ln(10_000.0)).toFloat().coerceIn(0f, 1f)
+}
+
+/** The state in one word, big, and a line under it saying what happens next. */
 @Composable
 fun ConnectionHeadline(
     state: VpnConnectionState,
     phaseCaption: String,
     serverName: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    idleCaption: String = "Нажмите на диск, чтобы включить VPN"
 ) {
+    val palette = VoltaTheme.palette
+    val scheme = MaterialTheme.colorScheme
     val title = when {
-        phaseCaption.isNotBlank() -> "Подключаемся"
+        phaseCaption.isNotBlank() -> "Подключаю"
         state == VpnConnectionState.CONNECTED -> "Защищено"
-        state == VpnConnectionState.CONNECTING -> "Подключаемся"
-        state == VpnConnectionState.DISCONNECTING -> "Отключаемся"
+        state == VpnConnectionState.CONNECTING -> "Подключаю"
+        state == VpnConnectionState.DISCONNECTING -> "Отключаю"
         state == VpnConnectionState.ERROR -> "Не вышло"
-        else -> "Не подключено"
+        else -> "Выключено"
     }
     val caption = when {
         phaseCaption.isNotBlank() -> phaseCaption
         state == VpnConnectionState.CONNECTED -> serverName
         state == VpnConnectionState.CONNECTING -> serverName.ifBlank { "Поднимаю туннель…" }
-        state == VpnConnectionState.ERROR -> "Нажмите, чтобы попробовать снова"
-        else -> "Нажмите на кнопку, чтобы включить VPN"
+        state == VpnConnectionState.DISCONNECTING -> "Закрываю туннель…"
+        state == VpnConnectionState.ERROR -> "Нажмите на диск, чтобы попробовать снова"
+        else -> idleCaption
     }
+    val titleColor by animateColorAsState(
+        when (state) {
+            VpnConnectionState.CONNECTED -> palette.good
+            VpnConnectionState.ERROR -> palette.poor
+            else -> scheme.onBackground
+        },
+        tween(600),
+        label = "titleColor"
+    )
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         AnimatedContent(
             targetState = title,
             transitionSpec = {
-                (slideInVertically { it / 2 } + fadeIn()) togetherWith (slideOutVertically { -it / 2 } + fadeOut())
+                (slideInVertically { it / 2 } + fadeIn()) togetherWith
+                    (slideOutVertically { -it / 2 } + fadeOut()) using SizeTransform(clip = false)
             },
             label = "title"
         ) { text ->
-            Text(
-                text,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Text(text, style = MaterialTheme.typography.headlineMedium, color = titleColor)
         }
+        Spacer(Modifier.height(6.dp))
         AnimatedContent(
             targetState = caption,
             transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(160)) },
@@ -393,7 +575,7 @@ fun ConnectionHeadline(
             Text(
                 text,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = scheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center
@@ -405,16 +587,16 @@ fun ConnectionHeadline(
             exit = fadeOut(tween(160)) + shrinkVertically()
         ) {
             Text(
-                "Нажмите ещё раз, чтобы отменить",
+                "Ещё одно нажатие отменит",
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                color = scheme.onSurfaceVariant.copy(alpha = 0.7f),
                 modifier = Modifier.padding(top = 4.dp)
             )
         }
     }
 }
 
-/** Uptime and live speeds, shown only while the tunnel is up. */
+/** Time on and live speeds, with figures that roll instead of flicker. */
 @Composable
 fun LiveMeter(
     uptimeText: String,
@@ -422,26 +604,54 @@ fun LiveMeter(
     modifier: Modifier = Modifier
 ) {
     val palette = VoltaTheme.palette
+    val scheme = MaterialTheme.colorScheme
+    val figures = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = TABULAR)
     Row(
-        modifier = modifier.height(28.dp),
+        modifier = modifier.height(26.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+        horizontalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        Text(
-            uptimeText,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-        SpeedLabel(Icons.Rounded.ArrowDownward, formatSpeed(traffic.downlinkSpeed), palette.good)
-        SpeedLabel(Icons.Rounded.ArrowUpward, formatSpeed(traffic.uplinkSpeed), MaterialTheme.colorScheme.primary)
+        RollingText(uptimeText, figures, scheme.onBackground)
+        SpeedLabel(Icons.Rounded.ArrowDownward, formatSpeed(traffic.downlinkSpeed), palette.good, figures)
+        SpeedLabel(Icons.Rounded.ArrowUpward, formatSpeed(traffic.uplinkSpeed), scheme.primary, figures)
     }
 }
 
 @Composable
-private fun SpeedLabel(icon: ImageVector, value: String, color: Color) {
+private fun SpeedLabel(icon: ImageVector, value: String, color: Color, style: TextStyle) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, tint = color, modifier = Modifier.size(15.dp))
         Spacer(Modifier.width(3.dp))
-        Text(value, style = MaterialTheme.typography.labelLarge, color = color)
+        RollingText(value, style, MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/**
+ * Text whose digits roll like an odometer when they change; everything else just
+ * swaps. Positions count from the end, so "59:59" -> "1:00:00" lines up.
+ */
+@Composable
+fun RollingText(text: String, style: TextStyle, color: Color, modifier: Modifier = Modifier) {
+    val still = rememberReducedMotion()
+    Row(modifier) {
+        text.forEachIndexed { index, char ->
+            key(text.length - index) {
+                AnimatedContent(
+                    targetState = char,
+                    transitionSpec = {
+                        if (!still && targetState.isDigit() && initialState.isDigit()) {
+                            (slideInVertically(tween(260)) { it } + fadeIn(tween(260))) togetherWith
+                                (slideOutVertically(tween(260)) { -it } + fadeOut(tween(200))) using
+                                SizeTransform(clip = true)
+                        } else {
+                            fadeIn(tween(120)) togetherWith fadeOut(tween(120)) using SizeTransform(clip = true)
+                        }
+                    },
+                    label = "digit"
+                ) { c ->
+                    Text(c.toString(), style = style, color = color)
+                }
+            }
+        }
     }
 }

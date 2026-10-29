@@ -102,13 +102,8 @@ fun ServerRow(
     Surface(
         shape = shape,
         color = container,
-        border = when {
-            inGroup -> null
-            else -> androidx.compose.foundation.BorderStroke(
-                if (selected) 1.5.dp else 1.dp,
-                if (selected) scheme.primary else palette.cardBorder
-            )
-        },
+        // Only the chosen server is outlined, so an outline always means "this one".
+        border = if (selected && !inGroup) androidx.compose.foundation.BorderStroke(1.5.dp, scheme.primary) else null,
         modifier = modifier
             .fillMaxWidth()
             .clip(shape)
@@ -252,14 +247,14 @@ fun CountryCard(
     val scheme = MaterialTheme.colorScheme
     val turn by animateFloatAsState(if (expanded) 180f else 0f, label = "chevron")
     val border by animateColorAsState(
-        if (current) scheme.primary.copy(alpha = 0.7f) else palette.cardBorder,
+        if (current) scheme.primary.copy(alpha = 0.7f) else Color.Transparent,
         label = "countryBorder"
     )
 
     Surface(
         shape = CardShape,
         color = scheme.surface,
-        border = androidx.compose.foundation.BorderStroke(if (current) 1.5.dp else 1.dp, border),
+        border = androidx.compose.foundation.BorderStroke(1.5.dp, border),
         modifier = modifier.fillMaxWidth()
     ) {
         Column(Modifier.animateContentSize()) {
@@ -402,9 +397,9 @@ fun roleLabel(role: ServerRole): String = when (role) {
 
 /** Group badge text and whether it is Home (true), LTE (false) or a balancer (null). */
 fun groupLabel(role: ServerRole): Pair<String, Boolean?> = when (role) {
-    ServerRole.NORMAL -> "HOME" to true
+    ServerRole.NORMAL -> "Home" to true
     ServerRole.BYPASS_WHITELIST -> "LTE" to false
-    ServerRole.AUTO -> "БАЛАНСЕР" to null
+    ServerRole.AUTO -> "Балансер" to null
 }
 
 /** The server's country flag (from its name), or a globe when it names none. */

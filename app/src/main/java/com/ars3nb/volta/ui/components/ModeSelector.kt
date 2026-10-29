@@ -1,12 +1,8 @@
 package com.ars3nb.volta.ui.components
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ars3nb.volta.data.model.ConnectMode
+import com.ars3nb.volta.ui.theme.Motion
 import com.ars3nb.volta.ui.theme.VoltaTheme
 
 private val AUTO_MODES = listOf(ConnectMode.AUTO_HOME_LTE, ConnectMode.AUTO_HOME, ConnectMode.AUTO_LTE)
@@ -69,8 +66,9 @@ private fun modeShort(mode: ConnectMode): String = when (mode) {
 
 /**
  * The three auto groups as one track with a sliding thumb. The thumb springs to the
- * new position, so changing mode feels physical rather than a flat colour swap.
- * When the user picked a server by hand the thumb hides and a "Свой сервер" strip shows.
+ * new position and takes the group's colour, so changing mode feels physical rather
+ * than a flat colour swap. When the user picked a server by hand the thumb hides and a
+ * "Свой сервер" strip shows under the track.
  */
 @Composable
 fun ModeSelector(
@@ -88,23 +86,17 @@ fun ModeSelector(
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(26.dp),
-        color = scheme.surface,
-        border = BorderStroke(1.dp, palette.cardBorder)
+        shape = RoundedCornerShape(20.dp),
+        color = scheme.surface
     ) {
-        BoxWithConstraints(Modifier.padding(6.dp).height(78.dp)) {
+        BoxWithConstraints(Modifier.padding(4.dp).height(50.dp)) {
             val slot = maxWidth / AUTO_MODES.size
             val thumbX by animateDpAsState(
                 targetValue = slot * index.coerceAtLeast(0),
-                animationSpec = spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow),
+                animationSpec = Motion.slide(),
                 label = "thumb"
             )
-            val thumbColor = when (mode) {
-                ConnectMode.AUTO_HOME -> palette.home
-                ConnectMode.AUTO_LTE -> palette.lte
-                else -> scheme.primary
-            }
-            val animatedThumb by animateColorAsState(thumbColor, label = "thumbColor")
+            val thumbColor by animateColorAsState(groupTint(mode), label = "thumbColor")
 
             if (index >= 0) {
                 Box(
@@ -112,9 +104,8 @@ fun ModeSelector(
                         .offset(x = thumbX)
                         .width(slot)
                         .fillMaxHeight()
-                        .clip(RoundedCornerShape(21.dp))
-                        .background(animatedThumb.copy(alpha = if (palette.isDark) 0.18f else 0.14f))
-                        .border(1.5.dp, animatedThumb.copy(alpha = 0.7f), RoundedCornerShape(21.dp))
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(thumbColor.copy(alpha = if (palette.isDark) 0.17f else 0.14f))
                 )
             }
 
@@ -122,13 +113,7 @@ fun ModeSelector(
                 AUTO_MODES.forEach { option ->
                     val selected = option == mode
                     val tint by animateColorAsState(
-                        if (selected) {
-                            when (option) {
-                                ConnectMode.AUTO_HOME -> palette.home
-                                ConnectMode.AUTO_LTE -> palette.lte
-                                else -> scheme.primary
-                            }
-                        } else scheme.onSurfaceVariant,
+                        if (selected) groupTint(option) else scheme.onSurfaceVariant,
                         label = "modeTint"
                     )
                     val count = when (option) {
@@ -142,27 +127,24 @@ fun ModeSelector(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .clip(RoundedCornerShape(21.dp))
+                            .clip(RoundedCornerShape(16.dp))
                             .semantics { this.selected = selected }
                             .clickable(role = Role.Tab) {
                                 if (!selected) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onSelect(option)
                             }
                     ) {
-                        Icon(modeIcon(option), null, tint = tint, modifier = Modifier.size(22.dp))
-                        Spacer(Modifier.height(4.dp))
                         Text(
                             modeShort(option),
                             style = MaterialTheme.typography.titleSmall,
-                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                            color = if (selected) scheme.onSurface else scheme.onSurfaceVariant,
+                            color = if (selected) tint else scheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            if (count > 0) "$count серв." else "нет серверов",
+                            if (count > 0) serversCount(count) else "пусто",
                             style = MaterialTheme.typography.labelSmall,
-                            color = scheme.onSurfaceVariant.copy(alpha = 0.8f),
+                            color = scheme.onSurfaceVariant,
                             maxLines = 1
                         )
                     }
@@ -170,6 +152,13 @@ fun ModeSelector(
             }
         }
     }
+}
+
+@Composable
+private fun groupTint(mode: ConnectMode): Color = when (mode) {
+    ConnectMode.AUTO_HOME -> VoltaTheme.palette.home
+    ConnectMode.AUTO_LTE -> VoltaTheme.palette.lte
+    else -> MaterialTheme.colorScheme.primary
 }
 
 /** Shown under the selector while a hand-picked server overrides the auto groups. */
@@ -196,7 +185,7 @@ fun ManualModeStrip(
             )
             Spacer(Modifier.width(10.dp))
             Text(
-                "Свой сервер: $serverName",
+                if (serverName.isBlank()) "Сервер выбран вручную" else "Свой сервер: $serverName",
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
                 maxLines = 1,

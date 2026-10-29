@@ -1,8 +1,6 @@
 package com.ars3nb.volta.ui.screens
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -32,9 +30,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
@@ -74,22 +69,10 @@ fun SimpleHomeScreen(vm: VoltaViewModel, modifier: Modifier = Modifier) {
         else -> "VPN выключен" to "Чтобы включить, нажмите на кнопку"
     }
 
-    val wash by animateColorAsState(
-        targetValue = when {
-            on -> palette.good.copy(alpha = if (palette.isDark) 0.20f else 0.16f)
-            starting -> MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-            vpn == VpnConnectionState.ERROR -> palette.poor.copy(alpha = 0.12f)
-            else -> palette.heroTop
-        },
-        animationSpec = tween(700),
-        label = "simpleWash"
-    )
-
     Box(
         modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .background(Brush.verticalGradient(listOf(wash, Color.Transparent)))
     ) {
         Column(
             Modifier
@@ -101,10 +84,8 @@ fun SimpleHomeScreen(vm: VoltaViewModel, modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                "VOLTA",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 4.sp,
+                "Volta",
+                style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 8.dp)
             )
@@ -134,14 +115,18 @@ fun SimpleHomeScreen(vm: VoltaViewModel, modifier: Modifier = Modifier) {
                         Text(
                             text,
                             style = MaterialTheme.typography.displaySmall,
-                            fontWeight = FontWeight.Bold,
+                            color = when {
+                                on -> palette.good
+                                vpn == VpnConnectionState.ERROR -> palette.poor
+                                else -> MaterialTheme.colorScheme.onBackground
+                            },
                             textAlign = TextAlign.Center
                         )
                     }
                     if (hint.isNotBlank()) {
                         Text(
                             hint,
-                            style = MaterialTheme.typography.titleLarge,
+                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 19.sp, lineHeight = 26.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(top = 8.dp, start = 8.dp, end = 8.dp)
