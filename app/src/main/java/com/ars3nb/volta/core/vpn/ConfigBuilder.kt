@@ -29,6 +29,15 @@ object ConfigBuilder {
     private const val POOL_PREFIX = "proxy-"
     const val DEFAULT_PROBE_URL = "https://www.gstatic.com/generate_204"
 
+    /**
+     * A second local SOCKS port whose traffic always leaves through the exit node, before
+     * any profile, provider or AdGuard rule is looked at. The exit-address lookup uses it,
+     * so a rule that sends a geo-IP service direct (or a filter that blocks it) cannot
+     * make the app report the home address, or nothing at all, while connected.
+     */
+    const val EXIT_CHECK_PORT = 10807
+    const val EXIT_CHECK_TAG = "exit-check"
+
     /** Raised when the installed core physically cannot dial a node. */
     class UnsupportedProtocolException(message: String) : IllegalStateException(message)
 
@@ -126,7 +135,8 @@ object ConfigBuilder {
             rules = rules,
             domainStrategy = domainStrategy?.ifBlank { null } ?: "IPIfNonMatch",
             proxyBalancerTag = if (useBalancer) BALANCER_TAG else null,
-            dnsRuleEnabled = dnsInCore
+            dnsRuleEnabled = dnsInCore,
+            exitInboundTag = EXIT_CHECK_TAG
         )
         if (useBalancer) {
             routing.add("balancers", JsonArray().apply {
@@ -202,6 +212,16 @@ object ConfigBuilder {
                 // routeOnly keeps the original destination for the outbound, which is
                 // what REALITY/SNI-pinned nodes need; only the routing table sees the host.
                 addProperty("routeOnly", true)
+            })
+        })
+        arr.add(JsonObject().apply {
+            addProperty("tag", EXIT_CHECK_TAG)
+            addProperty("port", EXIT_CHECK_PORT)
+            addProperty("listen", "127.0.0.1")
+            addProperty("protocol", "socks")
+            add("settings", JsonObject().apply {
+                addProperty("udp", false)
+                addProperty("auth", "noauth")
             })
         })
         arr.add(JsonObject().apply {

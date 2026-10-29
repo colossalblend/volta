@@ -142,6 +142,30 @@ class ConfigBuilderTest {
     }
 
     @Test
+    fun exitCheckPortAlwaysLeavesThroughTheExit() {
+        // A profile that sends everything direct must not catch the exit-address lookup.
+        val profile = RoutingProfileEntity(
+            name = "Everything direct",
+            rulesJson = RoutingEngine.serializeRules(
+                listOf(RoutingRuleDto(name = "all", outbound = RouteOutbound.DIRECT, domains = listOf("regexp:.*")))
+            )
+        )
+        val config = root(ConfigBuilder.build(vless(), profile))
+        val inbound = config.getAsJsonArray("inbounds").map { it.asJsonObject }
+            .first { it.get("tag").asString == ConfigBuilder.EXIT_CHECK_TAG }
+        assertEquals(ConfigBuilder.EXIT_CHECK_PORT, inbound.get("port").asInt)
+        assertEquals("127.0.0.1", inbound.get("listen").asString)
+
+        val rules = config.getAsJsonObject("routing").getAsJsonArray("rules").map { it.asJsonObject }
+        val exitRule = rules.indexOfFirst {
+            it.getAsJsonArray("inboundTag")?.toString()?.contains(ConfigBuilder.EXIT_CHECK_TAG) == true
+        }
+        val directRule = rules.indexOfFirst { it.toString().contains("regexp:.*") }
+        assertTrue(exitRule in 0 until directRule)
+        assertEquals(ConfigBuilder.PROXY_TAG, rules[exitRule].get("outboundTag").asString)
+    }
+
+    @Test
     fun routesPlainDnsToTheCoreResolver() {
         val routing = root(ConfigBuilder.build(vless(), null, localDns = true))
             .getAsJsonObject("routing")

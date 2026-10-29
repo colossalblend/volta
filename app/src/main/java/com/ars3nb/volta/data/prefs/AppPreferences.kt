@@ -49,6 +49,7 @@ class AppPreferences(private val context: Context) {
         val followNetwork = booleanPreferencesKey("follow_network")
         val autoRecheck = booleanPreferencesKey("auto_recheck")
         val hideBalancers = booleanPreferencesKey("hide_balancers")
+        val simpleMode = booleanPreferencesKey("simple_mode")
         val lastGoodHome = longPreferencesKey("last_good_home")
         val lastGoodLte = longPreferencesKey("last_good_lte")
         val updateAutoCheck = booleanPreferencesKey("update_auto_check")
@@ -115,6 +116,13 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setHideBalancers(enabled: Boolean) {
         context.dataStore.edit { it[Keys.hideBalancers] = enabled }
+    }
+
+    /** Простой режим: one big on/off button, always Home+LTE auto. */
+    val simpleMode: Flow<Boolean> = context.dataStore.data.map { it[Keys.simpleMode] ?: false }
+
+    suspend fun setSimpleMode(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.simpleMode] = enabled }
     }
 
     suspend fun setAutoRecheck(enabled: Boolean) {

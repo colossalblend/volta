@@ -125,7 +125,9 @@ object RoutingEngine {
         rules: List<RoutingRuleDto>,
         domainStrategy: String = "IPIfNonMatch",
         proxyBalancerTag: String? = null,
-        dnsRuleEnabled: Boolean = true
+        dnsRuleEnabled: Boolean = true,
+        /** Inbound whose traffic always goes to the exit, ahead of every profile rule. */
+        exitInboundTag: String? = null
     ): JsonObject {
         val routing = JsonObject()
         routing.addProperty("domainStrategy", domainStrategy)
@@ -137,6 +139,15 @@ object RoutingEngine {
                 addProperty("port", "53")
                 add("network", jsonArray("udp"))
                 addProperty("outboundTag", "dns-out")
+            })
+        }
+
+        // Ahead of every profile rule: the exit-address check always leaves via the exit.
+        if (exitInboundTag != null) {
+            arr.add(JsonObject().apply {
+                addProperty("type", "field")
+                add("inboundTag", jsonArray(exitInboundTag))
+                applyProxyTarget(this, proxyBalancerTag)
             })
         }
 

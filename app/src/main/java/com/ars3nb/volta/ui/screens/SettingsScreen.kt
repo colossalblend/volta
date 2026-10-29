@@ -81,6 +81,7 @@ fun SettingsScreen(vm: VoltaViewModel) {
     val refreshOnLaunch by vm.refreshOnLaunch.collectAsStateWithLifecycle()
     val followNetwork by vm.followNetwork.collectAsStateWithLifecycle()
     val autoRecheck by vm.autoRecheck.collectAsStateWithLifecycle()
+    val simpleMode by vm.simpleMode.collectAsStateWithLifecycle()
     val update by vm.updateState.collectAsStateWithLifecycle()
     val updateAutoCheck by vm.updateAutoCheck.collectAsStateWithLifecycle()
     val updateToken by vm.updateToken.collectAsStateWithLifecycle()
@@ -97,6 +98,18 @@ fun SettingsScreen(vm: VoltaViewModel) {
             contentPadding = PaddingValues(16.dp, 0.dp, 16.dp, 24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            item {
+                VoltaCard {
+                    ToggleRow(
+                        title = "Простой режим",
+                        subtitle = "Для пожилых и для всех, кому нужна одна кнопка: на экране " +
+                            "только огромная кнопка «Включить / Выключить». Сервер выбирается " +
+                            "сам (Авто Home + LTE).",
+                        checked = simpleMode == true,
+                        onChecked = vm::setSimpleMode
+                    )
+                }
+            }
             item { SectionHeader("Подключение") }
             item {
                 VoltaCard {

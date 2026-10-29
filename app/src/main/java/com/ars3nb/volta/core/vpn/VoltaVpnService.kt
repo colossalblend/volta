@@ -180,6 +180,13 @@ class VoltaVpnService : VpnService() {
     private var healthJob: Job? = null
     private var lastUnderlying: Network? = null
 
+    /**
+     * Bumped whenever a core takes over the tunnel. A check that started under an older
+     * core and reports it broken is about a node the tunnel already left.
+     */
+    @Volatile
+    private var generation = 0
+
     private val connectivity by lazy { getSystemService(ConnectivityManager::class.java) }
 
     /**
@@ -241,24 +248,42 @@ class VoltaVpnService : VpnService() {
                     Log.d(TAG, "Ignoring duplicate connect while state=${_state.value}")
                 } else if (_state.value == VpnConnectionState.CONNECTED && !sameConfig) {
                     // Switching servers must actually move the traffic, not just relabel it.
-                    Log.i(TAG, "Reconnecting onto a new config")
+                    val newMtu = intent.getIntExtra(EXTRA_MTU, 1420)
+                    val newSocksPort = intent.getIntExtra(EXTRA_SOCKS_PORT, SOCKS_PORT_DEFAULT)
+                    val newPerAppMode = runCatching {
+                        PerAppMode.valueOf(intent.getStringExtra(EXTRA_PER_APP_MODE).orEmpty())
+                    }.getOrDefault(PerAppMode.OFF)
+                    val newPackages =
+                        intent.getStringArrayExtra(EXTRA_PER_APP_PACKAGES)?.toSet().orEmpty()
+                    // Only the exit changes: the VPN interface and its app list stay, and
+                    // just the core is replaced. Apps see no drop and nothing leaks past
+                    // the tunnel in between. OpenFlux brings its own helper, so it can't.
+                    val coreOnly = openFluxLink.isBlank() && lastOpenFluxLink.isBlank() &&
+                        newMtu == lastMtu && newSocksPort == socksPort &&
+                        newPerAppMode == perAppMode && newPackages == perAppPackages
+                    Log.i(
+                        TAG,
+                        if (coreOnly) "Swapping the core onto a new node" else "Reconnecting onto a new config"
+                    )
                     lastConfig = config
                     lastOpenFluxLink = openFluxLink
                     lastServerName = name
                     lastServerId = intent.getLongExtra(EXTRA_SERVER_ID, 0)
-                    lastMtu = intent.getIntExtra(EXTRA_MTU, 1420)
-                    socksPort = intent.getIntExtra(EXTRA_SOCKS_PORT, SOCKS_PORT_DEFAULT)
-                    perAppMode = runCatching {
-                        PerAppMode.valueOf(intent.getStringExtra(EXTRA_PER_APP_MODE).orEmpty())
-                    }.getOrDefault(PerAppMode.OFF)
-                    perAppPackages =
-                        intent.getStringArrayExtra(EXTRA_PER_APP_PACKAGES)?.toSet().orEmpty()
+                    lastMtu = newMtu
+                    socksPort = newSocksPort
+                    perAppMode = newPerAppMode
+                    perAppPackages = newPackages
                     failoverAttempts = 0
-                    _state.value = VpnConnectionState.CONNECTING
-                    _serverName.value = name
-                    _serverId.value = lastServerId
                     _error.value = null
-                    scope.launch { connectionMutex.withLock { doConnect(config, name, lastMtu) } }
+                    val serverId = lastServerId
+                    if (coreOnly) {
+                        scope.launch { connectionMutex.withLock { swapCore(config, name, serverId) } }
+                    } else {
+                        _state.value = VpnConnectionState.CONNECTING
+                        _serverName.value = name
+                        _serverId.value = serverId
+                        scope.launch { connectionMutex.withLock { doConnect(config, name, lastMtu) } }
+                    }
                 } else {
                     lastConfig = config
                     lastOpenFluxLink = openFluxLink
@@ -373,6 +398,7 @@ class VoltaVpnService : VpnService() {
      */
     private fun startHealthCheck(reason: String, initialDelayMs: Long = 2_500) {
         healthJob?.cancel()
+        val gen = generation
         healthJob = scope.launch {
             delay(initialDelayMs)
             repeat(HEALTH_ATTEMPTS) { attempt ->
@@ -390,7 +416,7 @@ class VoltaVpnService : VpnService() {
                 delay(2_500)
             }
             // Separate launch: recovery restarts the tunnel, which cancels this job.
-            if (tunnelActive.get()) scope.launch { onTunnelBroken(reason) }
+            if (tunnelActive.get()) scope.launch { onTunnelBroken(reason, gen) }
         }
     }
 
@@ -419,7 +445,7 @@ class VoltaVpnService : VpnService() {
 
             // The core comes up first. Raising the TUN before it would black-hole every
             // packet on the device while geodata is unpacked and the core boots.
-            val core = XrayCore(this) { onCoreStoppedItself() }.also { xray = it }
+            val core = newCore().also { xray = it }
             core.start(config, tunFd = 0).getOrThrow()
 
             val useIpv6 = hasGlobalIpv6()
@@ -454,6 +480,7 @@ class VoltaVpnService : VpnService() {
             bridge.start(fd.fd, mtu, socksPort).getOrThrow()
             check(bridge.isRunning()) { "TUN-мост остановился при запуске" }
 
+            generation++
             tunnelActive.set(true)
             _state.value = VpnConnectionState.CONNECTED
             _connectedSince.value = System.currentTimeMillis()
@@ -473,10 +500,58 @@ class VoltaVpnService : VpnService() {
     }
 
     /**
+     * Moves a live tunnel to another node by replacing only the core. The VPN interface
+     * and the TUN bridge stay up (the new core listens on the same local port), so the
+     * switch costs the open connections a moment, not the whole tunnel.
+     */
+    private suspend fun swapCore(config: String, name: String, serverId: Long) {
+        if (!tunnelActive.get() || xray == null) {
+            _state.value = VpnConnectionState.CONNECTING
+            _serverName.value = name
+            _serverId.value = serverId
+            doConnect(config, name, lastMtu)
+            return
+        }
+        watchdogJob?.cancel()
+        healthJob?.cancel()
+        runCatching { xray?.stop() }
+        xray = null
+        try {
+            val core = newCore().also { xray = it }
+            core.start(config, tunFd = 0).getOrThrow()
+            generation++
+            _serverName.value = name
+            _serverId.value = serverId
+            startForeground(
+                VpnNotificationHelper.NOTIFICATION_ID,
+                buildNotification(name, connecting = false)
+            )
+            watchdogJob = scope.launch { watchdog() }
+            startHealthCheck("Сервер не отвечает")
+        } catch (e: Exception) {
+            // The new core refused to start: rebuild the whole tunnel on it, which
+            // reports a real failure the usual way.
+            Log.w(TAG, "core swap failed, reconnecting", e)
+            _state.value = VpnConnectionState.CONNECTING
+            _serverName.value = name
+            _serverId.value = serverId
+            doConnect(config, name, lastMtu)
+        }
+    }
+
+    /** A core whose own shutdown counts only while it still carries the tunnel. */
+    private fun newCore(): XrayCore {
+        lateinit var core: XrayCore
+        core = XrayCore(this) { if (xray === core) onCoreStoppedItself() }
+        return core
+    }
+
+    /**
      * One low-cost loop: refreshes traffic counters, notices a dead component and,
      * once a minute, checks that bytes actually flow through the tunnel.
      */
     private suspend fun watchdog() {
+        val gen = generation
         var uplinkTotal = 0L
         var downlinkTotal = 0L
         var lastProbe = System.currentTimeMillis()
@@ -495,7 +570,7 @@ class VoltaVpnService : VpnService() {
                         "openflux=${!openFluxDown}"
                 )
                 // Launched separately: recovery restarts the tunnel, which cancels this job.
-                scope.launch { onTunnelBroken("Соединение прервалось") }
+                scope.launch { onTunnelBroken("Соединение прервалось", gen) }
                 return
             }
 
@@ -529,7 +604,7 @@ class VoltaVpnService : VpnService() {
                     probeFailures++
                     Log.w(TAG, "tunnel probe failed ($probeFailures)")
                     if (probeFailures >= 2) {
-                        scope.launch { onTunnelBroken("Сервер перестал отвечать") }
+                        scope.launch { onTunnelBroken("Сервер перестал отвечать", gen) }
                         return
                     }
                 } else {
@@ -558,12 +633,14 @@ class VoltaVpnService : VpnService() {
 
     private fun onCoreStoppedItself() {
         if (!tunnelActive.get()) return
-        scope.launch { onTunnelBroken("Ядро VPN остановилось") }
+        val gen = generation
+        scope.launch { onTunnelBroken("Ядро VPN остановилось", gen) }
     }
 
     /** Try the next best node before giving up, so a dead exit is not a dead app. */
-    private suspend fun onTunnelBroken(reason: String) = connectionMutex.withLock {
-        if (!tunnelActive.get()) return@withLock
+    private suspend fun onTunnelBroken(reason: String, gen: Int) = connectionMutex.withLock {
+        // Already moved to another node since the report was made.
+        if (!tunnelActive.get() || gen != generation) return@withLock
         val provider = failoverProvider
         if (provider != null && failoverAttempts < MAX_FAILOVERS) {
             failoverAttempts++
