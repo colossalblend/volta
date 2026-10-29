@@ -94,6 +94,24 @@ android {
         buildConfig = true
     }
 
+    // The screenshot tests (ui/shots) draw real screens under Robolectric, so they need
+    // the app's resources. They run only when VOLTA_SHOTS names a folder for the PNGs:
+    // CI does that in a step of its own, the normal test run leaves them out.
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            all { test ->
+                val shots = System.getenv("VOLTA_SHOTS")
+                if (shots.isNullOrBlank()) {
+                    test.exclude("**/shots/**")
+                } else {
+                    test.systemProperty("volta.shots", shots)
+                    test.maxHeapSize = "3g"
+                }
+            }
+        }
+    }
+
     packaging {
         jniLibs {
             // Unpacked on install: the OpenFlux helper (libopenflux.so) is a program, and
@@ -144,6 +162,10 @@ dependencies {
     implementation(libs.gson)
 
     testImplementation(libs.junit)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation(libs.androidx.junit)
+    testImplementation(libs.robolectric)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

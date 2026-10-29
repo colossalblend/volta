@@ -8,6 +8,7 @@ import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import com.ars3nb.volta.core.server.Countries
+import com.ars3nb.volta.ui.components.barColors
 import com.ars3nb.volta.ui.components.CountryCard
 import com.ars3nb.volta.ui.components.serversCount
 import androidx.compose.foundation.layout.Arrangement
@@ -147,6 +148,7 @@ fun ServersScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                colors = barColors(),
                 title = { Text("Серверы", fontWeight = FontWeight.SemiBold) },
                 actions = {
                     IconButton(

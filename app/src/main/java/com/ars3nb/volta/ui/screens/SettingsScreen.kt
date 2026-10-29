@@ -53,6 +53,7 @@ import com.ars3nb.volta.core.update.UpdateState
 import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.PingType
 import com.ars3nb.volta.data.prefs.DesignTheme
+import com.ars3nb.volta.ui.components.barColors
 import com.ars3nb.volta.ui.components.AppIconPicker
 import com.ars3nb.volta.ui.VoltaViewModel
 import com.ars3nb.volta.ui.components.Hint
@@ -91,7 +92,7 @@ fun SettingsScreen(vm: VoltaViewModel) {
     val palette = VoltaTheme.palette
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Настройки", fontWeight = FontWeight.SemiBold) }) }
+        topBar = { TopAppBar(title = { Text("Настройки", fontWeight = FontWeight.SemiBold) }, colors = barColors()) }
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),

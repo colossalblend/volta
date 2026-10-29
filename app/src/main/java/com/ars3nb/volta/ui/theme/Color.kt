@@ -3,20 +3,43 @@ package com.ars3nb.volta.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // ---------------------------------------------------------------- Volta (dark)
-val VoltaCopper = Color(0xFFE08A4C)
-val VoltaCopperSoft = Color(0xFFF2B183)
-val VoltaCopperDeep = Color(0xFF8A4E24)
+// Volta's pile was copper and zinc: zinc-grey surfaces, copper for action, and the
+// green patina copper grows to protect itself for "protected".
+val VoltaCopper = Color(0xFFD08350)
+val VoltaCopperSoft = Color(0xFFF1B88E)
+val VoltaCopperDeep = Color(0xFF7A3F1C)
 
-val VoltaBackground = Color(0xFF0E0F12)
-val VoltaSurface = Color(0xFF17191D)
-val VoltaSurfaceHigh = Color(0xFF212429)
-val VoltaOutline = Color(0xFF2C3036)
+val VoltaBackground = Color(0xFF101316)
+val VoltaSurface = Color(0xFF181D21)
+val VoltaSurfaceHigh = Color(0xFF22282D)
+val VoltaOutline = Color(0xFF2D343A)
 
-val VoltaCream = Color(0xFFF3EFE9)
-val VoltaMuted = Color(0xFF9AA1AC)
-val VoltaSuccess = Color(0xFF44C08A)
-val VoltaWarning = Color(0xFFE0B341)
-val VoltaError = Color(0xFFE0685F)
+val VoltaCream = Color(0xFFEEE8DF)
+val VoltaMuted = Color(0xFF8E979E)
+val VoltaSuccess = Color(0xFF63C2A6)
+val VoltaWarning = Color(0xFFE2B755)
+val VoltaError = Color(0xFFE46F5C)
+
+/**
+ * The two metals of the power disc. They don't follow the colour theme: copper is
+ * copper whatever the background, and so is its patina.
+ */
+object Metals {
+    val copperLight = Color(0xFFF0B486)
+    val copper = Color(0xFFC9773F)
+    val copperDark = Color(0xFF7B3F1B)
+    val copperInk = Color(0xFF3E1A08)
+
+    val patinaLight = Color(0xFFA6E3CF)
+    val patina = Color(0xFF52B094)
+    val patinaDark = Color(0xFF1E5E4E)
+    val patinaInk = Color(0xFF0B2F27)
+
+    val oxide = Color(0xFFD9573F)
+
+    /** The spark that runs round the disc: hot, almost white. */
+    val spark = Color(0xFFFFE6C7)
+}
 
 // --------------------------------------------------------------------- Light
 val LightBackground = Color(0xFFF6F3EE)

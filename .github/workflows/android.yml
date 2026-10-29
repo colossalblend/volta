@@ -347,6 +347,31 @@ jobs:
             --notes "Volta $VERSION. **\`volta-${SHA::7}-arm64-v8a.apk\`** подходит почти всем телефонам."
           echo "### Public copy: https://github.com/$MIRROR/releases/tag/$VOLTA_UPDATE_TAG" >> "$GITHUB_STEP_SUMMARY"
 
+      # Pictures of the home screen and frames of the power disc's animation, drawn from
+      # the real composables under Robolectric (app/src/test/.../ui/shots), so a design
+      # change can be looked at before anyone installs it. Goes to the branch's
+      # pre-release as screens.zip; never fails the build.
+      - name: Screenshots
+        if: github.event_name == 'pull_request' && steps.release.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set +e -o pipefail
+          export VOLTA_SHOTS="$RUNNER_TEMP/shots"
+          mkdir -p "$VOLTA_SHOTS"
+          ./gradlew --no-configuration-cache --stacktrace "-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8" \
+            :app:testDebugUnitTest --tests 'com.ars3nb.volta.ui.shots.*' 2>&1 | tee "$RUNNER_TEMP/shots.log" | tail -60
+          status=$?
+          cp "$RUNNER_TEMP/shots.log" "$VOLTA_SHOTS/gradle.log"
+          cp -r app/build/test-results/testDebugUnitTest "$VOLTA_SHOTS/results" 2>/dev/null || true
+          (cd "$VOLTA_SHOTS" && zip -qr "$RUNNER_TEMP/screens.zip" .)
+          ls -la "$RUNNER_TEMP/screens.zip"
+          gh release upload "$VOLTA_UPDATE_TAG" "$RUNNER_TEMP/screens.zip" --clobber
+          exit $status
+
       # Fallback when the release could not be made (e.g. a fork PR without write access).
       - name: Upload APKs as an artifact
         if: steps.release.outcome != 'success'

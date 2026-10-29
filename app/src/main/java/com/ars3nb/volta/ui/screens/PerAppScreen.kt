@@ -75,6 +75,7 @@ import com.ars3nb.volta.core.routing.AppPreset
 import com.ars3nb.volta.core.routing.Presets
 import com.ars3nb.volta.data.model.PerAppMode
 import com.ars3nb.volta.ui.VoltaViewModel
+import com.ars3nb.volta.ui.components.barColors
 import com.ars3nb.volta.ui.components.EmptyState
 import com.ars3nb.volta.ui.components.Hint
 import com.ars3nb.volta.ui.components.SectionHeader
@@ -138,6 +139,7 @@ fun PerAppScreen(vm: VoltaViewModel, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
+                colors = barColors(),
                 title = {
                     Column {
                         Text("Раздельное туннелирование", fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -251,7 +253,7 @@ fun PerAppScreen(vm: VoltaViewModel, onBack: () -> Unit) {
 
             if (chosen.isNotEmpty()) {
                 item(key = "chosen-title") {
-                    SectionHeader("Выбранные · ${chosen.size}", Modifier.animateItem())
+                    SectionHeader("Выбрано: ${chosen.size}", Modifier.animateItem())
                 }
                 items(chosen, key = { it.packageName }) { app ->
                     AppRow(
