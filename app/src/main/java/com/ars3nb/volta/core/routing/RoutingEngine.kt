@@ -49,7 +49,7 @@ object RoutingEngine {
             if (json.trimStart().startsWith("[")) {
                 val first = json.trimStart().drop(1).trimStart()
                 if (first.startsWith("{") && json.contains("\"outbound\"")) {
-                    gson.fromJson(json, listType) ?: emptyList()
+                    sanitize(gson.fromJson(json, listType) ?: emptyList())
                 } else {
                     xrayRulesToDto(JsonParser.parseString(json).asJsonArray)
                 }
@@ -73,6 +73,43 @@ object RoutingEngine {
 
     fun serializeRules(rules: List<RoutingRuleDto>): String = gson.toJson(rules)
 
+    /**
+     * Gson fills a Kotlin class by reflection, past its types: a field the JSON gives as
+     * null comes out null, an outbound this build doesn't know comes out null, and ids
+     * may repeat. Rules from a provider or a pasted file are made whole here, so neither
+     * the config builder (a null list) nor the rules screen (a list keyed by id: a repeat
+     * crashes it) trips over them. A rule whose outbound is unknown is left out.
+     */
+    @Suppress("USELESS_CAST", "USELESS_ELVIS", "SENSELESS_COMPARISON")
+    internal fun sanitize(rules: List<RoutingRuleDto?>): List<RoutingRuleDto> {
+        val seen = HashSet<String>()
+        fun strings(list: List<String>?): List<String> =
+            (list as List<String?>?)?.filterNotNull().orEmpty()
+        return rules.filterNotNull().mapNotNull { r ->
+            val outbound = (r.outbound as RouteOutbound?) ?: return@mapNotNull null
+            val id = (r.id as String?)?.takeIf { it.isNotBlank() && it !in seen }
+                ?: java.util.UUID.randomUUID().toString()
+            seen += id
+            RoutingRuleDto(
+                id = id,
+                name = (r.name as String?).orEmpty(),
+                enabled = r.enabled,
+                outbound = outbound,
+                domains = strings(r.domains),
+                ips = strings(r.ips),
+                ports = (r.ports as String?).orEmpty(),
+                sourcePorts = (r.sourcePorts as String?).orEmpty(),
+                network = (r.network as String?).orEmpty(),
+                protocol = strings(r.protocol),
+                inboundTags = strings(r.inboundTags),
+                users = strings(r.users),
+                attributes = (r.attributes as String?).orEmpty(),
+                source = (r.source as String?)?.takeIf { it.isNotBlank() } ?: "user",
+                sortOrder = r.sortOrder
+            )
+        }
+    }
+
     fun importRules(json: String): List<RoutingRuleDto> {
         val element = JsonParser.parseString(json)
         val rulesElement = when {
@@ -89,7 +126,7 @@ object RoutingEngine {
 
         val text = rulesElement.toString()
         return if (text.contains("\"outbound\"")) {
-            gson.fromJson<List<RoutingRuleDto>>(text, listType) ?: emptyList()
+            sanitize(gson.fromJson<List<RoutingRuleDto?>>(text, listType) ?: emptyList())
         } else {
             xrayRulesToDto(rulesElement.asJsonArray)
         }
