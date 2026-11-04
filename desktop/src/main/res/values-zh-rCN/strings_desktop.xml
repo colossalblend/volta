@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Volta for Windows only: what has no counterpart in the Android app. Everything
+     else on Windows reads the Android app's own strings (see desktop/build.gradle.kts). -->
+<resources>
+    <string name="desktop_bypass_title">不走 VPN 的网站</string>
+    <string name="desktop_bypass_text">Windows 无法像 Android 那样按应用分流：Volta 通过系统代理工作，而系统代理对所有程序只有一个。不过可以列出网站——浏览器和程序会绕过 VPN 直接打开它们。</string>
+    <string name="desktop_bypass_empty">还没有网站</string>
+    <string name="desktop_bypass_placeholder">bank.cn 或网站链接</string>
+    <string name="desktop_captcha_browser">页面已在浏览器中打开。请在那里完成验证，然后点击「%1$s」。</string>
+    <string name="desktop_captcha_open">打开页面</string>
+    <string name="desktop_update_quit">安装程序将打开，Volta 会关闭以便更新</string>
+    <string name="desktop_update_error_installer">无法启动安装程序。</string>
+    <string name="desktop_backup_restore_text">打开在手机或另一台电脑上的 Volta 中保存的文件</string>
+    <string name="desktop_backup_saved">文件已保存。在另一台设备上：设置 → 从文件恢复</string>
+    <string name="desktop_section_move">迁移到其他设备</string>
+</resources>

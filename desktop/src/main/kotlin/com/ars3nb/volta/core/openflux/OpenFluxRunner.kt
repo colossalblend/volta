@@ -194,6 +194,12 @@ object OpenFluxRunner {
         _status.value = Status.Idle
     }
 
+    /** For the self-test's pictures: back to nothing running. */
+    internal fun reset() {
+        stop()
+        _status.value = Status.Idle
+    }
+
     /** The Cookie header of a passed captcha page. */
     fun submitCookies(cookies: String) {
         command("cookies", "cookies", cookies)

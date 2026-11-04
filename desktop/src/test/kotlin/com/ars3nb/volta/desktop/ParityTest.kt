@@ -188,6 +188,12 @@ class ParityTest {
         assertEquals("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", AppUpdater.sha256(file))
     }
 
+    @Test
+    fun anUpdateIsFoundDownloadedCheckedAndStarted() {
+        val report = com.ars3nb.volta.desktop.update.UpdateDrill.run(Files.createTempDirectory("volta-update").toFile())
+        assertTrue(report, report.contains("501"))
+    }
+
     // ------------------------------------------------------------------ backup
 
     @Test
@@ -285,7 +291,9 @@ class ParityTest {
         assertEquals(InternetCheck.Status.OK, InternetCheck.decide(listOf(adapter("Wi-Fi", lan))))
         assertEquals(InternetCheck.Status.NO_NETWORK, InternetCheck.decide(listOf(adapter("Ethernet", linkLocal))))
         assertEquals(InternetCheck.Status.NO_NETWORK, InternetCheck.decide(listOf(adapter("Wi-Fi", lan, up = false))))
-        assertEquals(InternetCheck.Status.NO_NETWORK, InternetCheck.decide(listOf(adapter("vEthernet (WSL)", lan))))
+        assertEquals(InternetCheck.Status.NO_NETWORK, InternetCheck.decide(listOf(adapter("Teredo Tunneling Pseudo-Interface", lan))))
+        // An Azure or Hyper-V guest's own adapter is a real network.
+        assertEquals(InternetCheck.Status.OK, InternetCheck.decide(listOf(adapter("Microsoft Hyper-V Network Adapter", lan))))
         // Nothing readable: never a false alarm.
         assertEquals(InternetCheck.Status.OK, InternetCheck.decide(emptyList()))
     }

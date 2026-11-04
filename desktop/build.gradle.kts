@@ -28,6 +28,9 @@ val voltaVersion: String = run {
 }
 version = voltaVersion
 
+/** What the in-app updater compares: 100 + the CI run number, as the APKs count; 0 by hand. */
+val voltaVersionCode: Int = System.getenv("VOLTA_VERSION_CODE")?.trim()?.toIntOrNull() ?: 0
+
 kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_17)
@@ -171,6 +174,7 @@ compose.desktop {
             "-Xmx384m",
             "-Dfile.encoding=UTF-8",
             "-Dvolta.version=$voltaVersion",
+            "-Dvolta.versionCode=$voltaVersionCode",
             // Volta's own requests go straight out, never through the proxy it sets.
             "-Djava.net.useSystemProxies=false"
         )
@@ -201,6 +205,8 @@ compose.desktop {
                 "jdk.accessibility",
                 "jdk.charsets",
                 "jdk.crypto.ec",
+                // The update self-check serves a release site on this machine.
+                "jdk.httpserver",
                 "jdk.localedata",
                 "jdk.unsupported",
                 "jdk.zipfs"

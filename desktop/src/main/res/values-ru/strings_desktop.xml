@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Volta for Windows only: what has no counterpart in the Android app. Everything
+     else on Windows reads the Android app's own strings (see desktop/build.gradle.kts). -->
+<resources>
+    <string name="desktop_bypass_title">Сайты мимо VPN</string>
+    <string name="desktop_bypass_text">Разделить трафик по приложениям, как на Android, в Windows нельзя: Volta работает через системный прокси, а он один на все программы. Зато можно указать сайты — браузер и программы откроют их напрямую, мимо VPN.</string>
+    <string name="desktop_bypass_empty">Пока нет ни одного сайта</string>
+    <string name="desktop_bypass_placeholder">bank.ru или ссылка на сайт</string>
+    <string name="desktop_captcha_browser">Страница открылась в браузере. Пройдите там проверку и нажмите «%1$s».</string>
+    <string name="desktop_captcha_open">Открыть страницу</string>
+    <string name="desktop_update_quit">Откроется установщик, а Volta закроется, чтобы он мог её обновить</string>
+    <string name="desktop_update_error_installer">Не удалось запустить установщик.</string>
+    <string name="desktop_backup_restore_text">Откройте файл, сохранённый в Volta на телефоне или другом компьютере</string>
+    <string name="desktop_backup_saved">Файл сохранён. На другом устройстве: Настройки → Восстановить из файла</string>
+    <string name="desktop_section_move">Перенос на другое устройство</string>
+</resources>

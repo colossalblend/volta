@@ -18,8 +18,8 @@ import kotlinx.coroutines.flow.flow
  * Android's answers exist here: [Status.OK] and [Status.NO_NETWORK]. An adapter counts
  * when it is up and has an address that leads outside this computer; loopback,
  * link-local addresses (169.254.x.x, what Windows gives an adapter it got nothing for)
- * and the virtual adapters of VPNs and virtual machines don't. Anything unreadable
- * counts as fine: never a false alarm.
+ * and Windows' own tunnel stubs don't. Anything unreadable counts as fine: never a false
+ * alarm.
  */
 object InternetCheck {
 
@@ -43,11 +43,13 @@ object InternetCheck {
         val addresses: List<InetAddress>
     )
 
-    /** Adapters that are someone else's tunnel or a virtual machine's switch. */
+    /**
+     * Adapters Windows keeps that never carry the internet themselves. Hyper-V's and
+     * other virtual switches are not on the list: with an external switch the host's
+     * internet goes through one, and a false "no internet" would stop a connect that works.
+     */
     private val VIRTUAL = listOf(
-        "loopback", "pseudo", "vethernet", "hyper-v", "vmware", "virtualbox", "vbox",
-        "wintun", "wireguard", "tap-windows", "tap adapter", "openvpn", "teredo", "isatap",
-        "6to4", "npcap", "wan miniport", "kernel debug", "docker", "wsl"
+        "loopback", "pseudo-interface", "teredo", "isatap", "6to4", "wan miniport", "kernel debug"
     )
 
     fun decide(adapters: List<Adapter>): Status {

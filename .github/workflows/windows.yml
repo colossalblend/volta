@@ -10,6 +10,11 @@ on:
       - '.github/workflows/windows.yml'
       # The Xray core the Android app ships: the Windows build follows its version.
       - 'app/libs/libv2ray.aar'
+      # The Android app's texts, which the Windows screens show (see desktop/build.gradle.kts).
+      - 'app/src/main/res/values*/strings*.xml'
+      # The helpers for AmneziaWG, Hysteria v1 and OpenFlux, built here for Windows.
+      - 'helper/voltaproxy/**'
+      - 'openflux/**'
   workflow_dispatch:
 
 concurrency:
@@ -37,6 +42,11 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v5
 
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+          cache: false
+
       # Where this build goes, the same way as the APKs (android.yml): a v… tag goes to
       # the release of that tag, anything else to the branch's rolling pre-release
       # apk-<branch>. The installer only takes a numeric version, so a branch build is
@@ -45,6 +55,8 @@ jobs:
         env:
           BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
+          # The build number the in-app updater compares, counted like the APKs' versionCode.
+          echo "VOLTA_VERSION_CODE=$((100 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
           if [ "$GITHUB_REF_TYPE" = tag ]; then
             echo "VOLTA_UPDATE_TAG=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
             echo "VOLTA_VERSION_NAME=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
@@ -116,6 +128,43 @@ jobs:
           ls -la "$OUT"
           "$OUT/xray.exe" version | head -1
           echo "xray=$TAG" >> "$GITHUB_OUTPUT"
+
+      # The Android app's helpers, built for Windows and shipped next to xray.exe, run the
+      # same way as on the phone (core/helper/ProxyHelper.kt, core/openflux/OpenFluxRunner.kt):
+      # voltaproxy (helper/voltaproxy: AmneziaWG 1.x–3.x, Hysteria v1, Hysteria2 with obfs)
+      # after its own tests, and OpenFlux at openflux/VERSION with openflux/voltaflux, as the
+      # step «OpenFlux helper» in android.yml does for Android.
+      - name: Helpers (voltaproxy, OpenFlux)
+        id: helpers
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=auto
+          OUT=$(cygpath -m "$GITHUB_WORKSPACE/desktop/resources/windows-x64")
+          mkdir -p "$OUT"
+          (cd helper/voltaproxy && go vet ./... && CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
+            go build -trimpath -ldflags="-s -w" -o "$OUT/voltaproxy.exe" .)
+          COMMIT=$(tr -d '[:space:]' < openflux/VERSION)
+          SRC="$VOLTA_TMP/openflux"
+          git init -q "$SRC"
+          git -C "$SRC" remote add origin https://github.com/p1neappleXpress/OpenFlux
+          git -C "$SRC" fetch -q --depth 1 origin "$COMMIT"
+          git -C "$SRC" checkout -q FETCH_HEAD
+          mkdir -p "$SRC/mobile/cmd/voltaflux"
+          cp openflux/voltaflux/main.go "$SRC/mobile/cmd/voltaflux/"
+          cp "$SRC/LICENSE" "$OUT/openflux-LICENSE.txt" 2>/dev/null || true
+          (cd "$SRC/mobile" && {
+            CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -checklinkname=0" \
+              -o "$OUT/openflux.exe" ./cmd/voltaflux \
+            || { echo "::warning title=OpenFlux::retrying with cgo"; CGO_ENABLED=1 GOOS=windows GOARCH=amd64 \
+              go build -trimpath -ldflags="-s -w -checklinkname=0" -o "$OUT/openflux.exe" ./cmd/voltaflux; }
+          })
+          # Both answer a broken request with an error event (what Volta reads).
+          echo '{"kind":"awg","config":"broken","listen":"127.0.0.1:0"}' | "$OUT/voltaproxy.exe" | head -1 | tee "$VOLTA_TMP/vp.txt" || true
+          grep -q '"event":"error"' "$VOLTA_TMP/vp.txt"
+          echo '{"link":"openflux://v1/broken","listen":"127.0.0.1:0"}' | "$OUT/openflux.exe" 2>/dev/null | head -1 | tee "$VOLTA_TMP/of.txt" || true
+          grep -q '"event":"error"' "$VOLTA_TMP/of.txt"
+          ls -la "$OUT"
+          echo "openflux=$COMMIT" >> "$GITHUB_OUTPUT"
 
       # Unit tests also write every kind of config Volta builds; the core about to be
       # shipped must accept each one, or the build stops here.
@@ -199,6 +248,9 @@ jobs:
         id: files
         env:
           SHA: ${{ github.sha }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          XRAY: ${{ steps.core.outputs.xray }}
+          OPENFLUX: ${{ steps.helpers.outputs.openflux }}
         run: |
           set -euo pipefail
           SHORT="${SHA::7}"
@@ -207,6 +259,18 @@ jobs:
           OUT="$VOLTA_TMP/out"; mkdir -p "$OUT"
           cp desktop/build/compose/binaries/main/exe/*.exe "$OUT/$STEM-windows-x64-setup.exe"
           (cd desktop/build/compose/binaries/main/app && 7z a -tzip -mx=7 "$(cygpath -w "$OUT/$STEM-windows-x64-portable.zip")" Volta > /dev/null)
+          # What the in-app updater reads (desktop/…/update/AppUpdater.kt), as update.json is
+          # for the APKs: this build's number and the installer with its size and SHA-256.
+          SETUP="$STEM-windows-x64-setup.exe"
+          PORTABLE="$STEM-windows-x64-portable.zip"
+          jq -n --argjson code "$VOLTA_VERSION_CODE" --arg name "$VERSION" --arg tag "$VOLTA_UPDATE_TAG" \
+            --arg commit "$SHA" --arg branch "${BRANCH:-}" --arg xray "${XRAY:-}" --arg openflux "${OPENFLUX:-}" \
+            --arg setup "$SETUP" --argjson setupSize "$(stat -c %s "$OUT/$SETUP")" --arg setupSha "$(sha256sum "$OUT/$SETUP" | cut -d ' ' -f 1)" \
+            --arg portable "$PORTABLE" --argjson portableSize "$(stat -c %s "$OUT/$PORTABLE")" --arg portableSha "$(sha256sum "$OUT/$PORTABLE" | cut -d ' ' -f 1)" \
+            '{versionCode: $code, versionName: $name, tag: $tag, commit: $commit, branch: $branch, xray: $xray, openflux: $openflux,
+              installer: {name: $setup, size: $setupSize, sha256: $setupSha},
+              portable: {name: $portable, size: $portableSize, sha256: $portableSha}}' > "$OUT/windows-update.json"
+          cat "$OUT/windows-update.json"
           ls -la "$OUT"
           echo "stem=$STEM" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -243,6 +307,7 @@ jobs:
           BRANCH: ${{ github.head_ref || github.ref_name }}
           SHA: ${{ github.sha }}
           XRAY: ${{ steps.core.outputs.xray }}
+          OPENFLUX: ${{ steps.helpers.outputs.openflux }}
           STEM: ${{ steps.files.outputs.stem }}
           VERSION: ${{ steps.files.outputs.version }}
         run: |
@@ -258,7 +323,9 @@ jobs:
           - **\`$STEM-windows-x64-setup.exe\`** — установщик для Windows 10 и 11 (64 бит), ставьте этот.
           - \`$STEM-windows-x64-portable.zip\` — без установки: распакуйте и запустите Volta.exe.
 
-          Сборка из коммита $SHA. Ядро: Xray \`${XRAY:-—}\`.
+          Обновляется само: Настройки → О приложении (файл windows-update.json рядом).
+
+          Сборка из коммита $SHA. Ядро: Xray \`${XRAY:-—}\`. OpenFlux: \`${OPENFLUX:-—}\` (GPL-3.0).
           EOF_NOTES
           if gh release view "$TAG" > /dev/null 2>&1; then
             ASSETS=$(gh release view "$TAG" --json assets --jq '.assets[].name' | tr -d '\r')

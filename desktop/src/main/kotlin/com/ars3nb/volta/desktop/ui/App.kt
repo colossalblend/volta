@@ -69,6 +69,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.ars3nb.volta.data.model.VpnConnectionState
+import com.ars3nb.volta.core.openflux.OpenFluxRunner
+import com.ars3nb.volta.desktop.i18n.R
+import com.ars3nb.volta.desktop.i18n.Res
+import com.ars3nb.volta.desktop.ui.screens.RoutingScreen
+import androidx.compose.runtime.collectAsState
+import androidx.compose.material.icons.outlined.AltRoute
+import androidx.compose.material.icons.rounded.AltRoute
 import com.ars3nb.volta.desktop.VoltaController
 import com.ars3nb.volta.desktop.VoltaUiState
 import com.ars3nb.volta.desktop.i18n.Lang
@@ -84,7 +91,7 @@ import com.ars3nb.volta.desktop.ui.screens.SubscriptionsScreen
 import com.ars3nb.volta.desktop.ui.theme.Motion
 import com.ars3nb.volta.desktop.ui.theme.VoltaTheme
 
-enum class Page { HOME, SERVERS, SUBSCRIPTIONS, ADD, SETTINGS }
+enum class Page { HOME, SERVERS, SUBSCRIPTIONS, ROUTING, ADD, SETTINGS }
 
 /** What the app needs from Windows itself, so the screens stay testable. */
 interface DesktopBridge {
@@ -93,6 +100,12 @@ interface DesktopBridge {
     fun pickFile(): String?
     fun openUrl(url: String)
     fun openFolder(dir: java.io.File)
+
+    /** Windows' "Save as" dialog for a backup file; null when cancelled. */
+    fun chooseSaveFile(suggestedName: String): java.io.File? = null
+
+    /** Windows' "Open" dialog for a backup file; null when cancelled. */
+    fun chooseOpenFile(): java.io.File? = null
 }
 
 /** Page and per-page state, kept while the window lives (and when it hides to the tray). */
@@ -116,6 +129,8 @@ fun VoltaDesktopApp(
     val lang = Lang.resolve(state.settings.language)
     val strings = lang.strings
     val snackbar = remember { SnackbarHostState() }
+    val update by controller.updater.state.collectAsState()
+    val openFlux by OpenFluxRunner.status.collectAsState()
     LaunchedEffect(controller) {
         controller.messages.collect { snackbar.showSnackbar(it) }
     }
@@ -160,8 +175,13 @@ fun VoltaDesktopApp(
                                     onOpenServers = { view.page = Page.SERVERS },
                                     onOpenImport = { view.page = Page.ADD },
                                     onRecheckNetwork = controller::recheckNetwork,
-                                    onLteMissing = { controller.message(strings.lteMissing) }
-                                )
+                                    onLteMissing = { controller.message(strings.lteMissing) },
+                                    onInstallUpdate = controller::installUpdate,
+                                    onOpenCaptcha = bridge::openUrl,
+                                    onCaptchaDone = OpenFluxRunner::cancelCaptcha
+                                ),
+                                update = update,
+                                openFlux = openFlux
                             )
                             Page.SERVERS -> ServersScreen(
                                 state, controller, view.servers,
@@ -174,6 +194,7 @@ fun VoltaDesktopApp(
                                 copyToClipboard = bridge::writeClipboard,
                                 openUrl = bridge::openUrl
                             )
+                            Page.ROUTING -> RoutingScreen(state, controller)
                             Page.ADD -> ImportScreen(
                                 state, controller, view.import,
                                 readClipboard = bridge::readClipboard,
@@ -184,7 +205,9 @@ fun VoltaDesktopApp(
                                 state, controller,
                                 copyToClipboard = bridge::writeClipboard,
                                 openUrl = bridge::openUrl,
-                                openFolder = bridge::openFolder
+                                openFolder = bridge::openFolder,
+                                bridge = bridge,
+                                update = update
                             )
                         }
                     }
@@ -202,6 +225,7 @@ private val RAIL = listOf(
     RailItem(Page.HOME, { it.navHome }, Icons.Outlined.Home, Icons.Rounded.Home),
     RailItem(Page.SERVERS, { it.navServers }, Icons.Outlined.Storage, Icons.Rounded.Storage),
     RailItem(Page.SUBSCRIPTIONS, { it.navSubscriptions }, Icons.Outlined.CloudSync, Icons.Rounded.CloudSync),
+    RailItem(Page.ROUTING, { Res.string(R.string.home_tab_routing) }, Icons.Outlined.AltRoute, Icons.Rounded.AltRoute),
     RailItem(Page.ADD, { it.navAdd }, Icons.Outlined.AddCircleOutline, Icons.Rounded.AddCircle),
     RailItem(Page.SETTINGS, { it.navSettings }, Icons.Outlined.Settings, Icons.Rounded.Settings)
 )

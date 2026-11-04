@@ -67,6 +67,8 @@ class AppUpdater(
     private val scope: CoroutineScope,
     private val downloadDir: File,
     private val repo: String = DEFAULT_REPO,
+    /** Where releases are served; a local server in the self-test. */
+    private val site: String = SITE,
     private val currentCode: Int = currentVersionCode(),
     private val userAgent: String = "Volta/Windows",
     private val tunnelPort: () -> Int? = { null },
@@ -82,6 +84,11 @@ class AppUpdater(
     @Volatile
     var lastCheck: Long = 0
         private set
+
+    /** For the self-test's pictures: show [s] as if it had been found. */
+    internal fun pretend(s: UpdateState) {
+        _state.value = s
+    }
 
     /** On start-up and then now and then: at most every [every] ms. */
     suspend fun checkIfDue(every: Long = LAUNCH_EVERY_MS): UpdateState {
@@ -166,10 +173,10 @@ class AppUpdater(
     }
 
     private fun findNewest(): UpdateInfo? {
-        val stable = fetchText(latestUrl(repo, MANIFEST))?.let(::parseManifest)
+        val stable = fetchText(latestUrl(repo, MANIFEST, site))?.let(::parseManifest)
         val test = if (beta()) {
             // A missing or broken test build must not hide a good release.
-            runCatching { fetchText(betaUrl(repo, MANIFEST))?.let(::parseManifest) }.getOrNull()
+            runCatching { fetchText(betaUrl(repo, MANIFEST, site))?.let(::parseManifest) }.getOrNull()
         } else null
         val manifest = listOfNotNull(stable, test).maxByOrNull { it.versionCode } ?: return null
         val asset = manifest.installer ?: return null
@@ -178,7 +185,7 @@ class AppUpdater(
             versionName = manifest.versionName,
             xray = manifest.xray,
             asset = asset,
-            url = assetUrl(repo, manifest.tag, asset.name)
+            url = assetUrl(repo, manifest.tag, asset.name, site)
         )
     }
 
@@ -291,12 +298,14 @@ class AppUpdater(
         /** The build number the packaged app was made with (-Dvolta.versionCode). */
         fun currentVersionCode(): Int = System.getProperty("volta.versionCode")?.toIntOrNull() ?: 0
 
-        fun betaUrl(repo: String, file: String) = "https://github.com/$repo/releases/download/$BETA_TAG/$file"
-        fun latestUrl(repo: String, file: String) = "https://github.com/$repo/releases/latest/download/$file"
+        const val SITE = "https://github.com"
+
+        fun betaUrl(repo: String, file: String, site: String = SITE) = "$site/$repo/releases/download/$BETA_TAG/$file"
+        fun latestUrl(repo: String, file: String, site: String = SITE) = "$site/$repo/releases/latest/download/$file"
 
         /** Pinned to the tag when the manifest names one, so the file can't change mid-download. */
-        fun assetUrl(repo: String, tag: String, file: String) =
-            if (tag.isBlank()) latestUrl(repo, file) else "https://github.com/$repo/releases/download/$tag/$file"
+        fun assetUrl(repo: String, tag: String, file: String, site: String = SITE) =
+            if (tag.isBlank()) latestUrl(repo, file, site) else "$site/$repo/releases/download/$tag/$file"
 
         /**
          * windows-update.json: `versionCode`, `versionName`, `tag`, `xray`, and the

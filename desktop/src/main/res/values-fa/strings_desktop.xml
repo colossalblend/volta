@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Volta for Windows only: what has no counterpart in the Android app. Everything
+     else on Windows reads the Android app's own strings (see desktop/build.gradle.kts). -->
+<resources>
+    <string name="desktop_bypass_title">سایت‌های خارج از VPN</string>
+    <string name="desktop_bypass_text">در ویندوز نمی‌توان مانند اندروید ترافیک را بر اساس برنامه جدا کرد: Volta از طریق پراکسی سیستم کار می‌کند و این پراکسی برای همهٔ برنامه‌ها یکی است. در عوض می‌توانید سایت‌ها را مشخص کنید تا مرورگر و برنامه‌ها آن‌ها را مستقیم و بیرون از VPN باز کنند.</string>
+    <string name="desktop_bypass_empty">هنوز هیچ سایتی نیست</string>
+    <string name="desktop_bypass_placeholder">bank.ir یا پیوند سایت</string>
+    <string name="desktop_captcha_browser">صفحه در مرورگر باز شد. همان‌جا بررسی را انجام دهید و «%1$s» را بزنید.</string>
+    <string name="desktop_captcha_open">باز کردن صفحه</string>
+    <string name="desktop_update_quit">نصب‌کننده باز می‌شود و Volta بسته می‌شود تا به‌روز شود</string>
+    <string name="desktop_update_error_installer">اجرای نصب‌کننده ممکن نشد.</string>
+    <string name="desktop_backup_restore_text">فایلی را که در Volta روی تلفن یا رایانهٔ دیگری ذخیره شده باز کنید</string>
+    <string name="desktop_backup_saved">فایل ذخیره شد. در دستگاه دیگر: تنظیمات ← بازیابی از فایل</string>
+    <string name="desktop_section_move">انتقال به دستگاه دیگر</string>
+</resources>
