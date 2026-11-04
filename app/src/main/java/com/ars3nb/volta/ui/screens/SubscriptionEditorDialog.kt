@@ -47,6 +47,7 @@ import com.ars3nb.volta.ui.components.SubscriptionCoin
 import com.ars3nb.volta.ui.components.VoltaField
 import com.ars3nb.volta.ui.components.serversCount
 import com.ars3nb.volta.ui.components.updatedLabel
+import com.ars3nb.volta.ui.components.shownSubscriptionName
 
 /**
  * One subscription, opened from its card: rename it, change its address (unless the
@@ -97,7 +98,7 @@ fun SubscriptionEditorDialog(
                     SubscriptionCoin(subscription, size = 48)
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(subscription.name, style = MaterialTheme.typography.titleLarge, maxLines = 1)
+                        Text(shownSubscriptionName(subscription), style = MaterialTheme.typography.titleLarge, maxLines = 1)
                         Hint(
                             listOfNotNull(
                                 serversCount(serverCount).takeIf { serverCount > 0 },

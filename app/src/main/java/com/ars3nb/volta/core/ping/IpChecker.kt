@@ -132,6 +132,7 @@ object IpChecker {
             IpInfo(
                 ip = ip,
                 country = country,
+                countryCode = if (code.length == 2) code.uppercase() else "",
                 city = o.s("city", "cityName"),
                 isp = o.s("isp", "org", "organization", "asn_org", "organization_name"),
                 org = o.s("org", "organization"),

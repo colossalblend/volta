@@ -233,7 +233,8 @@ object BackupCodec {
         return RestoredSubscription(
             entity = entity.copy(
                 id = 0,
-                name = entity.name.trim().ifBlank { "Подписка" },
+                // A nameless one gets the default name in the app's language (BackupManager).
+                name = entity.name.trim(),
                 routingProfileId = 0
             ),
             routingName = obj.stringOrNull(ROUTING_NAME)?.takeIf { it.isNotBlank() }

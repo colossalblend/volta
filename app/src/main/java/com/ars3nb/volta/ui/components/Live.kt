@@ -58,7 +58,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ars3nb.volta.R
-import com.ars3nb.volta.core.server.Countries
 import com.ars3nb.volta.ui.PickSummary
 import com.ars3nb.volta.ui.SpeedHistory
 import com.ars3nb.volta.data.model.TrafficStats
@@ -286,7 +285,7 @@ fun AutoPickCard(summary: PickSummary, modifier: Modifier = Modifier) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(flagOf(row.name), modifier = Modifier.padding(end = 6.dp))
                         Text(
-                            Countries.withoutLeadingFlag(row.name),
+                            shownServerName(row.name),
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = if (row.chosen) FontWeight.SemiBold else FontWeight.Normal,
                             maxLines = 1,

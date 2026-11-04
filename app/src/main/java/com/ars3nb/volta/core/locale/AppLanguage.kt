@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.LocaleManager
 import android.content.Context
 import android.content.res.Configuration
+import android.content.res.Resources
 import android.os.Build
 import android.os.LocaleList
 import java.util.Locale
@@ -68,8 +69,30 @@ object AppLanguage {
             activity.getSystemService(LocaleManager::class.java)?.applicationLocales =
                 if (tag.isEmpty()) LocaleList.getEmptyLocaleList() else LocaleList.forLanguageTags(tag)
         } else {
+            applyToApp(activity.applicationContext, tag)
             activity.recreate()
         }
+    }
+
+    /**
+     * Android 12 and older: the application's own resources follow the choice at once.
+     * The repository, the worker and the country names read them, and the Application was
+     * wrapped only once, at start, so without this they would keep the old language until
+     * the app restarts.
+     */
+    @Suppress("DEPRECATION")
+    private fun applyToApp(app: Context, tag: String) {
+        val locale = if (tag.isEmpty()) {
+            Resources.getSystem().configuration.locales[0] ?: Locale.getDefault()
+        } else {
+            Locale.forLanguageTag(tag)
+        }
+        Locale.setDefault(locale)
+        val res = app.resources
+        val config = Configuration(res.configuration)
+        config.setLocales(LocaleList(locale))
+        config.setLayoutDirection(locale)
+        res.updateConfiguration(config, res.displayMetrics)
     }
 
     /**

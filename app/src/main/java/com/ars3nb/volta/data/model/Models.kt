@@ -401,7 +401,10 @@ enum class NetworkRegime {
 
 data class IpInfo(
     val ip: String = "",
+    /** Flag and name as found; the screen names [countryCode] in its own language instead. */
     val country: String = "",
+    /** ISO code when the service gave one ("NL"), else "". */
+    val countryCode: String = "",
     val city: String = "",
     val isp: String = "",
     val org: String = "",

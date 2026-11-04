@@ -2,6 +2,7 @@ package com.ars3nb.volta.data.backup
 
 import android.content.Context
 import com.ars3nb.volta.BuildConfig
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.backup.BackupCodec
 import com.ars3nb.volta.core.backup.RestoreReport
 import com.ars3nb.volta.data.db.VoltaDatabase
@@ -17,7 +18,7 @@ import kotlinx.coroutines.withContext
  * for what goes in). A restore only adds: a subscription or server already in the
  * app is left as it is, so opening the same file twice changes nothing.
  */
-class BackupManager(context: Context, private val repo: VoltaRepository) {
+class BackupManager(private val context: Context, private val repo: VoltaRepository) {
 
     private val db = VoltaDatabase.get(context)
     private val prefs = AppPreferences(context)
@@ -79,7 +80,10 @@ class BackupManager(context: Context, private val repo: VoltaRepository) {
                 return@forEach
             }
             val id = subDao.insert(
-                restored.entity.copy(routingProfileId = restored.routingName?.let { profileIds[it] } ?: 0L)
+                restored.entity.copy(
+                    name = restored.entity.name.ifBlank { context.getString(R.string.home_default_subscription_name) },
+                    routingProfileId = restored.routingName?.let { profileIds[it] } ?: 0L
+                )
             )
             added++
             try {

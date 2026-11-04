@@ -62,7 +62,8 @@ object ProxyHelper {
     private var nativeDir: String = ""
 
     fun init(context: Context) {
-        nativeDir = context.applicationInfo.nativeLibraryDir
+        // Never null on a phone; it is under Robolectric (the screen tests).
+        nativeDir = context.applicationInfo.nativeLibraryDir.orEmpty()
         available = binary().canExecute()
     }
 
