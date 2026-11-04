@@ -85,6 +85,9 @@ class VoltaApp : Application() {
                     .build()
             )
             .build()
+        // WorkManager's own startup provider has always run by now in the app; the screen
+        // tests start VoltaApp under Robolectric, where it may not have.
+        if (!WorkManager.isInitialized()) return
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "volta_sub_refresh",
             ExistingPeriodicWorkPolicy.UPDATE,

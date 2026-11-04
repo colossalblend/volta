@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Odds and ends outside the areas: the OpenFlux check window's title. English is the default. -->
+<resources>
+    <string name="misc_openflux_check_label">OpenFlux check</string>
+</resources>

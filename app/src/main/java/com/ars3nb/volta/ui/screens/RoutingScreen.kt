@@ -133,6 +133,9 @@ import com.ars3nb.volta.ui.theme.VoltaTheme
 import com.ars3nb.volta.ui.tv.RowFocusOutset
 import com.ars3nb.volta.ui.tv.focusRing
 import java.util.UUID
+import com.ars3nb.volta.ui.components.shownProfileName
+import com.ars3nb.volta.ui.components.shownProfileDescription
+import com.ars3nb.volta.ui.components.shownSubscriptionName
 
 /**
  * "Маршруты": what goes where.
@@ -429,7 +432,7 @@ private fun ActiveProfileHero(
             }
             if (profile.description.isNotBlank()) {
                 Text(
-                    RoutingNames.profileDescription(profile)?.let { stringResource(it) } ?: profile.description,
+                    shownProfileDescription(profile),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -816,7 +819,7 @@ private fun SubscriptionRow(
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    sub.name,
+                    shownSubscriptionName(sub),
                     style = MaterialTheme.typography.titleSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1457,11 +1460,6 @@ private fun ruleCount(n: Int) = pluralStringResource(R.plurals.routing_rules_cou
 
 @Composable
 private fun siteCount(n: Int) = pluralStringResource(R.plurals.routing_sites_count, n, n)
-
-/** A set's name as shown: Volta's own names in the app's language, the user's as typed. */
-@Composable
-private fun shownProfileName(profile: RoutingProfileEntity): String =
-    RoutingNames.profileName(profile)?.let { stringResource(it) } ?: profile.name
 
 /** A rule's name as shown, likewise. */
 @Composable

@@ -42,6 +42,7 @@ import com.ars3nb.volta.ui.components.EmptyState
 import com.ars3nb.volta.ui.components.Hint
 import com.ars3nb.volta.ui.components.SubscriptionCard
 import com.ars3nb.volta.ui.components.barColors
+import com.ars3nb.volta.ui.components.shownProfileName
 
 /**
  * Every subscription the app holds. Their servers are merged into one list (Servers tab)
@@ -123,7 +124,7 @@ fun SubscriptionsScreen(
                         homeCount = home,
                         lteCount = lte,
                         autoCount = auto,
-                        routingName = RoutingResolver.resolve(sub, state.routingProfiles)?.name.orEmpty(),
+                        routingName = RoutingResolver.resolve(sub, state.routingProfiles)?.let { shownProfileName(it) }.orEmpty(),
                         active = selected?.subscriptionId == sub.id,
                         onClick = { editing = sub },
                         onRefresh = { vm.refreshSubscription(sub.id) },

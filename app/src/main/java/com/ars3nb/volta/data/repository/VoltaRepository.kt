@@ -8,6 +8,7 @@ import com.ars3nb.volta.core.balancer.AutoBalancer
 import com.ars3nb.volta.core.balancer.GuardPolicy
 import com.ars3nb.volta.core.locale.UiText
 import com.ars3nb.volta.core.locale.UiTextException
+import com.ars3nb.volta.core.openflux.OpenFluxLink
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.parser.ConfigParser
 import com.ars3nb.volta.core.server.ServerMarkup
@@ -18,6 +19,7 @@ import com.ars3nb.volta.core.routing.GeoDataManager
 import com.ars3nb.volta.core.routing.GeoNames
 import com.ars3nb.volta.core.routing.HappRoutingParser
 import com.ars3nb.volta.core.routing.RoutingEngine
+import com.ars3nb.volta.core.routing.RoutingNames
 import com.ars3nb.volta.core.routing.RoutingResolver
 import com.ars3nb.volta.core.server.ServerClassifier
 import com.ars3nb.volta.core.vpn.CertPins
@@ -766,8 +768,11 @@ class VoltaRepository(private val context: Context) {
         routingDao.insert(
             source.copy(
                 id = 0,
-                name = context.getString(R.string.home_routing_copy_name, source.name),
-                description = context.getString(R.string.home_routing_copy_description, source.name),
+                name = context.getString(R.string.home_routing_copy_name, RoutingNames.profileName(source, context)),
+                description = context.getString(
+                    R.string.home_routing_copy_description,
+                    RoutingNames.profileName(source, context)
+                ),
                 isActive = false,
                 isBuiltIn = false,
                 sourceSubscriptionId = null,
@@ -958,7 +963,7 @@ class VoltaRepository(private val context: Context) {
 
         VoltaVpnService.ConnectionPlan(
             serverId = server.id,
-            serverName = server.remark,
+            serverName = OpenFluxLink.shownRemark(context, server.remark),
             configJson = config,
             mtu = prefs.mtu.first(),
             perAppMode = prefs.perAppMode.first(),

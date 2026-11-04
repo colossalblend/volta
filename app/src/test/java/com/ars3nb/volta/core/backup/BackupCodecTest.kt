@@ -191,7 +191,7 @@ class BackupCodecTest {
 
         val sub = back.subscriptions.single()
         assertEquals("https://ok.example/sub", sub.entity.url)
-        assertEquals("Подписка", sub.entity.name)
+        assertEquals("", sub.entity.name)
         assertEquals(0, sub.entity.sortOrder)
         assertTrue(sub.entity.isEnabled)
 

@@ -200,7 +200,7 @@
         <activity
             android:name=".ui.openflux.OpenFluxCaptchaActivity"
             android:exported="false"
-            android:label="Проверка OpenFlux"
+            android:label="@string/misc_openflux_check_label"
             android:theme="@style/Theme.Vpnchik" />
 
         <service

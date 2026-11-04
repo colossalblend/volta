@@ -1,8 +1,10 @@
 package com.ars3nb.volta.core.routing
 
+import android.content.Context
 import android.content.res.Resources
 import androidx.annotation.StringRes
 import com.ars3nb.volta.R
+import com.ars3nb.volta.core.locale.AnyLanguage
 import com.ars3nb.volta.data.model.RouteOutbound
 import com.ars3nb.volta.data.model.RoutingProfileEntity
 import com.ars3nb.volta.data.model.RoutingRuleDto
@@ -436,9 +438,21 @@ object RoutingNames {
         else -> null
     }
 
-    /** The set's name as shown, for code outside Compose (the home screen, for one). */
-    fun profileName(profile: RoutingProfileEntity, res: Resources): String =
-        profileName(profile)?.let { res.getString(it) } ?: profile.name
+    /**
+     * The set's name as shown, in the language of [context]. Besides the built-in sets this
+     * knows the names Volta made in the language of the day and stored: "My VPN · rules"
+     * for a subscription's set and "… · copy" for a copy, in any language (older builds
+     * stored them in Russian). Anything else is the user's or the provider's own name.
+     */
+    fun profileName(profile: RoutingProfileEntity, context: Context): String {
+        profileName(profile)?.let { return context.getString(it) }
+        val name = profile.name
+        if (profile.isBuiltIn) return name
+        if (profile.sourceSubscriptionId != null) {
+            return relabel(context, R.string.home_routing_rules_name, name) ?: name
+        }
+        return relabel(context, R.string.home_routing_copy_name, name) { base -> shownBaseName(base, context) } ?: name
+    }
 
     @StringRes
     fun profileDescription(profile: RoutingProfileEntity): Int? = when {
@@ -446,5 +460,41 @@ object RoutingNames {
         profile.description == RoutingEngine.BUILTIN_ALL_DESCRIPTION -> R.string.routing_builtin_all_description
         profile.description == RoutingEngine.BUILTIN_RU_DESCRIPTION -> R.string.routing_builtin_ru_description
         else -> null
+    }
+
+    /** The set's description as shown; see [profileName]. */
+    fun profileDescription(profile: RoutingProfileEntity, context: Context): String {
+        profileDescription(profile)?.let { return context.getString(it) }
+        val text = profile.description
+        if (profile.isBuiltIn || text.isBlank()) return text
+        if (profile.sourceSubscriptionId != null) {
+            return relabel(context, R.string.home_routing_from_subscription, text) ?: text
+        }
+        return relabel(context, R.string.home_routing_copy_description, text) { base -> shownBaseName(base, context) }
+            ?: text
+    }
+
+    /** A name a copy was made from: a built-in set's or "… · rules", shown in today's language. */
+    private fun shownBaseName(name: String, context: Context): String = when (name) {
+        RoutingEngine.BUILTIN_ALL_NAME -> context.getString(R.string.routing_builtin_all_name)
+        RoutingEngine.BUILTIN_RU_NAME -> context.getString(R.string.routing_builtin_ru_name)
+        HappRoutingParser.DEFAULT_NAME -> context.getString(R.string.routing_sub_rules_name)
+        else -> relabel(context, R.string.home_routing_rules_name, name) ?: name
+    }
+
+    /**
+     * [text] made from the one-argument string [id] in some language, made again in the
+     * language of [context] (its argument passed through [argument]); null when it isn't.
+     */
+    private fun relabel(
+        context: Context,
+        @StringRes id: Int,
+        text: String,
+        argument: (String) -> String = { it }
+    ): String? {
+        val arg = AnyLanguage.argumentIn(context.getString(id), text)
+            ?: AnyLanguage.argumentOf(context, id, text)
+            ?: return null
+        return context.getString(id, argument(arg))
     }
 }
