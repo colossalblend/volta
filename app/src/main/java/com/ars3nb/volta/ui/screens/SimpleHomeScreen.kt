@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ars3nb.volta.ui.collectQuietState
 import com.ars3nb.volta.R
 import com.ars3nb.volta.data.model.VpnConnectionState
 import com.ars3nb.volta.ui.ConnectPhase
@@ -56,7 +57,8 @@ import com.ars3nb.volta.ui.components.shownIpCountry
  */
 @Composable
 fun SimpleHomeScreen(vm: VoltaViewModel, modifier: Modifier = Modifier) {
-    val state by vm.uiState.collectAsStateWithLifecycle()
+    // No traffic on this screen: without the counters it isn't redrawn every two seconds.
+    val state by vm.collectQuietState()
     val phase by vm.connectPhase.collectAsStateWithLifecycle()
     val internet by rememberInternetStatus()
     val palette = VoltaTheme.palette
