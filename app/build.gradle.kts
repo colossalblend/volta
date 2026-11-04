@@ -187,6 +187,9 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.androidx.webkit)
     implementation(libs.gson)
+    // Installs the baseline profile (src/main/baseline-prof.txt and the libraries' own) on
+    // first launch, so APKs from GitHub start and scroll compiled, not interpreted.
+    implementation(libs.androidx.profileinstaller)
 
     testImplementation(libs.junit)
     testImplementation(platform(libs.androidx.compose.bom))

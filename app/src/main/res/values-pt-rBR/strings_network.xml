@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Network: whether there is internet under the tunnel at all (airplane mode, no network,
+     weak mobile data). The banner on the home screen and the message on a tap of the disc. -->
+<resources>
+    <string name="network_airplane_title">Sem internet: o modo avião está ativado</string>
+    <string name="network_airplane_text">A VPN não vai funcionar. Desative o modo avião ou conecte-se a uma rede Wi-Fi.</string>
+    <string name="network_none_title">Sem internet</string>
+    <string name="network_none_text">A VPN não vai conseguir conectar. Ative o Wi-Fi ou os dados móveis.</string>
+    <string name="network_weak_title">A internet móvel está fraca demais</string>
+    <string name="network_weak_text">2G ou sem sinal: a VPN pode não funcionar. Uma rede Wi-Fi ou um lugar com sinal melhor ajuda.</string>
+    <string name="network_open_settings">Configurações</string>
+    <string name="network_connect_airplane">Sem internet: o modo avião está ativado. A VPN não vai funcionar</string>
+    <string name="network_connect_none">Sem internet — a VPN não vai conseguir conectar</string>
+</resources>

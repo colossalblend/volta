@@ -32,12 +32,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ars3nb.volta.R
 import com.ars3nb.volta.core.routing.RoutingResolver
 import com.ars3nb.volta.data.model.ServerRole
 import com.ars3nb.volta.data.model.SubscriptionEntity
 import com.ars3nb.volta.ui.VoltaViewModel
+import com.ars3nb.volta.ui.collectQuietState
 import com.ars3nb.volta.ui.components.EmptyState
 import com.ars3nb.volta.ui.components.Hint
 import com.ars3nb.volta.ui.components.SubscriptionCard
@@ -54,7 +54,7 @@ fun SubscriptionsScreen(
     vm: VoltaViewModel,
     onOpenImport: () -> Unit
 ) {
-    val state by vm.uiState.collectAsStateWithLifecycle()
+    val state by vm.collectQuietState()
     var editing by remember { mutableStateOf<SubscriptionEntity?>(null) }
     val selected = state.selectedServer
     // Group counts per subscription, computed once per list change, not per card.

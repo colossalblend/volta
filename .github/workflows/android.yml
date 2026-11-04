@@ -265,6 +265,49 @@ jobs:
           # and the GitHub APKs above need them (see splits in app/build.gradle.kts).
           ./gradlew "${GRADLE_ARGS[@]}" :app:bundlePlayRelease 2>&1 | tee -a "$RUNNER_TEMP/gradle.log"
 
+      # What R8 must not have renamed or dropped in the release APK (see app/proguard-rules.pro):
+      # the JNI bridge, the Xray core reached by reflection, Gson field names, the baseline
+      # profile. A miss here would be a crash or lost data on the phone, so it fails the build.
+      - name: Release APK keeps
+        run: |
+          set -uo pipefail
+          APK=$(ls app/build/outputs/apk/github/release/*universal*.apk | head -1)
+          MAP=app/build/outputs/mapping/githubRelease/mapping.txt
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          D="$RUNNER_TEMP/dex"; rm -rf "$D"; mkdir -p "$D"
+          unzip -q -o "$APK" 'classes*.dex' -d "$D"
+          for f in "$D"/classes*.dex; do "$BT/dexdump" "$f"; done > "$D/dump.txt" 2>/dev/null
+          fail=0
+          need() {
+            if ! grep -qF -- "$1" "$D/dump.txt"; then
+              echo "::error title=Release APK lost $2::$1 is not in the release dex"; fail=1
+            fi
+          }
+          need "'Lcom/ars3nb/volta/core/vpn/Tun2Socks;'" "the TUN bridge"
+          for m in TProxyStartService TProxyStopService TProxyIsRunning TProxyGetStats; do
+            need "name          : '$m'" "a native method of the TUN bridge"
+          done
+          need "'Llibv2ray/Libv2ray;'" "the Xray core"
+          need "'Llibv2ray/CoreCallbackHandler;'" "the Xray callback"
+          need "'Lgo/Seq;'" "the gomobile bridge"
+          need "'Lcom/ars3nb/volta/worker/SubscriptionRefreshWorker;'" "the subscription worker"
+          # Gson field names in the data model must come through unrenamed.
+          renamed=$(awk '
+            /^[^ ]/ { cls = ($1 ~ /^com\.ars3nb\.volta\.data\.model\./) }
+            cls && /^    / && $0 !~ /\(/ && NF == 4 && $3 == "->" && $2 != $4 { print $2 " -> " $4 }
+          ' "$MAP" | head -20)
+          if [ -n "$renamed" ]; then
+            echo "::error title=Gson fields renamed::$(echo $renamed)"; fail=1
+          fi
+          unzip -l "$APK" assets/dexopt/baseline.prof > /dev/null \
+            || { echo "::error title=No baseline profile::assets/dexopt/baseline.prof is not in the APK"; fail=1; }
+          # Log.d/v/i are compiled out: their message text should be gone too.
+          if unzip -p "$APK" 'classes*.dex' | strings | grep -q "Ignoring duplicate connect while state"; then
+            echo "::warning title=Debug log left in::a Log.d message is still in the release dex"
+          fi
+          echo "dex: $(ls "$D"/classes*.dex | wc -l) files, $(du -ch "$D"/classes*.dex | tail -1 | cut -f1); APK $(du -h "$APK" | cut -f1)"
+          exit $fail
+
       # Compiler and Gradle errors as one annotation, readable without the raw log.
       - name: Report build errors
         if: failure()

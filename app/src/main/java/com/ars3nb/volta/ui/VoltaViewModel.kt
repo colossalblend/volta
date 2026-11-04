@@ -6,6 +6,7 @@ import android.net.VpnService
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.ars3nb.volta.BuildConfig
+import com.ars3nb.volta.R
 import com.ars3nb.volta.VoltaApp
 import com.ars3nb.volta.core.link.VoltaLinks
 import com.ars3nb.volta.core.link.ImportDetector
@@ -18,6 +19,7 @@ import com.ars3nb.volta.core.backup.BackupCodec
 import com.ars3nb.volta.data.backup.BackupManager
 import com.ars3nb.volta.core.stats.TrafficSummary
 import com.ars3nb.volta.core.stats.TrafficTally
+import com.ars3nb.volta.core.vpn.InternetCheck
 import com.ars3nb.volta.data.model.BalancerScope
 import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.IpInfo
@@ -310,6 +312,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
             }
             launch { runCatching { updater.checkOnLaunch() } }
             launch { followExitAddress() }
+            launch { stopConnectWithoutInternet() }
             if (repo.pingOnStart.first()) runStartupProbes()
             // Happ-style: subscriptions and their routing are pulled on every launch.
             if (repo.refreshOnLaunch.first()) {
@@ -418,12 +421,47 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun connect() {
+        // No internet at all: say so instead of spinning through a pick that can't work.
+        val internet = InternetCheck.status(getApplication())
+        if (internet.blocksConnect) {
+            _message.value = noInternetMessage(internet)
+            return
+        }
         if (VpnService.prepare(getApplication()) != null) {
             _needsVpnPermission.value = true
             return
         }
         doConnect()
     }
+
+    /**
+     * The internet going away while the disc is still connecting (airplane mode switched
+     * on, Wi-Fi lost with no mobile data) stops the attempt with the reason. Watched only
+     * while connecting, so an idle app registers nothing.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private suspend fun stopConnectWithoutInternet() {
+        _connectPhase.map { it != ConnectPhase.IDLE }
+            .distinctUntilChanged()
+            .flatMapLatest { connecting ->
+                if (connecting) InternetCheck.watch(getApplication()) else flowOf(InternetCheck.Status.OK)
+            }
+            .collect { internet ->
+                if (internet.blocksConnect && _connectPhase.value != ConnectPhase.IDLE) {
+                    connectJob?.cancel()
+                    connectJob = null
+                    repo.cancelPick()
+                    _connectPhase.value = ConnectPhase.IDLE
+                    _busy.value = false
+                    _message.value = noInternetMessage(internet)
+                }
+            }
+    }
+
+    private fun noInternetMessage(internet: InternetCheck.Status): String = getApplication<Application>().getString(
+        if (internet == InternetCheck.Status.AIRPLANE) R.string.network_connect_airplane
+        else R.string.network_connect_none
+    )
 
     /** A launcher shortcut: switch to [mode] and bring the tunnel up there. */
     fun connectIn(mode: ConnectMode) {

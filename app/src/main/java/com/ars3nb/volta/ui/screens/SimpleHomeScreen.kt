@@ -40,7 +40,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ars3nb.volta.data.model.VpnConnectionState
 import com.ars3nb.volta.ui.ConnectPhase
 import com.ars3nb.volta.ui.VoltaViewModel
+import com.ars3nb.volta.ui.components.InternetBanner
 import com.ars3nb.volta.ui.components.PowerButton
+import com.ars3nb.volta.ui.components.rememberInternetStatus
 import com.ars3nb.volta.ui.theme.VoltaTheme
 import com.ars3nb.volta.ui.tv.StartFocus
 
@@ -53,6 +55,7 @@ import com.ars3nb.volta.ui.tv.StartFocus
 fun SimpleHomeScreen(vm: VoltaViewModel, modifier: Modifier = Modifier) {
     val state by vm.uiState.collectAsStateWithLifecycle()
     val phase by vm.connectPhase.collectAsStateWithLifecycle()
+    val internet by rememberInternetStatus()
     val palette = VoltaTheme.palette
     var askLeave by remember { mutableStateOf(false) }
 
@@ -96,6 +99,7 @@ fun SimpleHomeScreen(vm: VoltaViewModel, modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 8.dp)
             )
+            InternetBanner(internet, Modifier.padding(top = 10.dp))
 
             BoxWithConstraints(
                 Modifier.fillMaxWidth().weight(1f),

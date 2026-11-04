@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Network: whether there is internet under the tunnel at all (airplane mode, no network,
+     weak mobile data). The banner on the home screen and the message on a tap of the disc. -->
+<resources>
+    <string name="network_airplane_title">لا يوجد إنترنت: وضع الطيران مفعّل</string>
+    <string name="network_airplane_text">لن تعمل VPN. أوقف وضع الطيران أو اتصل بشبكة Wi-Fi.</string>
+    <string name="network_none_title">لا يوجد إنترنت</string>
+    <string name="network_none_text">لا يمكن لـ VPN الاتصال. شغّل Wi-Fi أو بيانات الجوال.</string>
+    <string name="network_weak_title">إنترنت الجوال ضعيف جدًا</string>
+    <string name="network_weak_text">‏2G أو لا توجد إشارة: قد لا تعمل VPN. يساعد Wi-Fi أو مكان بإشارة أفضل.</string>
+    <string name="network_open_settings">الإعدادات</string>
+    <string name="network_connect_airplane">لا يوجد إنترنت: وضع الطيران مفعّل. لن تعمل VPN</string>
+    <string name="network_connect_none">لا يوجد إنترنت — لا يمكن لـ VPN الاتصال</string>
+</resources>

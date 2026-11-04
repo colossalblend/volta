@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Network: whether there is internet under the tunnel at all (airplane mode, no network,
+     weak mobile data). The banner on the home screen and the message on a tap of the disc. -->
+<resources>
+    <string name="network_airplane_title">İnternet yoxdur: uçuş rejimi aktivdir</string>
+    <string name="network_airplane_text">VPN işləməyəcək. Uçuş rejimini söndürün və ya Wi-Fi-a qoşulun.</string>
+    <string name="network_none_title">İnternet yoxdur</string>
+    <string name="network_none_text">VPN qoşula bilməyəcək. Wi-Fi və ya mobil interneti aktiv edin.</string>
+    <string name="network_weak_title">Mobil internet çox zəifdir</string>
+    <string name="network_weak_text">2G və ya siqnal yoxdur: VPN işləməyə bilər. Wi-Fi və ya rabitəsi daha yaxşı yer kömək edər.</string>
+    <string name="network_open_settings">Ayarlar</string>
+    <string name="network_connect_airplane">İnternet yoxdur: uçuş rejimi aktivdir. VPN işləməyəcək</string>
+    <string name="network_connect_none">İnternet yoxdur — VPN qoşula bilməyəcək</string>
+</resources>

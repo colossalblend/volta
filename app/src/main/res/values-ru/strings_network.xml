@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Network: whether there is internet under the tunnel at all (airplane mode, no network,
+     weak mobile data). The banner on the home screen and the message on a tap of the disc. -->
+<resources>
+    <string name="network_airplane_title">Нет интернета: включён режим полёта</string>
+    <string name="network_airplane_text">VPN работать не будет. Выключите режим полёта или подключитесь к Wi-Fi.</string>
+    <string name="network_none_title">Нет интернета</string>
+    <string name="network_none_text">VPN не сможет подключиться. Включите Wi-Fi или мобильный интернет.</string>
+    <string name="network_weak_title">Мобильный интернет слишком слабый</string>
+    <string name="network_weak_text">2G или нет сигнала: VPN может не работать. Поможет Wi-Fi или место, где связь лучше.</string>
+    <string name="network_open_settings">Настройки</string>
+    <string name="network_connect_airplane">Нет интернета: включён режим полёта. VPN работать не будет</string>
+    <string name="network_connect_none">Нет интернета — VPN не сможет подключиться</string>
+</resources>
