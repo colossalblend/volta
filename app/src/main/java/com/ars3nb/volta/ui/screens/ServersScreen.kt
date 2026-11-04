@@ -76,6 +76,7 @@ import com.ars3nb.volta.data.model.ServerPool
 import com.ars3nb.volta.data.model.ServerRole
 import com.ars3nb.volta.data.model.matches
 import com.ars3nb.volta.ui.VoltaViewModel
+import com.ars3nb.volta.ui.collectQuietState
 import com.ars3nb.volta.ui.components.EmptyState
 import com.ars3nb.volta.ui.components.Hint
 import com.ars3nb.volta.ui.components.SectionHeader
@@ -90,7 +91,7 @@ fun ServersScreen(
     vm: VoltaViewModel,
     onOpenImport: () -> Unit
 ) {
-    val state by vm.uiState.collectAsStateWithLifecycle()
+    val state by vm.collectQuietState()
     val pool by vm.serverPool.collectAsStateWithLifecycle()
     val query by vm.query.collectAsStateWithLifecycle()
     val runningScope by vm.runningScope.collectAsStateWithLifecycle()

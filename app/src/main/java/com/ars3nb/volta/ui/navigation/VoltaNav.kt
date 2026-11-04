@@ -91,6 +91,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.ars3nb.volta.ui.VoltaViewModel
+import com.ars3nb.volta.ui.collectMessage
 import com.ars3nb.volta.ui.screens.HomeScreen
 import com.ars3nb.volta.ui.screens.ImportScreen
 import com.ars3nb.volta.ui.screens.PerAppScreen
@@ -129,7 +130,8 @@ private val TABS = listOf(
 @Composable
 fun VoltaAppRoot(vm: VoltaViewModel = viewModel()) {
     val design by vm.designTheme.collectAsStateWithLifecycle()
-    val state by vm.uiState.collectAsStateWithLifecycle()
+    // Only the message: the whole state changes every two seconds while connected.
+    val message by vm.collectMessage()
     val simple by vm.simpleMode.collectAsStateWithLifecycle()
     val nav = rememberNavController()
     val snackbar = remember { SnackbarHostState() }
@@ -142,8 +144,8 @@ fun VoltaAppRoot(vm: VoltaViewModel = viewModel()) {
 
     // One place for user-facing messages, so no screen loses or repeats them.
     // Read in this screen's language when it is shown, not when it was made.
-    LaunchedEffect(state.message) {
-        state.message?.let {
+    LaunchedEffect(message) {
+        message?.let {
             snackbar.showSnackbar(it.resolve(context))
             vm.clearMessage()
         }

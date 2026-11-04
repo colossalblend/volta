@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Network: whether there is internet under the tunnel at all (airplane mode, no network,
+     weak mobile data). The banner on the home screen and the message on a tap of the disc. -->
+<resources>
+    <string name="network_airplane_title">Internet yoʻq: parvoz rejimi yoqilgan</string>
+    <string name="network_airplane_text">VPN ishlamaydi. Parvoz rejimini oʻchiring yoki Wi-Fi’ga ulaning.</string>
+    <string name="network_none_title">Internet yoʻq</string>
+    <string name="network_none_text">VPN ulana olmaydi. Wi-Fi yoki mobil internetni yoqing.</string>
+    <string name="network_weak_title">Mobil internet juda kuchsiz</string>
+    <string name="network_weak_text">2G yoki signal yoʻq: VPN ishlamasligi mumkin. Wi-Fi yoki aloqa yaxshiroq joy yordam beradi.</string>
+    <string name="network_open_settings">Sozlamalar</string>
+    <string name="network_connect_airplane">Internet yoʻq: parvoz rejimi yoqilgan. VPN ishlamaydi</string>
+    <string name="network_connect_none">Internet yoʻq — VPN ulana olmaydi</string>
+</resources>

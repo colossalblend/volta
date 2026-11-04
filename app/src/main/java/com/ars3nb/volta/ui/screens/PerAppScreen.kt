@@ -92,6 +92,7 @@ import com.ars3nb.volta.core.apps.AppPresets
 import com.ars3nb.volta.core.apps.AppRoute
 import com.ars3nb.volta.data.model.PerAppMode
 import com.ars3nb.volta.ui.VoltaViewModel
+import com.ars3nb.volta.ui.collectQuietState
 import com.ars3nb.volta.ui.components.barColors
 import com.ars3nb.volta.ui.components.EmptyState
 import com.ars3nb.volta.ui.components.Hint
@@ -118,7 +119,7 @@ private data class InstalledApp(
 @Composable
 fun PerAppScreen(vm: VoltaViewModel, onBack: () -> Unit) {
     val context = LocalContext.current
-    val state by vm.uiState.collectAsStateWithLifecycle()
+    val state by vm.collectQuietState()
     val dirty by vm.routingDirty.collectAsStateWithLifecycle()
     val mode by vm.perAppMode.collectAsStateWithLifecycle()
     val selected by vm.perAppPackages.collectAsStateWithLifecycle()

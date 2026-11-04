@@ -63,11 +63,13 @@ import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.server.Countries
 import com.ars3nb.volta.core.stats.TrafficSummary
 import com.ars3nb.volta.core.update.UpdateState
+import com.ars3nb.volta.core.vpn.InternetCheck
 import com.ars3nb.volta.data.model.BalancerScope
 import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.NetworkRegime
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.SubscriptionEntity
+import com.ars3nb.volta.data.model.TrafficStats
 import com.ars3nb.volta.ui.ConnectPhase
 import com.ars3nb.volta.ui.PickSummary
 import com.ars3nb.volta.ui.SpeedHistory
@@ -86,6 +88,7 @@ import com.ars3nb.volta.ui.components.SignalBars
 import com.ars3nb.volta.ui.components.SpeedGraph
 import com.ars3nb.volta.ui.components.TrafficCard
 import com.ars3nb.volta.ui.components.UpdateBanner
+import com.ars3nb.volta.ui.components.InternetBanner
 import com.ars3nb.volta.ui.components.flagOf
 import com.ars3nb.volta.ui.components.formatDuration
 import com.ars3nb.volta.ui.components.formatLatency
@@ -93,6 +96,7 @@ import com.ars3nb.volta.ui.components.screenResources
 import com.ars3nb.volta.ui.components.groupColor
 import com.ars3nb.volta.ui.components.groupLabel
 import com.ars3nb.volta.ui.components.offersInstall
+import com.ars3nb.volta.ui.components.rememberInternetStatus
 import com.ars3nb.volta.ui.components.trafficActivity
 import com.ars3nb.volta.ui.theme.TABULAR
 import com.ars3nb.volta.ui.theme.VoltaTheme
@@ -115,15 +119,7 @@ fun HomeScreen(
     val update by vm.updateState.collectAsStateWithLifecycle()
     val openFlux by vm.openFluxStatus.collectAsStateWithLifecycle()
     val traffic by vm.trafficSummary.collectAsStateWithLifecycle()
-
-    // Ticks only while the tunnel is up, so an idle screen costs nothing.
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(state.isConnected) {
-        while (state.isConnected) {
-            now = System.currentTimeMillis()
-            delay(1000)
-        }
-    }
+    val internet by rememberInternetStatus()
 
     HomeContent(
         state = state,
@@ -134,7 +130,7 @@ fun HomeScreen(
         update = update,
         openFlux = openFlux,
         traffic = traffic,
-        now = now,
+        internet = internet,
         onToggle = vm::toggleConnect,
         onSelectMode = vm::setConnectMode,
         onOpenServers = onOpenServers,
@@ -165,7 +161,9 @@ fun HomeContent(
     update: UpdateState,
     openFlux: OpenFluxRunner.Status,
     traffic: TrafficSummary = TrafficSummary(),
-    now: Long,
+    /** A fixed clock for screenshots; null ticks live, inside the uptime meter only. */
+    now: Long? = null,
+    internet: InternetCheck.Status = InternetCheck.Status.OK,
     onToggle: () -> Unit,
     onSelectMode: (ConnectMode) -> Unit,
     onOpenServers: () -> Unit,
@@ -227,6 +225,7 @@ fun HomeContent(
                             country = state.ipInfo?.country,
                             onAdd = onOpenImport.takeIf { hasServers }
                         )
+                        InternetBanner(internet)
                         (openFlux as? OpenFluxRunner.Status.Captcha)?.let { OpenFluxCaptchaBanner(it) }
                         if (update.offersInstall) UpdateBanner(update, onInstall = onInstallUpdate)
                     }
@@ -259,10 +258,9 @@ fun HomeContent(
                             enter = fadeIn() + expandVertically(),
                             exit = fadeOut() + shrinkVertically()
                         ) {
-                            LiveMeter(
-                                uptimeText = formatDuration(
-                                    if (state.connectedSince > 0) now - state.connectedSince else 0
-                                ),
+                            UptimeMeter(
+                                connectedSince = state.connectedSince,
+                                fixedNow = now,
                                 traffic = state.traffic,
                                 modifier = Modifier.padding(top = 12.dp)
                             )
@@ -373,6 +371,29 @@ fun HomeContent(
 
 /** How much of the details shows under the first screenful. */
 private val PEEK = 44.dp
+
+/**
+ * The live meter with its own once-a-second clock, so the tick redraws only this line and
+ * not the whole home screen. It runs only while the meter is shown (the tunnel is up).
+ */
+@Composable
+private fun UptimeMeter(connectedSince: Long, fixedNow: Long?, traffic: TrafficStats, modifier: Modifier) {
+    var ticking by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    if (fixedNow == null) {
+        LaunchedEffect(Unit) {
+            while (true) {
+                ticking = System.currentTimeMillis()
+                delay(1000)
+            }
+        }
+    }
+    val now = fixedNow ?: ticking
+    LiveMeter(
+        uptimeText = formatDuration(if (connectedSince > 0) now - connectedSince else 0),
+        traffic = traffic,
+        modifier = modifier
+    )
+}
 
 @Composable
 private fun TopBar(regime: NetworkRegime, ip: String?, country: String?, onAdd: (() -> Unit)?) {

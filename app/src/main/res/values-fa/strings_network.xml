@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Network: whether there is internet under the tunnel at all (airplane mode, no network,
+     weak mobile data). The banner on the home screen and the message on a tap of the disc. -->
+<resources>
+    <string name="network_airplane_title">اینترنت نیست: حالت هواپیما روشن است</string>
+    <string name="network_airplane_text">VPN کار نمی‌کند. حالت هواپیما را خاموش کنید یا به Wi-Fi وصل شوید.</string>
+    <string name="network_none_title">اینترنت نیست</string>
+    <string name="network_none_text">VPN نمی‌تواند وصل شود. Wi-Fi یا اینترنت همراه را روشن کنید.</string>
+    <string name="network_weak_title">اینترنت همراه خیلی ضعیف است</string>
+    <string name="network_weak_text">2G یا بدون آنتن: ممکن است VPN کار نکند. Wi-Fi یا جایی با آنتن بهتر کمک می‌کند.</string>
+    <string name="network_open_settings">تنظیمات</string>
+    <string name="network_connect_airplane">اینترنت نیست: حالت هواپیما روشن است. VPN کار نمی‌کند</string>
+    <string name="network_connect_none">اینترنت نیست — VPN نمی‌تواند وصل شود</string>
+</resources>

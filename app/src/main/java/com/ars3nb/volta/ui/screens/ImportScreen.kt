@@ -64,12 +64,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.annotation.StringRes
 import com.ars3nb.volta.R
 import com.ars3nb.volta.core.link.ImportDetector
 import com.ars3nb.volta.core.link.ImportDetector.Kind
 import com.ars3nb.volta.ui.VoltaViewModel
+import com.ars3nb.volta.ui.collectQuietState
 import com.ars3nb.volta.ui.components.Hint
 import com.ars3nb.volta.ui.components.IconBubble
 import com.ars3nb.volta.ui.components.LinkRow
@@ -89,7 +89,7 @@ import com.ars3nb.volta.ui.tv.focusRing
 fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
     var input by rememberSaveable { mutableStateOf("") }
     var name by rememberSaveable { mutableStateOf("") }
-    val state by vm.uiState.collectAsStateWithLifecycle()
+    val state by vm.collectQuietState()
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val kind = remember(input) { ImportDetector.detect(input) }

@@ -121,6 +121,7 @@ import com.ars3nb.volta.data.model.RoutingProfileEntity
 import com.ars3nb.volta.data.model.RoutingRuleDto
 import com.ars3nb.volta.data.model.SubscriptionEntity
 import com.ars3nb.volta.ui.VoltaViewModel
+import com.ars3nb.volta.ui.collectQuietState
 import com.ars3nb.volta.ui.components.barColors
 import com.ars3nb.volta.ui.components.CardShape
 import com.ars3nb.volta.ui.components.Hint
@@ -143,7 +144,7 @@ import java.util.UUID
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RoutingScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
-    val state by vm.uiState.collectAsStateWithLifecycle()
+    val state by vm.collectQuietState()
     val adBlock by vm.adBlock.collectAsStateWithLifecycle()
     val blockTorrents by vm.blockTorrents.collectAsStateWithLifecycle()
     val perAppMode by vm.perAppMode.collectAsStateWithLifecycle()

@@ -84,6 +84,7 @@ import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.PingType
 import com.ars3nb.volta.data.prefs.DesignTheme
 import com.ars3nb.volta.ui.VoltaViewModel
+import com.ars3nb.volta.ui.collectQuietState
 import com.ars3nb.volta.ui.components.AppIconPicker
 import com.ars3nb.volta.ui.components.Hint
 import com.ars3nb.volta.ui.components.IconBubble
@@ -112,7 +113,7 @@ import com.ars3nb.volta.ui.tv.focusRing
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(vm: VoltaViewModel) {
-    val state by vm.uiState.collectAsStateWithLifecycle()
+    val state by vm.collectQuietState()
     val autoFailover by vm.autoFailover.collectAsStateWithLifecycle()
     val pingOnStart by vm.pingOnStart.collectAsStateWithLifecycle()
     val batterySaver by vm.batterySaver.collectAsStateWithLifecycle()

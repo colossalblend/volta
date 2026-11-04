@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Network: whether there is internet under the tunnel at all (airplane mode, no network,
+     weak mobile data). The banner on the home screen and the message on a tap of the disc. -->
+<resources>
+    <string name="network_airplane_title">没有网络：飞行模式已开启</string>
+    <string name="network_airplane_text">VPN 无法使用。请关闭飞行模式或连接 Wi-Fi。</string>
+    <string name="network_none_title">没有网络</string>
+    <string name="network_none_text">VPN 无法连接。请打开 Wi-Fi 或移动数据。</string>
+    <string name="network_weak_title">移动网络太弱</string>
+    <string name="network_weak_text">2G 或没有信号：VPN 可能无法使用。换用 Wi-Fi 或到信号更好的地方会有帮助。</string>
+    <string name="network_open_settings">设置</string>
+    <string name="network_connect_airplane">没有网络：飞行模式已开启。VPN 无法使用</string>
+    <string name="network_connect_none">没有网络 — VPN 无法连接</string>
+</resources>
