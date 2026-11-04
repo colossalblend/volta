@@ -74,6 +74,8 @@ class PingEngine(
         const val GUARD_TIMEOUT_MS = 7_000L
         private const val GUARD_RETRY_PAUSE_MS = 1_500L
 
+        private val sharedHttp: OkHttpClient by lazy { OkHttpClient() }
+
         /** Home of native measurements that outlive their caller's timeout. */
         private val detached = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -113,7 +115,9 @@ class PingEngine(
     }
 
     private val httpClient: OkHttpClient by lazy {
-        OkHttpClient.Builder()
+        // Built on one shared client: an engine is made per measurement, and a client of
+        // its own each time meant a new connection pool and thread pool per tap.
+        sharedHttp.newBuilder()
             .connectTimeout(if (batterySaver) 2 else 4, TimeUnit.SECONDS)
             .readTimeout(if (batterySaver) 2 else 4, TimeUnit.SECONDS)
             .writeTimeout(2, TimeUnit.SECONDS)

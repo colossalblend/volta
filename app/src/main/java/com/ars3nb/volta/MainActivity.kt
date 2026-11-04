@@ -53,7 +53,9 @@ class MainActivity : ComponentActivity() {
         // Sizes and speeds built outside a screen read their units here, in this language.
         FormatText.resources = resources
         enableEdgeToEdge()
-        requestNotificationPermissionIfNeeded()
+        // Once per launch: a rotation or a language switch recreates the activity, and
+        // asking again each time would pop the dialog up after every turn of the phone.
+        if (savedInstanceState == null) requestNotificationPermissionIfNeeded()
 
         setContent {
             val needsPermission by vm.needsVpnPermission.collectAsStateWithLifecycle()
@@ -81,7 +83,9 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        handleShortcut(intent)
+        // A recreated activity (rotation, language, the process restored by Android) gets
+        // the launch intent again: a link it carried was handled the first time.
+        if (savedInstanceState == null) handleShortcut(intent)
     }
 
     override fun onNewIntent(intent: Intent) {

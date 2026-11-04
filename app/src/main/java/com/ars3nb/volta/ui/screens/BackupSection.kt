@@ -1,5 +1,7 @@
 package com.ars3nb.volta.ui.screens
 
+import android.content.ActivityNotFoundException
+import com.ars3nb.volta.core.locale.UiText
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -63,14 +65,14 @@ internal fun BackupCard(vm: VoltaViewModel) {
             tint = primary,
             title = stringResource(R.string.settings_backup_save_title),
             subtitle = stringResource(R.string.settings_backup_save_text),
-            onClick = { if (!working) save.launch(vm.backupFileName()) }
+            onClick = { if (!working) launchPicker(vm) { save.launch(vm.backupFileName()) } }
         )
         LinkRow(
             icon = Icons.Rounded.Restore,
             tint = VoltaTheme.palette.good,
             title = stringResource(R.string.settings_backup_restore_title),
             subtitle = stringResource(R.string.settings_backup_restore_text),
-            onClick = { if (!working) open.launch(arrayOf("*/*")) }
+            onClick = { if (!working) launchPicker(vm) { open.launch(arrayOf("*/*")) } }
         )
         AnimatedVisibility(
             visible = working,
@@ -107,5 +109,14 @@ internal fun BackupCard(vm: VoltaViewModel) {
                 TextButton(onClick = vm::dismissRestore) { Text(stringResource(R.string.settings_backup_cancel)) }
             }
         )
+    }
+}
+
+/** Many TV boxes have no document picker at all: say so instead of crashing. */
+private inline fun launchPicker(vm: VoltaViewModel, launch: () -> Unit) {
+    try {
+        launch()
+    } catch (e: ActivityNotFoundException) {
+        vm.showMessage(UiText.of(R.string.settings_import_no_file_picker))
     }
 }
