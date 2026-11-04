@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sharing over Bluetooth: sending a subscription or server link to a TV or a phone nearby,
+     receiving one, the 6-digit code both screens compare, and what can go wrong on the way
+     (core/share, ui/share/BleShareSheet.kt, docs/ble-share.md). "Bluetooth" and "Volta"
+     stay as they are. -->
+<resources>
+
+    <!-- Where the feature is opened: subscription and server actions, the Add screen, Home on a TV -->
+    <string name="share_send_action">通过蓝牙发送</string>
+    <string name="share_send_action_text">加密发送到附近的电视或手机</string>
+    <string name="share_send_hidden_text">加密发送；链接在对方设备上同样隐藏</string>
+    <string name="share_send_field_text">把输入框里的内容发送到附近的电视或手机</string>
+    <string name="share_receive_action">通过蓝牙接收</string>
+    <string name="share_receive_action_text">由附近的手机发送链接，无需手动输入</string>
+
+    <!-- The sheet, and what may be in the way first -->
+    <string name="share_sheet_note">加密传输，在附近的两台 Volta 之间</string>
+    <string name="share_no_ble">此设备不支持低功耗蓝牙 (Bluetooth LE)，无法用这种方式传送链接。</string>
+    <string name="share_close">关闭</string>
+    <string name="share_perm_title">访问附近的设备</string>
+    <string name="share_perm_text">Volta 仅在此窗口打开时使用蓝牙：用于找到另一台设备并传送链接。不会使用你的位置信息。</string>
+    <string name="share_perm_location_text">在此 Android 版本上，搜索蓝牙设备需要位置权限。Volta 不会使用你的位置，只在此窗口打开时搜索。</string>
+    <string name="share_perm_allow">允许</string>
+    <string name="share_perm_settings">打开应用设置</string>
+    <string name="share_bt_off_title">蓝牙已关闭</string>
+    <string name="share_bt_off_text">打开蓝牙以连接另一台设备，之后可以再关闭。</string>
+    <string name="share_bt_turn_on">打开蓝牙</string>
+    <string name="share_location_off_title">位置信息已关闭</string>
+    <string name="share_location_off_text">在此 Android 版本上，只有打开位置信息才能找到蓝牙设备。Volta 不会获取你的位置。</string>
+    <string name="share_location_open">位置信息设置</string>
+
+    <!-- Finding the other device -->
+    <string name="share_searching">正在搜索附近的设备…</string>
+    <string name="share_searching_send_hint">在另一台设备上打开 Volta → 添加 → 通过蓝牙接收</string>
+    <string name="share_searching_receive_hint">在手机上打开某个订阅或服务器，选择“通过蓝牙发送”</string>
+    <string name="share_found">附近的设备</string>
+    <string name="share_pick_receiver">选择显示代码的设备</string>
+    <string name="share_pick_sender">选择正在发送的设备</string>
+    <string name="share_nothing_found">未找到设备</string>
+    <string name="share_nothing_found_hint">让两台设备靠近，并都打开蓝牙和 Volta。</string>
+    <string name="share_search_again">重新搜索</string>
+
+    <!-- The code both screens show, and comparing it -->
+    <string name="share_waiting_title">正在等待链接</string>
+    <string name="share_waiting_text">在手机上选择“通过蓝牙发送”，然后选择这台设备</string>
+    <string name="share_code_connected">已连接 %1$s，正在等待对方确认代码</string>
+    <string name="share_code_label">代码</string>
+    <string name="share_code_hint">另一块屏幕上应显示相同的代码</string>
+    <string name="share_connecting">正在连接 %1$s…</string>
+    <string name="share_confirm_title">代码一致吗？</string>
+    <string name="share_confirm_text">与 %1$s 上的代码比较</string>
+    <string name="share_match">一致</string>
+    <string name="share_mismatch">不一致</string>
+
+    <!-- The transfer and its end -->
+    <string name="share_sending">正在发送…</string>
+    <string name="share_receiving">正在接收…</string>
+    <string name="share_sent_title">已发送</string>
+    <string name="share_sent_text">链接已到达 %1$s，对方会提示添加。</string>
+    <string name="share_received_title">来自 %1$s</string>
+    <string name="share_received_hidden">链接已隐藏：将在不显示的情况下添加</string>
+    <string name="share_received_cannot">Volta 无法添加此内容</string>
+    <string name="share_received_add">添加</string>
+    <string name="share_received_discard">丢弃</string>
+    <string name="share_device_unnamed">设备 %1$s</string>
+
+    <!-- When it fails -->
+    <string name="share_error_title">未能完成</string>
+    <string name="share_mismatch_title">未发送任何内容</string>
+    <string name="share_expired_title">时间已到</string>
+    <string name="share_error_bt_off">蓝牙已被关闭。</string>
+    <string name="share_error_permission">Volta 已无权访问附近的设备。</string>
+    <string name="share_error_advertise">此设备无法通过蓝牙被发现。请重试，或重启蓝牙。</string>
+    <string name="share_error_scan">无法开始搜索。请关闭再打开蓝牙后重试。</string>
+    <string name="share_error_connect">连接已断开。请让设备靠近一些后重试。</string>
+    <string name="share_error_not_volta">该设备没有在等待 Volta 发送的链接。</string>
+    <string name="share_error_mismatch">代码不一致，因此未发送链接：可能是其他设备应答了。请重试。</string>
+    <string name="share_error_commitment">另一台设备的回应与它事先公布的内容不符，因此未发送任何内容：附近可能有人在干扰。请重试。</string>
+    <string name="share_error_damaged">链接在传输中损坏。请重试。</string>
+    <string name="share_error_too_large">内容太大，无法通过蓝牙发送。</string>
+    <string name="share_error_rejected">对方设备无法打开链接。请重试。</string>
+    <string name="share_error_timeout">对方设备没有响应。</string>
+    <string name="share_error_expired">每次会话持续两分钟。请重新开始。</string>
+    <string name="share_try_again">重试</string>
+
+</resources>

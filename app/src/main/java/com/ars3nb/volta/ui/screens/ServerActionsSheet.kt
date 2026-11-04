@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Share
@@ -62,7 +63,9 @@ fun ServerActionsSheet(
     onToggleFavorite: () -> Unit,
     onSetRole: (ServerRole) -> Unit,
     onDelete: (() -> Unit)?,
-    onCopied: () -> Unit
+    onCopied: () -> Unit,
+    /** «Отправить по Bluetooth»; null where the device has no Bluetooth LE. */
+    onSendBluetooth: (() -> Unit)? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val clipboard = LocalClipboardManager.current
@@ -141,6 +144,14 @@ fun ServerActionsSheet(
                         onDismiss()
                     }
                 )
+                if (onSendBluetooth != null) {
+                    SheetAction(
+                        icon = Icons.Rounded.Bluetooth,
+                        title = stringResource(R.string.share_send_action),
+                        subtitle = stringResource(R.string.share_send_action_text),
+                        onClick = { onSendBluetooth(); onDismiss() }
+                    )
+                }
             }
 
             Spacer(Modifier.height(16.dp))

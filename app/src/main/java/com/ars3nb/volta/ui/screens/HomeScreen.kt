@@ -31,8 +31,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -41,6 +43,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -100,6 +103,9 @@ import com.ars3nb.volta.ui.components.rememberInternetStatus
 import com.ars3nb.volta.ui.components.trafficActivity
 import com.ars3nb.volta.ui.theme.TABULAR
 import com.ars3nb.volta.ui.theme.VoltaTheme
+import com.ars3nb.volta.ui.share.BleReceiveSheet
+import com.ars3nb.volta.ui.share.rememberBleShareAvailable
+import com.ars3nb.volta.ui.tv.LocalTv
 import com.ars3nb.volta.ui.tv.StartFocus
 import com.ars3nb.volta.ui.tv.focusRing
 import kotlinx.coroutines.delay
@@ -124,6 +130,10 @@ fun HomeScreen(
     val openFlux by vm.openFluxStatus.collectAsStateWithLifecycle()
     val traffic by vm.trafficSummary.collectAsStateWithLifecycle()
     val internet by rememberInternetStatus()
+    // On a TV with nothing set up yet, a phone nearby can send the subscription.
+    val bluetooth = rememberBleShareAvailable()
+    val receiveOnTv = LocalTv.current && bluetooth
+    var receiving by remember { mutableStateOf(false) }
 
     HomeContent(
         state = state,
@@ -144,8 +154,17 @@ fun HomeScreen(
         onInstallUpdate = vm::installUpdate,
         onLteMissing = {
             vm.showMessage(UiText.of(R.string.home_lte_missing))
-        }
+        },
+        onReceiveBluetooth = if (receiveOnTv) {
+            { receiving = true }
+        } else null
     )
+    if (receiving) {
+        BleReceiveSheet(
+            onAdd = { text -> vm.importLink(text) },
+            onDismiss = { receiving = false }
+        )
+    }
 }
 
 /**
@@ -175,7 +194,9 @@ fun HomeContent(
     onOpenRouting: () -> Unit,
     onRecheckNetwork: () -> Unit,
     onInstallUpdate: () -> Unit,
-    onLteMissing: () -> Unit = {}
+    onLteMissing: () -> Unit = {},
+    /** «Получить по Bluetooth» under «add a subscription» (on a TV); null hides it. */
+    onReceiveBluetooth: (() -> Unit)? = null
 ) {
     val selected = state.selectedServer
     val subscriptionOf = remember(state.subscriptions) { state.subscriptions.associateBy { it.id } }
@@ -313,7 +334,8 @@ fun HomeContent(
                     } else {
                         FirstSubscription(
                             onOpenImport,
-                            if (discEnabled) Modifier else Modifier.focusRequester(startFocus)
+                            if (discEnabled) Modifier else Modifier.focusRequester(startFocus),
+                            onReceiveBluetooth
                         )
                     }
                 }
@@ -573,7 +595,11 @@ private fun ServerIdentity(server: ServerEntity?, subscription: SubscriptionEnti
 
 /** No servers yet: the one thing to do. */
 @Composable
-private fun FirstSubscription(onOpenImport: () -> Unit, buttonModifier: Modifier = Modifier) {
+private fun FirstSubscription(
+    onOpenImport: () -> Unit,
+    buttonModifier: Modifier = Modifier,
+    onReceiveBluetooth: (() -> Unit)? = null
+) {
     Column(
         Modifier
             .fillMaxWidth()
@@ -597,6 +623,20 @@ private fun FirstSubscription(onOpenImport: () -> Unit, buttonModifier: Modifier
                 .focusRing(CircleShape, color = MaterialTheme.colorScheme.onBackground)
         ) {
             Text(stringResource(R.string.home_add_subscription), style = MaterialTheme.typography.titleSmall)
+        }
+        if (onReceiveBluetooth != null) {
+            Spacer(Modifier.height(8.dp))
+            FilledTonalButton(
+                onClick = onReceiveBluetooth,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .focusRing(CircleShape)
+            ) {
+                Icon(Icons.Rounded.Bluetooth, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.share_receive_action), style = MaterialTheme.typography.titleSmall)
+            }
         }
     }
 }

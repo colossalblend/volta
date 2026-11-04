@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ars3nb.volta.R
 import com.ars3nb.volta.core.routing.RoutingResolver
+import com.ars3nb.volta.core.share.SharePayload
 import com.ars3nb.volta.data.model.ServerRole
 import com.ars3nb.volta.data.model.SubscriptionEntity
 import com.ars3nb.volta.ui.VoltaViewModel
@@ -43,6 +44,8 @@ import com.ars3nb.volta.ui.components.Hint
 import com.ars3nb.volta.ui.components.SubscriptionCard
 import com.ars3nb.volta.ui.components.barColors
 import com.ars3nb.volta.ui.components.shownProfileName
+import com.ars3nb.volta.ui.share.BleSendSheet
+import com.ars3nb.volta.ui.share.rememberBleShareAvailable
 
 /**
  * Every subscription the app holds. Their servers are merged into one list (Servers tab)
@@ -57,6 +60,10 @@ fun SubscriptionsScreen(
 ) {
     val state by vm.collectQuietState()
     var editing by remember { mutableStateOf<SubscriptionEntity?>(null) }
+    val bluetooth = rememberBleShareAvailable()
+    // The import link being sent over Bluetooth: remembered only, never saved state,
+    // since it carries the address even of a hidden subscription.
+    var bleSend by remember { mutableStateOf<String?>(null) }
     val selected = state.selectedServer
     // Group counts per subscription, computed once per list change, not per card.
     val groups = remember(state.servers) {
@@ -151,7 +158,14 @@ fun SubscriptionsScreen(
             onDelete = {
                 vm.deleteSubscription(sub.id)
                 editing = null
-            }
+            },
+            onSendBluetooth = if (bluetooth && live.url.isNotBlank()) {
+                {
+                    bleSend = SharePayload.subscription(live.url, live.name, live.urlHidden, live.serverTypes)
+                    editing = null
+                }
+            } else null
         )
     }
+    bleSend?.let { payload -> BleSendSheet(payload, onDismiss = { bleSend = null }) }
 }

@@ -70,6 +70,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ars3nb.volta.core.share.SharePayload
 import com.ars3nb.volta.core.vpn.ConfigBuilder
 import com.ars3nb.volta.data.model.BalancerScope
 import com.ars3nb.volta.data.model.ServerEntity
@@ -84,6 +85,8 @@ import com.ars3nb.volta.ui.components.SectionHeader
 import com.ars3nb.volta.ui.components.ServerRow
 import com.ars3nb.volta.ui.components.VoltaCard
 import com.ars3nb.volta.ui.components.shownSubscriptionName
+import com.ars3nb.volta.ui.share.BleSendSheet
+import com.ars3nb.volta.ui.share.rememberBleShareAvailable
 
 private enum class ServerSort { BEST, NAME, SUBSCRIPTION }
 
@@ -103,6 +106,9 @@ fun ServersScreen(
     var byCountry by remember { mutableStateOf(true) }
     var favoritesOnly by remember { mutableStateOf(false) }
     var sheetServer by remember { mutableStateOf<ServerEntity?>(null) }
+    val bluetooth = rememberBleShareAvailable()
+    // The link being sent over Bluetooth, if any: remembered, never saved state.
+    var bleSend by remember { mutableStateOf<String?>(null) }
     var subscriptionFilter by remember { mutableStateOf<Long?>(null) }
     // null until the user folds something: then only the current server's country is open.
     var openCountries by remember { mutableStateOf<Set<String>?>(null) }
@@ -403,6 +409,7 @@ fun ServersScreen(
     }
 
     sheetServer?.let { server ->
+        val payload = SharePayload.server(server.rawLink, server.rawJson)
         ServerActionsSheet(
             server = server,
             onDismiss = { sheetServer = null },
@@ -412,9 +419,13 @@ fun ServersScreen(
             onDelete = if (server.subscriptionId == null) {
                 { vm.deleteServer(server.id) }
             } else null,
-            onCopied = { vm.showMessage(UiText.of(R.string.servers_link_copied)) }
+            onCopied = { vm.showMessage(UiText.of(R.string.servers_link_copied)) },
+            onSendBluetooth = if (bluetooth && payload != null) {
+                { bleSend = payload }
+            } else null
         )
     }
+    bleSend?.let { payload -> BleSendSheet(payload, onDismiss = { bleSend = null }) }
 }
 
 /**

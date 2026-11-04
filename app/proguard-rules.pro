@@ -75,3 +75,9 @@
 -dontwarn org.conscrypt.**
 -dontwarn org.bouncycastle.**
 -dontwarn org.openjsse.**
+
+# --- Bluetooth sharing (core/share) --------------------------------------------
+# Nothing to keep: the GATT, scan and advertise callbacks are subclasses of framework
+# classes (R8 keeps their overrides), and the crypto is the platform's JCA, looked up
+# by algorithm name ("EC", "ECDH", "HmacSHA256", "AES/GCM/NoPadding"), not by class.
+# The UUIDs, frames and status bytes are data, so renaming changes nothing on the air.

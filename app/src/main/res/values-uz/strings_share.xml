@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sharing over Bluetooth: sending a subscription or server link to a TV or a phone nearby,
+     receiving one, the 6-digit code both screens compare, and what can go wrong on the way
+     (core/share, ui/share/BleShareSheet.kt, docs/ble-share.md). "Bluetooth" and "Volta"
+     stay as they are. -->
+<resources>
+
+    <!-- Where the feature is opened: subscription and server actions, the Add screen, Home on a TV -->
+    <string name="share_send_action">Bluetooth orqali yuborish</string>
+    <string name="share_send_action_text">Yaqindagi televizor yoki telefonga, shifrlangan holda</string>
+    <string name="share_send_hidden_text">Shifrlangan; havola u yerda ham yashirin qoladi</string>
+    <string name="share_send_field_text">Maydondagini yaqindagi televizor yoki telefonga</string>
+    <string name="share_receive_action">Bluetooth orqali qabul qilish</string>
+    <string name="share_receive_action_text">Yaqindagi telefon havolani yuboradi — hech narsa yozish shart emas</string>
+
+    <!-- The sheet, and what may be in the way first -->
+    <string name="share_sheet_note">Shifrlangan, bir Voltadan yaqindagi boshqasiga</string>
+    <string name="share_no_ble">Bu qurilmada Bluetooth LE yoʻq, shuning uchun havolalarni bu yoʻl bilan uzatib boʻlmaydi.</string>
+    <string name="share_close">Yopish</string>
+    <string name="share_perm_title">Yaqindagi qurilmalarga ruxsat</string>
+    <string name="share_perm_text">Volta Bluetoothdan faqat shu oyna ochiq turganda foydalanadi: boshqa qurilmani topish va havolani uzatish uchun. Joylashuvingizdan foydalanilmaydi.</string>
+    <string name="share_perm_location_text">Androidning bu versiyasida Bluetooth qurilmalarini qidirish uchun joylashuv ruxsati kerak. Volta undan foydalanmaydi: faqat shu oyna ochiq turganda qidiradi.</string>
+    <string name="share_perm_allow">Ruxsat berish</string>
+    <string name="share_perm_settings">Ilova sozlamalarini ochish</string>
+    <string name="share_bt_off_title">Bluetooth oʻchiq</string>
+    <string name="share_bt_off_text">Boshqa qurilma bilan bogʻlanish uchun uni yoqing. Keyin yana oʻchirib qoʻyish mumkin.</string>
+    <string name="share_bt_turn_on">Bluetoothni yoqish</string>
+    <string name="share_location_off_title">Joylashuv oʻchiq</string>
+    <string name="share_location_off_text">Androidning bu versiyasida Bluetooth qurilmalari faqat joylashuv yoqilganda topiladi. Volta qayerdaligingizni bilmaydi.</string>
+    <string name="share_location_open">Joylashuv sozlamalari</string>
+
+    <!-- Finding the other device -->
+    <string name="share_searching">Yaqindagi qurilmalar qidirilmoqda…</string>
+    <string name="share_searching_send_hint">Boshqa qurilmada oching: Volta → Qoʻshish → Bluetooth orqali qabul qilish</string>
+    <string name="share_searching_receive_hint">Telefonda obuna yoki serverni ochib, «Bluetooth orqali yuborish»ni tanlang</string>
+    <string name="share_found">Yaqinda topildi</string>
+    <string name="share_pick_receiver">Kod koʻrsatayotgan qurilmani tanlang</string>
+    <string name="share_pick_sender">Yuborayotgan qurilmani tanlang</string>
+    <string name="share_nothing_found">Hech narsa topilmadi</string>
+    <string name="share_nothing_found_hint">Qurilmalarni yaqin tuting: ikkalasida ham Bluetooth yoqilgan va Volta ochiq boʻlsin.</string>
+    <string name="share_search_again">Qayta qidirish</string>
+
+    <!-- The code both screens show, and comparing it -->
+    <string name="share_waiting_title">Havola kutilmoqda</string>
+    <string name="share_waiting_text">Telefonda «Bluetooth orqali yuborish»ni va shu qurilmani tanlang</string>
+    <string name="share_code_connected">Ulandi: %1$s. U yerda kod tasdiqlanishi kutilmoqda</string>
+    <string name="share_code_label">Kod</string>
+    <string name="share_code_hint">Boshqa ekranda xuddi shu kod boʻlishi kerak</string>
+    <string name="share_connecting">Ulanilmoqda: %1$s…</string>
+    <string name="share_confirm_title">Kodlar mos keladimi?</string>
+    <string name="share_confirm_text">Bu yerdagi kod bilan solishtiring: %1$s</string>
+    <string name="share_match">Mos keladi</string>
+    <string name="share_mismatch">Mos kelmaydi</string>
+
+    <!-- The transfer and its end -->
+    <string name="share_sending">Yuborilmoqda…</string>
+    <string name="share_receiving">Qabul qilinmoqda…</string>
+    <string name="share_sent_title">Yuborildi</string>
+    <string name="share_sent_text">Havola yetib bordi: %1$s. U yerda uni qoʻshish taklif qilinadi.</string>
+    <string name="share_received_title">Qabul qilindi: %1$s</string>
+    <string name="share_received_hidden">Havola yashirin: u koʻrsatilmasdan qoʻshiladi</string>
+    <string name="share_received_cannot">Volta buni qoʻsha olmaydi</string>
+    <string name="share_received_add">Qoʻshish</string>
+    <string name="share_received_discard">Qoʻshmaslik</string>
+    <string name="share_device_unnamed">Qurilma %1$s</string>
+
+    <!-- When it fails -->
+    <string name="share_error_title">Boʻlmadi</string>
+    <string name="share_mismatch_title">Hech narsa yuborilmadi</string>
+    <string name="share_expired_title">Vaqt tugadi</string>
+    <string name="share_error_bt_off">Bluetooth oʻchirildi.</string>
+    <string name="share_error_permission">Voltada endi yaqindagi qurilmalarga ruxsat yoʻq.</string>
+    <string name="share_error_advertise">Bu qurilma Bluetooth orqali koʻrinadigan boʻla olmadi. Qayta urinib koʻring yoki Bluetoothni qayta ishga tushiring.</string>
+    <string name="share_error_scan">Qidiruvni boshlab boʻlmadi. Bluetoothni oʻchirib-yoqing va qayta urinib koʻring.</string>
+    <string name="share_error_connect">Aloqa uzildi. Qurilmalarni yaqinroq olib keling va qayta urinib koʻring.</string>
+    <string name="share_error_not_volta">Bu qurilma Voltadan havola kutmayapti.</string>
+    <string name="share_error_mismatch">Kodlar har xil, shuning uchun havola yuborilmadi: boshqa qurilma javob bergan boʻlishi mumkin. Qayta urinib koʻring.</string>
+    <string name="share_error_commitment">Boshqa qurilmaning javobi u oldindan eʼlon qilgan narsaga mos kelmadi, shuning uchun hech narsa yuborilmadi: yaqinda kimdir aralashayotgan boʻlishi mumkin. Qayta urinib koʻring.</string>
+    <string name="share_error_damaged">Havola buzilgan holda keldi. Qayta urinib koʻring.</string>
+    <string name="share_error_too_large">Bu Bluetooth uchun juda katta.</string>
+    <string name="share_error_rejected">Boshqa qurilma havolani ocha olmadi. Qayta urinib koʻring.</string>
+    <string name="share_error_timeout">Boshqa qurilma javob bermadi.</string>
+    <string name="share_error_expired">Seans ikki daqiqa davom etadi. Yangisini boshlang.</string>
+    <string name="share_try_again">Qayta urinish</string>
+
+</resources>

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sharing over Bluetooth: sending a subscription or server link to a TV or a phone nearby,
+     receiving one, the 6-digit code both screens compare, and what can go wrong on the way
+     (core/share, ui/share/BleShareSheet.kt, docs/ble-share.md). "Bluetooth" and "Volta"
+     stay as they are. -->
+<resources>
+
+    <!-- Where the feature is opened: subscription and server actions, the Add screen, Home on a TV -->
+    <string name="share_send_action">Bluetooth арқылы жіберу</string>
+    <string name="share_send_action_text">Жақын маңдағы теледидарға не телефонға, шифрланып</string>
+    <string name="share_send_hidden_text">Шифрланып; сілтеме ол жақта да жасырын қалады</string>
+    <string name="share_send_field_text">Өрістегіні жақын маңдағы теледидарға не телефонға</string>
+    <string name="share_receive_action">Bluetooth арқылы алу</string>
+    <string name="share_receive_action_text">Жақын маңдағы телефон сілтемені жібереді — ештеңе теру қажет емес</string>
+
+    <!-- The sheet, and what may be in the way first -->
+    <string name="share_sheet_note">Шифрланып, бір Volta-дан жақын маңдағы екіншісіне</string>
+    <string name="share_no_ble">Бұл құрылғыда Bluetooth LE жоқ, сондықтан сілтемелерді бұлай жіберу мүмкін емес.</string>
+    <string name="share_close">Жабу</string>
+    <string name="share_perm_title">Жақын құрылғыларға рұқсат</string>
+    <string name="share_perm_text">Volta Bluetooth-ты тек осы терезе ашық тұрғанда пайдаланады: басқа құрылғыны тауып, сілтемені беру үшін. Орналасқан жеріңіз пайдаланылмайды.</string>
+    <string name="share_perm_location_text">Android-тың бұл нұсқасында Bluetooth құрылғыларын іздеу үшін орналасу рұқсаты керек. Volta оны пайдаланбайды: тек осы терезе ашық тұрғанда іздейді.</string>
+    <string name="share_perm_allow">Рұқсат ету</string>
+    <string name="share_perm_settings">Қолданба параметрлерін ашу</string>
+    <string name="share_bt_off_title">Bluetooth өшірулі</string>
+    <string name="share_bt_off_text">Басқа құрылғымен байланысу үшін оны қосыңыз. Кейін қайта өшіруге болады.</string>
+    <string name="share_bt_turn_on">Bluetooth-ты қосу</string>
+    <string name="share_location_off_title">Орналасу өшірулі</string>
+    <string name="share_location_off_text">Android-тың бұл нұсқасында Bluetooth құрылғылары орналасу қосулы болғанда ғана табылады. Volta қай жерде екеніңізді білмейді.</string>
+    <string name="share_location_open">Орналасу параметрлері</string>
+
+    <!-- Finding the other device -->
+    <string name="share_searching">Жақын құрылғыларды іздеп жатырмыз…</string>
+    <string name="share_searching_send_hint">Басқа құрылғыда ашыңыз: Volta → Қосу → Bluetooth арқылы алу</string>
+    <string name="share_searching_receive_hint">Телефонда жазылымды не серверді ашып, «Bluetooth арқылы жіберу» таңдаңыз</string>
+    <string name="share_found">Жақын маңнан табылды</string>
+    <string name="share_pick_receiver">Код көрсетіп тұрған құрылғыны таңдаңыз</string>
+    <string name="share_pick_sender">Жіберіп жатқан құрылғыны таңдаңыз</string>
+    <string name="share_nothing_found">Ештеңе табылмады</string>
+    <string name="share_nothing_found_hint">Құрылғыларды жақын ұстаңыз: екеуінде де Bluetooth қосулы, Volta ашық болсын.</string>
+    <string name="share_search_again">Қайта іздеу</string>
+
+    <!-- The code both screens show, and comparing it -->
+    <string name="share_waiting_title">Сілтемені күтіп отырмыз</string>
+    <string name="share_waiting_text">Телефонда «Bluetooth арқылы жіберу» және осы құрылғыны таңдаңыз</string>
+    <string name="share_code_connected">Қосылды: %1$s. Онда кодты растауын күтіп отырмыз</string>
+    <string name="share_code_label">Код</string>
+    <string name="share_code_hint">Басқа экранда дәл осы код болуы керек</string>
+    <string name="share_connecting">%1$s құрылғысына қосылып жатырмыз…</string>
+    <string name="share_confirm_title">Кодтар сәйкес пе?</string>
+    <string name="share_confirm_text">%1$s құрылғысындағы кодпен салыстырыңыз</string>
+    <string name="share_match">Сәйкес</string>
+    <string name="share_mismatch">Сәйкес емес</string>
+
+    <!-- The transfer and its end -->
+    <string name="share_sending">Жіберіп жатырмыз…</string>
+    <string name="share_receiving">Қабылдап жатырмыз…</string>
+    <string name="share_sent_title">Жіберілді</string>
+    <string name="share_sent_text">Сілтеме %1$s құрылғысында — онда оны қосуды ұсынады.</string>
+    <string name="share_received_title">%1$s жіберді</string>
+    <string name="share_received_hidden">Сілтеме жасырын: ол көрсетілмей қосылады</string>
+    <string name="share_received_cannot">Volta мұны қоса алмайды</string>
+    <string name="share_received_add">Қосу</string>
+    <string name="share_received_discard">Қоспау</string>
+    <string name="share_device_unnamed">Құрылғы %1$s</string>
+
+    <!-- When it fails -->
+    <string name="share_error_title">Болмады</string>
+    <string name="share_mismatch_title">Ештеңе жіберілмеді</string>
+    <string name="share_expired_title">Уақыт бітті</string>
+    <string name="share_error_bt_off">Bluetooth өшірілді.</string>
+    <string name="share_error_permission">Volta-ның жақын құрылғыларға рұқсаты енді жоқ.</string>
+    <string name="share_error_advertise">Бұл құрылғы Bluetooth арқылы көрінетін бола алмады. Қайталап көріңіз немесе Bluetooth-ты қайта қосыңыз.</string>
+    <string name="share_error_scan">Іздеуді бастау мүмкін болмады. Bluetooth-ты өшіріп-қосып, қайталап көріңіз.</string>
+    <string name="share_error_connect">Байланыс үзілді. Құрылғыларды жақындатып, қайталап көріңіз.</string>
+    <string name="share_error_not_volta">Бұл құрылғы Volta-дан сілтеме күтіп тұрған жоқ.</string>
+    <string name="share_error_mismatch">Кодтар әртүрлі, сондықтан сілтеме жіберілмеді: басқа құрылғы жауап берген болуы мүмкін. Қайталап көріңіз.</string>
+    <string name="share_error_commitment">Басқа құрылғының жауабы ол алдын ала жариялағанмен сәйкес келмеді, сондықтан ештеңе жіберілмеді: жақын маңда біреу кедергі жасауы мүмкін. Қайталап көріңіз.</string>
+    <string name="share_error_damaged">Сілтеме бүлінген күйде келді. Қайталап көріңіз.</string>
+    <string name="share_error_too_large">Bluetooth үшін бұл тым үлкен.</string>
+    <string name="share_error_rejected">Басқа құрылғы сілтемені аша алмады. Қайталап көріңіз.</string>
+    <string name="share_error_timeout">Басқа құрылғы жауап бермеді.</string>
+    <string name="share_error_expired">Сеанс екі минутқа созылады. Жаңасын бастаңыз.</string>
+    <string name="share_try_again">Қайталау</string>
+
+</resources>
