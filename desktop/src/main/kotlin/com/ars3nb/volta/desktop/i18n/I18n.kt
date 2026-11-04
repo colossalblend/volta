@@ -2,46 +2,62 @@ package com.ars3nb.volta.desktop.i18n
 
 import java.util.Locale
 
-/** The languages Volta for Windows speaks, each named in itself for the picker. */
-enum class Lang(val code: String, val nativeName: String, val rtl: Boolean = false) {
-    RU("ru", "Русский"),
-    EN("en", "English"),
-    UK("uk", "Українська"),
-    KK("kk", "Қазақша"),
-    UZ("uz", "O‘zbekcha"),
-    TR("tr", "Türkçe"),
-    FA("fa", "فارسی", rtl = true),
-    ZH("zh", "中文"),
-    ES("es", "Español"),
-    DE("de", "Deutsch");
+/**
+ * The languages Volta speaks, the same fifteen as the Android app (AppLanguage.SUPPORTED),
+ * each named in itself for the picker. [code] is what the settings store ("zh" from
+ * before Volta for Windows used Android's tags stays as it was); [tag] is the Android
+ * resource language, whose texts the screens show.
+ */
+enum class Lang(val code: String, val tag: String, val nativeName: String, val rtl: Boolean = false) {
+    EN("en", "en", "English"),
+    RU("ru", "ru", "Русский"),
+    UK("uk", "uk", "Українська"),
+    BE("be", "be", "Беларуская"),
+    KK("kk", "kk", "Қазақша"),
+    UZ("uz", "uz", "Oʻzbekcha"),
+    AZ("az", "az", "Azərbaycanca"),
+    TR("tr", "tr", "Türkçe"),
+    FA("fa", "fa", "فارسی", rtl = true),
+    AR("ar", "ar", "العربية", rtl = true),
+    ZH("zh", "zh-CN", "简体中文"),
+    ES("es", "es", "Español"),
+    DE("de", "de", "Deutsch"),
+    FR("fr", "fr", "Français"),
+    PT("pt-BR", "pt-BR", "Português (Brasil)");
 
-    val strings: Strings
-        get() = when (this) {
-            RU -> LangRu
-            EN -> LangEn
-            UK -> LangUk
-            KK -> LangKk
-            UZ -> LangUz
-            TR -> LangTr
-            FA -> LangFa
-            ZH -> LangZh
-            ES -> LangEs
-            DE -> LangDe
-        }
+    /** The typed words of this language, with the Android app's translations where it has them. */
+    val strings: Strings get() = matched.getValue(this)
 
-    val locale: Locale get() = Locale.forLanguageTag(code)
+    val locale: Locale get() = Locale.forLanguageTag(tag)
 
     companion object {
+        private val own: Map<Lang, Strings> = mapOf(
+            RU to LangRu, EN to LangEn, UK to LangUk, KK to LangKk, UZ to LangUz,
+            TR to LangTr, FA to LangFa, ZH to LangZh, ES to LangEs, DE to LangDe,
+            // Their own word lists are the Android app's; what it lacks comes in the
+            // nearest language Volta for Windows had before.
+            BE to LangRu, AZ to LangEn, AR to LangEn, FR to LangEn, PT to LangEn
+        )
+
+        private val matched: Map<Lang, Strings> by lazy {
+            entries.associateWith { AndroidMatched(it.tag, own.getValue(it)) }
+        }
+
         /** "system" (or anything unknown) follows Windows; otherwise a language code. */
         fun resolve(setting: String): Lang =
-            entries.firstOrNull { it.code == setting } ?: fromLocale(Locale.getDefault())
+            entries.firstOrNull { it.code.equals(setting, true) || it.tag.equals(setting, true) }
+                ?: fromLocale(Locale.getDefault())
 
-        /** The system language when Volta speaks it; Russian for the rest of the former USSR, else English. */
+        /**
+         * The system language when Volta speaks it, as Android picks the closest values-xx;
+         * Russian for the rest of the former USSR, else English.
+         */
         fun fromLocale(locale: Locale): Lang {
             val code = locale.language.lowercase()
-            entries.firstOrNull { it.code == code }?.let { return it }
+            if (code == "pt") return PT
+            entries.firstOrNull { it.tag.substringBefore('-') == code }?.let { return it }
             return when (code) {
-                "be", "ky", "tg", "hy", "az", "ka", "tk" -> RU
+                "ky", "tg", "hy", "ka", "tk" -> RU
                 "ug" -> KK
                 else -> EN
             }

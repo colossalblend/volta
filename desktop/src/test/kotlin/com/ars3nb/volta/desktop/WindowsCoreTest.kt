@@ -56,14 +56,29 @@ class WindowsCoreTest {
     }
 
     @Test
-    fun amneziaProperStaysRefusedWithAPlainReason() {
+    fun amneziaProperGoesThroughTheHelperLikeOnAndroid() {
         I18n.use("ru")
         val conf = "[Interface]\nPrivateKey = KCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkc=\nJc = 4\nJmin = 40\nJmax = 70\n" +
             "[Peer]\nPublicKey = UFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm8=\nEndpoint = wg.example:51820\n"
         val server = WindowsCompat.adapt(AmneziaConfigs.parseConf(conf)!!)
         assertEquals(ProtocolType.AMNEZIAWG, server.protocol)
-        assertTrue(WindowsCompat.needsAndroidHelper(server))
-        assertTrue(ConfigBuilder.dialProblem(server)!!.contains("Windows"))
+        assertTrue(WindowsCompat.needsHelper(server))
+        assertEquals(com.ars3nb.volta.core.helper.ProxyHelper.Spec.AWG, ConfigBuilder.helperSpec(server)?.kind)
+
+        // A build without voltaproxy.exe says so in plain words.
+        val dir = Files.createTempDirectory("volta-helper").toFile()
+        com.ars3nb.volta.core.helper.ProxyHelper.init(dir, null)
+        assertTrue(ConfigBuilder.dialProblem(server)!!.contains("AmneziaWG"))
+
+        // With the helper next to the core, the tunnel hands the traffic to its SOCKS port.
+        File(dir, if (com.ars3nb.volta.desktop.platform.WinApi.isWindows) "voltaproxy.exe" else "voltaproxy").writeText("stub")
+        val config = com.google.gson.JsonParser.parseString(ConfigBuilder.build(server, null)).asJsonObject
+        val proxy = config.getAsJsonArray("outbounds").map { it.asJsonObject }.first { it.get("tag").asString == "proxy" }
+        assertEquals("socks", proxy.get("protocol").asString)
+        val target = proxy.getAsJsonObject("settings").getAsJsonArray("servers")[0].asJsonObject
+        assertEquals("127.0.0.1", target.get("address").asString)
+        assertEquals(com.ars3nb.volta.core.helper.ProxyHelper.PORT, target.get("port").asInt)
+        com.ars3nb.volta.core.helper.ProxyHelper.init(File(dir, "gone"), null)
     }
 
     @Test
@@ -152,8 +167,14 @@ class WindowsCoreTest {
     fun theSystemLanguageIsFollowed() {
         assertEquals(Lang.RU, Lang.fromLocale(Locale.forLanguageTag("ru-RU")))
         assertEquals(Lang.UK, Lang.fromLocale(Locale.forLanguageTag("uk-UA")))
-        assertEquals(Lang.RU, Lang.fromLocale(Locale.forLanguageTag("be-BY")))
-        assertEquals(Lang.EN, Lang.fromLocale(Locale.forLanguageTag("fr-FR")))
+        // The same fifteen languages as Android, picked the way Android picks values-xx.
+        assertEquals(Lang.BE, Lang.fromLocale(Locale.forLanguageTag("be-BY")))
+        assertEquals(Lang.FR, Lang.fromLocale(Locale.forLanguageTag("fr-FR")))
+        assertEquals(Lang.PT, Lang.fromLocale(Locale.forLanguageTag("pt-PT")))
+        assertEquals(Lang.ZH, Lang.fromLocale(Locale.forLanguageTag("zh-CN")))
+        assertEquals(Lang.RU, Lang.fromLocale(Locale.forLanguageTag("ky-KG")))
+        assertEquals(Lang.EN, Lang.fromLocale(Locale.forLanguageTag("it-IT")))
+        assertEquals(15, Lang.entries.size)
         assertEquals(Lang.DE, Lang.resolve("de"))
         assertFalse(Lang.FA.strings.navHome.isBlank())
         // Every language answers every plural without crashing.

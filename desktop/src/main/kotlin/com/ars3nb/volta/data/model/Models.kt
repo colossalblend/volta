@@ -123,15 +123,26 @@ enum class RouteOutbound {
     PROXY, DIRECT, BLOCK
 }
 
-/** AdGuard DNS in the tunnel: ads and trackers answer with nothing. */
+/**
+ * Ad blocking, in two layers (see ConfigBuilder.filterRules): AdGuard DNS answers every
+ * lookup the core handles, so ads and trackers resolve to nothing, and the core's own
+ * ad list blocks connections to them by name, for apps that find addresses elsewhere.
+ */
 enum class AdBlockMode(val dohUrl: String) {
     OFF(""),
 
     /** Ads, trackers and phishing. */
     STANDARD("https://dns.adguard-dns.com/dns-query"),
 
-    /** The same plus adult sites and safe search. */
-    FAMILY("https://family.adguard-dns.com/dns-query")
+    /** The same plus adult sites (also blocked by name) and safe search (DNS only). */
+    FAMILY("https://family.adguard-dns.com/dns-query"),
+
+    /**
+     * Standard's AdGuard DNS, plus Volta's strict list: cookie/consent banners,
+     * personalisation and A/B testing (see AdBlockLists.STRICT). Stored by name, so it
+     * comes last and the names before it never change.
+     */
+    STRICT("https://dns.adguard-dns.com/dns-query")
 }
 
 enum class VpnConnectionState {
@@ -316,7 +327,14 @@ data class PingResult(
     val latencyMs: Long,
     val success: Boolean,
     val message: String = "",
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    /**
+     * Not a round trip through the node but a judgement from outside: an OpenFlux
+     * server that isn't running, whose carriers were reached (see PingEngine). It says
+     * whether the node can work and roughly how fast; the node's smoothed figure is
+     * left to real round trips.
+     */
+    val estimate: Boolean = false
 )
 
 data class SiteProbeResult(

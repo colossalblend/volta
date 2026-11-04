@@ -55,6 +55,7 @@ import com.ars3nb.volta.core.parser.ConfigParser
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.desktop.VoltaController
 import com.ars3nb.volta.desktop.VoltaUiState
+import com.ars3nb.volta.core.vpn.ConfigBuilder
 import com.ars3nb.volta.desktop.core.WindowsCompat
 import com.ars3nb.volta.desktop.i18n.Strings
 import com.ars3nb.volta.desktop.ui.LocalStrings
@@ -208,7 +209,8 @@ private fun androidOnlyProtocol(text: String, kind: Kind): String? {
             else -> emptyList()
         }
     }.getOrDefault(emptyList()).map(WindowsCompat::adapt)
-    if (servers.isEmpty() || !servers.all(WindowsCompat::needsAndroidHelper)) return null
+    // Only when this build lacks the helper they need (see ProxyHelper, OpenFluxRunner).
+    if (servers.isEmpty() || !servers.all { WindowsCompat.needsHelper(it) && ConfigBuilder.dialProblem(it) != null }) return null
     return servers.first().protocol.label
 }
 

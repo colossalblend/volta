@@ -872,8 +872,8 @@ class VoltaController(
         }.map { ServerClassifier.classify(WindowsCompat.adapt(it)) }
         if (parsed.isEmpty()) return 0
         // Nothing here this app can open: say so instead of filling the list with dead rows.
-        if (parsed.all(WindowsCompat::needsAndroidHelper)) {
-            error(I18n.s.errNotOnWindows(parsed.first().protocol.label))
+        if (parsed.all { WindowsCompat.needsHelper(it) && ConfigBuilder.dialProblem(it) != null }) {
+            error(ConfigBuilder.dialProblem(parsed.first()) ?: I18n.s.errNotOnWindows(parsed.first().protocol.label))
         }
         val ids = store.newIds(parsed.size)
         store.update { d ->
