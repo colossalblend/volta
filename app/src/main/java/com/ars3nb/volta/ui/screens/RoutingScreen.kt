@@ -99,14 +99,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ars3nb.volta.R
+import com.ars3nb.volta.core.routing.HappRoutingParser
 import com.ars3nb.volta.core.routing.Presets
 import com.ars3nb.volta.core.routing.RoutingEngine
+import com.ars3nb.volta.core.routing.RoutingNames
 import com.ars3nb.volta.core.routing.RoutingResolver
 import com.ars3nb.volta.core.routing.SitePreset
 import com.ars3nb.volta.data.model.AdBlockMode
@@ -171,10 +176,10 @@ fun RoutingScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
             topBar = {
                 TopAppBar(
                     colors = barColors(),
-                    title = { Text("Маршруты", fontWeight = FontWeight.SemiBold) },
+                    title = { Text(stringResource(R.string.routing_title), fontWeight = FontWeight.SemiBold) },
                     actions = {
                         IconButton(onClick = { showNew = true }) {
-                            Icon(Icons.Rounded.Add, "Новый профиль")
+                            Icon(Icons.Rounded.Add, stringResource(R.string.routing_new_profile))
                         }
                     }
                 )
@@ -205,7 +210,7 @@ fun RoutingScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
                     }
                 }
 
-                item(key = "filters-title") { SectionHeader("Фильтры", Modifier.animateItem()) }
+                item(key = "filters-title") { SectionHeader(stringResource(R.string.routing_filters), Modifier.animateItem()) }
                 item(key = "filters") {
                     FiltersCard(
                         adBlock = adBlock,
@@ -216,7 +221,7 @@ fun RoutingScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
                     )
                 }
 
-                item(key = "apps-title") { SectionHeader("Приложения", Modifier.animateItem()) }
+                item(key = "apps-title") { SectionHeader(stringResource(R.string.routing_apps), Modifier.animateItem()) }
                 item(key = "apps") {
                     SplitTunnelCard(
                         mode = perAppMode,
@@ -228,8 +233,8 @@ fun RoutingScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
 
                 item(key = "profiles-title") {
                     Column(Modifier.animateItem()) {
-                        SectionHeader("Профили")
-                        Hint("Профиль решает, какие сайты идут через VPN, какие напрямую, а какие блокируются.")
+                        SectionHeader(stringResource(R.string.routing_profiles))
+                        Hint(stringResource(R.string.routing_profiles_hint))
                     }
                 }
                 items(shareable, key = { "profile-${it.id}" }) { p ->
@@ -250,8 +255,8 @@ fun RoutingScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
                 if (private.isNotEmpty()) {
                     item(key = "private-title") {
                         Column(Modifier.animateItem()) {
-                            SectionHeader("Из подписок")
-                            Hint("Работают только для своей подписки. Чтобы взять такие правила себе, сделайте копию.")
+                            SectionHeader(stringResource(R.string.routing_from_subscriptions))
+                            Hint(stringResource(R.string.routing_from_subscriptions_hint))
                         }
                     }
                     items(private, key = { "private-${it.id}" }) { p ->
@@ -274,8 +279,13 @@ fun RoutingScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
                 if (state.subscriptions.isNotEmpty()) {
                     item(key = "subs-title") {
                         Column(Modifier.animateItem()) {
-                            SectionHeader("Подписки")
-                            Hint("Какой профиль использует каждая подписка. «По умолчанию» значит выбранный выше.")
+                            SectionHeader(stringResource(R.string.routing_subscriptions))
+                            Hint(
+                                stringResource(
+                                    R.string.routing_subscriptions_hint,
+                                    stringResource(R.string.routing_default)
+                                )
+                            )
                         }
                     }
                     item(key = "subs") {
@@ -297,9 +307,9 @@ fun RoutingScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
 
     if (showNew) {
         NameDialog(
-            title = "Новый профиль",
+            title = stringResource(R.string.routing_new_profile),
             initial = "",
-            confirm = "Создать",
+            confirm = stringResource(R.string.routing_create),
             onDismiss = { showNew = false },
             onConfirm = { name ->
                 vm.createRoutingProfile(name)
@@ -309,9 +319,9 @@ fun RoutingScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
     }
     renaming?.let { p ->
         NameDialog(
-            title = "Переименовать",
+            title = stringResource(R.string.routing_rename),
             initial = p.name,
-            confirm = "Сохранить",
+            confirm = stringResource(R.string.routing_save),
             onDismiss = { renaming = null },
             onConfirm = { name ->
                 vm.renameRoutingProfile(p.id, name)
@@ -322,15 +332,17 @@ fun RoutingScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
     deleting?.let { p ->
         AlertDialog(
             onDismissRequest = { deleting = null },
-            title = { Text("Удалить «${p.name}»?") },
-            text = { Text("Подписки, которые его использовали, перейдут на профиль по умолчанию.") },
+            title = { Text(stringResource(R.string.routing_delete_title, shownProfileName(p))) },
+            text = { Text(stringResource(R.string.routing_delete_text)) },
             confirmButton = {
                 TextButton(onClick = {
                     vm.deleteRoutingProfile(p)
                     deleting = null
-                }) { Text("Удалить", color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.routing_delete), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Отмена") } }
+            dismissButton = {
+                TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.routing_cancel)) }
+            }
         )
     }
 }
@@ -352,11 +364,11 @@ internal fun PendingBanner(onApply: () -> Unit, modifier: Modifier = Modifier) {
             Icon(Icons.Rounded.Refresh, null, tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.width(12.dp))
             Text(
-                "Изменения заработают после переподключения",
+                stringResource(R.string.routing_pending),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f)
             )
-            TextButton(onClick = onApply) { Text("Применить") }
+            TextButton(onClick = onApply) { Text(stringResource(R.string.routing_apply)) }
         }
     }
 }
@@ -393,13 +405,13 @@ private fun ActiveProfileHero(
     ) {
         Column(Modifier.padding(18.dp)) {
             Text(
-                "Работает сейчас",
+                stringResource(R.string.routing_active_now),
                 style = MaterialTheme.typography.labelMedium,
                 color = palette.good
             )
             Spacer(Modifier.height(4.dp))
             AnimatedContent(
-                targetState = profile.name,
+                targetState = shownProfileName(profile),
                 transitionSpec = {
                     (slideInVertically { it / 2 } + fadeIn()) togetherWith
                         (slideOutVertically { -it / 2 } + fadeOut())
@@ -416,7 +428,7 @@ private fun ActiveProfileHero(
             }
             if (profile.description.isNotBlank()) {
                 Text(
-                    profile.description,
+                    RoutingNames.profileDescription(profile)?.let { stringResource(it) } ?: profile.description,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -427,7 +439,7 @@ private fun ActiveProfileHero(
             FilledTonalButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Rounded.Edit, null, Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Изменить правила")
+                Text(stringResource(R.string.routing_edit_rules))
             }
         }
     }
@@ -459,7 +471,7 @@ private fun RouteSummary(mix: RuleMix) {
             }
         }
         StatusPill(
-            "Остальное через VPN",
+            stringResource(R.string.routing_rest_via_vpn),
             outboundColor(RouteOutbound.PROXY),
             icon = Icons.Rounded.VpnLock
         )
@@ -481,8 +493,8 @@ private fun FiltersCard(
             icon = Icons.Rounded.Shield,
             tint = palette.good,
             on = adBlock != AdBlockMode.OFF,
-            title = "Блокировка рекламы",
-            subtitle = "Фильтр AdGuard убирает рекламу и трекеры во всех приложениях",
+            title = stringResource(R.string.routing_adblock_title),
+            subtitle = stringResource(R.string.routing_adblock_subtitle),
             onToggle = { onAdBlock(if (it) AdBlockMode.STANDARD else AdBlockMode.OFF) }
         )
         AnimatedVisibility(
@@ -495,22 +507,19 @@ private fun FiltersCard(
                     FilterChip(
                         selected = adBlock == AdBlockMode.STANDARD,
                         onClick = { onAdBlock(AdBlockMode.STANDARD) },
-                        label = { Text("Реклама и трекеры") }
+                        label = { Text(stringResource(R.string.routing_adblock_standard)) }
                     )
                     FilterChip(
                         selected = adBlock == AdBlockMode.FAMILY,
                         onClick = { onAdBlock(AdBlockMode.FAMILY) },
-                        label = { Text("Семейный") }
+                        label = { Text(stringResource(R.string.routing_adblock_family)) }
                     )
                 }
                 Hint(
-                    if (adBlock == AdBlockMode.FAMILY) {
-                        "Ещё скрывает сайты для взрослых и включает безопасный поиск."
-                    } else {
-                        "Если в «Частном DNS» в настройках Android указан свой сервер, выключите его " +
-                            "или выберите автоматический режим, так рекламы уберётся больше. " +
-                            "Рекламу внутри YouTube фильтр не убирает."
-                    }
+                    stringResource(
+                        if (adBlock == AdBlockMode.FAMILY) R.string.routing_adblock_family_hint
+                        else R.string.routing_adblock_standard_hint
+                    )
                 )
             }
         }
@@ -522,8 +531,8 @@ private fun FiltersCard(
             icon = Icons.Rounded.SwapVert,
             tint = palette.fair,
             on = blockTorrents,
-            title = "Блокировать торренты",
-            subtitle = "Многие серверы банят за раздачи, а напрямую их видит провайдер",
+            title = stringResource(R.string.routing_torrents_title),
+            subtitle = stringResource(R.string.routing_torrents_subtitle),
             onToggle = onBlockTorrents
         )
     }
@@ -583,15 +592,17 @@ private fun SplitTunnelCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val title = when (mode) {
-        PerAppMode.OFF -> "Все приложения через VPN"
-        PerAppMode.INCLUDE -> "Только выбранные через VPN"
-        PerAppMode.EXCLUDE -> "Выбранные идут мимо VPN"
-    }
+    val title = stringResource(
+        when (mode) {
+            PerAppMode.OFF -> R.string.routing_split_off
+            PerAppMode.INCLUDE -> R.string.routing_split_include
+            PerAppMode.EXCLUDE -> R.string.routing_split_exclude
+        }
+    )
     val subtitle = when {
-        mode == PerAppMode.OFF -> "Банки и Госуслуги можно пустить мимо VPN, чтобы они не ругались"
-        packages.isEmpty() -> "Список пуст, поэтому пока VPN работает для всех"
-        else -> appCount(packages.size)
+        mode == PerAppMode.OFF -> stringResource(R.string.routing_split_off_hint)
+        packages.isEmpty() -> stringResource(R.string.routing_split_empty)
+        else -> pluralStringResource(R.plurals.routing_apps_count, packages.size, packages.size)
     }
     VoltaCard(modifier = modifier, onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -606,7 +617,7 @@ private fun SplitTunnelCard(
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Раздельное туннелирование", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.routing_split_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 AnimatedContent(targetState = title, label = "splitTitle") { Hint(it) }
                 Hint(subtitle)
             }
@@ -689,24 +700,19 @@ private fun ProfileTile(
             }
             Column(Modifier.weight(1f)) {
                 Text(
-                    profile.name,
+                    shownProfileName(profile),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                val kind = when {
+                    ownerName != null -> stringResource(R.string.routing_profile_owner, ownerName)
+                    profile.isBuiltIn -> stringResource(R.string.routing_profile_builtin)
+                    else -> stringResource(R.string.routing_profile_custom)
+                }
                 Text(
-                    buildString {
-                        append(
-                            when {
-                                ownerName != null -> "Подписка «$ownerName»"
-                                profile.isBuiltIn -> "Встроенный"
-                                else -> "Свой"
-                            }
-                        )
-                        append(" · ")
-                        append(ruleCount(mix.total))
-                    },
+                    kind + " · " + ruleCount(mix.total),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -714,28 +720,30 @@ private fun ProfileTile(
                 )
             }
             Box {
-                IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "Ещё") }
+                IconButton(onClick = { menu = true }) {
+                    Icon(Icons.Rounded.MoreVert, stringResource(R.string.routing_more))
+                }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(
-                        text = { Text("Изменить правила") },
+                        text = { Text(stringResource(R.string.routing_edit_rules)) },
                         leadingIcon = { Icon(Icons.Rounded.Edit, null) },
                         onClick = { menu = false; onEdit() }
                     )
                     if (onRename != null && !profile.isBuiltIn) {
                         DropdownMenuItem(
-                            text = { Text("Переименовать") },
+                            text = { Text(stringResource(R.string.routing_rename)) },
                             leadingIcon = { Icon(Icons.Rounded.Edit, null) },
                             onClick = { menu = false; onRename() }
                         )
                     }
                     DropdownMenuItem(
-                        text = { Text("Сделать копию") },
+                        text = { Text(stringResource(R.string.routing_make_copy)) },
                         leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) },
                         onClick = { menu = false; onCopy() }
                     )
                     if (onDelete != null && !profile.isBuiltIn) {
                         DropdownMenuItem(
-                            text = { Text("Удалить", color = MaterialTheme.colorScheme.error) },
+                            text = { Text(stringResource(R.string.routing_delete), color = MaterialTheme.colorScheme.error) },
                             leadingIcon = {
                                 Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error)
                             },
@@ -755,10 +763,12 @@ private fun ProfileTile(
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Правила провайдера", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.routing_provider_rules), style = MaterialTheme.typography.labelLarge)
                     Hint(
-                        if (profile.useProviderRules) "Применяются как есть"
-                        else "Работают только ваши изменения"
+                        stringResource(
+                            if (profile.useProviderRules) R.string.routing_provider_rules_on
+                            else R.string.routing_provider_rules_off
+                        )
                     )
                 }
                 Switch(checked = profile.useProviderRules, onCheckedChange = onToggleProviderRules)
@@ -793,9 +803,10 @@ private fun SubscriptionRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                val inUse = effective?.let { shownProfileName(it) }
+                    ?: stringResource(R.string.routing_sub_builtin_rules)
                 Text(
-                    (if (sub.routingProfileId == 0L) "По умолчанию: " else "") +
-                        (effective?.name ?: "встроенные правила"),
+                    if (sub.routingProfileId == 0L) stringResource(R.string.routing_sub_default, inUse) else inUse,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -803,21 +814,24 @@ private fun SubscriptionRow(
                 )
                 if (sub.providerRoutingJson.isNotBlank()) {
                     Spacer(Modifier.height(4.dp))
-                    StatusPill("Сервис прислал свои правила", palette.good)
+                    StatusPill(stringResource(R.string.routing_sub_sent_rules), palette.good)
                 }
             }
-            Icon(Icons.Rounded.ExpandMore, "Выбрать профиль")
+            Icon(Icons.Rounded.ExpandMore, stringResource(R.string.routing_choose_profile))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
-                text = { Text("По умолчанию") },
+                text = { Text(stringResource(R.string.routing_default)) },
                 leadingIcon = { RadioButton(selected = sub.routingProfileId == 0L, onClick = null) },
                 onClick = { expanded = false; onBind(0L) }
             )
             choices.forEach { profile ->
                 DropdownMenuItem(
                     text = {
-                        Text(profile.name + if (!profile.isShareable) " · своей подписки" else "")
+                        Text(
+                            if (profile.isShareable) shownProfileName(profile)
+                            else stringResource(R.string.routing_own_subscription, shownProfileName(profile))
+                        )
                     },
                     leadingIcon = {
                         RadioButton(selected = sub.routingProfileId == profile.id, onClick = null)
@@ -845,7 +859,7 @@ private fun NameDialog(
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Название") },
+                label = { Text(stringResource(R.string.routing_name)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -855,7 +869,7 @@ private fun NameDialog(
                 Text(confirm)
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.routing_cancel)) } }
     )
 }
 
@@ -894,7 +908,7 @@ private fun RuleEditorPage(
                 colors = barColors(),
                 title = {
                     Column {
-                        Text(profile.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(shownProfileName(profile), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(
                             ruleCount(rules.size),
                             style = MaterialTheme.typography.labelMedium,
@@ -903,10 +917,14 @@ private fun RuleEditorPage(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Готово") }
+                    IconButton(onClick = onClose) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.routing_done))
+                    }
                 },
                 actions = {
-                    IconButton(onClick = { showJson = true }) { Icon(Icons.Rounded.Code, "Импорт и экспорт правил") }
+                    IconButton(onClick = { showJson = true }) {
+                        Icon(Icons.Rounded.Code, stringResource(R.string.routing_import_export))
+                    }
                 }
             )
         }
@@ -936,11 +954,11 @@ private fun RuleEditorPage(
                 )
             }
             item(key = "rules-title") {
-                SectionHeader("Правила") {
+                SectionHeader(stringResource(R.string.routing_rules)) {
                     TextButton(onClick = {
                         val rule = RoutingRuleDto(
                             id = UUID.randomUUID().toString(),
-                            name = "Новое правило",
+                            name = RoutingNames.NEW_RULE,
                             outbound = RouteOutbound.PROXY,
                             source = "user"
                         )
@@ -949,17 +967,17 @@ private fun RuleEditorPage(
                     }) {
                         Icon(Icons.Rounded.Add, null, Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Пустое")
+                        Text(stringResource(R.string.routing_empty_rule))
                     }
                 }
             }
             item(key = "rules-hint") {
-                Hint("Проверяются сверху вниз: первое подходящее правило решает, куда пойдёт трафик. Всё остальное идёт через VPN.")
+                Hint(stringResource(R.string.routing_rules_hint))
             }
             if (rules.isEmpty()) {
                 item(key = "empty") {
                     Text(
-                        "Пока ни одного правила: весь трафик идёт через VPN. Добавьте сайт выше или выберите готовый список.",
+                        stringResource(R.string.routing_rules_empty),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 12.dp).animateItem()
@@ -1010,7 +1028,8 @@ private fun RuleEditorPage(
 
 /**
  * Quick-added sites gather in one rule per direction ("Свои сайты через VPN" and so on)
- * instead of a new card for every domain.
+ * instead of a new card for every domain. The rule is found by its stored name, which is
+ * why that stays the same in every language (see [RoutingNames]).
  */
 private fun addEntry(
     rules: List<RoutingRuleDto>,
@@ -1018,9 +1037,9 @@ private fun addEntry(
     outbound: RouteOutbound
 ): List<RoutingRuleDto> {
     val name = when (outbound) {
-        RouteOutbound.PROXY -> "Свои сайты через VPN"
-        RouteOutbound.DIRECT -> "Свои сайты напрямую"
-        RouteOutbound.BLOCK -> "Заблокированные сайты"
+        RouteOutbound.PROXY -> RoutingNames.MY_SITES_VPN
+        RouteOutbound.DIRECT -> RoutingNames.MY_SITES_DIRECT
+        RouteOutbound.BLOCK -> RoutingNames.BLOCKED_SITES
     }
     val index = rules.indexOfFirst { it.name == name && it.source == "user" }
     val base = if (index >= 0) rules[index] else RoutingRuleDto(
@@ -1059,12 +1078,12 @@ private fun QuickAddCard(onAdd: (Presets.Entry, RouteOutbound) -> Unit) {
     }
 
     val support = when {
-        error -> "Не похоже на адрес сайта"
-        lastAdded != null -> "Добавлено: $lastAdded"
+        error -> stringResource(R.string.routing_not_a_site)
+        lastAdded != null -> stringResource(R.string.routing_added, lastAdded.orEmpty())
         else -> null
     }
     VoltaCard {
-        Text("Добавить сайт", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.routing_add_site), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = text,
@@ -1072,13 +1091,13 @@ private fun QuickAddCard(onAdd: (Presets.Entry, RouteOutbound) -> Unit) {
                 text = it
                 error = false
             },
-            placeholder = { Text("youtube.com или ссылка") },
+            placeholder = { Text(stringResource(R.string.routing_add_site_placeholder)) },
             singleLine = true,
             isError = error,
             supportingText = support?.let { line -> { Text(line) } },
             trailingIcon = {
                 IconButton(onClick = { submit() }, enabled = text.isNotBlank()) {
-                    Icon(Icons.Rounded.Add, "Добавить")
+                    Icon(Icons.Rounded.Add, stringResource(R.string.routing_add))
                 }
             },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -1115,8 +1134,8 @@ private fun OutboundPicker(selected: RouteOutbound, onSelect: (RouteOutbound) ->
 @Composable
 private fun PresetsCard(rules: List<RoutingRuleDto>, onToggle: (SitePreset) -> Unit) {
     VoltaCard {
-        Text("Готовые списки", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-        Hint("Нажмите, чтобы добавить или убрать. Куда направлять, можно поменять в самом правиле.")
+        Text(stringResource(R.string.routing_presets), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Hint(stringResource(R.string.routing_presets_hint))
         Spacer(Modifier.height(8.dp))
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1128,7 +1147,7 @@ private fun PresetsCard(rules: List<RoutingRuleDto>, onToggle: (SitePreset) -> U
                 FilterChip(
                     selected = added != null,
                     onClick = { onToggle(preset) },
-                    label = { Text(preset.title) },
+                    label = { Text(preset.label?.let { stringResource(it) } ?: preset.title) },
                     leadingIcon = {
                         AnimatedContent(targetState = added != null, label = "presetIcon") { on ->
                             Icon(
@@ -1182,7 +1201,7 @@ private fun RuleCard(
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    rule.name.ifBlank { "Правило" },
+                    shownRuleName(rule.name).ifBlank { stringResource(R.string.routing_rule_untitled) },
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
@@ -1216,35 +1235,38 @@ private fun RuleCard(
             ) {
                 if (rule.source != "user") {
                     Hint(
-                        if (rule.source == "provider") "Правило прислала подписка. Его можно выключить, а изменения сохранятся до следующего обновления."
-                        else "Встроенное правило."
+                        stringResource(
+                            if (rule.source == "provider") R.string.routing_rule_from_provider
+                            else R.string.routing_rule_builtin
+                        )
                     )
                 }
+                // Shows a name Volta gave in the app's language; typing makes it the user's own.
                 OutlinedTextField(
-                    value = rule.name,
+                    value = shownRuleName(rule.name),
                     onValueChange = { onUpdate(rule.copy(name = it)) },
-                    label = { Text("Название") },
+                    label = { Text(stringResource(R.string.routing_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutboundPicker(selected = rule.outbound, onSelect = { onUpdate(rule.copy(outbound = it)) })
-                Text("Сайты и адреса", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.routing_sites_and_addresses), style = MaterialTheme.typography.labelLarge)
                 EntryField(
                     rule = rule,
                     onChange = onUpdate
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { onMove(-1) }, enabled = canMoveUp) {
-                        Icon(Icons.Rounded.KeyboardArrowUp, "Выше")
+                        Icon(Icons.Rounded.KeyboardArrowUp, stringResource(R.string.routing_move_up))
                     }
                     IconButton(onClick = { onMove(1) }, enabled = canMoveDown) {
-                        Icon(Icons.Rounded.KeyboardArrowDown, "Ниже")
+                        Icon(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.routing_move_down))
                     }
                     Spacer(Modifier.weight(1f))
                     TextButton(onClick = onDelete) {
                         Icon(Icons.Rounded.Delete, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
                         Spacer(Modifier.width(6.dp))
-                        Text("Удалить", color = MaterialTheme.colorScheme.error)
+                        Text(stringResource(R.string.routing_delete), color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
@@ -1285,7 +1307,7 @@ private fun EntryField(rule: RoutingRuleDto, onChange: (RoutingRuleDto) -> Unit)
                     trailingIcon = {
                         Icon(
                             Icons.Rounded.Close,
-                            "Убрать",
+                            stringResource(R.string.routing_remove),
                             Modifier.size(16.dp).clickable {
                                 onChange(
                                     if (isDomain) rule.copy(domains = rule.domains - value)
@@ -1298,7 +1320,10 @@ private fun EntryField(rule: RoutingRuleDto, onChange: (RoutingRuleDto) -> Unit)
             }
             if (entries.size > 12) {
                 TextButton(onClick = { showAll = !showAll }) {
-                    Text(if (showAll) "Свернуть" else "Ещё ${entries.size - 12}")
+                    Text(
+                        if (showAll) stringResource(R.string.routing_collapse)
+                        else pluralStringResource(R.plurals.routing_more_count, entries.size - 12, entries.size - 12)
+                    )
                 }
             }
         }
@@ -1306,10 +1331,12 @@ private fun EntryField(rule: RoutingRuleDto, onChange: (RoutingRuleDto) -> Unit)
     OutlinedTextField(
         value = text,
         onValueChange = { text = it },
-        placeholder = { Text("Добавить сайт или адрес") },
+        placeholder = { Text(stringResource(R.string.routing_add_site_or_address)) },
         singleLine = true,
         trailingIcon = {
-            IconButton(onClick = { add() }, enabled = text.isNotBlank()) { Icon(Icons.Rounded.Add, "Добавить") }
+            IconButton(onClick = { add() }, enabled = text.isNotBlank()) {
+                Icon(Icons.Rounded.Add, stringResource(R.string.routing_add))
+            }
         },
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { add() }),
@@ -1324,11 +1351,12 @@ private fun JsonDialog(
     onApply: (List<RoutingRuleDto>) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     var text by remember { mutableStateOf(initial) }
     var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Импорт и экспорт правил") },
+        title = { Text(stringResource(R.string.routing_import_export)) },
         text = {
             OutlinedTextField(
                 value = text,
@@ -1347,10 +1375,14 @@ private fun JsonDialog(
             Button(onClick = {
                 runCatching { onImport(text) }
                     .onSuccess(onApply)
-                    .onFailure { error = it.message ?: "Текст правил повреждён, скопируйте его заново" }
-            }) { Text("Применить") }
+                    .onFailure { e ->
+                        error = (e as? RoutingEngine.RulesFormatException)?.let { context.getString(it.reason) }
+                            ?: e.message
+                            ?: context.getString(R.string.routing_json_broken)
+                    }
+            }) { Text(stringResource(R.string.routing_apply)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Закрыть") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.routing_close)) } }
     )
 }
 
@@ -1372,41 +1404,51 @@ private fun outboundIcon(o: RouteOutbound): ImageVector = when (o) {
     RouteOutbound.BLOCK -> Icons.Rounded.Block
 }
 
+@Composable
 private fun summary(rule: RoutingRuleDto): String {
     val parts = buildList {
         if (rule.domains.isNotEmpty()) add(siteCount(rule.domains.size))
         if (rule.ips.isNotEmpty()) add(addressCount(rule.ips.size))
         // Ports and protocols come only from providers; they are not spelled out here.
-        if (rule.ports.isNotBlank() || rule.protocol.isNotEmpty()) add("и особые условия")
+        if (rule.ports.isNotBlank() || rule.protocol.isNotEmpty()) add(stringResource(R.string.routing_special_conditions))
     }
-    return if (parts.isEmpty()) "без условий" else parts.joinToString(", ")
+    return if (parts.isEmpty()) stringResource(R.string.routing_no_conditions) else parts.joinToString(", ")
 }
 
+@Composable
 private fun shortLabel(o: RouteOutbound) = when (o) {
     RouteOutbound.PROXY -> "VPN"
-    RouteOutbound.DIRECT -> "Напрямую"
-    RouteOutbound.BLOCK -> "Блок"
+    RouteOutbound.DIRECT -> stringResource(R.string.routing_direct)
+    RouteOutbound.BLOCK -> stringResource(R.string.routing_short_block)
 }
 
-private fun actionLabel(o: RouteOutbound) = when (o) {
-    RouteOutbound.PROXY -> "Через VPN"
-    RouteOutbound.DIRECT -> "Напрямую"
-    RouteOutbound.BLOCK -> "Блокировать"
-}
-
-private fun plural(n: Int, one: String, few: String, many: String): String {
-    val mod100 = n % 100
-    val mod10 = n % 10
-    val word = when {
-        mod100 in 11..14 -> many
-        mod10 == 1 -> one
-        mod10 in 2..4 -> few
-        else -> many
+@Composable
+private fun actionLabel(o: RouteOutbound) = stringResource(
+    when (o) {
+        RouteOutbound.PROXY -> R.string.routing_action_vpn
+        RouteOutbound.DIRECT -> R.string.routing_direct
+        RouteOutbound.BLOCK -> R.string.routing_action_block
     }
-    return "$n $word"
-}
+)
 
-private fun addressCount(n: Int) = plural(n, "адрес", "адреса", "адресов")
-private fun ruleCount(n: Int) = plural(n, "правило", "правила", "правил")
-private fun siteCount(n: Int) = plural(n, "сайт", "сайта", "сайтов")
-private fun appCount(n: Int) = plural(n, "приложение", "приложения", "приложений")
+@Composable
+private fun addressCount(n: Int) = pluralStringResource(R.plurals.routing_addresses_count, n, n)
+
+@Composable
+private fun ruleCount(n: Int) = pluralStringResource(R.plurals.routing_rules_count, n, n)
+
+@Composable
+private fun siteCount(n: Int) = pluralStringResource(R.plurals.routing_sites_count, n, n)
+
+/** A set's name as shown: Volta's own names in the app's language, the user's as typed. */
+@Composable
+private fun shownProfileName(profile: RoutingProfileEntity): String =
+    RoutingNames.profileName(profile)?.let { stringResource(it) } ?: profile.name
+
+/** A rule's name as shown, likewise. */
+@Composable
+private fun shownRuleName(name: String): String {
+    val shown = RoutingNames.rule(name)
+    return if (shown == null) name
+    else stringResource(shown.first) + if (shown.second) HappRoutingParser.IP_SUFFIX else ""
+}

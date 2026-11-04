@@ -81,11 +81,13 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.apps.AppPresets
 import com.ars3nb.volta.core.apps.AppRoute
 import com.ars3nb.volta.data.model.PerAppMode
@@ -158,7 +160,7 @@ fun PerAppScreen(vm: VoltaViewModel, onBack: () -> Unit) {
                 colors = barColors(),
                 title = {
                     Column {
-                        Text("Раздельное туннелирование", fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(stringResource(R.string.routing_split_title), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         AnimatedContent(targetState = mode, label = "perAppSubtitle") { m ->
                             Text(
                                 modeTitle(m),
@@ -170,13 +172,13 @@ fun PerAppScreen(vm: VoltaViewModel, onBack: () -> Unit) {
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Назад")
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.routing_back))
                     }
                 },
                 actions = {
                     if (selected.isNotEmpty()) {
                         TextButton(onClick = { vm.setPerAppPackages(emptySet()) }) {
-                            Text("Сбросить")
+                            Text(stringResource(R.string.routing_reset))
                         }
                     }
                 }
@@ -201,10 +203,10 @@ fun PerAppScreen(vm: VoltaViewModel, onBack: () -> Unit) {
                     AnimatedContent(targetState = mode, label = "perAppHint") { m -> Hint(modeHint(m)) }
                     if (mode != PerAppMode.OFF && selected.isEmpty()) {
                         Spacer(Modifier.height(6.dp))
-                        Hint("Список пуст, поэтому пока VPN работает для всех приложений.")
+                        Hint(stringResource(R.string.routing_apps_empty_list))
                     } else if (mode == PerAppMode.OFF && selected.isNotEmpty()) {
                         Spacer(Modifier.height(6.dp))
-                        Hint("Выбранные приложения сохранены, но сейчас не действуют.")
+                        Hint(stringResource(R.string.routing_apps_saved_inactive))
                     }
                 }
             }
@@ -226,19 +228,19 @@ fun PerAppScreen(vm: VoltaViewModel, onBack: () -> Unit) {
                 VoltaSearchField(
                     value = query,
                     onValueChange = { query = it },
-                    placeholder = "Поиск приложения",
+                    placeholder = stringResource(R.string.routing_search_app),
                     modifier = Modifier.padding(top = 6.dp)
                 )
             }
             item(key = "system") {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     VoltaChip(
-                        text = "Системные",
+                        text = stringResource(R.string.routing_system_apps),
                         selected = showSystem,
                         onClick = { showSystem = !showSystem }
                     )
                     Spacer(Modifier.size(8.dp))
-                    Hint("Выбрано: ${selected.size}")
+                    Hint(stringResource(R.string.routing_selected_count, selected.size))
                 }
             }
 
@@ -252,15 +254,15 @@ fun PerAppScreen(vm: VoltaViewModel, onBack: () -> Unit) {
                 item(key = "empty") {
                     EmptyState(
                         icon = Icons.Rounded.Apps,
-                        title = "Ничего не нашлось",
-                        subtitle = "Измените запрос или включите показ системных приложений."
+                        title = stringResource(R.string.routing_nothing_found),
+                        subtitle = stringResource(R.string.routing_nothing_found_hint)
                     )
                 }
             }
 
             if (chosen.isNotEmpty()) {
                 item(key = "chosen-title") {
-                    SectionHeader("Выбрано: ${chosen.size}", Modifier.animateItem())
+                    SectionHeader(stringResource(R.string.routing_selected_count, chosen.size), Modifier.animateItem())
                 }
                 items(chosen, key = { it.packageName }) { app ->
                     AppRow(
@@ -274,7 +276,10 @@ fun PerAppScreen(vm: VoltaViewModel, onBack: () -> Unit) {
             }
             if (rest.isNotEmpty()) {
                 item(key = "rest-title") {
-                    SectionHeader(if (chosen.isEmpty()) "Приложения" else "Остальные", Modifier.animateItem())
+                    SectionHeader(
+                        stringResource(if (chosen.isEmpty()) R.string.routing_apps else R.string.routing_others),
+                        Modifier.animateItem()
+                    )
                 }
                 items(rest, key = { it.packageName }) { app ->
                     AppRow(
@@ -373,11 +378,11 @@ private fun AppPresetsSection(
             .filter { (_, present) -> present.isNotEmpty() }
     }
     Column(modifier.fillMaxWidth()) {
-        SectionHeader("Готовые наборы")
+        SectionHeader(stringResource(R.string.routing_app_presets))
         Hint(presetsHint(route))
         Spacer(Modifier.height(10.dp))
         if (sets.isEmpty()) {
-            Hint("На телефоне нет приложений из этих наборов.")
+            Hint(stringResource(R.string.routing_app_presets_none))
         } else {
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -387,7 +392,7 @@ private fun AppPresetsSection(
                     val everything = sets.flatMap { it.second }
                     val on = everything.all { it in selected }
                     VoltaChip(
-                        text = "Все наборы · ${everything.size}",
+                        text = stringResource(R.string.routing_app_presets_all, everything.size),
                         selected = on,
                         onClick = { onToggle(everything, !on) },
                         accent = accent,
@@ -397,7 +402,7 @@ private fun AppPresetsSection(
                 sets.forEach { (preset, present) ->
                     val on = present.all { it in selected }
                     VoltaChip(
-                        text = "${preset.title} · ${present.size}",
+                        text = "${stringResource(preset.title)} · ${present.size}",
                         selected = on,
                         onClick = { onToggle(present, !on) },
                         accent = accent,
@@ -519,34 +524,46 @@ private fun modeIcon(mode: PerAppMode): ImageVector = when (mode) {
     PerAppMode.EXCLUDE -> Icons.Rounded.Public
 }
 
-private fun modeLabel(mode: PerAppMode) = when (mode) {
-    PerAppMode.OFF -> "Все"
-    PerAppMode.INCLUDE -> "Только эти"
-    PerAppMode.EXCLUDE -> "Кроме этих"
-}
+@Composable
+private fun modeLabel(mode: PerAppMode) = stringResource(
+    when (mode) {
+        PerAppMode.OFF -> R.string.routing_mode_all
+        PerAppMode.INCLUDE -> R.string.routing_mode_only
+        PerAppMode.EXCLUDE -> R.string.routing_mode_except
+    }
+)
 
-private fun modeTitle(mode: PerAppMode) = when (mode) {
-    PerAppMode.OFF -> "Все приложения через VPN"
-    PerAppMode.INCLUDE -> "Через VPN только выбранные"
-    PerAppMode.EXCLUDE -> "Выбранные идут мимо VPN"
-}
+@Composable
+private fun modeTitle(mode: PerAppMode) = stringResource(
+    when (mode) {
+        PerAppMode.OFF -> R.string.routing_split_off
+        PerAppMode.INCLUDE -> R.string.routing_mode_include_title
+        PerAppMode.EXCLUDE -> R.string.routing_split_exclude
+    }
+)
 
-private fun modeHint(mode: PerAppMode) = when (mode) {
-    PerAppMode.OFF -> "Туннель охватывает все приложения. Отметьте приложения ниже, и они пойдут мимо VPN."
-    PerAppMode.INCLUDE -> "Через VPN пойдут только отмеченные приложения, остальные напрямую."
-    PerAppMode.EXCLUDE -> "Отмеченные приложения пойдут напрямую, остальные через VPN."
-}
+@Composable
+private fun modeHint(mode: PerAppMode) = stringResource(
+    when (mode) {
+        PerAppMode.OFF -> R.string.routing_mode_off_hint
+        PerAppMode.INCLUDE -> R.string.routing_mode_include_hint
+        PerAppMode.EXCLUDE -> R.string.routing_mode_exclude_hint
+    }
+)
 
-private fun presetsHint(route: AppRoute) = when (route) {
-    AppRoute.DIRECT -> "Российские сервисы часто не открываются через зарубежный сервер. " +
-        "Набор отмечает все такие приложения на телефоне, и они пойдут напрямую."
-    AppRoute.VPN -> "Зарубежные сервисы, которые без VPN не работают. " +
-        "Набор отмечает все такие приложения на телефоне, и через VPN пойдут только они."
-}
+@Composable
+private fun presetsHint(route: AppRoute) = stringResource(
+    when (route) {
+        AppRoute.DIRECT -> R.string.routing_presets_direct_hint
+        AppRoute.VPN -> R.string.routing_presets_vpn_hint
+    }
+)
 
+/** Names the mode where the other sets are, in the words of the mode switch itself. */
+@Composable
 private fun otherSetsHint(route: AppRoute) = when (route) {
-    AppRoute.DIRECT -> "Наборы зарубежных сервисов, например YouTube и нейросетей, есть в режиме «Только эти»."
-    AppRoute.VPN -> "Наборы российских сервисов, например банков и Госуслуг, есть в режиме «Кроме этих»."
+    AppRoute.DIRECT -> stringResource(R.string.routing_other_sets_direct, modeLabel(PerAppMode.INCLUDE))
+    AppRoute.VPN -> stringResource(R.string.routing_other_sets_vpn, modeLabel(PerAppMode.EXCLUDE))
 }
 
 private fun presetIcon(id: String): ImageVector = when (id) {
@@ -570,8 +587,11 @@ private fun presetIcon(id: String): ImageVector = when (id) {
     else -> Icons.Rounded.Apps
 }
 
-private fun routeLabel(mode: PerAppMode) = when (mode) {
-    PerAppMode.OFF -> "Выбрано, режим выключен"
-    PerAppMode.INCLUDE -> "Через VPN"
-    PerAppMode.EXCLUDE -> "Мимо VPN"
-}
+@Composable
+private fun routeLabel(mode: PerAppMode) = stringResource(
+    when (mode) {
+        PerAppMode.OFF -> R.string.routing_route_selected_off
+        PerAppMode.INCLUDE -> R.string.routing_action_vpn
+        PerAppMode.EXCLUDE -> R.string.routing_route_bypass
+    }
+)

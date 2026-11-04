@@ -39,7 +39,7 @@ class AppPresetsTest {
     fun setsAreWellFormed() {
         assertEquals(AppPresets.all.size, AppPresets.all.map { it.id }.toSet().size)
         AppPresets.all.forEach { preset ->
-            assertTrue(preset.id, preset.title.isNotBlank())
+            assertTrue(preset.id, preset.title != 0)
             assertTrue(preset.id, preset.packages.size >= 3)
         }
         AppRoute.entries.forEach { route ->

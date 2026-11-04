@@ -1,5 +1,8 @@
 package com.ars3nb.volta.core.vpn
 
+import androidx.annotation.StringRes
+import com.ars3nb.volta.R
+import com.ars3nb.volta.VoltaApp
 import com.ars3nb.volta.core.helper.ProxyHelper
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.parser.ConfigParser
@@ -61,8 +64,26 @@ object ConfigBuilder {
 
     private const val DNS_OUT_TAG = "dns-out"
 
-    /** Raised when the installed core physically cannot dial a node. */
-    class UnsupportedProtocolException(message: String) : IllegalStateException(message)
+    /**
+     * Raised when the installed core physically cannot dial a node. [reason] is a string
+     * resource and [args] what goes into it; the text is looked up when it is read, so it
+     * comes in the app's language wherever it is shown (the server list, a failed connect).
+     */
+    class UnsupportedProtocolException(@param:StringRes val reason: Int, vararg val args: Any) :
+        IllegalStateException() {
+        override val message: String get() = describe(reason, args)
+    }
+
+    /** Raised when a node's link lacks something it needs; [reason] as above. */
+    class IncompleteServerException(@param:StringRes val reason: Int, vararg val args: Any) :
+        IllegalArgumentException() {
+        override val message: String get() = describe(reason, args)
+    }
+
+    /** The words for a reason; in unit tests, where there is no app, only its number. */
+    private fun describe(@StringRes reason: Int, args: Array<out Any>): String =
+        runCatching { VoltaApp.instance.getString(reason, *args) }
+            .getOrElse { "#$reason ${args.joinToString()}".trim() }
 
     fun build(
         server: ServerEntity,
@@ -219,7 +240,7 @@ object ConfigBuilder {
         outboundFor(server, PROXY_TAG)
         null
     } catch (e: Exception) {
-        e.message ?: "Сервер не поддерживается"
+        e.message ?: describe(R.string.routing_dial_unsupported, emptyArray())
     }
 
     /**
@@ -364,7 +385,9 @@ object ConfigBuilder {
             }
 
             ProtocolType.SHADOWSOCKS -> {
-                require(server.encryption.isNotBlank()) { "В ссылке на сервер не хватает данных" }
+                if (server.encryption.isBlank()) {
+                    throw IncompleteServerException(R.string.routing_dial_link_incomplete)
+                }
                 ob.addProperty("protocol", "shadowsocks")
                 ob.add("settings", JsonObject().apply {
                     add("servers", JsonArray().apply {
@@ -441,7 +464,7 @@ object ConfigBuilder {
 
             ProtocolType.OPENFLUX -> {
                 if (!OpenFluxRunner.available) {
-                    throw UnsupportedProtocolException("OpenFlux не входит в эту сборку Volta")
+                    throw UnsupportedProtocolException(R.string.routing_dial_not_in_build, "OpenFlux")
                 }
                 // The OpenFlux helper carries the traffic; the core only hands it over
                 // to the helper's local SOCKS5 port (see OpenFluxRunner).
@@ -450,23 +473,19 @@ object ConfigBuilder {
 
             ProtocolType.AMNEZIAWG, ProtocolType.HYSTERIA -> {
                 val spec = helperSpec(server)
-                    ?: throw UnsupportedProtocolException("«${server.remark}»: у сервера нет настроек, обновите подписку")
+                    ?: throw UnsupportedProtocolException(R.string.routing_dial_no_settings, server.remark)
                 if (!ProxyHelper.available) {
                     throw UnsupportedProtocolException(
-                        "${server.protocol.label} не входит в эту сборку Volta"
+                        R.string.routing_dial_not_in_build, server.protocol.label
                     )
                 }
-                if (spec.kind == ProxyHelper.Spec.HYSTERIA) hysteriaV1Problem(server)?.let {
-                    throw UnsupportedProtocolException(it)
-                }
+                if (spec.kind == ProxyHelper.Spec.HYSTERIA) hysteriaV1Problem(server)?.let { throw it }
                 // The voltaproxy helper carries the traffic (see ProxyHelper).
                 return localSocks(ob, ProxyHelper.PORT)
             }
 
             ProtocolType.RAW_JSON, ProtocolType.UNKNOWN ->
-                throw UnsupportedProtocolException(
-                    "«${server.remark}»: Volta не знает такой тип сервера"
-                )
+                throw UnsupportedProtocolException(R.string.routing_dial_unknown_type, server.remark)
         }
         ob.add("streamSettings", buildStreamSettings(server))
         val mux = muxSettings(server)
@@ -503,10 +522,10 @@ object ConfigBuilder {
     }
 
     /** Hysteria v1 over its fake-TCP or "wechat-video" modes: not in the helper. */
-    private fun hysteriaV1Problem(server: ServerEntity): String? {
+    private fun hysteriaV1Problem(server: ServerEntity): UnsupportedProtocolException? {
         val mode = ConfigParser.extra(server.extraJson, "protocol").lowercase()
         return if (mode.isNotBlank() && mode != "udp") {
-            "«${server.remark}»: этот вариант сервера Volta пока не поддерживает"
+            UnsupportedProtocolException(R.string.routing_dial_variant_unsupported, server.remark)
         } else null
     }
 
@@ -529,7 +548,7 @@ object ConfigBuilder {
         server: ServerEntity,
         userBlock: (JsonObject) -> Unit
     ): JsonObject {
-        require(server.uuid.isNotBlank()) { "«${server.remark}»: в ссылке нет ключа доступа" }
+        if (server.uuid.isBlank()) throw IncompleteServerException(R.string.routing_dial_no_key, server.remark)
         return JsonObject().apply {
             add("vnext", JsonArray().apply {
                 add(JsonObject().apply {
@@ -553,8 +572,8 @@ object ConfigBuilder {
             .ifBlank { server.uuid }
         val publicKey = ConfigParser.extra(extras, "publicKey", "publickey", "peerPublicKey")
             .ifBlank { server.pbk }
-        require(secret.isNotBlank() && publicKey.isNotBlank()) {
-            "«${server.remark}»: в настройках сервера нет ключей"
+        if (secret.isBlank() || publicKey.isBlank()) {
+            throw IncompleteServerException(R.string.routing_dial_no_keys, server.remark)
         }
         val localAddresses = ConfigParser.extra(extras, "address", "localAddress", "ip")
             .ifBlank { "172.16.0.2/32" }
@@ -610,9 +629,7 @@ object ConfigBuilder {
         val protocol = outbound.get("protocol")?.takeIf { it.isJsonPrimitive }
             ?.asString?.lowercase().orEmpty()
         if (protocol !in DIALABLE_PROTOCOLS) {
-            throw UnsupportedProtocolException(
-                "«${server.remark}»: такой тип сервера Volta пока не поддерживает"
-            )
+            throw UnsupportedProtocolException(R.string.routing_dial_type_unsupported, server.remark)
         }
         return dropRetired(outbound)
     }
@@ -682,24 +699,22 @@ object ConfigBuilder {
             "h2", "http" -> "xhttp"
             "splithttp" -> "xhttp"
             "mkcp" -> "kcp"
-            "quic" -> throw UnsupportedProtocolException(
-                "«${server.remark}»: сервер использует устаревший способ подключения, попросите у сервиса новую ссылку"
-            )
+            "quic" -> throw UnsupportedProtocolException(R.string.routing_dial_outdated, server.remark)
             else -> network
         }
         // An unrecognised security value makes the core reject the whole config, taking
         // every other node down with it — refuse this one node loudly instead.
         if (security !in setOf("none", "tls", "reality")) {
-            throw UnsupportedProtocolException(
-                "«${server.remark}»: сервер использует шифрование, которое Volta не поддерживает"
-            )
+            throw UnsupportedProtocolException(R.string.routing_dial_encryption, server.remark)
         }
         stream.addProperty("network", effectiveNetwork)
         stream.addProperty("security", security)
 
         when (security) {
             "reality" -> {
-                require(server.pbk.isNotBlank()) { "«${server.remark}»: в ссылке не хватает ключа, попросите у сервиса новую" }
+                if (server.pbk.isBlank()) {
+                    throw IncompleteServerException(R.string.routing_dial_missing_key, server.remark)
+                }
                 stream.add("realitySettings", JsonObject().apply {
                     addProperty(
                         "serverName",
@@ -834,7 +849,7 @@ object ConfigBuilder {
     private fun hysteriaSettings(server: ServerEntity): JsonObject {
         val extras = server.extraJson
         val auth = server.uuid.ifBlank { ConfigParser.extra(extras, "auth", "password") }
-        require(auth.isNotBlank()) { "«${server.remark}»: в ссылке нет пароля" }
+        if (auth.isBlank()) throw IncompleteServerException(R.string.routing_dial_no_password, server.remark)
         return JsonObject().apply {
             addProperty("version", 2)
             addProperty("auth", auth)
