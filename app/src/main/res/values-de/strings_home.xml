@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_no_vpn_consent">Auf diesem Gerät gibt es kein VPN-Berechtigungsfenster, Volta kann sich nicht einschalten</string>
+    <string name="home_connect_cancelled">Verbindung abgebrochen</string>
+    <string name="home_vpn_permission_needed">VPN-Berechtigung erforderlich</string>
+    <string name="home_connect_failed">Verbindung fehlgeschlagen</string>
+    <string name="home_ping_estimate">Antwort: etwa %1$s ms</string>
+    <string name="home_ping_estimate_channel">Antwort: etwa %1$s ms · Kanal: %2$s</string>
+    <string name="home_ping_result">Antwort: %1$s ms</string>
+    <string name="home_server_not_responding">Der Server antwortet nicht</string>
+    <string name="home_ping_failed">Server konnte nicht geprüft werden</string>
+    <plurals name="home_servers_answered">
+        <item quantity="one">%d Server hat geantwortet</item>
+        <item quantity="other">%d Server haben geantwortet</item>
+    </plurals>
+    <string name="home_check_failed">Prüfung fehlgeschlagen</string>
+    <string name="home_pick_failed">Server konnte nicht ausgewählt werden</string>
+    <string name="home_servers_added">Server hinzugefügt: %1$d</string>
+    <string name="home_subscription_added">Abo hinzugefügt</string>
+    <string name="home_subscription_add_failed">Abo konnte nicht hinzugefügt werden</string>
+    <string name="home_updated_servers">Aktualisiert: %1$s</string>
+    <plurals name="home_servers_count">
+        <item quantity="one">%d Server</item>
+        <item quantity="other">%d Server</item>
+    </plurals>
+    <string name="home_subscription_updated">Abo aktualisiert</string>
+    <string name="home_update_failed">Aktualisierung fehlgeschlagen</string>
+    <string name="home_subscription_edit_failed">Abo konnte nicht geändert werden</string>
+    <string name="home_subscriptions_updated">Abos aktualisiert: %1$d</string>
+    <string name="home_subscriptions_update_failed">Abos konnten nicht aktualisiert werden</string>
+    <string name="home_subscription_added_count">Abo hinzugefügt: %1$s</string>
+    <string name="home_subscription_added_hidden">Abo hinzugefügt: %1$s · Link verborgen</string>
+    <string name="home_import_no_server_data">Die Datei enthält keine Serverdaten</string>
+    <string name="home_server_added">Server hinzugefügt</string>
+    <string name="home_servers_imported">Server importiert: %1$d</string>
+    <string name="home_import_nothing_usable">Hier sind keine Server, die Volta öffnen kann</string>
+    <string name="home_link_unsupported">Dieses Linkformat wird nicht unterstützt</string>
+    <string name="home_server_added_named">Hinzugefügt: %1$s</string>
+    <string name="home_import_failed">Import fehlgeschlagen</string>
+    <string name="home_rules_applied">Regeln auf das Abo angewendet</string>
+    <string name="home_rules_apply_failed">Regeln konnten nicht angewendet werden</string>
+    <string name="home_routing_own_description">Eigener Regelsatz</string>
+    <string name="home_routing_created">Regelsatz erstellt</string>
+    <string name="home_routing_copy_created">Bearbeitbare Kopie erstellt</string>
+    <string name="home_backup_saved">Datei gespeichert. Auf dem neuen Handy: Einstellungen → Aus Datei wiederherstellen</string>
+    <string name="home_backup_save_failed">Datei konnte nicht gespeichert werden. Versuchen Sie einen anderen Ordner</string>
+    <string name="home_backup_nothing">In der Datei gibt es nichts wiederherzustellen</string>
+    <string name="home_backup_open_failed">Datei konnte nicht geöffnet werden</string>
+    <string name="home_backup_restore_failed">Wiederherstellung aus der Datei fehlgeschlagen</string>
+    <string name="home_phase_preparing">Verbindung wird vorbereitet…</string>
+    <string name="home_phase_probing">Netz wird geprüft: Home oder LTE…</string>
+    <string name="home_phase_measuring">Schnellster Server wird gesucht…</string>
+    <string name="home_phase_refining">Beste Server werden verglichen…</string>
+    <string name="home_err_paste_link">Fügen Sie einen Abo-Link ein</string>
+    <string name="home_err_https_only">Verwenden Sie einen sicheren HTTPS-Abo-Link</string>
+    <string name="home_default_subscription_name">Abo</string>
+    <string name="home_err_only_unsupported">Das Abo enthält nur Server, die Volta noch nicht öffnen kann.</string>
+    <string name="home_err_no_servers_in_subscription">Im Abo wurde kein einziger Server gefunden. Prüfen Sie den Link oder schreiben Sie dem Support Ihres VPN-Dienstes.</string>
+    <string name="home_routing_rules_name">%1$s · Regeln</string>
+    <string name="home_routing_from_subscription">Aus dem Abo „%1$s“</string>
+    <string name="home_err_subscription_not_found">Abo nicht gefunden</string>
+    <string name="home_err_server_not_found">Server nicht gefunden</string>
+    <string name="home_err_rules_not_found">Regelsatz nicht gefunden</string>
+    <string name="home_err_rules_of_other_subscription">Diese Regeln gehören zu einem anderen Abo und können hier nicht angewendet werden</string>
+    <string name="home_routing_copy_name">%1$s · Kopie</string>
+    <string name="home_routing_copy_description">Eigene Regeln auf Basis von „%1$s“</string>
+    <string name="home_err_build_cannot_connect">Dieser Volta-Build kann keine Verbindung herstellen. Installieren Sie die Vollversion</string>
+    <string name="home_err_add_first">Fügen Sie zuerst ein Abo oder einen Server hinzu</string>
+    <string name="home_err_no_servers_available">Keine Server zum Verbinden verfügbar</string>
+    <string name="home_err_subscription_update_failed">Abo konnte nicht aktualisiert werden</string>
+    <string name="home_err_subscription_unreachable">Keine Verbindung zum Abo-Server. Prüfen Sie Ihre Internetverbindung.</string>
+    <string name="home_err_subscription_timeout">Der Abo-Server hat nicht rechtzeitig geantwortet.</string>
+    <string name="home_err_subscription_tls">Es konnte keine sichere Verbindung zum Abo-Server hergestellt werden.</string>
+    <string name="home_err_subscription_download">Abo konnte nicht geladen werden. Prüfen Sie Ihre Internetverbindung.</string>
+    <string name="home_err_subscription_http">Der Dienst hat das Abo nicht geliefert (Fehler %1$s). Prüfen Sie den Link oder die Laufzeit des Abos.</string>
+    <string name="home_err_subscription_empty">Das Abo ist leer</string>
+    <string name="home_lte_missing">Ihre Abos haben keine LTE-Server: Volta arbeitet als Auto Home und prüft keine Websites</string>
+    <string name="home_tap_disc">Tippen Sie auf die Scheibe, um das VPN einzuschalten</string>
+    <string name="home_add_subscription_first">Fügen Sie zuerst ein Abo hinzu</string>
+    <string name="home_regime_no_network">kein Netz</string>
+    <string name="home_add_description">Abo oder Server hinzufügen</string>
+    <string name="home_server_none">Kein Server ausgewählt</string>
+    <string name="home_server_fastest">Der schnellste</string>
+    <string name="home_server_open_list">Öffnen Sie die Liste, um einen zu wählen</string>
+    <string name="home_server_on_connect">Ich finde einen beim Verbinden</string>
+    <string name="home_first_subscription">Fügen Sie den Link Ihres VPN-Dienstes ein. Die Server werden auf die Gruppen Home und LTE verteilt, die übrigen Einstellungen kommen von selbst.</string>
+    <string name="home_add_subscription">Abo hinzufügen</string>
+    <string name="home_routing">Routing: %1$s</string>
+    <string name="home_routing_builtin">integriert</string>
+    <string name="home_no_servers">Keine Server</string>
+    <string name="home_simple_no_servers_hint">Bitten Sie einen Angehörigen, im normalen Modus ein Abo hinzuzufügen</string>
+    <string name="home_simple_turning_on">Wird eingeschaltet…</string>
+    <string name="home_simple_wait">Warten Sie ein paar Sekunden</string>
+    <string name="home_simple_turning_off">Wird ausgeschaltet…</string>
+    <string name="home_simple_on">VPN ist an</string>
+    <string name="home_simple_tap_to_turn_off">Zum Ausschalten tippen Sie auf die Taste</string>
+    <string name="home_simple_failed">Hat nicht geklappt</string>
+    <string name="home_simple_tap_again">Tippen Sie noch einmal auf die Taste</string>
+    <string name="home_simple_off">VPN ist aus</string>
+    <string name="home_simple_tap_to_turn_on">Zum Einschalten tippen Sie auf die Taste</string>
+    <string name="home_simple_normal_mode">Normaler Modus</string>
+    <string name="home_simple_leave_title">Einfachen Modus verlassen?</string>
+    <string name="home_simple_leave_text">Alle Einstellungen und Serverlisten werden angezeigt. Zurück geht es in den Einstellungen.</string>
+    <string name="home_simple_leave">Verlassen</string>
+    <string name="home_simple_stay">Bleiben</string>
+    <string name="home_disc_busy">Verbindung wird hergestellt, zum Abbrechen tippen</string>
+    <string name="home_disc_turn_off">VPN ausschalten</string>
+    <string name="home_disc_turn_on">VPN einschalten</string>
+    <string name="home_state_connecting">Verbinde</string>
+    <string name="home_state_protected">Geschützt</string>
+    <string name="home_state_disconnecting">Trenne</string>
+    <string name="home_state_failed">Fehlgeschlagen</string>
+    <string name="home_state_off">Aus</string>
+    <string name="home_caption_opening_tunnel">Tunnel wird aufgebaut…</string>
+    <string name="home_caption_closing_tunnel">Tunnel wird geschlossen…</string>
+    <string name="home_caption_try_again">Tippen Sie auf die Scheibe, um es erneut zu versuchen</string>
+    <string name="home_caption_tap_cancels">Noch ein Tippen bricht ab</string>
+    <string name="home_mode_manual_short">Eigener</string>
+    <string name="home_group_empty">leer</string>
+    <string name="home_mode_auto_home_lte">Auto Home+LTE</string>
+    <string name="home_mode_auto_home">Auto Home</string>
+    <string name="home_mode_auto_lte">Auto LTE</string>
+    <string name="home_mode_own_server">Eigener Server</string>
+    <string name="home_group_no_servers">keine Server</string>
+    <string name="home_manual_chosen">Server von Hand gewählt</string>
+    <string name="home_manual_server">Eigener Server: %1$s</string>
+    <string name="home_manual_back_to_auto">Zurück zu Auto</string>
+    <string name="home_speed">Geschwindigkeit</string>
+    <string name="home_session_totals">In dieser Sitzung %1$s empfangen, %2$s gesendet</string>
+    <string name="home_pick_title">Warum dieser Server</string>
+    <string name="home_pick_counts">Geprüft: %1$d, geantwortet: %2$d</string>
+    <string name="home_pick_chosen">Ausgewählt</string>
+    <string name="home_traffic_title">Datenverkehr über VPN</string>
+    <string name="home_traffic_period">letzte 2 Wochen</string>
+    <string name="home_traffic_today">Heute</string>
+    <string name="home_traffic_note">Gezählt wird nur, was über den VPN-Server lief</string>
+    <string name="home_traffic_bars_description">Datenverkehr pro Tag über zwei Wochen</string>
+    <string-array name="home_months">
+        <item>Januar</item>
+        <item>Februar</item>
+        <item>März</item>
+        <item>April</item>
+        <item>Mai</item>
+        <item>Juni</item>
+        <item>Juli</item>
+        <item>August</item>
+        <item>September</item>
+        <item>Oktober</item>
+        <item>November</item>
+        <item>Dezember</item>
+    </string-array>
+    <string name="home_clear">Löschen</string>
+    <string name="home_unit_b">%1$s B</string>
+    <string name="home_unit_kb">%1$s KB</string>
+    <string name="home_unit_mb">%1$s MB</string>
+    <string name="home_unit_gb">%1$s GB</string>
+    <string name="home_unit_tb">%1$s TB</string>
+    <string name="home_unit_b_per_s">%1$s B/s</string>
+    <string name="home_unit_kb_per_s">%1$s KB/s</string>
+    <string name="home_unit_mb_per_s">%1$s MB/s</string>
+    <string name="home_unit_ms">%1$s ms</string>
+    <string name="home_expiry_expired">abgelaufen</string>
+    <string name="home_expiry_today">läuft heute ab</string>
+    <plurals name="home_expiry_days_left">
+        <item quantity="one">noch %d Tag</item>
+        <item quantity="other">noch %d Tage</item>
+    </plurals>
+    <string name="home_tab_home">Start</string>
+    <string name="home_tab_servers">Server</string>
+    <string name="home_tab_subscriptions">Abos</string>
+    <string name="home_tab_routing">Routing</string>
+    <string name="home_tab_settings">Einstellungen</string>
+    <string name="home_notification_channel_description">Volta-VPN-Status</string>
+    <string name="home_tile_no_lte">Ihre Abos haben keine LTE-Server</string>
+    <string name="home_tile_connect_failed">Verbindung fehlgeschlagen</string>
+    <string name="home_tile_picking">Server wird gewählt…</string>
+    <string name="home_tile_on">An</string>
+    <string name="home_tile_off_as_home">Aus · wie Home</string>
+    <string name="home_tile_on_description">Volta %1$s: %2$s. Zum Ausschalten tippen</string>
+    <string name="home_tile_off_description">Volta %1$s ist aus. Zum Einschalten tippen</string>
+    <string name="home_tile_added">Die Kachel „%1$s“ wurde zu den Schnelleinstellungen hinzugefügt</string>
+    <string name="home_tile_already_added">Die Kachel „%1$s“ ist schon in den Schnelleinstellungen</string>
+    <string name="home_tile_not_added">Die Kachel wurde nicht hinzugefügt</string>
+    <string name="home_tile_manual_hint">Öffnen Sie die Schnelleinstellungen, tippen Sie auf den Stift und ziehen Sie die Volta-Kacheln ins Feld</string>
+    <string name="home_tile_vpn_on_description">VPN ist an: %1$s. Zum Ausschalten tippen</string>
+    <string name="home_tile_vpn_off_description">VPN ist aus. Zum Einschalten tippen: %1$s</string>
+    <string name="home_disconnecting">Wird getrennt…</string>
+    <string name="home_widget_error">Fehler</string>
+    <string name="home_vpn_network_changed">Das Netz hat gewechselt und der Server antwortet nicht</string>
+    <string name="home_vpn_openflux_failed">OpenFlux hat sich nicht verbunden</string>
+    <string name="home_vpn_auto_start_failed">VPN konnte nicht automatisch gestartet werden</string>
+    <string name="home_vpn_no_interface">VPN-Schnittstelle konnte nicht erstellt werden. Entziehen Sie dem anderen VPN die Berechtigung und versuchen Sie es erneut.</string>
+    <string name="home_vpn_not_started">Das VPN ist nicht gestartet, versuchen Sie es noch einmal</string>
+    <string name="home_vpn_connection_dropped">Die Verbindung ist abgebrochen</string>
+    <string name="home_vpn_server_stopped_answering">Der Server antwortet nicht mehr</string>
+    <string name="home_vpn_core_stopped">Der VPN-Kern wurde beendet</string>
+    <string name="home_tun_unavailable">Das VPN konnte auf diesem Handy nicht gestartet werden</string>
+    <string name="home_tun_refused">Android hat den VPN-Start nicht erlaubt</string>
+    <string name="home_tun_bridge_failed">Die TUN-Brücke konnte nicht gestartet werden</string>
+    <string name="home_core_geodata_failed">Die Routing-Daten konnten nicht vorbereitet werden (%1$s). Installieren Sie die App neu.</string>
+    <string name="home_core_no_controller">libv2ray hat keinen CoreController geliefert</string>
+    <string name="home_core_not_started">Der VPN-Kern ist nicht gestartet</string>
+    <string name="home_helper_not_in_build">%1$s ist in diesem Volta-Build nicht enthalten</string>
+    <string name="home_helper_launch_failed">%1$s ist nicht gestartet: %2$s</string>
+    <string name="home_helper_no_answer">hat nicht rechtzeitig geantwortet</string>
+    <string name="home_helper_stopped">wurde beendet</string>
+</resources>

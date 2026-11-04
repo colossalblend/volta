@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_no_vpn_consent">此设备没有 VPN 授权窗口，Volta 无法开启</string>
+    <string name="home_connect_cancelled">已取消连接</string>
+    <string name="home_vpn_permission_needed">需要 VPN 权限</string>
+    <string name="home_connect_failed">无法连接</string>
+    <string name="home_ping_estimate">响应：约 %1$s 毫秒</string>
+    <string name="home_ping_estimate_channel">响应：约 %1$s 毫秒 · 通道：%2$s</string>
+    <string name="home_ping_result">响应：%1$s 毫秒</string>
+    <string name="home_server_not_responding">服务器无响应</string>
+    <string name="home_ping_failed">无法检查服务器</string>
+    <plurals name="home_servers_answered">
+        <item quantity="other">%d 个服务器有响应</item>
+    </plurals>
+    <string name="home_check_failed">检查失败</string>
+    <string name="home_pick_failed">无法选出服务器</string>
+    <string name="home_servers_added">已添加服务器：%1$d</string>
+    <string name="home_subscription_added">已添加订阅</string>
+    <string name="home_subscription_add_failed">无法添加订阅</string>
+    <string name="home_updated_servers">已更新：%1$s</string>
+    <plurals name="home_servers_count">
+        <item quantity="other">%d 个服务器</item>
+    </plurals>
+    <string name="home_subscription_updated">订阅已更新</string>
+    <string name="home_update_failed">无法更新</string>
+    <string name="home_subscription_edit_failed">无法修改订阅</string>
+    <string name="home_subscriptions_updated">已更新订阅：%1$d</string>
+    <string name="home_subscriptions_update_failed">无法更新订阅</string>
+    <string name="home_subscription_added_count">已添加订阅：%1$s</string>
+    <string name="home_subscription_added_hidden">已添加订阅：%1$s · 链接已隐藏</string>
+    <string name="home_import_no_server_data">文件中没有服务器数据</string>
+    <string name="home_server_added">已添加服务器</string>
+    <string name="home_servers_imported">已导入服务器：%1$d</string>
+    <string name="home_import_nothing_usable">这里没有 Volta 能打开的服务器</string>
+    <string name="home_link_unsupported">不支持此链接格式</string>
+    <string name="home_server_added_named">已添加：%1$s</string>
+    <string name="home_import_failed">无法导入</string>
+    <string name="home_rules_applied">规则已应用到订阅</string>
+    <string name="home_rules_apply_failed">无法应用规则</string>
+    <string name="home_routing_own_description">自定义规则集</string>
+    <string name="home_routing_created">规则集已创建</string>
+    <string name="home_routing_copy_created">已创建可编辑的副本</string>
+    <string name="home_backup_saved">文件已保存。在新手机上：设置 → 从文件恢复</string>
+    <string name="home_backup_save_failed">无法保存文件。请换一个文件夹试试</string>
+    <string name="home_backup_nothing">文件中没有可恢复的内容</string>
+    <string name="home_backup_open_failed">无法打开文件</string>
+    <string name="home_backup_restore_failed">无法从文件恢复</string>
+    <string name="home_phase_preparing">正在准备连接…</string>
+    <string name="home_phase_probing">正在检查网络：Home 还是 LTE…</string>
+    <string name="home_phase_measuring">正在寻找最快的服务器…</string>
+    <string name="home_phase_refining">正在比较最佳服务器…</string>
+    <string name="home_err_paste_link">请粘贴订阅链接</string>
+    <string name="home_err_https_only">请使用安全的 HTTPS 订阅链接</string>
+    <string name="home_default_subscription_name">订阅</string>
+    <string name="home_err_only_unsupported">该订阅中只有 Volta 暂时无法打开的服务器。</string>
+    <string name="home_err_no_servers_in_subscription">订阅中没有找到任何服务器。请检查链接，或联系 VPN 服务的客服。</string>
+    <string name="home_routing_rules_name">%1$s · 规则</string>
+    <string name="home_routing_from_subscription">来自订阅“%1$s”</string>
+    <string name="home_err_subscription_not_found">找不到订阅</string>
+    <string name="home_err_server_not_found">找不到服务器</string>
+    <string name="home_err_rules_not_found">找不到规则集</string>
+    <string name="home_err_rules_of_other_subscription">这些规则属于另一个订阅，不能在这里使用</string>
+    <string name="home_routing_copy_name">%1$s · 副本</string>
+    <string name="home_routing_copy_description">基于“%1$s”的自定义规则</string>
+    <string name="home_err_build_cannot_connect">此版本的 Volta 无法连接。请安装完整版</string>
+    <string name="home_err_add_first">请先添加订阅或服务器</string>
+    <string name="home_err_no_servers_available">没有可连接的服务器</string>
+    <string name="home_err_subscription_update_failed">无法更新订阅</string>
+    <string name="home_err_subscription_unreachable">无法连接订阅服务器。请检查网络。</string>
+    <string name="home_err_subscription_timeout">订阅服务器未及时响应。</string>
+    <string name="home_err_subscription_tls">无法与订阅服务器建立安全连接。</string>
+    <string name="home_err_subscription_download">无法下载订阅。请检查网络。</string>
+    <string name="home_err_subscription_http">服务未返回订阅（错误 %1$s）。请检查链接或订阅是否到期。</string>
+    <string name="home_err_subscription_empty">订阅为空</string>
+    <string name="home_lte_missing">订阅中没有 LTE 服务器：Volta 以自动 Home 模式运行，不检查网站</string>
+    <string name="home_tap_disc">点按圆盘开启 VPN</string>
+    <string name="home_add_subscription_first">请先添加订阅</string>
+    <string name="home_regime_no_network">无网络</string>
+    <string name="home_add_description">添加订阅或服务器</string>
+    <string name="home_server_none">未选择服务器</string>
+    <string name="home_server_fastest">最快的</string>
+    <string name="home_server_open_list">打开列表进行选择</string>
+    <string name="home_server_on_connect">连接时自动寻找</string>
+    <string name="home_first_subscription">粘贴 VPN 服务提供的链接。服务器会自动分到 Home 和 LTE 组，其余设置也会自动完成。</string>
+    <string name="home_add_subscription">添加订阅</string>
+    <string name="home_routing">路由：%1$s</string>
+    <string name="home_routing_builtin">内置</string>
+    <string name="home_no_servers">没有服务器</string>
+    <string name="home_simple_no_servers_hint">请家人在普通模式下添加订阅</string>
+    <string name="home_simple_turning_on">正在开启…</string>
+    <string name="home_simple_wait">请稍等几秒</string>
+    <string name="home_simple_turning_off">正在关闭…</string>
+    <string name="home_simple_on">VPN 已开启</string>
+    <string name="home_simple_tap_to_turn_off">点按按钮即可关闭</string>
+    <string name="home_simple_failed">没有成功</string>
+    <string name="home_simple_tap_again">请再点按一次按钮</string>
+    <string name="home_simple_off">VPN 已关闭</string>
+    <string name="home_simple_tap_to_turn_on">点按按钮即可开启</string>
+    <string name="home_simple_normal_mode">普通模式</string>
+    <string name="home_simple_leave_title">退出简易模式？</string>
+    <string name="home_simple_leave_text">将显示所有设置和服务器列表。可在“设置”中切换回来。</string>
+    <string name="home_simple_leave">退出</string>
+    <string name="home_simple_stay">留下</string>
+    <string name="home_disc_busy">正在连接，点按可取消</string>
+    <string name="home_disc_turn_off">关闭 VPN</string>
+    <string name="home_disc_turn_on">开启 VPN</string>
+    <string name="home_state_connecting">正在连接</string>
+    <string name="home_state_protected">已保护</string>
+    <string name="home_state_disconnecting">正在断开</string>
+    <string name="home_state_failed">未成功</string>
+    <string name="home_state_off">已关闭</string>
+    <string name="home_caption_opening_tunnel">正在建立隧道…</string>
+    <string name="home_caption_closing_tunnel">正在关闭隧道…</string>
+    <string name="home_caption_try_again">点按圆盘重试</string>
+    <string name="home_caption_tap_cancels">再点按一次即可取消</string>
+    <string name="home_mode_manual_short">自选</string>
+    <string name="home_group_empty">空</string>
+    <string name="home_mode_auto_home_lte">自动 Home+LTE</string>
+    <string name="home_mode_auto_home">自动 Home</string>
+    <string name="home_mode_auto_lte">自动 LTE</string>
+    <string name="home_mode_own_server">自选服务器</string>
+    <string name="home_group_no_servers">无服务器</string>
+    <string name="home_manual_chosen">已手动选择服务器</string>
+    <string name="home_manual_server">自选服务器：%1$s</string>
+    <string name="home_manual_back_to_auto">改回自动</string>
+    <string name="home_speed">速度</string>
+    <string name="home_session_totals">本次会话下载 %1$s，上传 %2$s</string>
+    <string name="home_pick_title">为什么是这个服务器</string>
+    <string name="home_pick_counts">已检查 %1$d 个，%2$d 个有响应</string>
+    <string name="home_pick_chosen">已选择</string>
+    <string name="home_traffic_title">经由 VPN 的流量</string>
+    <string name="home_traffic_period">近 2 周</string>
+    <string name="home_traffic_today">今天</string>
+    <string name="home_traffic_note">只统计经过 VPN 服务器的流量</string>
+    <string name="home_traffic_bars_description">两周内每天的流量</string>
+    <string-array name="home_months">
+        <item>一月</item>
+        <item>二月</item>
+        <item>三月</item>
+        <item>四月</item>
+        <item>五月</item>
+        <item>六月</item>
+        <item>七月</item>
+        <item>八月</item>
+        <item>九月</item>
+        <item>十月</item>
+        <item>十一月</item>
+        <item>十二月</item>
+    </string-array>
+    <string name="home_clear">清除</string>
+    <string name="home_unit_b">%1$s B</string>
+    <string name="home_unit_kb">%1$s KB</string>
+    <string name="home_unit_mb">%1$s MB</string>
+    <string name="home_unit_gb">%1$s GB</string>
+    <string name="home_unit_tb">%1$s TB</string>
+    <string name="home_unit_b_per_s">%1$s B/s</string>
+    <string name="home_unit_kb_per_s">%1$s KB/s</string>
+    <string name="home_unit_mb_per_s">%1$s MB/s</string>
+    <string name="home_unit_ms">%1$s 毫秒</string>
+    <string name="home_expiry_expired">已过期</string>
+    <string name="home_expiry_today">今天到期</string>
+    <plurals name="home_expiry_days_left">
+        <item quantity="other">剩余 %d 天</item>
+    </plurals>
+    <string name="home_tab_home">首页</string>
+    <string name="home_tab_servers">服务器</string>
+    <string name="home_tab_subscriptions">订阅</string>
+    <string name="home_tab_routing">路由</string>
+    <string name="home_tab_settings">设置</string>
+    <string name="home_notification_channel_description">Volta VPN 状态</string>
+    <string name="home_tile_no_lte">订阅中没有 LTE 服务器</string>
+    <string name="home_tile_connect_failed">无法连接</string>
+    <string name="home_tile_picking">正在选择服务器…</string>
+    <string name="home_tile_on">已开启</string>
+    <string name="home_tile_off_as_home">已关闭 · 按 Home</string>
+    <string name="home_tile_on_description">Volta %1$s：%2$s。点按即可关闭</string>
+    <string name="home_tile_off_description">Volta %1$s 已关闭。点按即可开启</string>
+    <string name="home_tile_added">已将“%1$s”图块添加到快捷设置</string>
+    <string name="home_tile_already_added">“%1$s”图块已在快捷设置中</string>
+    <string name="home_tile_not_added">未添加图块</string>
+    <string name="home_tile_manual_hint">打开快捷设置，点按铅笔图标，把 Volta 图块拖到面板上</string>
+    <string name="home_tile_vpn_on_description">VPN 已开启：%1$s。点按即可关闭</string>
+    <string name="home_tile_vpn_off_description">VPN 已关闭。点按即可开启：%1$s</string>
+    <string name="home_disconnecting">正在断开…</string>
+    <string name="home_widget_error">出错</string>
+    <string name="home_vpn_network_changed">网络已切换，但服务器无响应</string>
+    <string name="home_vpn_openflux_failed">OpenFlux 未连接</string>
+    <string name="home_vpn_auto_start_failed">无法自动启动 VPN</string>
+    <string name="home_vpn_no_interface">无法创建 VPN 接口。请撤销其他 VPN 的权限后重试。</string>
+    <string name="home_vpn_not_started">VPN 未能启动，请重试</string>
+    <string name="home_vpn_connection_dropped">连接已中断</string>
+    <string name="home_vpn_server_stopped_answering">服务器不再响应</string>
+    <string name="home_vpn_core_stopped">VPN 内核已停止</string>
+    <string name="home_tun_unavailable">无法在此手机上启动 VPN</string>
+    <string name="home_tun_refused">Android 不允许启动 VPN</string>
+    <string name="home_tun_bridge_failed">无法启动 TUN 桥接</string>
+    <string name="home_core_geodata_failed">无法准备路由数据（%1$s）。请重新安装应用。</string>
+    <string name="home_core_no_controller">libv2ray 未返回 CoreController</string>
+    <string name="home_core_not_started">VPN 内核未能启动</string>
+    <string name="home_helper_not_in_build">此版本的 Volta 不包含 %1$s</string>
+    <string name="home_helper_launch_failed">%1$s 未能启动：%2$s</string>
+    <string name="home_helper_no_answer">未及时响应</string>
+    <string name="home_helper_stopped">已停止</string>
+</resources>

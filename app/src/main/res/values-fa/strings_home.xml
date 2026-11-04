@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_no_vpn_consent">این دستگاه پنجرهٔ اجازهٔ VPN ندارد، Volta نمی‌تواند روشن شود</string>
+    <string name="home_connect_cancelled">اتصال لغو شد</string>
+    <string name="home_vpn_permission_needed">اجازهٔ VPN لازم است</string>
+    <string name="home_connect_failed">اتصال برقرار نشد</string>
+    <string name="home_ping_estimate">پاسخ: حدود %1$s میلی‌ثانیه</string>
+    <string name="home_ping_estimate_channel">پاسخ: حدود %1$s میلی‌ثانیه · کانال: %2$s</string>
+    <string name="home_ping_result">پاسخ: %1$s میلی‌ثانیه</string>
+    <string name="home_server_not_responding">سرور پاسخ نمی‌دهد</string>
+    <string name="home_ping_failed">بررسی سرور ممکن نشد</string>
+    <plurals name="home_servers_answered">
+        <item quantity="one">%d سرور پاسخ داد</item>
+        <item quantity="other">%d سرور پاسخ داد</item>
+    </plurals>
+    <string name="home_check_failed">بررسی ناموفق بود</string>
+    <string name="home_pick_failed">انتخاب سرور ممکن نشد</string>
+    <string name="home_servers_added">سرورهای افزوده‌شده: %1$d</string>
+    <string name="home_subscription_added">اشتراک افزوده شد</string>
+    <string name="home_subscription_add_failed">افزودن اشتراک ممکن نشد</string>
+    <string name="home_updated_servers">به‌روز شد: %1$s</string>
+    <plurals name="home_servers_count">
+        <item quantity="one">%d سرور</item>
+        <item quantity="other">%d سرور</item>
+    </plurals>
+    <string name="home_subscription_updated">اشتراک به‌روز شد</string>
+    <string name="home_update_failed">به‌روزرسانی ممکن نشد</string>
+    <string name="home_subscription_edit_failed">تغییر اشتراک ممکن نشد</string>
+    <string name="home_subscriptions_updated">اشتراک‌های به‌روزشده: %1$d</string>
+    <string name="home_subscriptions_update_failed">به‌روزرسانی اشتراک‌ها ممکن نشد</string>
+    <string name="home_subscription_added_count">اشتراک افزوده شد: %1$s</string>
+    <string name="home_subscription_added_hidden">اشتراک افزوده شد: %1$s · پیوند پنهان است</string>
+    <string name="home_import_no_server_data">فایل هیچ داده‌ای از سرور ندارد</string>
+    <string name="home_server_added">سرور افزوده شد</string>
+    <string name="home_servers_imported">سرورهای واردشده: %1$d</string>
+    <string name="home_import_nothing_usable">اینجا سروری نیست که Volta بتواند باز کند</string>
+    <string name="home_link_unsupported">این قالب پیوند پشتیبانی نمی‌شود</string>
+    <string name="home_server_added_named">افزوده شد: %1$s</string>
+    <string name="home_import_failed">وارد کردن ممکن نشد</string>
+    <string name="home_rules_applied">قوانین روی اشتراک اعمال شد</string>
+    <string name="home_rules_apply_failed">اعمال قوانین ممکن نشد</string>
+    <string name="home_routing_own_description">مجموعه قوانین خودتان</string>
+    <string name="home_routing_created">مجموعه ساخته شد</string>
+    <string name="home_routing_copy_created">یک نسخهٔ قابل ویرایش ساخته شد</string>
+    <string name="home_backup_saved">فایل ذخیره شد. در گوشی جدید: تنظیمات ← بازیابی از فایل</string>
+    <string name="home_backup_save_failed">ذخیرهٔ فایل ممکن نشد. پوشهٔ دیگری را امتحان کنید</string>
+    <string name="home_backup_nothing">در فایل چیزی برای بازیابی نیست</string>
+    <string name="home_backup_open_failed">باز کردن فایل ممکن نشد</string>
+    <string name="home_backup_restore_failed">بازیابی از فایل ممکن نشد</string>
+    <string name="home_phase_preparing">در حال آماده‌سازی اتصال…</string>
+    <string name="home_phase_probing">در حال بررسی شبکه: Home یا LTE…</string>
+    <string name="home_phase_measuring">در حال یافتن سریع‌ترین سرور…</string>
+    <string name="home_phase_refining">در حال مقایسهٔ بهترین سرورها…</string>
+    <string name="home_err_paste_link">پیوند اشتراک را بچسبانید</string>
+    <string name="home_err_https_only">از پیوند امن HTTPS برای اشتراک استفاده کنید</string>
+    <string name="home_default_subscription_name">اشتراک</string>
+    <string name="home_err_only_unsupported">این اشتراک فقط سرورهایی دارد که Volta هنوز نمی‌تواند باز کند.</string>
+    <string name="home_err_no_servers_in_subscription">هیچ سروری در اشتراک پیدا نشد. پیوند را بررسی کنید یا به پشتیبانی سرویس VPN پیام دهید.</string>
+    <string name="home_routing_rules_name">%1$s · قوانین</string>
+    <string name="home_routing_from_subscription">از اشتراک «%1$s»</string>
+    <string name="home_err_subscription_not_found">اشتراک پیدا نشد</string>
+    <string name="home_err_server_not_found">سرور پیدا نشد</string>
+    <string name="home_err_rules_not_found">مجموعه قوانین پیدا نشد</string>
+    <string name="home_err_rules_of_other_subscription">این قوانین متعلق به اشتراک دیگری است و اینجا اعمال نمی‌شود</string>
+    <string name="home_routing_copy_name">%1$s · رونوشت</string>
+    <string name="home_routing_copy_description">قوانین خودتان بر پایهٔ «%1$s»</string>
+    <string name="home_err_build_cannot_connect">این نسخه از Volta نمی‌تواند وصل شود. نسخهٔ کامل را نصب کنید</string>
+    <string name="home_err_add_first">ابتدا یک اشتراک یا سرور اضافه کنید</string>
+    <string name="home_err_no_servers_available">سروری برای اتصال در دسترس نیست</string>
+    <string name="home_err_subscription_update_failed">به‌روزرسانی اشتراک ممکن نشد</string>
+    <string name="home_err_subscription_unreachable">ارتباط با سرور اشتراک برقرار نیست. اینترنت را بررسی کنید.</string>
+    <string name="home_err_subscription_timeout">سرور اشتراک به‌موقع پاسخ نداد.</string>
+    <string name="home_err_subscription_tls">برقراری اتصال امن با سرور اشتراک ممکن نشد.</string>
+    <string name="home_err_subscription_download">بارگیری اشتراک ممکن نشد. اینترنت را بررسی کنید.</string>
+    <string name="home_err_subscription_http">سرویس اشتراک را نفرستاد (خطای %1$s). پیوند یا مهلت اشتراک را بررسی کنید.</string>
+    <string name="home_err_subscription_empty">اشتراک خالی است</string>
+    <string name="home_lte_missing">اشتراک‌ها سرور LTE ندارند: Volta مثل Home خودکار کار می‌کند و سایت‌ها را بررسی نمی‌کند</string>
+    <string name="home_tap_disc">برای روشن کردن VPN روی دیسک بزنید</string>
+    <string name="home_add_subscription_first">ابتدا یک اشتراک اضافه کنید</string>
+    <string name="home_regime_no_network">بدون شبکه</string>
+    <string name="home_add_description">افزودن اشتراک یا سرور</string>
+    <string name="home_server_none">سروری انتخاب نشده</string>
+    <string name="home_server_fastest">سریع‌ترین</string>
+    <string name="home_server_open_list">برای انتخاب، فهرست را باز کنید</string>
+    <string name="home_server_on_connect">هنگام اتصال پیدا می‌کنم</string>
+    <string name="home_first_subscription">پیوندی را که از سرویس VPN گرفته‌اید بچسبانید. سرورها در گروه‌های Home و LTE مرتب می‌شوند و بقیهٔ تنظیمات خودشان می‌آیند.</string>
+    <string name="home_add_subscription">افزودن اشتراک</string>
+    <string name="home_routing">مسیریابی: %1$s</string>
+    <string name="home_routing_builtin">داخلی</string>
+    <string name="home_no_servers">سروری نیست</string>
+    <string name="home_simple_no_servers_hint">از نزدیکانتان بخواهید اشتراک را در حالت عادی اضافه کنند</string>
+    <string name="home_simple_turning_on">در حال روشن شدن…</string>
+    <string name="home_simple_wait">چند ثانیه صبر کنید</string>
+    <string name="home_simple_turning_off">در حال خاموش شدن…</string>
+    <string name="home_simple_on">VPN روشن است</string>
+    <string name="home_simple_tap_to_turn_off">برای خاموش کردن، دکمه را بزنید</string>
+    <string name="home_simple_failed">نشد</string>
+    <string name="home_simple_tap_again">دوباره دکمه را بزنید</string>
+    <string name="home_simple_off">VPN خاموش است</string>
+    <string name="home_simple_tap_to_turn_on">برای روشن کردن، دکمه را بزنید</string>
+    <string name="home_simple_normal_mode">حالت عادی</string>
+    <string name="home_simple_leave_title">از حالت ساده خارج می‌شوید؟</string>
+    <string name="home_simple_leave_text">همهٔ تنظیمات و فهرست سرورها نمایش داده می‌شوند. از تنظیمات می‌توانید برگردید.</string>
+    <string name="home_simple_leave">خروج</string>
+    <string name="home_simple_stay">ماندن</string>
+    <string name="home_disc_busy">در حال اتصال، برای لغو بزنید</string>
+    <string name="home_disc_turn_off">خاموش کردن VPN</string>
+    <string name="home_disc_turn_on">روشن کردن VPN</string>
+    <string name="home_state_connecting">در حال اتصال</string>
+    <string name="home_state_protected">محافظت‌شده</string>
+    <string name="home_state_disconnecting">در حال قطع اتصال</string>
+    <string name="home_state_failed">نشد</string>
+    <string name="home_state_off">خاموش</string>
+    <string name="home_caption_opening_tunnel">در حال برقراری تونل…</string>
+    <string name="home_caption_closing_tunnel">در حال بستن تونل…</string>
+    <string name="home_caption_try_again">برای تلاش دوباره روی دیسک بزنید</string>
+    <string name="home_caption_tap_cancels">یک ضربهٔ دیگر لغو می‌کند</string>
+    <string name="home_mode_manual_short">دستی</string>
+    <string name="home_group_empty">خالی</string>
+    <string name="home_mode_auto_home_lte">Home+LTE خودکار</string>
+    <string name="home_mode_auto_home">Home خودکار</string>
+    <string name="home_mode_auto_lte">LTE خودکار</string>
+    <string name="home_mode_own_server">سرور خودتان</string>
+    <string name="home_group_no_servers">سروری نیست</string>
+    <string name="home_manual_chosen">سرور به‌صورت دستی انتخاب شده</string>
+    <string name="home_manual_server">سرور خودتان: %1$s</string>
+    <string name="home_manual_back_to_auto">بازگشت به خودکار</string>
+    <string name="home_speed">سرعت</string>
+    <string name="home_session_totals">در این نشست %1$s دریافت و %2$s ارسال شد</string>
+    <string name="home_pick_title">چرا این سرور</string>
+    <string name="home_pick_counts">بررسی‌شده: %1$d، پاسخ‌داده: %2$d</string>
+    <string name="home_pick_chosen">انتخاب‌شده</string>
+    <string name="home_traffic_title">ترافیک از طریق VPN</string>
+    <string name="home_traffic_period">۲ هفتهٔ اخیر</string>
+    <string name="home_traffic_today">امروز</string>
+    <string name="home_traffic_note">فقط آنچه از سرور VPN عبور کرده شمرده می‌شود</string>
+    <string name="home_traffic_bars_description">ترافیک روزانه در دو هفته</string>
+    <string-array name="home_months">
+        <item>ژانویه</item>
+        <item>فوریه</item>
+        <item>مارس</item>
+        <item>آوریل</item>
+        <item>مه</item>
+        <item>ژوئن</item>
+        <item>ژوئیه</item>
+        <item>اوت</item>
+        <item>سپتامبر</item>
+        <item>اکتبر</item>
+        <item>نوامبر</item>
+        <item>دسامبر</item>
+    </string-array>
+    <string name="home_clear">پاک کردن</string>
+    <string name="home_unit_b">%1$s بایت</string>
+    <string name="home_unit_kb">%1$s کیلوبایت</string>
+    <string name="home_unit_mb">%1$s مگابایت</string>
+    <string name="home_unit_gb">%1$s گیگابایت</string>
+    <string name="home_unit_tb">%1$s ترابایت</string>
+    <string name="home_unit_b_per_s">%1$s بایت/ث</string>
+    <string name="home_unit_kb_per_s">%1$s کیلوبایت/ث</string>
+    <string name="home_unit_mb_per_s">%1$s مگابایت/ث</string>
+    <string name="home_unit_ms">%1$s میلی‌ثانیه</string>
+    <string name="home_expiry_expired">منقضی شد</string>
+    <string name="home_expiry_today">امروز منقضی می‌شود</string>
+    <plurals name="home_expiry_days_left">
+        <item quantity="one">%d روز مانده</item>
+        <item quantity="other">%d روز مانده</item>
+    </plurals>
+    <string name="home_tab_home">خانه</string>
+    <string name="home_tab_servers">سرورها</string>
+    <string name="home_tab_subscriptions">اشتراک‌ها</string>
+    <string name="home_tab_routing">مسیرها</string>
+    <string name="home_tab_settings">تنظیمات</string>
+    <string name="home_notification_channel_description">وضعیت VPN در Volta</string>
+    <string name="home_tile_no_lte">اشتراک‌ها سرور LTE ندارند</string>
+    <string name="home_tile_connect_failed">اتصال برقرار نشد</string>
+    <string name="home_tile_picking">در حال انتخاب سرور…</string>
+    <string name="home_tile_on">روشن</string>
+    <string name="home_tile_off_as_home">خاموش · مانند Home</string>
+    <string name="home_tile_on_description">Volta %1$s: %2$s. برای خاموش کردن بزنید</string>
+    <string name="home_tile_off_description">Volta %1$s خاموش است. برای روشن کردن بزنید</string>
+    <string name="home_tile_added">کاشی «%1$s» به تنظیمات سریع افزوده شد</string>
+    <string name="home_tile_already_added">کاشی «%1$s» از قبل در تنظیمات سریع است</string>
+    <string name="home_tile_not_added">کاشی افزوده نشد</string>
+    <string name="home_tile_manual_hint">تنظیمات سریع را باز کنید، روی مداد بزنید و کاشی‌های Volta را به پنل بکشید</string>
+    <string name="home_tile_vpn_on_description">VPN روشن است: %1$s. برای خاموش کردن بزنید</string>
+    <string name="home_tile_vpn_off_description">VPN خاموش است. برای روشن کردن بزنید: %1$s</string>
+    <string name="home_disconnecting">در حال قطع اتصال…</string>
+    <string name="home_widget_error">خطا</string>
+    <string name="home_vpn_network_changed">شبکه عوض شد و سرور پاسخ نمی‌دهد</string>
+    <string name="home_vpn_openflux_failed">OpenFlux وصل نشد</string>
+    <string name="home_vpn_auto_start_failed">راه‌اندازی خودکار VPN ممکن نشد</string>
+    <string name="home_vpn_no_interface">ساخت رابط VPN ممکن نشد. اجازهٔ VPN دیگر را لغو کنید و دوباره امتحان کنید.</string>
+    <string name="home_vpn_not_started">VPN راه‌اندازی نشد، دوباره امتحان کنید</string>
+    <string name="home_vpn_connection_dropped">اتصال قطع شد</string>
+    <string name="home_vpn_server_stopped_answering">سرور دیگر پاسخ نمی‌دهد</string>
+    <string name="home_vpn_core_stopped">هستهٔ VPN متوقف شد</string>
+    <string name="home_tun_unavailable">راه‌اندازی VPN روی این گوشی ممکن نشد</string>
+    <string name="home_tun_refused">Android اجازهٔ راه‌اندازی VPN را نداد</string>
+    <string name="home_tun_bridge_failed">راه‌اندازی پل TUN ممکن نشد</string>
+    <string name="home_core_geodata_failed">آماده‌سازی داده‌های مسیریابی ممکن نشد (%1$s). برنامه را دوباره نصب کنید.</string>
+    <string name="home_core_no_controller">libv2ray هیچ CoreController برنگرداند</string>
+    <string name="home_core_not_started">هستهٔ VPN راه‌اندازی نشد</string>
+    <string name="home_helper_not_in_build">%1$s در این نسخه از Volta وجود ندارد</string>
+    <string name="home_helper_launch_failed">%1$s راه‌اندازی نشد: %2$s</string>
+    <string name="home_helper_no_answer">به‌موقع پاسخ نداد</string>
+    <string name="home_helper_stopped">متوقف شد</string>
+</resources>

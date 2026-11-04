@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vpn_notification_channel_name">VPN vəziyyəti</string>
+    <string name="vpn_connected">Qoşulub</string>
+    <string name="vpn_disconnected">Bağlantı kəsilib</string>
+    <string name="vpn_connecting">Qoşulur…</string>
+    <string name="action_connect">Qoş</string>
+    <string name="action_disconnect">Ayır</string>
+    <string name="action_toggle">Dəyiş</string>
+    <string name="tile_label">Volta VPN</string>
+    <string name="tile_home_lte_label">Volta Home+LTE</string>
+    <string name="tile_home_label">Volta Home</string>
+    <string name="tile_lte_label">Volta LTE</string>
+    <string name="shortcut_home">Home</string>
+    <string name="shortcut_lte">LTE</string>
+    <string name="shortcut_auto">Avto</string>
+    <string name="shortcut_auto_long">Avto Home+LTE qoş</string>
+    <string name="shortcut_home_long">Home qoş</string>
+    <string name="shortcut_lte_long">LTE qoş</string>
+    <string name="action_repick">Server seç</string>
+    <string name="widget_description">Volta-nın sürətli idarəsi</string>
+    <string name="accessibility_connect">VPN qoşulma düyməsi</string>
+</resources>

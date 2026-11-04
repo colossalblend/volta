@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_no_vpn_consent">Este aparelho não tem a janela de permissão de VPN, o Volta não consegue ligar</string>
+    <string name="home_connect_cancelled">Conexão cancelada</string>
+    <string name="home_vpn_permission_needed">É preciso permitir a VPN</string>
+    <string name="home_connect_failed">Não foi possível conectar</string>
+    <string name="home_ping_estimate">Resposta: cerca de %1$s ms</string>
+    <string name="home_ping_estimate_channel">Resposta: cerca de %1$s ms · canal: %2$s</string>
+    <string name="home_ping_result">Resposta: %1$s ms</string>
+    <string name="home_server_not_responding">O servidor não está respondendo</string>
+    <string name="home_ping_failed">Não foi possível verificar o servidor</string>
+    <plurals name="home_servers_answered">
+        <item quantity="one">%d servidor respondeu</item>
+        <item quantity="other">%d servidores responderam</item>
+    </plurals>
+    <string name="home_check_failed">A verificação falhou</string>
+    <string name="home_pick_failed">Não foi possível escolher um servidor</string>
+    <string name="home_servers_added">Servidores adicionados: %1$d</string>
+    <string name="home_subscription_added">Assinatura adicionada</string>
+    <string name="home_subscription_add_failed">Não foi possível adicionar a assinatura</string>
+    <string name="home_updated_servers">Atualizado: %1$s</string>
+    <plurals name="home_servers_count">
+        <item quantity="one">%d servidor</item>
+        <item quantity="other">%d servidores</item>
+    </plurals>
+    <string name="home_subscription_updated">Assinatura atualizada</string>
+    <string name="home_update_failed">Não foi possível atualizar</string>
+    <string name="home_subscription_edit_failed">Não foi possível alterar a assinatura</string>
+    <string name="home_subscriptions_updated">Assinaturas atualizadas: %1$d</string>
+    <string name="home_subscriptions_update_failed">Não foi possível atualizar as assinaturas</string>
+    <string name="home_subscription_added_count">Assinatura adicionada: %1$s</string>
+    <string name="home_subscription_added_hidden">Assinatura adicionada: %1$s · link oculto</string>
+    <string name="home_import_no_server_data">O arquivo não tem dados de servidor</string>
+    <string name="home_server_added">Servidor adicionado</string>
+    <string name="home_servers_imported">Servidores importados: %1$d</string>
+    <string name="home_import_nothing_usable">Não há aqui servidores que o Volta consiga abrir</string>
+    <string name="home_link_unsupported">Este formato de link não é compatível</string>
+    <string name="home_server_added_named">Adicionado: %1$s</string>
+    <string name="home_import_failed">Não foi possível importar</string>
+    <string name="home_rules_applied">Regras aplicadas à assinatura</string>
+    <string name="home_rules_apply_failed">Não foi possível aplicar as regras</string>
+    <string name="home_routing_own_description">Seu próprio conjunto de regras</string>
+    <string name="home_routing_created">Conjunto criado</string>
+    <string name="home_routing_copy_created">Foi criada uma cópia editável</string>
+    <string name="home_backup_saved">Arquivo salvo. No celular novo: Configurações → Restaurar de um arquivo</string>
+    <string name="home_backup_save_failed">Não foi possível salvar o arquivo. Tente outra pasta</string>
+    <string name="home_backup_nothing">Não há nada para restaurar no arquivo</string>
+    <string name="home_backup_open_failed">Não foi possível abrir o arquivo</string>
+    <string name="home_backup_restore_failed">Não foi possível restaurar do arquivo</string>
+    <string name="home_phase_preparing">Preparando a conexão…</string>
+    <string name="home_phase_probing">Verificando a rede: Home ou LTE…</string>
+    <string name="home_phase_measuring">Procurando o servidor mais rápido…</string>
+    <string name="home_phase_refining">Comparando os melhores servidores…</string>
+    <string name="home_err_paste_link">Cole um link de assinatura</string>
+    <string name="home_err_https_only">Use um link de assinatura HTTPS seguro</string>
+    <string name="home_default_subscription_name">Assinatura</string>
+    <string name="home_err_only_unsupported">A assinatura só tem servidores que o Volta ainda não consegue abrir.</string>
+    <string name="home_err_no_servers_in_subscription">Nenhum servidor foi encontrado na assinatura. Verifique o link ou escreva para o suporte do seu serviço de VPN.</string>
+    <string name="home_routing_rules_name">%1$s · regras</string>
+    <string name="home_routing_from_subscription">Da assinatura “%1$s”</string>
+    <string name="home_err_subscription_not_found">Assinatura não encontrada</string>
+    <string name="home_err_server_not_found">Servidor não encontrado</string>
+    <string name="home_err_rules_not_found">Conjunto de regras não encontrado</string>
+    <string name="home_err_rules_of_other_subscription">Estas regras pertencem a outra assinatura e não podem ser aplicadas aqui</string>
+    <string name="home_routing_copy_name">%1$s · cópia</string>
+    <string name="home_routing_copy_description">Suas próprias regras baseadas em “%1$s”</string>
+    <string name="home_err_build_cannot_connect">Esta versão do Volta não consegue conectar. Instale a versão completa</string>
+    <string name="home_err_add_first">Primeiro adicione uma assinatura ou um servidor</string>
+    <string name="home_err_no_servers_available">Não há servidores disponíveis para conectar</string>
+    <string name="home_err_subscription_update_failed">Não foi possível atualizar a assinatura</string>
+    <string name="home_err_subscription_unreachable">Sem conexão com o servidor da assinatura. Verifique a internet.</string>
+    <string name="home_err_subscription_timeout">O servidor da assinatura não respondeu a tempo.</string>
+    <string name="home_err_subscription_tls">Não foi possível estabelecer uma conexão segura com o servidor da assinatura.</string>
+    <string name="home_err_subscription_download">Não foi possível baixar a assinatura. Verifique a internet.</string>
+    <string name="home_err_subscription_http">O serviço não entregou a assinatura (erro %1$s). Verifique o link ou a validade da assinatura.</string>
+    <string name="home_err_subscription_empty">A assinatura está vazia</string>
+    <string name="home_lte_missing">Suas assinaturas não têm servidores LTE: o Volta funciona como Auto Home e não verifica sites</string>
+    <string name="home_tap_disc">Toque no disco para ligar a VPN</string>
+    <string name="home_add_subscription_first">Primeiro adicione uma assinatura</string>
+    <string name="home_regime_no_network">sem rede</string>
+    <string name="home_add_description">Adicionar assinatura ou servidor</string>
+    <string name="home_server_none">Nenhum servidor escolhido</string>
+    <string name="home_server_fastest">O mais rápido</string>
+    <string name="home_server_open_list">Abra a lista para escolher</string>
+    <string name="home_server_on_connect">Vou encontrar ao conectar</string>
+    <string name="home_first_subscription">Cole o link do seu serviço de VPN. Os servidores serão separados nos grupos Home e LTE, e o resto das configurações vem sozinho.</string>
+    <string name="home_add_subscription">Adicionar assinatura</string>
+    <string name="home_routing">Roteamento: %1$s</string>
+    <string name="home_routing_builtin">integrado</string>
+    <string name="home_no_servers">Sem servidores</string>
+    <string name="home_simple_no_servers_hint">Peça a alguém próximo para adicionar uma assinatura no modo normal</string>
+    <string name="home_simple_turning_on">Ligando…</string>
+    <string name="home_simple_wait">Aguarde alguns segundos</string>
+    <string name="home_simple_turning_off">Desligando…</string>
+    <string name="home_simple_on">VPN ligada</string>
+    <string name="home_simple_tap_to_turn_off">Para desligar, toque no botão</string>
+    <string name="home_simple_failed">Não deu certo</string>
+    <string name="home_simple_tap_again">Toque no botão de novo</string>
+    <string name="home_simple_off">VPN desligada</string>
+    <string name="home_simple_tap_to_turn_on">Para ligar, toque no botão</string>
+    <string name="home_simple_normal_mode">Modo normal</string>
+    <string name="home_simple_leave_title">Sair do modo simples?</string>
+    <string name="home_simple_leave_text">Todas as configurações e listas de servidores vão aparecer. Dá para voltar em Configurações.</string>
+    <string name="home_simple_leave">Sair</string>
+    <string name="home_simple_stay">Ficar</string>
+    <string name="home_disc_busy">Conectando, toque para cancelar</string>
+    <string name="home_disc_turn_off">Desligar a VPN</string>
+    <string name="home_disc_turn_on">Ligar a VPN</string>
+    <string name="home_state_connecting">Conectando</string>
+    <string name="home_state_protected">Protegido</string>
+    <string name="home_state_disconnecting">Desconectando</string>
+    <string name="home_state_failed">Não deu</string>
+    <string name="home_state_off">Desligado</string>
+    <string name="home_caption_opening_tunnel">Abrindo o túnel…</string>
+    <string name="home_caption_closing_tunnel">Fechando o túnel…</string>
+    <string name="home_caption_try_again">Toque no disco para tentar de novo</string>
+    <string name="home_caption_tap_cancels">Mais um toque cancela</string>
+    <string name="home_mode_manual_short">Manual</string>
+    <string name="home_group_empty">vazio</string>
+    <string name="home_mode_auto_home_lte">Auto Home+LTE</string>
+    <string name="home_mode_auto_home">Auto Home</string>
+    <string name="home_mode_auto_lte">Auto LTE</string>
+    <string name="home_mode_own_server">Seu servidor</string>
+    <string name="home_group_no_servers">sem servidores</string>
+    <string name="home_manual_chosen">Servidor escolhido manualmente</string>
+    <string name="home_manual_server">Seu servidor: %1$s</string>
+    <string name="home_manual_back_to_auto">Voltar ao auto</string>
+    <string name="home_speed">Velocidade</string>
+    <string name="home_session_totals">Nesta sessão: %1$s baixados, %2$s enviados</string>
+    <string name="home_pick_title">Por que este servidor</string>
+    <string name="home_pick_counts">Verificados: %1$d, responderam: %2$d</string>
+    <string name="home_pick_chosen">Escolhido</string>
+    <string name="home_traffic_title">Tráfego pela VPN</string>
+    <string name="home_traffic_period">últimas 2 semanas</string>
+    <string name="home_traffic_today">Hoje</string>
+    <string name="home_traffic_note">Só conta o que passou pelo servidor VPN</string>
+    <string name="home_traffic_bars_description">Tráfego por dia em duas semanas</string>
+    <string-array name="home_months">
+        <item>Janeiro</item>
+        <item>Fevereiro</item>
+        <item>Março</item>
+        <item>Abril</item>
+        <item>Maio</item>
+        <item>Junho</item>
+        <item>Julho</item>
+        <item>Agosto</item>
+        <item>Setembro</item>
+        <item>Outubro</item>
+        <item>Novembro</item>
+        <item>Dezembro</item>
+    </string-array>
+    <string name="home_clear">Limpar</string>
+    <string name="home_unit_b">%1$s B</string>
+    <string name="home_unit_kb">%1$s KB</string>
+    <string name="home_unit_mb">%1$s MB</string>
+    <string name="home_unit_gb">%1$s GB</string>
+    <string name="home_unit_tb">%1$s TB</string>
+    <string name="home_unit_b_per_s">%1$s B/s</string>
+    <string name="home_unit_kb_per_s">%1$s KB/s</string>
+    <string name="home_unit_mb_per_s">%1$s MB/s</string>
+    <string name="home_unit_ms">%1$s ms</string>
+    <string name="home_expiry_expired">expirada</string>
+    <string name="home_expiry_today">expira hoje</string>
+    <plurals name="home_expiry_days_left">
+        <item quantity="one">resta %d dia</item>
+        <item quantity="other">restam %d dias</item>
+    </plurals>
+    <string name="home_tab_home">Início</string>
+    <string name="home_tab_servers">Servidores</string>
+    <string name="home_tab_subscriptions">Assinaturas</string>
+    <string name="home_tab_routing">Rotas</string>
+    <string name="home_tab_settings">Configurações</string>
+    <string name="home_notification_channel_description">Status da VPN do Volta</string>
+    <string name="home_tile_no_lte">Suas assinaturas não têm servidores LTE</string>
+    <string name="home_tile_connect_failed">não foi possível conectar</string>
+    <string name="home_tile_picking">Escolhendo servidor…</string>
+    <string name="home_tile_on">Ligado</string>
+    <string name="home_tile_off_as_home">Desligado · como Home</string>
+    <string name="home_tile_on_description">Volta %1$s: %2$s. Toque para desligar</string>
+    <string name="home_tile_off_description">Volta %1$s está desligado. Toque para ligar</string>
+    <string name="home_tile_added">O bloco “%1$s” foi adicionado às configurações rápidas</string>
+    <string name="home_tile_already_added">O bloco “%1$s” já está nas configurações rápidas</string>
+    <string name="home_tile_not_added">O bloco não foi adicionado</string>
+    <string name="home_tile_manual_hint">Abra as configurações rápidas, toque no lápis e arraste os blocos do Volta para o painel</string>
+    <string name="home_tile_vpn_on_description">VPN ligada: %1$s. Toque para desligar</string>
+    <string name="home_tile_vpn_off_description">VPN desligada. Toque para ligar: %1$s</string>
+    <string name="home_disconnecting">Desconectando…</string>
+    <string name="home_widget_error">Erro</string>
+    <string name="home_vpn_network_changed">A rede mudou e o servidor não responde</string>
+    <string name="home_vpn_openflux_failed">O OpenFlux não conectou</string>
+    <string name="home_vpn_auto_start_failed">Não foi possível iniciar a VPN automaticamente</string>
+    <string name="home_vpn_no_interface">Não foi possível criar a interface VPN. Revogue a permissão da outra VPN e tente de novo.</string>
+    <string name="home_vpn_not_started">A VPN não iniciou, tente de novo</string>
+    <string name="home_vpn_connection_dropped">A conexão caiu</string>
+    <string name="home_vpn_server_stopped_answering">O servidor parou de responder</string>
+    <string name="home_vpn_core_stopped">O núcleo da VPN parou</string>
+    <string name="home_tun_unavailable">Não foi possível iniciar a VPN neste celular</string>
+    <string name="home_tun_refused">O Android não deixou a VPN iniciar</string>
+    <string name="home_tun_bridge_failed">Não foi possível iniciar a ponte TUN</string>
+    <string name="home_core_geodata_failed">Não foi possível preparar os dados de roteamento (%1$s). Reinstale o app.</string>
+    <string name="home_core_no_controller">A libv2ray não retornou um CoreController</string>
+    <string name="home_core_not_started">O núcleo da VPN não iniciou</string>
+    <string name="home_helper_not_in_build">O %1$s não faz parte desta versão do Volta</string>
+    <string name="home_helper_launch_failed">O %1$s não iniciou: %2$s</string>
+    <string name="home_helper_no_answer">não respondeu a tempo</string>
+    <string name="home_helper_stopped">parou</string>
+</resources>

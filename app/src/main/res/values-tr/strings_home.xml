@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_no_vpn_consent">Bu cihazda VPN izin penceresi yok, Volta açılamıyor</string>
+    <string name="home_connect_cancelled">Bağlantı iptal edildi</string>
+    <string name="home_vpn_permission_needed">VPN izni gerekiyor</string>
+    <string name="home_connect_failed">Bağlanılamadı</string>
+    <string name="home_ping_estimate">Yanıt: yaklaşık %1$s ms</string>
+    <string name="home_ping_estimate_channel">Yanıt: yaklaşık %1$s ms · kanal: %2$s</string>
+    <string name="home_ping_result">Yanıt: %1$s ms</string>
+    <string name="home_server_not_responding">Sunucu yanıt vermiyor</string>
+    <string name="home_ping_failed">Sunucu kontrol edilemedi</string>
+    <plurals name="home_servers_answered">
+        <item quantity="one">%d sunucu yanıt verdi</item>
+        <item quantity="other">%d sunucu yanıt verdi</item>
+    </plurals>
+    <string name="home_check_failed">Kontrol başarısız oldu</string>
+    <string name="home_pick_failed">Sunucu seçilemedi</string>
+    <string name="home_servers_added">Eklenen sunucu: %1$d</string>
+    <string name="home_subscription_added">Abonelik eklendi</string>
+    <string name="home_subscription_add_failed">Abonelik eklenemedi</string>
+    <string name="home_updated_servers">Güncellendi: %1$s</string>
+    <plurals name="home_servers_count">
+        <item quantity="one">%d sunucu</item>
+        <item quantity="other">%d sunucu</item>
+    </plurals>
+    <string name="home_subscription_updated">Abonelik güncellendi</string>
+    <string name="home_update_failed">Güncellenemedi</string>
+    <string name="home_subscription_edit_failed">Abonelik değiştirilemedi</string>
+    <string name="home_subscriptions_updated">Güncellenen abonelik: %1$d</string>
+    <string name="home_subscriptions_update_failed">Abonelikler güncellenemedi</string>
+    <string name="home_subscription_added_count">Abonelik eklendi: %1$s</string>
+    <string name="home_subscription_added_hidden">Abonelik eklendi: %1$s · bağlantı gizli</string>
+    <string name="home_import_no_server_data">Dosyada sunucu verisi yok</string>
+    <string name="home_server_added">Sunucu eklendi</string>
+    <string name="home_servers_imported">İçe aktarılan sunucu: %1$d</string>
+    <string name="home_import_nothing_usable">Burada Volta\'nın açabileceği sunucu yok</string>
+    <string name="home_link_unsupported">Bu bağlantı biçimi desteklenmiyor</string>
+    <string name="home_server_added_named">Eklendi: %1$s</string>
+    <string name="home_import_failed">İçe aktarılamadı</string>
+    <string name="home_rules_applied">Kurallar aboneliğe uygulandı</string>
+    <string name="home_rules_apply_failed">Kurallar uygulanamadı</string>
+    <string name="home_routing_own_description">Kendi kural setiniz</string>
+    <string name="home_routing_created">Set oluşturuldu</string>
+    <string name="home_routing_copy_created">Düzenlenebilir bir kopya oluşturuldu</string>
+    <string name="home_backup_saved">Dosya kaydedildi. Yeni telefonda: Ayarlar → Dosyadan geri yükle</string>
+    <string name="home_backup_save_failed">Dosya kaydedilemedi. Başka bir klasör deneyin</string>
+    <string name="home_backup_nothing">Dosyada geri yüklenecek bir şey yok</string>
+    <string name="home_backup_open_failed">Dosya açılamadı</string>
+    <string name="home_backup_restore_failed">Dosyadan geri yüklenemedi</string>
+    <string name="home_phase_preparing">Bağlantı hazırlanıyor…</string>
+    <string name="home_phase_probing">Ağ kontrol ediliyor: Home mu, LTE mi…</string>
+    <string name="home_phase_measuring">En hızlı sunucu aranıyor…</string>
+    <string name="home_phase_refining">En iyi sunucular karşılaştırılıyor…</string>
+    <string name="home_err_paste_link">Bir abonelik bağlantısı yapıştırın</string>
+    <string name="home_err_https_only">Güvenli bir HTTPS abonelik bağlantısı kullanın</string>
+    <string name="home_default_subscription_name">Abonelik</string>
+    <string name="home_err_only_unsupported">Abonelikte yalnızca Volta\'nın henüz açamadığı sunucular var.</string>
+    <string name="home_err_no_servers_in_subscription">Abonelikte hiç sunucu bulunamadı. Bağlantıyı kontrol edin veya VPN hizmetinin desteğine yazın.</string>
+    <string name="home_routing_rules_name">%1$s · kurallar</string>
+    <string name="home_routing_from_subscription">“%1$s” aboneliğinden</string>
+    <string name="home_err_subscription_not_found">Abonelik bulunamadı</string>
+    <string name="home_err_server_not_found">Sunucu bulunamadı</string>
+    <string name="home_err_rules_not_found">Kural seti bulunamadı</string>
+    <string name="home_err_rules_of_other_subscription">Bu kurallar başka bir aboneliğe ait ve burada uygulanamaz</string>
+    <string name="home_routing_copy_name">%1$s · kopya</string>
+    <string name="home_routing_copy_description">“%1$s” temelli kendi kurallarınız</string>
+    <string name="home_err_build_cannot_connect">Volta\'nın bu sürümü bağlanamıyor. Tam sürümü yükleyin</string>
+    <string name="home_err_add_first">Önce bir abonelik veya sunucu ekleyin</string>
+    <string name="home_err_no_servers_available">Bağlanılabilecek sunucu yok</string>
+    <string name="home_err_subscription_update_failed">Abonelik güncellenemedi</string>
+    <string name="home_err_subscription_unreachable">Abonelik sunucusuna ulaşılamıyor. İnternet bağlantınızı kontrol edin.</string>
+    <string name="home_err_subscription_timeout">Abonelik sunucusu zamanında yanıt vermedi.</string>
+    <string name="home_err_subscription_tls">Abonelik sunucusuyla güvenli bağlantı kurulamadı.</string>
+    <string name="home_err_subscription_download">Abonelik indirilemedi. İnternet bağlantınızı kontrol edin.</string>
+    <string name="home_err_subscription_http">Hizmet aboneliği göndermedi (hata %1$s). Bağlantıyı veya aboneliğin süresini kontrol edin.</string>
+    <string name="home_err_subscription_empty">Abonelik boş</string>
+    <string name="home_lte_missing">Aboneliklerde LTE sunucusu yok: Volta Otomatik Home olarak çalışıyor ve siteleri kontrol etmiyor</string>
+    <string name="home_tap_disc">VPN\'i açmak için diske dokunun</string>
+    <string name="home_add_subscription_first">Önce bir abonelik ekleyin</string>
+    <string name="home_regime_no_network">ağ yok</string>
+    <string name="home_add_description">Abonelik veya sunucu ekle</string>
+    <string name="home_server_none">Sunucu seçilmedi</string>
+    <string name="home_server_fastest">En hızlısı</string>
+    <string name="home_server_open_list">Seçmek için listeyi açın</string>
+    <string name="home_server_on_connect">Bağlanırken bulacağım</string>
+    <string name="home_first_subscription">VPN hizmetinden aldığınız bağlantıyı yapıştırın. Sunucular Home ve LTE gruplarına ayrılır, diğer ayarlar kendiliğinden gelir.</string>
+    <string name="home_add_subscription">Abonelik ekle</string>
+    <string name="home_routing">Yönlendirme: %1$s</string>
+    <string name="home_routing_builtin">yerleşik</string>
+    <string name="home_no_servers">Sunucu yok</string>
+    <string name="home_simple_no_servers_hint">Yakınlarınızdan aboneliği normal modda eklemelerini isteyin</string>
+    <string name="home_simple_turning_on">Açılıyor…</string>
+    <string name="home_simple_wait">Birkaç saniye bekleyin</string>
+    <string name="home_simple_turning_off">Kapatılıyor…</string>
+    <string name="home_simple_on">VPN açık</string>
+    <string name="home_simple_tap_to_turn_off">Kapatmak için düğmeye dokunun</string>
+    <string name="home_simple_failed">Olmadı</string>
+    <string name="home_simple_tap_again">Düğmeye tekrar dokunun</string>
+    <string name="home_simple_off">VPN kapalı</string>
+    <string name="home_simple_tap_to_turn_on">Açmak için düğmeye dokunun</string>
+    <string name="home_simple_normal_mode">Normal mod</string>
+    <string name="home_simple_leave_title">Basit moddan çıkılsın mı?</string>
+    <string name="home_simple_leave_text">Tüm ayarlar ve sunucu listeleri görünecek. Ayarlar\'dan geri dönebilirsiniz.</string>
+    <string name="home_simple_leave">Çık</string>
+    <string name="home_simple_stay">Kal</string>
+    <string name="home_disc_busy">Bağlanıyor, iptal etmek için dokunun</string>
+    <string name="home_disc_turn_off">VPN\'i kapat</string>
+    <string name="home_disc_turn_on">VPN\'i aç</string>
+    <string name="home_state_connecting">Bağlanıyor</string>
+    <string name="home_state_protected">Korunuyor</string>
+    <string name="home_state_disconnecting">Bağlantı kesiliyor</string>
+    <string name="home_state_failed">Olmadı</string>
+    <string name="home_state_off">Kapalı</string>
+    <string name="home_caption_opening_tunnel">Tünel açılıyor…</string>
+    <string name="home_caption_closing_tunnel">Tünel kapatılıyor…</string>
+    <string name="home_caption_try_again">Tekrar denemek için diske dokunun</string>
+    <string name="home_caption_tap_cancels">Bir kez daha dokunursanız iptal edilir</string>
+    <string name="home_mode_manual_short">Kendi</string>
+    <string name="home_group_empty">boş</string>
+    <string name="home_mode_auto_home_lte">Otomatik Home+LTE</string>
+    <string name="home_mode_auto_home">Otomatik Home</string>
+    <string name="home_mode_auto_lte">Otomatik LTE</string>
+    <string name="home_mode_own_server">Kendi sunucunuz</string>
+    <string name="home_group_no_servers">sunucu yok</string>
+    <string name="home_manual_chosen">Sunucu elle seçildi</string>
+    <string name="home_manual_server">Kendi sunucunuz: %1$s</string>
+    <string name="home_manual_back_to_auto">Otomatiğe dön</string>
+    <string name="home_speed">Hız</string>
+    <string name="home_session_totals">Bu oturumda %1$s indirildi, %2$s gönderildi</string>
+    <string name="home_pick_title">Neden bu sunucu</string>
+    <string name="home_pick_counts">Kontrol edilen: %1$d, yanıt veren: %2$d</string>
+    <string name="home_pick_chosen">Seçildi</string>
+    <string name="home_traffic_title">VPN üzerinden trafik</string>
+    <string name="home_traffic_period">son 2 hafta</string>
+    <string name="home_traffic_today">Bugün</string>
+    <string name="home_traffic_note">Yalnızca VPN sunucusundan geçen trafik sayılır</string>
+    <string name="home_traffic_bars_description">İki haftalık günlük trafik</string>
+    <string-array name="home_months">
+        <item>Ocak</item>
+        <item>Şubat</item>
+        <item>Mart</item>
+        <item>Nisan</item>
+        <item>Mayıs</item>
+        <item>Haziran</item>
+        <item>Temmuz</item>
+        <item>Ağustos</item>
+        <item>Eylül</item>
+        <item>Ekim</item>
+        <item>Kasım</item>
+        <item>Aralık</item>
+    </string-array>
+    <string name="home_clear">Temizle</string>
+    <string name="home_unit_b">%1$s B</string>
+    <string name="home_unit_kb">%1$s KB</string>
+    <string name="home_unit_mb">%1$s MB</string>
+    <string name="home_unit_gb">%1$s GB</string>
+    <string name="home_unit_tb">%1$s TB</string>
+    <string name="home_unit_b_per_s">%1$s B/sn</string>
+    <string name="home_unit_kb_per_s">%1$s KB/sn</string>
+    <string name="home_unit_mb_per_s">%1$s MB/sn</string>
+    <string name="home_unit_ms">%1$s ms</string>
+    <string name="home_expiry_expired">süresi doldu</string>
+    <string name="home_expiry_today">bugün sona eriyor</string>
+    <plurals name="home_expiry_days_left">
+        <item quantity="one">%d gün kaldı</item>
+        <item quantity="other">%d gün kaldı</item>
+    </plurals>
+    <string name="home_tab_home">Ana sayfa</string>
+    <string name="home_tab_servers">Sunucular</string>
+    <string name="home_tab_subscriptions">Abonelikler</string>
+    <string name="home_tab_routing">Yönlendirme</string>
+    <string name="home_tab_settings">Ayarlar</string>
+    <string name="home_notification_channel_description">Volta VPN durumu</string>
+    <string name="home_tile_no_lte">Aboneliklerde LTE sunucusu yok</string>
+    <string name="home_tile_connect_failed">bağlanılamadı</string>
+    <string name="home_tile_picking">Sunucu seçiliyor…</string>
+    <string name="home_tile_on">Açık</string>
+    <string name="home_tile_off_as_home">Kapalı · Home olarak</string>
+    <string name="home_tile_on_description">Volta %1$s: %2$s. Kapatmak için dokunun</string>
+    <string name="home_tile_off_description">Volta %1$s kapalı. Açmak için dokunun</string>
+    <string name="home_tile_added">“%1$s” kutucuğu Hızlı Ayarlar\'a eklendi</string>
+    <string name="home_tile_already_added">“%1$s” kutucuğu zaten Hızlı Ayarlar\'da</string>
+    <string name="home_tile_not_added">Kutucuk eklenmedi</string>
+    <string name="home_tile_manual_hint">Hızlı Ayarlar\'ı açın, kaleme dokunun ve Volta kutucuklarını panele sürükleyin</string>
+    <string name="home_tile_vpn_on_description">VPN açık: %1$s. Kapatmak için dokunun</string>
+    <string name="home_tile_vpn_off_description">VPN kapalı. Açmak için dokunun: %1$s</string>
+    <string name="home_disconnecting">Bağlantı kesiliyor…</string>
+    <string name="home_widget_error">Hata</string>
+    <string name="home_vpn_network_changed">Ağ değişti ve sunucu yanıt vermiyor</string>
+    <string name="home_vpn_openflux_failed">OpenFlux bağlanmadı</string>
+    <string name="home_vpn_auto_start_failed">VPN otomatik olarak başlatılamadı</string>
+    <string name="home_vpn_no_interface">VPN arayüzü oluşturulamadı. Diğer VPN\'in iznini geri alıp tekrar deneyin.</string>
+    <string name="home_vpn_not_started">VPN başlamadı, tekrar deneyin</string>
+    <string name="home_vpn_connection_dropped">Bağlantı koptu</string>
+    <string name="home_vpn_server_stopped_answering">Sunucu yanıt vermeyi bıraktı</string>
+    <string name="home_vpn_core_stopped">VPN çekirdeği durdu</string>
+    <string name="home_tun_unavailable">VPN bu telefonda başlatılamadı</string>
+    <string name="home_tun_refused">Android VPN\'in başlamasına izin vermedi</string>
+    <string name="home_tun_bridge_failed">TUN köprüsü başlatılamadı</string>
+    <string name="home_core_geodata_failed">Yönlendirme verileri hazırlanamadı (%1$s). Uygulamayı yeniden yükleyin.</string>
+    <string name="home_core_no_controller">libv2ray CoreController döndürmedi</string>
+    <string name="home_core_not_started">VPN çekirdeği başlamadı</string>
+    <string name="home_helper_not_in_build">%1$s, Volta\'nın bu sürümünde yok</string>
+    <string name="home_helper_launch_failed">%1$s başlamadı: %2$s</string>
+    <string name="home_helper_no_answer">zamanında yanıt vermedi</string>
+    <string name="home_helper_stopped">durdu</string>
+</resources>

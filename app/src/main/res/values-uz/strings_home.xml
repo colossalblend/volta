@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_no_vpn_consent">Bu qurilmada VPN ruxsati oynasi yoʻq, Volta yoqila olmaydi</string>
+    <string name="home_connect_cancelled">Ulanish bekor qilindi</string>
+    <string name="home_vpn_permission_needed">VPN uchun ruxsat kerak</string>
+    <string name="home_connect_failed">Ulanib boʻlmadi</string>
+    <string name="home_ping_estimate">Javob: taxminan %1$s ms</string>
+    <string name="home_ping_estimate_channel">Javob: taxminan %1$s ms · kanal: %2$s</string>
+    <string name="home_ping_result">Javob: %1$s ms</string>
+    <string name="home_server_not_responding">Server javob bermayapti</string>
+    <string name="home_ping_failed">Serverni tekshirib boʻlmadi</string>
+    <plurals name="home_servers_answered">
+        <item quantity="one">%d ta server javob berdi</item>
+        <item quantity="other">%d ta server javob berdi</item>
+    </plurals>
+    <string name="home_check_failed">Tekshiruv muvaffaqiyatsiz tugadi</string>
+    <string name="home_pick_failed">Server tanlab boʻlmadi</string>
+    <string name="home_servers_added">Qoʻshilgan serverlar: %1$d</string>
+    <string name="home_subscription_added">Obuna qoʻshildi</string>
+    <string name="home_subscription_add_failed">Obunani qoʻshib boʻlmadi</string>
+    <string name="home_updated_servers">Yangilandi: %1$s</string>
+    <plurals name="home_servers_count">
+        <item quantity="one">%d ta server</item>
+        <item quantity="other">%d ta server</item>
+    </plurals>
+    <string name="home_subscription_updated">Obuna yangilandi</string>
+    <string name="home_update_failed">Yangilab boʻlmadi</string>
+    <string name="home_subscription_edit_failed">Obunani oʻzgartirib boʻlmadi</string>
+    <string name="home_subscriptions_updated">Yangilangan obunalar: %1$d</string>
+    <string name="home_subscriptions_update_failed">Obunalarni yangilab boʻlmadi</string>
+    <string name="home_subscription_added_count">Obuna qoʻshildi: %1$s</string>
+    <string name="home_subscription_added_hidden">Obuna qoʻshildi: %1$s · havola yashirilgan</string>
+    <string name="home_import_no_server_data">Faylda server maʼlumotlari yoʻq</string>
+    <string name="home_server_added">Server qoʻshildi</string>
+    <string name="home_servers_imported">Import qilingan serverlar: %1$d</string>
+    <string name="home_import_nothing_usable">Bu yerda Volta ocha oladigan serverlar yoʻq</string>
+    <string name="home_link_unsupported">Havola formati qoʻllab-quvvatlanmaydi</string>
+    <string name="home_server_added_named">Qoʻshildi: %1$s</string>
+    <string name="home_import_failed">Import qilib boʻlmadi</string>
+    <string name="home_rules_applied">Qoidalar obunaga qoʻllandi</string>
+    <string name="home_rules_apply_failed">Qoidalarni qoʻllab boʻlmadi</string>
+    <string name="home_routing_own_description">Oʻz qoidalar toʻplami</string>
+    <string name="home_routing_created">Toʻplam yaratildi</string>
+    <string name="home_routing_copy_created">Tahrirlash mumkin boʻlgan nusxa yaratildi</string>
+    <string name="home_backup_saved">Fayl saqlandi. Yangi telefonda: Sozlamalar → Fayldan tiklash</string>
+    <string name="home_backup_save_failed">Faylni saqlab boʻlmadi. Boshqa jildni sinab koʻring</string>
+    <string name="home_backup_nothing">Faylda tiklanadigan hech narsa yoʻq</string>
+    <string name="home_backup_open_failed">Faylni ochib boʻlmadi</string>
+    <string name="home_backup_restore_failed">Fayldan tiklab boʻlmadi</string>
+    <string name="home_phase_preparing">Ulanishga tayyorlanmoqda…</string>
+    <string name="home_phase_probing">Tarmoq tekshirilmoqda: Home yoki LTE…</string>
+    <string name="home_phase_measuring">Eng tez server qidirilmoqda…</string>
+    <string name="home_phase_refining">Eng yaxshi serverlar solishtirilmoqda…</string>
+    <string name="home_err_paste_link">Obuna havolasini qoʻying</string>
+    <string name="home_err_https_only">Himoyalangan HTTPS obuna havolasidan foydalaning</string>
+    <string name="home_default_subscription_name">Obuna</string>
+    <string name="home_err_only_unsupported">Obunada faqat Volta hozircha ocha olmaydigan serverlar bor.</string>
+    <string name="home_err_no_servers_in_subscription">Obunada birorta ham server topilmadi. Havolani tekshiring yoki VPN xizmatining qoʻllab-quvvatlash xizmatiga yozing.</string>
+    <string name="home_routing_rules_name">%1$s · qoidalar</string>
+    <string name="home_routing_from_subscription">«%1$s» obunasidan</string>
+    <string name="home_err_subscription_not_found">Obuna topilmadi</string>
+    <string name="home_err_server_not_found">Server topilmadi</string>
+    <string name="home_err_rules_not_found">Qoidalar toʻplami topilmadi</string>
+    <string name="home_err_rules_of_other_subscription">Bu qoidalar boshqa obunaga tegishli va bu yerda qoʻllanmaydi</string>
+    <string name="home_routing_copy_name">%1$s · nusxa</string>
+    <string name="home_routing_copy_description">«%1$s» asosidagi oʻz qoidalaringiz</string>
+    <string name="home_err_build_cannot_connect">Volta ilovasining bu versiyasi ulana olmaydi. Toʻliq versiyasini oʻrnating</string>
+    <string name="home_err_add_first">Avval obuna yoki server qoʻshing</string>
+    <string name="home_err_no_servers_available">Ulanish uchun mavjud server yoʻq</string>
+    <string name="home_err_subscription_update_failed">Obunani yangilab boʻlmadi</string>
+    <string name="home_err_subscription_unreachable">Obuna serveri bilan aloqa yoʻq. Internetni tekshiring.</string>
+    <string name="home_err_subscription_timeout">Obuna serveri oʻz vaqtida javob bermadi.</string>
+    <string name="home_err_subscription_tls">Obuna serveri bilan himoyalangan ulanish oʻrnatib boʻlmadi.</string>
+    <string name="home_err_subscription_download">Obunani yuklab boʻlmadi. Internetni tekshiring.</string>
+    <string name="home_err_subscription_http">Xizmat obunani bermadi (xato %1$s). Havolani yoki obuna muddatini tekshiring.</string>
+    <string name="home_err_subscription_empty">Obuna boʻsh</string>
+    <string name="home_lte_missing">Obunalarda LTE serverlari yoʻq: Volta Avto Home sifatida ishlaydi va saytlarni tekshirmaydi</string>
+    <string name="home_tap_disc">VPNni yoqish uchun diskni bosing</string>
+    <string name="home_add_subscription_first">Avval obuna qoʻshing</string>
+    <string name="home_regime_no_network">tarmoq yoʻq</string>
+    <string name="home_add_description">Obuna yoki server qoʻshish</string>
+    <string name="home_server_none">Server tanlanmagan</string>
+    <string name="home_server_fastest">Eng tezkori</string>
+    <string name="home_server_open_list">Tanlash uchun roʻyxatni oching</string>
+    <string name="home_server_on_connect">Ulanayotganda topaman</string>
+    <string name="home_first_subscription">VPN xizmatidan olingan havolani qoʻying. Serverlar Home va LTE guruhlariga ajratiladi, qolgan sozlamalar oʻzi yuklanadi.</string>
+    <string name="home_add_subscription">Obuna qoʻshish</string>
+    <string name="home_routing">Marshrutlash: %1$s</string>
+    <string name="home_routing_builtin">oʻrnatilgan</string>
+    <string name="home_no_servers">Server yoʻq</string>
+    <string name="home_simple_no_servers_hint">Yaqinlaringizdan obunani odatiy rejimda qoʻshishni soʻrang</string>
+    <string name="home_simple_turning_on">Yoqilmoqda…</string>
+    <string name="home_simple_wait">Bir necha soniya kuting</string>
+    <string name="home_simple_turning_off">Oʻchirilmoqda…</string>
+    <string name="home_simple_on">VPN yoqilgan</string>
+    <string name="home_simple_tap_to_turn_off">Oʻchirish uchun tugmani bosing</string>
+    <string name="home_simple_failed">Boʻlmadi</string>
+    <string name="home_simple_tap_again">Tugmani yana bir bor bosing</string>
+    <string name="home_simple_off">VPN oʻchirilgan</string>
+    <string name="home_simple_tap_to_turn_on">Yoqish uchun tugmani bosing</string>
+    <string name="home_simple_normal_mode">Odatiy rejim</string>
+    <string name="home_simple_leave_title">Oddiy rejimdan chiqasizmi?</string>
+    <string name="home_simple_leave_text">Barcha sozlamalar va server roʻyxatlari paydo boʻladi. Sozlamalarda qaytish mumkin.</string>
+    <string name="home_simple_leave">Chiqish</string>
+    <string name="home_simple_stay">Qolish</string>
+    <string name="home_disc_busy">Ulanmoqda, bekor qilish uchun bosing</string>
+    <string name="home_disc_turn_off">VPNni oʻchirish</string>
+    <string name="home_disc_turn_on">VPNni yoqish</string>
+    <string name="home_state_connecting">Ulanmoqda</string>
+    <string name="home_state_protected">Himoyalangan</string>
+    <string name="home_state_disconnecting">Uzilmoqda</string>
+    <string name="home_state_failed">Boʻlmadi</string>
+    <string name="home_state_off">Oʻchirilgan</string>
+    <string name="home_caption_opening_tunnel">Tunnel ochilmoqda…</string>
+    <string name="home_caption_closing_tunnel">Tunnel yopilmoqda…</string>
+    <string name="home_caption_try_again">Qayta urinish uchun diskni bosing</string>
+    <string name="home_caption_tap_cancels">Yana bir bosish bekor qiladi</string>
+    <string name="home_mode_manual_short">Oʻzim</string>
+    <string name="home_group_empty">boʻsh</string>
+    <string name="home_mode_auto_home_lte">Avto Home+LTE</string>
+    <string name="home_mode_auto_home">Avto Home</string>
+    <string name="home_mode_auto_lte">Avto LTE</string>
+    <string name="home_mode_own_server">Oʻz serveringiz</string>
+    <string name="home_group_no_servers">server yoʻq</string>
+    <string name="home_manual_chosen">Server qoʻlda tanlangan</string>
+    <string name="home_manual_server">Oʻz serveringiz: %1$s</string>
+    <string name="home_manual_back_to_auto">Avtoga qaytarish</string>
+    <string name="home_speed">Tezlik</string>
+    <string name="home_session_totals">Seans davomida %1$s yuklab olindi, %2$s yuborildi</string>
+    <string name="home_pick_title">Nega aynan shu server</string>
+    <string name="home_pick_counts">Tekshirildi: %1$d, javob berdi: %2$d</string>
+    <string name="home_pick_chosen">Tanlangan</string>
+    <string name="home_traffic_title">VPN orqali trafik</string>
+    <string name="home_traffic_period">soʻnggi 2 hafta</string>
+    <string name="home_traffic_today">Bugun</string>
+    <string name="home_traffic_note">Faqat VPN server orqali oʻtgan trafik hisoblanadi</string>
+    <string name="home_traffic_bars_description">Ikki haftalik kunlik trafik</string>
+    <string-array name="home_months">
+        <item>Yanvar</item>
+        <item>Fevral</item>
+        <item>Mart</item>
+        <item>Aprel</item>
+        <item>May</item>
+        <item>Iyun</item>
+        <item>Iyul</item>
+        <item>Avgust</item>
+        <item>Sentabr</item>
+        <item>Oktabr</item>
+        <item>Noyabr</item>
+        <item>Dekabr</item>
+    </string-array>
+    <string name="home_clear">Tozalash</string>
+    <string name="home_unit_b">%1$s B</string>
+    <string name="home_unit_kb">%1$s KB</string>
+    <string name="home_unit_mb">%1$s MB</string>
+    <string name="home_unit_gb">%1$s GB</string>
+    <string name="home_unit_tb">%1$s TB</string>
+    <string name="home_unit_b_per_s">%1$s B/s</string>
+    <string name="home_unit_kb_per_s">%1$s KB/s</string>
+    <string name="home_unit_mb_per_s">%1$s MB/s</string>
+    <string name="home_unit_ms">%1$s ms</string>
+    <string name="home_expiry_expired">muddati tugadi</string>
+    <string name="home_expiry_today">bugun tugaydi</string>
+    <plurals name="home_expiry_days_left">
+        <item quantity="one">%d kun qoldi</item>
+        <item quantity="other">%d kun qoldi</item>
+    </plurals>
+    <string name="home_tab_home">Asosiy</string>
+    <string name="home_tab_servers">Serverlar</string>
+    <string name="home_tab_subscriptions">Obunalar</string>
+    <string name="home_tab_routing">Marshrutlar</string>
+    <string name="home_tab_settings">Sozlamalar</string>
+    <string name="home_notification_channel_description">Volta VPN holati</string>
+    <string name="home_tile_no_lte">Obunalarda LTE serverlari yoʻq</string>
+    <string name="home_tile_connect_failed">ulanib boʻlmadi</string>
+    <string name="home_tile_picking">Server tanlanmoqda…</string>
+    <string name="home_tile_on">Yoqilgan</string>
+    <string name="home_tile_off_as_home">Oʻchirilgan · Home sifatida</string>
+    <string name="home_tile_on_description">Volta %1$s: %2$s. Oʻchirish uchun bosing</string>
+    <string name="home_tile_off_description">Volta %1$s oʻchirilgan. Yoqish uchun bosing</string>
+    <string name="home_tile_added">«%1$s» plitkasi tezkor sozlamalarga qoʻshildi</string>
+    <string name="home_tile_already_added">«%1$s» plitkasi allaqachon tezkor sozlamalarda</string>
+    <string name="home_tile_not_added">Plitka qoʻshilmadi</string>
+    <string name="home_tile_manual_hint">Tezkor sozlamalarni oching, qalamchani bosing va Volta plitkalarini panelga torting</string>
+    <string name="home_tile_vpn_on_description">VPN yoqilgan: %1$s. Oʻchirish uchun bosing</string>
+    <string name="home_tile_vpn_off_description">VPN oʻchirilgan. Yoqish uchun bosing: %1$s</string>
+    <string name="home_disconnecting">Uzilmoqda…</string>
+    <string name="home_widget_error">Xato</string>
+    <string name="home_vpn_network_changed">Tarmoq almashdi, server esa javob bermayapti</string>
+    <string name="home_vpn_openflux_failed">OpenFlux ulanmadi</string>
+    <string name="home_vpn_auto_start_failed">VPNni avtomatik ishga tushirib boʻlmadi</string>
+    <string name="home_vpn_no_interface">VPN interfeysini yaratib boʻlmadi. Boshqa VPN ruxsatini bekor qiling va qayta urining.</string>
+    <string name="home_vpn_not_started">VPN ishga tushmadi, yana urinib koʻring</string>
+    <string name="home_vpn_connection_dropped">Ulanish uzildi</string>
+    <string name="home_vpn_server_stopped_answering">Server javob berishni toʻxtatdi</string>
+    <string name="home_vpn_core_stopped">VPN yadrosi toʻxtadi</string>
+    <string name="home_tun_unavailable">Bu telefonda VPNni ishga tushirib boʻlmadi</string>
+    <string name="home_tun_refused">Android VPNni ishga tushirishga ruxsat bermadi</string>
+    <string name="home_tun_bridge_failed">TUN koʻprigini ishga tushirib boʻlmadi</string>
+    <string name="home_core_geodata_failed">Marshrutlash maʼlumotlarini tayyorlab boʻlmadi (%1$s). Ilovani qayta oʻrnating.</string>
+    <string name="home_core_no_controller">libv2ray CoreController qaytarmadi</string>
+    <string name="home_core_not_started">VPN yadrosi ishga tushmadi</string>
+    <string name="home_helper_not_in_build">%1$s Volta ilovasining bu versiyasida yoʻq</string>
+    <string name="home_helper_launch_failed">%1$s ishga tushmadi: %2$s</string>
+    <string name="home_helper_no_answer">oʻz vaqtida javob bermadi</string>
+    <string name="home_helper_stopped">toʻxtadi</string>
+</resources>

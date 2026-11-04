@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_no_vpn_consent">Бұл құрылғыда VPN рұқсат терезесі жоқ, Volta қосыла алмайды</string>
+    <string name="home_connect_cancelled">Қосылу тоқтатылды</string>
+    <string name="home_vpn_permission_needed">VPN-ге рұқсат керек</string>
+    <string name="home_connect_failed">Қосылу мүмкін болмады</string>
+    <string name="home_ping_estimate">Жауап: шамамен %1$s мс</string>
+    <string name="home_ping_estimate_channel">Жауап: шамамен %1$s мс · арна: %2$s</string>
+    <string name="home_ping_result">Жауап: %1$s мс</string>
+    <string name="home_server_not_responding">Сервер жауап бермейді</string>
+    <string name="home_ping_failed">Серверді тексеру мүмкін болмады</string>
+    <plurals name="home_servers_answered">
+        <item quantity="one">%d сервер жауап берді</item>
+        <item quantity="other">%d сервер жауап берді</item>
+    </plurals>
+    <string name="home_check_failed">Тексеру сәтсіз аяқталды</string>
+    <string name="home_pick_failed">Сервер таңдау мүмкін болмады</string>
+    <string name="home_servers_added">Қосылған серверлер: %1$d</string>
+    <string name="home_subscription_added">Жазылым қосылды</string>
+    <string name="home_subscription_add_failed">Жазылымды қосу мүмкін болмады</string>
+    <string name="home_updated_servers">Жаңартылды: %1$s</string>
+    <plurals name="home_servers_count">
+        <item quantity="one">%d сервер</item>
+        <item quantity="other">%d сервер</item>
+    </plurals>
+    <string name="home_subscription_updated">Жазылым жаңартылды</string>
+    <string name="home_update_failed">Жаңарту мүмкін болмады</string>
+    <string name="home_subscription_edit_failed">Жазылымды өзгерту мүмкін болмады</string>
+    <string name="home_subscriptions_updated">Жаңартылған жазылымдар: %1$d</string>
+    <string name="home_subscriptions_update_failed">Жазылымдарды жаңарту мүмкін болмады</string>
+    <string name="home_subscription_added_count">Жазылым қосылды: %1$s</string>
+    <string name="home_subscription_added_hidden">Жазылым қосылды: %1$s · сілтеме жасырылған</string>
+    <string name="home_import_no_server_data">Файлда сервер деректері жоқ</string>
+    <string name="home_server_added">Сервер қосылды</string>
+    <string name="home_servers_imported">Импортталған серверлер: %1$d</string>
+    <string name="home_import_nothing_usable">Мұнда Volta аша алатын серверлер жоқ</string>
+    <string name="home_link_unsupported">Сілтеме пішіміне қолдау жоқ</string>
+    <string name="home_server_added_named">Қосылды: %1$s</string>
+    <string name="home_import_failed">Импорттау мүмкін болмады</string>
+    <string name="home_rules_applied">Ережелер жазылымға қолданылды</string>
+    <string name="home_rules_apply_failed">Ережелерді қолдану мүмкін болмады</string>
+    <string name="home_routing_own_description">Өз ережелер жинағы</string>
+    <string name="home_routing_created">Жинақ жасалды</string>
+    <string name="home_routing_copy_created">Өңдеуге болатын көшірме жасалды</string>
+    <string name="home_backup_saved">Файл сақталды. Жаңа телефонда: Баптаулар → Файлдан қалпына келтіру</string>
+    <string name="home_backup_save_failed">Файлды сақтау мүмкін болмады. Басқа қалтаны көріңіз</string>
+    <string name="home_backup_nothing">Файлда қалпына келтіретін ештеңе жоқ</string>
+    <string name="home_backup_open_failed">Файлды ашу мүмкін болмады</string>
+    <string name="home_backup_restore_failed">Файлдан қалпына келтіру мүмкін болмады</string>
+    <string name="home_phase_preparing">Қосылуға дайындалуда…</string>
+    <string name="home_phase_probing">Желіні тексеруде: Home әлде LTE…</string>
+    <string name="home_phase_measuring">Ең жылдам серверді іздеуде…</string>
+    <string name="home_phase_refining">Ең жақсы серверлерді салыстыруда…</string>
+    <string name="home_err_paste_link">Жазылым сілтемесін қойыңыз</string>
+    <string name="home_err_https_only">Қорғалған HTTPS жазылым сілтемесін пайдаланыңыз</string>
+    <string name="home_default_subscription_name">Жазылым</string>
+    <string name="home_err_only_unsupported">Жазылымда Volta әзірге аша алмайтын серверлер ғана бар.</string>
+    <string name="home_err_no_servers_in_subscription">Жазылымнан бірде-бір сервер табылмады. Сілтемені тексеріңіз немесе VPN қызметінің қолдау қызметіне жазыңыз.</string>
+    <string name="home_routing_rules_name">%1$s · ережелер</string>
+    <string name="home_routing_from_subscription">«%1$s» жазылымынан</string>
+    <string name="home_err_subscription_not_found">Жазылым табылмады</string>
+    <string name="home_err_server_not_found">Сервер табылмады</string>
+    <string name="home_err_rules_not_found">Ережелер жинағы табылмады</string>
+    <string name="home_err_rules_of_other_subscription">Бұл ережелер басқа жазылымға тиесілі, оларды мұнда қолдануға болмайды</string>
+    <string name="home_routing_copy_name">%1$s · көшірме</string>
+    <string name="home_routing_copy_description">«%1$s» негізіндегі өз ережелеріңіз</string>
+    <string name="home_err_build_cannot_connect">Volta-ның бұл нұсқасы қосыла алмайды. Толық нұсқасын орнатыңыз</string>
+    <string name="home_err_add_first">Алдымен жазылым немесе сервер қосыңыз</string>
+    <string name="home_err_no_servers_available">Қосылуға қолжетімді сервер жоқ</string>
+    <string name="home_err_subscription_update_failed">Жазылымды жаңарту мүмкін болмады</string>
+    <string name="home_err_subscription_unreachable">Жазылым серверімен байланыс жоқ. Интернетті тексеріңіз.</string>
+    <string name="home_err_subscription_timeout">Жазылым сервері уақытында жауап бермеді.</string>
+    <string name="home_err_subscription_tls">Жазылым серверімен қорғалған байланыс орнату мүмкін болмады.</string>
+    <string name="home_err_subscription_download">Жазылымды жүктеу мүмкін болмады. Интернетті тексеріңіз.</string>
+    <string name="home_err_subscription_http">Қызмет жазылымды бермеді (қате %1$s). Сілтемені немесе жазылым мерзімін тексеріңіз.</string>
+    <string name="home_err_subscription_empty">Жазылым бос</string>
+    <string name="home_lte_missing">Жазылымдарда LTE серверлері жоқ: Volta Авто Home ретінде жұмыс істейді және сайттарды тексермейді</string>
+    <string name="home_tap_disc">VPN қосу үшін дискіні басыңыз</string>
+    <string name="home_add_subscription_first">Алдымен жазылым қосыңыз</string>
+    <string name="home_regime_no_network">желі жоқ</string>
+    <string name="home_add_description">Жазылым немесе сервер қосу</string>
+    <string name="home_server_none">Сервер таңдалмаған</string>
+    <string name="home_server_fastest">Ең жылдамы</string>
+    <string name="home_server_open_list">Таңдау үшін тізімді ашыңыз</string>
+    <string name="home_server_on_connect">Қосылғанда табамын</string>
+    <string name="home_first_subscription">VPN қызметінен алған сілтемені қойыңыз. Серверлер Home және LTE топтарына бөлінеді, қалған баптаулар өздігінен орнатылады.</string>
+    <string name="home_add_subscription">Жазылым қосу</string>
+    <string name="home_routing">Бағыттау: %1$s</string>
+    <string name="home_routing_builtin">кіріктірілген</string>
+    <string name="home_no_servers">Сервер жоқ</string>
+    <string name="home_simple_no_servers_hint">Жақындарыңыздан жазылымды қалыпты режимде қосуды сұраңыз</string>
+    <string name="home_simple_turning_on">Қосылуда…</string>
+    <string name="home_simple_wait">Бірнеше секунд күтіңіз</string>
+    <string name="home_simple_turning_off">Өшірілуде…</string>
+    <string name="home_simple_on">VPN қосулы</string>
+    <string name="home_simple_tap_to_turn_off">Өшіру үшін түймені басыңыз</string>
+    <string name="home_simple_failed">Болмады</string>
+    <string name="home_simple_tap_again">Түймені тағы басыңыз</string>
+    <string name="home_simple_off">VPN өшірулі</string>
+    <string name="home_simple_tap_to_turn_on">Қосу үшін түймені басыңыз</string>
+    <string name="home_simple_normal_mode">Қалыпты режим</string>
+    <string name="home_simple_leave_title">Қарапайым режимнен шығасыз ба?</string>
+    <string name="home_simple_leave_text">Барлық баптаулар мен сервер тізімдері көрсетіледі. Баптаулар арқылы қайта оралуға болады.</string>
+    <string name="home_simple_leave">Шығу</string>
+    <string name="home_simple_stay">Қалу</string>
+    <string name="home_disc_busy">Қосылуда, тоқтату үшін басыңыз</string>
+    <string name="home_disc_turn_off">VPN-ді өшіру</string>
+    <string name="home_disc_turn_on">VPN-ді қосу</string>
+    <string name="home_state_connecting">Қосылуда</string>
+    <string name="home_state_protected">Қорғалған</string>
+    <string name="home_state_disconnecting">Ажыратылуда</string>
+    <string name="home_state_failed">Болмады</string>
+    <string name="home_state_off">Өшірулі</string>
+    <string name="home_caption_opening_tunnel">Туннель ашылуда…</string>
+    <string name="home_caption_closing_tunnel">Туннель жабылуда…</string>
+    <string name="home_caption_try_again">Қайта көру үшін дискіні басыңыз</string>
+    <string name="home_caption_tap_cancels">Тағы бір басу тоқтатады</string>
+    <string name="home_mode_manual_short">Өзім</string>
+    <string name="home_group_empty">бос</string>
+    <string name="home_mode_auto_home_lte">Авто Home+LTE</string>
+    <string name="home_mode_auto_home">Авто Home</string>
+    <string name="home_mode_auto_lte">Авто LTE</string>
+    <string name="home_mode_own_server">Өз серверіңіз</string>
+    <string name="home_group_no_servers">сервер жоқ</string>
+    <string name="home_manual_chosen">Сервер қолмен таңдалды</string>
+    <string name="home_manual_server">Өз серверіңіз: %1$s</string>
+    <string name="home_manual_back_to_auto">Автоға қайтару</string>
+    <string name="home_speed">Жылдамдық</string>
+    <string name="home_session_totals">Сеанс ішінде %1$s жүктелді, %2$s жіберілді</string>
+    <string name="home_pick_title">Неге осы сервер</string>
+    <string name="home_pick_counts">Тексерілді: %1$d, жауап берді: %2$d</string>
+    <string name="home_pick_chosen">Таңдалды</string>
+    <string name="home_traffic_title">VPN арқылы трафик</string>
+    <string name="home_traffic_period">соңғы 2 апта</string>
+    <string name="home_traffic_today">Бүгін</string>
+    <string name="home_traffic_note">VPN сервері арқылы өткен трафик қана есептеледі</string>
+    <string name="home_traffic_bars_description">Екі аптадағы күндік трафик</string>
+    <string-array name="home_months">
+        <item>Қаңтар</item>
+        <item>Ақпан</item>
+        <item>Наурыз</item>
+        <item>Сәуір</item>
+        <item>Мамыр</item>
+        <item>Маусым</item>
+        <item>Шілде</item>
+        <item>Тамыз</item>
+        <item>Қыркүйек</item>
+        <item>Қазан</item>
+        <item>Қараша</item>
+        <item>Желтоқсан</item>
+    </string-array>
+    <string name="home_clear">Тазалау</string>
+    <string name="home_unit_b">%1$s Б</string>
+    <string name="home_unit_kb">%1$s КБ</string>
+    <string name="home_unit_mb">%1$s МБ</string>
+    <string name="home_unit_gb">%1$s ГБ</string>
+    <string name="home_unit_tb">%1$s ТБ</string>
+    <string name="home_unit_b_per_s">%1$s Б/с</string>
+    <string name="home_unit_kb_per_s">%1$s КБ/с</string>
+    <string name="home_unit_mb_per_s">%1$s МБ/с</string>
+    <string name="home_unit_ms">%1$s мс</string>
+    <string name="home_expiry_expired">мерзімі өтті</string>
+    <string name="home_expiry_today">бүгін аяқталады</string>
+    <plurals name="home_expiry_days_left">
+        <item quantity="one">%d күн қалды</item>
+        <item quantity="other">%d күн қалды</item>
+    </plurals>
+    <string name="home_tab_home">Басты</string>
+    <string name="home_tab_servers">Серверлер</string>
+    <string name="home_tab_subscriptions">Жазылымдар</string>
+    <string name="home_tab_routing">Бағыттар</string>
+    <string name="home_tab_settings">Баптаулар</string>
+    <string name="home_notification_channel_description">Volta VPN күйі</string>
+    <string name="home_tile_no_lte">Жазылымдарда LTE серверлері жоқ</string>
+    <string name="home_tile_connect_failed">қосылу мүмкін болмады</string>
+    <string name="home_tile_picking">Сервер таңдалуда…</string>
+    <string name="home_tile_on">Қосулы</string>
+    <string name="home_tile_off_as_home">Өшірулі · Home ретінде</string>
+    <string name="home_tile_on_description">Volta %1$s: %2$s. Өшіру үшін басыңыз</string>
+    <string name="home_tile_off_description">Volta %1$s өшірулі. Қосу үшін басыңыз</string>
+    <string name="home_tile_added">«%1$s» плиткасы жылдам баптауларға қосылды</string>
+    <string name="home_tile_already_added">«%1$s» плиткасы жылдам баптауларда бар</string>
+    <string name="home_tile_not_added">Плитка қосылмады</string>
+    <string name="home_tile_manual_hint">Жылдам баптауларды ашып, қарындашты басыңыз да, Volta плиткаларын панельге сүйреңіз</string>
+    <string name="home_tile_vpn_on_description">VPN қосулы: %1$s. Өшіру үшін басыңыз</string>
+    <string name="home_tile_vpn_off_description">VPN өшірулі. Қосу үшін басыңыз: %1$s</string>
+    <string name="home_disconnecting">Ажыратылуда…</string>
+    <string name="home_widget_error">Қате</string>
+    <string name="home_vpn_network_changed">Желі ауысты, ал сервер жауап бермейді</string>
+    <string name="home_vpn_openflux_failed">OpenFlux қосылмады</string>
+    <string name="home_vpn_auto_start_failed">VPN-ді автоматты түрде іске қосу мүмкін болмады</string>
+    <string name="home_vpn_no_interface">VPN интерфейсін жасау мүмкін болмады. Басқа VPN рұқсатын қайтарып алып, қайталап көріңіз.</string>
+    <string name="home_vpn_not_started">VPN іске қосылмады, қайталап көріңіз</string>
+    <string name="home_vpn_connection_dropped">Байланыс үзілді</string>
+    <string name="home_vpn_server_stopped_answering">Сервер жауап беруді тоқтатты</string>
+    <string name="home_vpn_core_stopped">VPN ядросы тоқтады</string>
+    <string name="home_tun_unavailable">Бұл телефонда VPN-ді іске қосу мүмкін болмады</string>
+    <string name="home_tun_refused">Android VPN-ді іске қосуға рұқсат бермеді</string>
+    <string name="home_tun_bridge_failed">TUN көпірін іске қосу мүмкін болмады</string>
+    <string name="home_core_geodata_failed">Бағыттау деректерін дайындау мүмкін болмады (%1$s). Қолданбаны қайта орнатыңыз.</string>
+    <string name="home_core_no_controller">libv2ray CoreController қайтармады</string>
+    <string name="home_core_not_started">VPN ядросы іске қосылмады</string>
+    <string name="home_helper_not_in_build">%1$s Volta-ның бұл нұсқасына кірмейді</string>
+    <string name="home_helper_launch_failed">%1$s іске қосылмады: %2$s</string>
+    <string name="home_helper_no_answer">уақытында жауап бермеді</string>
+    <string name="home_helper_stopped">тоқтады</string>
+</resources>

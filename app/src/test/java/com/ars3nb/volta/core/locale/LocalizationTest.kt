@@ -17,7 +17,7 @@ class LocalizationTest {
     private val res = File("src/main/res")
 
     /** Files still on their way into all languages; empty once every area is done. */
-    private val pending = setOf("strings.xml")
+    private val pending: Set<String> = emptySet()
 
     private val folders: List<String> = AppLanguage.SUPPORTED
         .filter { it.tag != "en" }

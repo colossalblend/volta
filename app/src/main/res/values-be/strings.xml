@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vpn_notification_channel_name">Стан VPN</string>
+    <string name="vpn_connected">Падключана</string>
+    <string name="vpn_disconnected">Адключана</string>
+    <string name="vpn_connecting">Падключэнне…</string>
+    <string name="action_connect">Падключыць</string>
+    <string name="action_disconnect">Адключыць</string>
+    <string name="action_toggle">Пераключыць</string>
+    <string name="tile_label">Volta VPN</string>
+    <string name="tile_home_lte_label">Volta Home+LTE</string>
+    <string name="tile_home_label">Volta Home</string>
+    <string name="tile_lte_label">Volta LTE</string>
+    <string name="shortcut_home">Home</string>
+    <string name="shortcut_lte">LTE</string>
+    <string name="shortcut_auto">Аўта</string>
+    <string name="shortcut_auto_long">Падключыць Аўта Home+LTE</string>
+    <string name="shortcut_home_long">Падключыць Home</string>
+    <string name="shortcut_lte_long">Падключыць LTE</string>
+    <string name="action_repick">Падабраць сервер</string>
+    <string name="widget_description">Хуткае кіраванне Volta</string>
+    <string name="accessibility_connect">Кнопка падключэння VPN</string>
+</resources>
