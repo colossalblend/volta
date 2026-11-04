@@ -154,7 +154,9 @@ object SubCrypto {
 
     // --------------------------------------------------------------- helpers
 
-    private fun ecdh(private: PrivateKey, public: PublicKey): ByteArray =
+    // Shared with core/share/ShareCrypto (Bluetooth sharing uses the same construction).
+
+    internal fun ecdh(private: PrivateKey, public: PublicKey): ByteArray =
         KeyAgreement.getInstance("ECDH").run {
             init(private)
             doPhase(public, true)
@@ -162,14 +164,19 @@ object SubCrypto {
         }
 
     /** RFC 5869 HKDF-SHA256, one 32-byte block. */
-    private fun deriveKey(ikm: ByteArray, salt: ByteArray): ByteArray {
+    internal fun deriveKey(ikm: ByteArray, salt: ByteArray, info: String = INFO): ByteArray =
+        deriveKey(ikm, salt, info.toByteArray())
+
+    /** The same with binary [info]. */
+    internal fun deriveKey(ikm: ByteArray, salt: ByteArray, info: ByteArray): ByteArray {
         val extract = Mac.getInstance("HmacSHA256").apply { init(SecretKeySpec(salt, "HmacSHA256")) }
         val prk = extract.doFinal(ikm)
         val expand = Mac.getInstance("HmacSHA256").apply { init(SecretKeySpec(prk, "HmacSHA256")) }
-        return expand.doFinal(INFO.toByteArray() + byteArrayOf(1))
+        return expand.doFinal(info + byteArrayOf(1))
     }
 
-    private fun encodePoint(key: ECPublicKey): ByteArray {
+    /** Uncompressed SEC1 point, 0x04 ‖ X ‖ Y (65 bytes). */
+    internal fun encodePoint(key: ECPublicKey): ByteArray {
         fun fixed(n: BigInteger): ByteArray {
             val raw = n.toByteArray()
             return when {
