@@ -16,6 +16,7 @@ import com.google.gson.JsonParser
 import java.io.File
 import java.io.Writer
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -83,6 +84,13 @@ object OpenFluxRunner {
     @Volatile
     private var appContext: Context? = null
 
+    /**
+     * Counts [stop] calls. A start that sees it move was let go while it waited (the
+     * user turned the VPN off): it ends at once, even if the stop came in before its
+     * process was there to be stopped.
+     */
+    private val stops = AtomicInteger(0)
+
     fun init(context: Context) {
         appContext = context.applicationContext
         available = binary(context).canExecute()
@@ -112,6 +120,7 @@ object OpenFluxRunner {
         appContext = context.applicationContext
         if (connectedOn(link)) return@withContext Result.success(Unit)
         stop()
+        val ticket = stops.get()
         val exe = binary(context)
         if (!exe.canExecute()) {
             return@withContext Result.failure(
@@ -149,6 +158,13 @@ object OpenFluxRunner {
         var deadline = System.currentTimeMillis() + CONNECT_TIMEOUT_MS
         var outcome: Result<Unit>? = null
         while (outcome == null) {
+            if (stops.get() != ticket) {
+                // Stopped from outside meanwhile; the process may have come up after that.
+                if (process === started) stop() else runCatching { started.destroy() }
+                return@withContext Result.failure(
+                    IllegalStateException(context.getString(R.string.servers_openflux_stopped_on_start))
+                )
+            }
             val now = System.currentTimeMillis()
             when (val s = _status.value) {
                 is Status.Connected -> outcome = Result.success(Unit)
@@ -185,6 +201,7 @@ object OpenFluxRunner {
 
     /** Stops the helper: closing its stdin lets it shut the proxy down cleanly first. */
     fun stop() {
+        stops.incrementAndGet()
         val p = process ?: return
         process = null
         runningLink = null
