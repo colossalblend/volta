@@ -93,14 +93,18 @@ class OpenFluxLinkTest {
     }
 
     @Test
-    fun autoModesLeaveOpenFluxAlone() {
+    fun autoModesPickOpenFluxInItsGroup() {
+        // As on Android: OpenFlux takes part in the auto modes, its helper is started by the tunnel.
         val openFlux = ConfigParser.parseShareLink(SESSION)!!.copy(id = 1)
         val vless = ConfigParser.parseShareLink(
             "vless://11111111-2222-4333-8444-555555555555@h:443?security=tls&type=tcp#V"
         )!!.copy(id = 2)
-        BalancerScope.entries.forEach { scope ->
-            assertFalse(AutoBalancer.poolFor(listOf(openFlux, vless), scope).any { it.id == 1L })
-        }
+        val both = listOf(openFlux, vless)
+        assertTrue(AutoBalancer.poolFor(both, BalancerScope.ALL).any { it.id == 1L })
+        assertTrue(AutoBalancer.poolFor(both, BalancerScope.NORMAL).any { it.id == 1L })
+        assertFalse(AutoBalancer.poolFor(both, BalancerScope.BYPASS).any { it.id == 1L })
+        val lte = openFlux.copy(role = com.ars3nb.volta.data.model.ServerRole.BYPASS_WHITELIST)
+        assertEquals(listOf(1L), AutoBalancer.poolFor(listOf(lte, vless), BalancerScope.BYPASS).map { it.id })
     }
 
     companion object {

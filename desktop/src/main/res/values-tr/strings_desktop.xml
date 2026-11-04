@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Volta for Windows only: what has no counterpart in the Android app. Everything
+     else on Windows reads the Android app's own strings (see desktop/build.gradle.kts). -->
+<resources>
+    <string name="desktop_bypass_title">VPN dışındaki siteler</string>
+    <string name="desktop_bypass_text">Windows\'ta trafik, Android\'deki gibi uygulamalara göre ayrılamaz: Volta sistem proxy\'si üzerinden çalışır ve bu, tüm programlar için tektir. Bunun yerine siteleri belirtebilirsiniz: tarayıcı ve programlar onları VPN\'i atlayarak doğrudan açar.</string>
+    <string name="desktop_bypass_empty">Henüz hiç site yok</string>
+    <string name="desktop_bypass_placeholder">banka.com.tr veya sitenin bağlantısı</string>
+    <string name="desktop_captcha_browser">Sayfa tarayıcıda açıldı. Doğrulamayı orada geçip «%1$s» düğmesine basın.</string>
+    <string name="desktop_captcha_open">Sayfayı aç</string>
+    <string name="desktop_update_quit">Yükleyici açılır, Volta da güncellenebilmesi için kapanır</string>
+    <string name="desktop_update_error_installer">Yükleyici başlatılamadı.</string>
+    <string name="desktop_backup_restore_text">Bir telefonda veya başka bir bilgisayarda Volta\'da kaydedilmiş dosyayı açın</string>
+    <string name="desktop_backup_saved">Dosya kaydedildi. Diğer cihazda: Ayarlar → Dosyadan geri yükle</string>
+    <string name="desktop_section_move">Başka bir cihaza taşıma</string>
+    <string name="desktop_adblock_hint">Volta üzerinden (sistem proxy\'si) giden tarayıcılar ve programlar için çalışır. Sistem proxy\'sini okumayan bir programı filtre görmez. YouTube içindeki reklamları filtre kaldırmaz.</string>
+    <string name="desktop_adblock_family_hint">Yetişkin sitelerini de gizler.</string>
+</resources>

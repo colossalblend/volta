@@ -1,5 +1,6 @@
 package com.ars3nb.volta.core.routing
 
+import com.ars3nb.volta.desktop.i18n.R
 import com.ars3nb.volta.data.model.RouteOutbound
 import com.ars3nb.volta.data.model.RoutingRuleDto
 import java.util.UUID
@@ -13,12 +14,19 @@ import java.util.UUID
  */
 data class SitePreset(
     val id: String,
+    /**
+     * Also the name of the rule the preset adds, and how the screen tells it is added, so
+     * it stays the same in every language. Brand names show as they are; the rest are
+     * shown through [label].
+     */
     val title: String,
     val subtitle: String,
     /** Where the preset points by default; the user can change it before adding. */
     val suggested: RouteOutbound,
     val domains: List<String>,
-    val ips: List<String> = emptyList()
+    val ips: List<String> = emptyList(),
+    /** What the screen shows instead of [title], when that isn't just brand names. */
+    val label: String? = null
 ) {
     fun toRule(outbound: RouteOutbound = suggested) = RoutingRuleDto(
         id = UUID.randomUUID().toString(),
@@ -30,15 +38,11 @@ data class SitePreset(
     )
 }
 
-/** A group of well-known apps for split tunnelling, matched by package name. */
-data class AppPreset(
-    val id: String,
-    val title: String,
-    val subtitle: String,
-    val packages: List<String>
-)
-
 object Presets {
+
+    // Stored as rule names since before Volta spoke other languages: kept as they are.
+    private const val STREAMING_TITLE = "Spotify и Netflix"
+    private const val RU_TITLE = "Российские сайты"
 
     // Service domains and Telegram's subnets follow itdoginfo/allow-domains, the lists
     // Russian routers use for the same job; the rest are the services' own domains.
@@ -46,7 +50,7 @@ object Presets {
         SitePreset(
             id = "youtube",
             title = "YouTube",
-            subtitle = "Видео, Shorts, YouTube Music",
+            subtitle = R.string.routing_preset_youtube_sub,
             suggested = RouteOutbound.PROXY,
             domains = listOf(
                 "youtube.com", "ytimg.com", "ggpht.com", "googlevideo.com", "youtubekids.com",
@@ -60,7 +64,7 @@ object Presets {
         SitePreset(
             id = "meta",
             title = "Instagram, WhatsApp, Facebook",
-            subtitle = "Всё от Meta, включая Threads",
+            subtitle = R.string.routing_preset_meta_sub,
             suggested = RouteOutbound.PROXY,
             domains = listOf(
                 "instagram.com", "ig.me", "cdninstagram.com", "facebook.com", "facebook.net",
@@ -71,7 +75,7 @@ object Presets {
         SitePreset(
             id = "telegram",
             title = "Telegram",
-            subtitle = "Сайты и сети серверов Telegram",
+            subtitle = R.string.routing_preset_telegram_sub,
             suggested = RouteOutbound.PROXY,
             domains = listOf(
                 "telegram.org", "telegram.me", "t.me", "telegra.ph", "telegram.dog",
@@ -86,7 +90,7 @@ object Presets {
         SitePreset(
             id = "discord",
             title = "Discord",
-            subtitle = "Чаты и голосовые каналы",
+            subtitle = R.string.routing_preset_discord_sub,
             suggested = RouteOutbound.PROXY,
             domains = listOf(
                 "discord.com", "discord.gg", "discord.co", "discord.media", "discord.new",
@@ -99,7 +103,7 @@ object Presets {
         SitePreset(
             id = "x",
             title = "X (Twitter)",
-            subtitle = "Лента, картинки и видео",
+            subtitle = R.string.routing_preset_x_sub,
             suggested = RouteOutbound.PROXY,
             domains = listOf(
                 "x.com", "twitter.com", "t.co", "twimg.com", "twitter.biz", "tweetdeck.com",
@@ -109,7 +113,7 @@ object Presets {
         SitePreset(
             id = "tiktok",
             title = "TikTok",
-            subtitle = "Приложение и видео",
+            subtitle = R.string.routing_preset_tiktok_sub,
             suggested = RouteOutbound.PROXY,
             domains = listOf(
                 "tiktok.com", "tiktokv.com", "tiktokv.us", "tiktokv.eu", "tiktokw.us",
@@ -121,7 +125,7 @@ object Presets {
         SitePreset(
             id = "ai",
             title = "ChatGPT, Claude, Gemini",
-            subtitle = "Нейросети, закрытые для России",
+            subtitle = R.string.routing_preset_ai_sub,
             suggested = RouteOutbound.PROXY,
             domains = listOf(
                 "openai.com", "chatgpt.com", "chat.com", "oaistatic.com", "oaiusercontent.com",
@@ -133,8 +137,9 @@ object Presets {
         ),
         SitePreset(
             id = "streaming",
-            title = "Spotify и Netflix",
-            subtitle = "Музыка и сериалы",
+            title = STREAMING_TITLE,
+            label = R.string.routing_preset_streaming,
+            subtitle = R.string.routing_preset_streaming_sub,
             suggested = RouteOutbound.PROXY,
             domains = listOf(
                 "spotify.com", "spotifycdn.com", "scdn.co", "spoti.fi", "spotify.design",
@@ -145,7 +150,7 @@ object Presets {
         SitePreset(
             id = "rezka",
             title = "HDRezka",
-            subtitle = "Онлайн-кинотеатр и его зеркала",
+            subtitle = R.string.routing_preset_rezka_sub,
             suggested = RouteOutbound.PROXY,
             domains = listOf(
                 "hdrezka.ag", "hdrezka.ac", "hdrezka.me", "hdrezka.tv", "hdrezka.app",
@@ -155,74 +160,11 @@ object Presets {
         ),
         SitePreset(
             id = "ru",
-            title = "Российские сайты",
-            subtitle = "Всё в зонах .ru, .su, .рф и крупные сервисы",
+            title = RU_TITLE,
+            label = R.string.routing_preset_ru,
+            subtitle = R.string.routing_preset_ru_sub,
             suggested = RouteOutbound.DIRECT,
             domains = listOf("ru", "su", "xn--p1ai") + RoutingEngine.ruWhitelistDomains()
-        )
-    )
-
-    // Package names as published in Google Play and RuStore. Only the ones actually
-    // installed are ever touched, so a renamed app simply drops out.
-    val apps: List<AppPreset> = listOf(
-        AppPreset(
-            id = "banks",
-            title = "Банки",
-            subtitle = "Сбер, Т-Банк, ВТБ, Альфа и другие",
-            packages = listOf(
-                "ru.sberbankmobile", "com.idamob.tinkoff.android", "ru.vtb24.mobilebanking.android",
-                "ru.alfabank.mobile.android", "ru.gazprombank.android.mobilebank.app",
-                "ru.raiffeisennews", "ru.ozon.fintech.finance", "ru.sovcomcard.halva.v1",
-                "ru.letobank.Prometheus", "ru.rshb.dbo", "ru.mts.money", "com.yandex.bank",
-                "ru.psbank.online", "ru.openbank.mobile", "ru.mkb.mobile", "ru.yoo.money",
-                "ru.nspk.mirpay", "ru.nspk.sbpay"
-            )
-        ),
-        AppPreset(
-            id = "gov",
-            title = "Госсервисы",
-            subtitle = "Госуслуги, Госключ, налоги",
-            packages = listOf(
-                "ru.rostel", "ru.gosuslugi.goskey", "com.gnivts.selfemployed",
-                "ru.fns.lkfl", "ru.altarix.mos.pgu", "ru.mos.app"
-            )
-        ),
-        AppPreset(
-            id = "shops",
-            title = "Маркетплейсы",
-            subtitle = "Ozon, Wildberries, Авито, Маркет",
-            packages = listOf(
-                "ru.ozon.app.android", "com.wildberries.ru", "com.avito.android",
-                "ru.beru.android", "ru.megamarket.marketplace", "com.lamoda.lite",
-                "ru.vkusvill", "ru.samokat.app", "com.yandex.lavka"
-            )
-        ),
-        AppPreset(
-            id = "yandex",
-            title = "Яндекс и карты",
-            subtitle = "Go, Карты, Навигатор, 2ГИС, Кинопоиск",
-            packages = listOf(
-                "ru.yandex.taxi", "ru.yandex.yandexmaps", "ru.yandex.yandexnavi",
-                "ru.yandex.searchplugin", "com.yandex.browser", "ru.yandex.music",
-                "ru.kinopoisk", "ru.foodfox.client", "ru.dublgis.dgismobile"
-            )
-        ),
-        AppPreset(
-            id = "social",
-            title = "VK, Max и почта",
-            subtitle = "Российские соцсети и видео",
-            packages = listOf(
-                "com.vkontakte.android", "ru.oneme.app", "ru.ok.android", "com.vk.vkvideo",
-                "ru.mail.mailapp", "ru.rutube.app", "ru.zen.android"
-            )
-        ),
-        AppPreset(
-            id = "carriers",
-            title = "Операторы связи",
-            subtitle = "МТС, МегаФон, Билайн, Т2",
-            packages = listOf(
-                "ru.mts.mymts", "ru.megafon.mlk", "ru.beeline.services", "ru.tele2.mytele2"
-            )
         )
     )
 

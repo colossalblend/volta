@@ -48,6 +48,32 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ars3nb.volta.data.model.ConnectMode
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.material.icons.rounded.Restore
+import androidx.compose.material.icons.rounded.SaveAlt
+import androidx.compose.material.icons.rounded.Science
+import androidx.compose.material.icons.rounded.SystemUpdate
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import com.ars3nb.volta.core.backup.BackupCodec
+import com.ars3nb.volta.desktop.i18n.R
+import com.ars3nb.volta.desktop.i18n.stringResource
+import com.ars3nb.volta.desktop.ui.DesktopBridge
+import com.ars3nb.volta.desktop.ui.components.UpdatePanel
+import com.ars3nb.volta.desktop.update.UpdateState
+import java.time.LocalDate
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.ars3nb.volta.data.model.PingType
 import com.ars3nb.volta.desktop.AppPaths
 import com.ars3nb.volta.desktop.VoltaController
@@ -85,7 +111,9 @@ fun SettingsScreen(
     controller: VoltaController,
     copyToClipboard: (String) -> Unit,
     openUrl: (String) -> Unit,
-    openFolder: (java.io.File) -> Unit
+    openFolder: (java.io.File) -> Unit,
+    bridge: DesktopBridge? = null,
+    update: UpdateState = UpdateState.Idle
 ) {
     val s = LocalStrings.current
     val st = state.settings
@@ -210,29 +238,6 @@ fun SettingsScreen(
                     checked = st.localDns,
                     onChecked = controller::setLocalDns
                 )
-                Column(Modifier.padding(start = 48.dp, top = 6.dp, bottom = 8.dp, end = 4.dp)) {
-                    Text(s.routingTitle, style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(8.dp))
-                    val active = state.routingProfiles.filter { it.isBuiltIn && it.sourceSubscriptionId == null }
-                        .indexOfFirst { it.isActive }.coerceAtLeast(0)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(s.routingAll, s.routingRu).forEachIndexed { i, label ->
-                            VoltaChip(
-                                text = label,
-                                selected = active == i,
-                                onClick = { controller.setBuiltInRouting(i) },
-                                rest = MaterialTheme.colorScheme.surfaceVariant
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    Hint(if (active == 1) s.routingRuHint else s.routingAllHint)
-                    state.subscriptions.filter { sub -> state.routingProfiles.any { it.sourceSubscriptionId == sub.id } }
-                        .forEach { sub ->
-                            Spacer(Modifier.height(4.dp))
-                            Hint(s.routingProvider(sub.name))
-                        }
-                }
             }
         }
 
@@ -292,9 +297,37 @@ fun SettingsScreen(
             }
         }
 
+        item(key = "move-title") { SectionHeader(stringResource(R.string.desktop_section_move)) }
+        item(key = "move") { BackupCard(controller, bridge) }
+
         item(key = "about-title") { SectionHeader(s.secAbout) }
         item(key = "about") {
             VoltaCard(contentPadding = 10) {
+                // As on Android: the version and what the update is doing, then the switches.
+                UpdatePanel(
+                    state = update,
+                    currentVersion = AppPaths.appVersion,
+                    onCheck = controller::checkUpdates,
+                    onInstall = controller::installUpdate
+                )
+                SwitchRow(
+                    icon = Icons.Rounded.SystemUpdate,
+                    tint = primary,
+                    title = stringResource(R.string.settings_update_auto_title),
+                    subtitle = stringResource(
+                        if (st.updateAutoCheck) R.string.settings_update_auto_on else R.string.settings_update_auto_off
+                    ),
+                    checked = st.updateAutoCheck,
+                    onChecked = controller::setUpdateAutoCheck
+                )
+                SwitchRow(
+                    icon = Icons.Rounded.Science,
+                    tint = palette.fair,
+                    title = stringResource(R.string.settings_update_beta_title),
+                    subtitle = stringResource(R.string.settings_update_beta_text),
+                    checked = st.updateBeta,
+                    onChecked = controller::setUpdateBeta
+                )
                 LinkRow(
                     icon = Icons.Rounded.Memory,
                     tint = primary,
@@ -328,6 +361,75 @@ private fun themeLabel(t: DesignTheme, s: Strings) = when (t) {
     DesignTheme.LIGHT -> s.themeLight
     DesignTheme.OCEAN -> s.themeOcean
     DesignTheme.EMBER -> s.themeEmber
+    // A name, as on Android: the colours come from Windows' accent colour.
+    DesignTheme.DYNAMIC -> "Material"
+}
+
+/**
+ * The Android app's «Перенос на новый телефон», for a computer: everything into one file
+ * (the same format as on Android, so it opens on a phone too), and back from it.
+ */
+@Composable
+private fun BackupCard(controller: VoltaController, bridge: DesktopBridge?) {
+    val primary = MaterialTheme.colorScheme.primary
+    val scope = rememberCoroutineScope()
+    var offer by remember { mutableStateOf<BackupCodec.Contents?>(null) }
+    var working by remember { mutableStateOf(false) }
+    VoltaCard(contentPadding = 10) {
+        LinkRow(
+            icon = Icons.Rounded.SaveAlt,
+            tint = primary,
+            title = stringResource(R.string.settings_backup_save_title),
+            subtitle = stringResource(R.string.settings_backup_save_text),
+            onClick = {
+                if (!working) {
+                    val file = bridge?.chooseSaveFile(BackupCodec.fileName(LocalDate.now()))
+                    if (file != null) controller.saveBackup(file)
+                }
+            }
+        )
+        LinkRow(
+            icon = Icons.Rounded.Restore,
+            tint = VoltaTheme.palette.good,
+            title = stringResource(R.string.settings_backup_restore_title),
+            subtitle = stringResource(R.string.desktop_backup_restore_text),
+            onClick = {
+                if (!working) {
+                    val file = bridge?.chooseOpenFile()
+                    if (file != null) {
+                        scope.launch {
+                            offer = withContext(Dispatchers.IO) { controller.readBackup(file) }
+                        }
+                    }
+                }
+            }
+        )
+        AnimatedVisibility(visible = working, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+            Row(Modifier.fillMaxWidth().padding(start = 48.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.width(10.dp))
+                Hint(stringResource(R.string.settings_backup_working))
+            }
+        }
+        Hint(stringResource(R.string.settings_backup_warning), Modifier.padding(start = 48.dp, top = 2.dp, bottom = 6.dp, end = 4.dp))
+    }
+    offer?.let { contents ->
+        AlertDialog(
+            onDismissRequest = { offer = null },
+            title = { Text(stringResource(R.string.settings_backup_restore_question)) },
+            text = { Text(BackupCodec.describe(contents)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    offer = null
+                    working = true
+                    controller.restoreBackup(contents) { working = false }
+                }) { Text(stringResource(R.string.settings_backup_restore_action)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { offer = null }) { Text(stringResource(R.string.settings_backup_cancel)) }
+            }
+        )
+    }
 }
 
 /**
@@ -345,6 +447,14 @@ private fun ThemeCoin(theme: DesignTheme, label: String, selected: Boolean, onCl
         DesignTheme.OCEAN -> Triple(Color(0xFF0B1A20), Color(0xFF193239), Color(0xFF3DBFB4))
         DesignTheme.EMBER -> Triple(Color(0xFF161210), Color(0xFF2E251E), Color(0xFFF08A3C))
         DesignTheme.SYSTEM -> Triple(Color(0xFF101316), Color(0xFFFFFFFF), Color(0xFFD08350))
+        DesignTheme.DYNAMIC -> {
+            val seed = com.ars3nb.volta.desktop.ui.theme.Accent.seed
+            Triple(
+                com.ars3nb.volta.desktop.ui.theme.Accent.tone(seed, 0.12f, 0.2f),
+                com.ars3nb.volta.desktop.ui.theme.Accent.tone(seed, 0.25f, 0.3f),
+                com.ars3nb.volta.desktop.ui.theme.Accent.tone(seed, 0.70f)
+            )
+        }
     }
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,

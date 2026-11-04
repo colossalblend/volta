@@ -43,6 +43,13 @@ object ConfigParser {
         "anytls" to "AnyTLS"
     )
 
+    /** `hysteria://` is matched exactly so `hysteria2://` never trips it. Compiled once. */
+    private val UNSUPPORTED_PATTERNS: Map<Regex, String> =
+        UNSUPPORTED_SCHEMES.mapKeys { (scheme, _) -> Regex("(?i)(?<![a-z0-9])$scheme://") }
+    private val WHITESPACE = Regex("\\s")
+    private val BASE64_BODY = Regex("^[A-Za-z0-9+/=_-]+$")
+    private val BASE64_STRICT = Regex("^[A-Za-z0-9+/]+={0,2}$")
+
     fun parseSubscriptionBody(body: String, subscriptionId: Long? = null): SubscriptionImportResult {
         var title = ""
         var expireAt = 0L
@@ -252,8 +259,8 @@ object ConfigParser {
      * `hysteria://` is matched exactly so `hysteria2://` never trips it.
      */
     fun unsupportedProtocols(content: String): List<String> =
-        UNSUPPORTED_SCHEMES
-            .filterKeys { scheme -> Regex("(?i)(?<![a-z0-9])$scheme://").containsMatchIn(content) }
+        UNSUPPORTED_PATTERNS
+            .filterKeys { pattern -> pattern.containsMatchIn(content) }
             .values
             .distinct()
             .toList()
@@ -263,9 +270,9 @@ object ConfigParser {
         if (content.isBlank()) return false
         if (content.contains("://")) return false
         if (content.trimStart().startsWith("{")) return false
-        val cleaned = content.replace("\\s".toRegex(), "")
+        val cleaned = content.replace(WHITESPACE, "")
         if (cleaned.length < 16) return false
-        if (!cleaned.matches(Regex("^[A-Za-z0-9+/=_-]+$"))) return false
+        if (!cleaned.matches(BASE64_BODY)) return false
         // типичный старт vless:// / vmess:// / ss:// в base64
         val head = cleaned.take(12)
         return head.startsWith("dmxlc3") || // vless
@@ -306,22 +313,38 @@ object ConfigParser {
     /**
      * An openflux:// link is kept whole: the OpenFlux core reads it when connecting.
      * Only its name, carriers and exit address are read here, to list it.
+     *
+     * One link is one server, however many carriers it has: they are roads to the same
+     * exit, which the core runs together and fails over between (see [OpenFluxLink]).
+     * A `#name` after the link, the way providers name every other share link, names
+     * the server (and may carry `[L]`/`[H]` markup); the core never sees it.
      */
     private fun parseOpenFlux(link: String, subscriptionId: Long?): ServerEntity? {
-        val parsed = OpenFluxLink.parse(link) ?: return null
+        val (bare, label) = OpenFluxLink.splitName(link)
+        val parsed = OpenFluxLink.parse(bare) ?: return null
         val (host, port) = parsed.endpoint
         val carriers = parsed.transports.sortedByDescending { it.priority }.map { it.type }.distinct()
         return ServerEntity(
             subscriptionId = subscriptionId,
-            remark = parsed.name.ifBlank { "OpenFlux · ${parsed.carriersLabel}" },
+            remark = decodeRemark(label).trim()
+                .ifBlank { parsed.name }
+                .ifBlank { "OpenFlux · ${parsed.carriersLabel}" },
             protocol = ProtocolType.OPENFLUX,
             address = host,
             port = port,
             network = carriers.joinToString("+"),
             security = if (parsed.encrypted) "aes-gcm" else "none",
-            rawLink = link.filterNot { it.isWhitespace() }
+            rawLink = bare.filterNot { it.isWhitespace() }
         )
     }
+
+    /**
+     * An OpenFlux configuration given as JSON, the share.Config the core puts inside a
+     * link (`{"name", "secret", "transports": [...]}`): turned into the link the core
+     * would make for it, so it connects exactly like a scanned one.
+     */
+    private fun parseOpenFluxConfig(obj: JsonObject, subscriptionId: Long?): ServerEntity? =
+        OpenFluxLink.encode(obj)?.let { parseOpenFlux(it, subscriptionId) }
 
     // ---------------------------------------------------------------- VLESS
 
@@ -713,6 +736,11 @@ object ConfigParser {
             runCatching { parseOutbound(root, subscriptionId) }.getOrNull()?.let { servers += it }
         }
 
+        // An OpenFlux configuration as JSON: one exit. An array of them is several.
+        if (servers.isEmpty() && OpenFluxLink.isShareConfig(root)) {
+            parseOpenFluxConfig(root, subscriptionId)?.let { servers += it }
+        }
+
         // A v2rayNG-style config names its server in "remarks"; the outbound tag is just
         // "proxy". Without this every server of a JSON subscription was called "proxy",
         // and the name check (Home/LTE/balancer) had nothing to go on.
@@ -805,6 +833,7 @@ object ConfigParser {
             obj.get(key)?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotBlank() }
         }
         val parsed = when {
+            OpenFluxLink.isShareConfig(obj) -> listOfNotNull(parseOpenFluxConfig(obj, subscriptionId))
             link != null -> linksIn(link, subscriptionId)
             obj.has("outbounds") -> parseXrayJson(obj.toString(), subscriptionId).servers
             obj.has("protocol") -> listOfNotNull(parseSingleOutboundJson(obj.toString(), subscriptionId))
@@ -1152,7 +1181,7 @@ object ConfigParser {
         if (decoded != value) return decoded
 
         if (value.length >= 12 && value.length % 4 == 0 &&
-            value.matches(Regex("^[A-Za-z0-9+/]+={0,2}$"))
+            value.matches(BASE64_STRICT)
         ) {
             decodeBase64(value)?.trim()?.let { candidate ->
                 val readable = candidate.isNotBlank() &&

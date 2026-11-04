@@ -67,8 +67,11 @@ object AmneziaConfigs {
 
     /** A WireGuard or AmneziaWG `.conf` rather than links or JSON. */
     fun looksLikeConf(text: String): Boolean =
-        Regex("(?im)^\\s*\\[Interface]").containsMatchIn(text) &&
-            Regex("(?im)^\\s*\\[Peer]").containsMatchIn(text)
+        INTERFACE_SECTION.containsMatchIn(text) && PEER_SECTION.containsMatchIn(text)
+
+    // Compiled once: the import screen asks on every keystroke.
+    private val INTERFACE_SECTION = Regex("(?im)^\\s*\\[Interface]")
+    private val PEER_SECTION = Regex("(?im)^\\s*\\[Peer]")
 
     /** One server from a `.conf`. Null when it names no endpoint or keys. */
     fun parseConf(text: String, subscriptionId: Long? = null, name: String = ""): ServerEntity? {

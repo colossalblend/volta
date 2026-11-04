@@ -80,6 +80,14 @@ import com.ars3nb.volta.desktop.ui.components.trafficActivity
 import com.ars3nb.volta.desktop.ui.theme.TABULAR
 import com.ars3nb.volta.desktop.ui.theme.VoltaTheme
 import kotlinx.coroutines.delay
+import com.ars3nb.volta.core.openflux.OpenFluxRunner
+import com.ars3nb.volta.core.stats.TrafficTally
+import com.ars3nb.volta.desktop.ui.components.InternetBanner
+import com.ars3nb.volta.desktop.ui.components.OpenFluxCaptchaBanner
+import com.ars3nb.volta.desktop.ui.components.TrafficCard
+import com.ars3nb.volta.desktop.ui.components.UpdateBanner
+import com.ars3nb.volta.desktop.ui.components.offersInstall
+import com.ars3nb.volta.desktop.update.UpdateState
 
 /** What the home screen can ask for. */
 class HomeActions(
@@ -88,7 +96,10 @@ class HomeActions(
     val onOpenServers: () -> Unit,
     val onOpenImport: () -> Unit,
     val onRecheckNetwork: () -> Unit,
-    val onLteMissing: () -> Unit
+    val onLteMissing: () -> Unit,
+    val onInstallUpdate: () -> Unit = {},
+    val onOpenCaptcha: (String) -> Unit = {},
+    val onCaptchaDone: () -> Unit = {}
 )
 
 /**
@@ -97,7 +108,12 @@ class HomeActions(
  * network and, new on Windows, what the system proxy is doing.
  */
 @Composable
-fun HomeScreen(state: VoltaUiState, actions: HomeActions) {
+fun HomeScreen(
+    state: VoltaUiState,
+    actions: HomeActions,
+    update: UpdateState = UpdateState.Idle,
+    openFlux: OpenFluxRunner.Status = OpenFluxRunner.Status.Idle
+) {
     val s = LocalStrings.current
     val rt = state.runtime
     val mode = state.settings.connectMode
@@ -109,6 +125,9 @@ fun HomeScreen(state: VoltaUiState, actions: HomeActions) {
     val autoCount = remember(state.servers) { AutoBalancer.poolFor(state.servers, BalancerScope.ALL).size }
     val working = phase != ConnectPhase.IDLE
     val hasServers = state.servers.isNotEmpty()
+    val traffic = remember(state.trafficDays, state.isConnected) {
+        TrafficTally.summarize(state.trafficDays, java.time.LocalDate.now())
+    }
 
     // Ticks only while the tunnel is up, so an idle screen costs nothing.
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -130,15 +149,27 @@ fun HomeScreen(state: VoltaUiState, actions: HomeActions) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    TopBar(
-                        regime = state.networkRegime,
-                        ip = rt.ipInfo?.ip,
-                        country = rt.ipInfo?.let { info ->
-                            if (info.countryCode.isNotBlank()) countryName(info.countryCode, LocalLang.current, s)
-                            else info.country
-                        },
-                        onAdd = actions.onOpenImport.takeIf { hasServers }
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        TopBar(
+                            regime = state.networkRegime,
+                            ip = rt.ipInfo?.ip,
+                            country = rt.ipInfo?.let { info ->
+                                if (info.countryCode.isNotBlank()) countryName(info.countryCode, LocalLang.current, s)
+                                else info.country
+                            },
+                            onAdd = actions.onOpenImport.takeIf { hasServers }
+                        )
+                        // As on Android: no network, a check OpenFlux waits for, a newer build.
+                        InternetBanner(rt.internet)
+                        (openFlux as? OpenFluxRunner.Status.Captcha)?.let { captcha ->
+                            OpenFluxCaptchaBanner(
+                                captcha,
+                                onOpen = { actions.onOpenCaptcha(captcha.url) },
+                                onDone = actions.onCaptchaDone
+                            )
+                        }
+                        if (update.offersInstall) UpdateBanner(update, onInstall = actions.onInstallUpdate)
+                    }
 
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(vertical = 8.dp)) {
                         PowerButton(
@@ -219,6 +250,10 @@ fun HomeScreen(state: VoltaUiState, actions: HomeActions) {
                     ) {
                         SpeedGraph(rt.speed, totals = rt.traffic)
                     }
+                }
+                // Shown once anything has gone through the VPN, connected or not.
+                if (!traffic.isEmpty) {
+                    item(key = "traffic") { TrafficCard(traffic) }
                 }
                 item(key = "proxy") {
                     AnimatedVisibility(

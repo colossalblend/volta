@@ -1,5 +1,7 @@
 package com.ars3nb.volta.core.vpn
 
+import com.ars3nb.volta.core.helper.ProxyHelper
+import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.parser.ConfigParser
 import com.ars3nb.volta.core.routing.GeoNames
 import com.ars3nb.volta.core.routing.RoutingEngine
@@ -12,16 +14,18 @@ import com.ars3nb.volta.data.model.ServerEntity
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
-import com.ars3nb.volta.desktop.i18n.I18n
+import com.ars3nb.volta.desktop.i18n.R
+import com.ars3nb.volta.desktop.i18n.Res
 
 /**
- * Builds an Xray-core v26 config from a server (or a pool of servers) plus a routing profile.
+ * The Android builder (app/…/core/vpn/ConfigBuilder.kt) as it is, so a link opens the
+ * same way on Windows and on the phone: the same outbounds, transports, routing and
+ * filters. What Windows adds: the ports are chosen at connect time (another proxy may
+ * hold the usual ones), the core reports its traffic over the metrics endpoint, and
+ * there is no TUN interface, so nothing names [TUN_DNS] to the system: the browsers
+ * hand the core host names through the proxy, and the filters match those.
  *
- * The Windows copy of the Android builder: the same outbounds, transports and routing, so
- * a link opens the same way on both. What differs: the ports are chosen at connect time
- * (another proxy may hold the usual ones), the core reports its traffic over the metrics
- * endpoint, and AmneziaWG, Hysteria v1 and OpenFlux, which need Android-only helpers,
- * are refused with a plain explanation.
+ * Builds an Xray-core v26 config from a server (or a pool of servers) plus a routing profile.
  *
  * Two exit shapes:
  *  - single outbound tagged `proxy`;
@@ -44,8 +48,48 @@ object ConfigBuilder {
     const val EXIT_CHECK_PORT = 10807
     const val EXIT_CHECK_TAG = "exit-check"
 
-    /** Raised when the installed core physically cannot dial a node. */
-    class UnsupportedProtocolException(message: String) : IllegalStateException(message)
+    /**
+     * The DNS server Android is given while the core answers lookups itself: the free
+     * address in the tunnel's own 10.10.14.0/30 (v2rayNG names the same one with its
+     * local DNS on; sing-box does the same with 172.19.0.2). Nothing listens there; the
+     * routing hands every lookup sent to it to the core's resolver (see
+     * [RoutingEngine.toXrayRouting]).
+     *
+     * A public resolver here (the 1.1.1.1 and 8.8.8.8 the tunnel used to name) quietly
+     * defeats the core's DNS: Android's Private DNS on «Automatic», the default, finds
+     * that those addresses speak DNS-over-TLS and switches to port 853, and Chrome's
+     * secure DNS upgrades them to DNS-over-HTTPS. Both then travel as ordinary encrypted
+     * traffic through the proxy and never reach the port-53 rule, so AdGuard never saw
+     * a single lookup. An address no one knows offers neither, and Android stays on
+     * plain lookups the core can answer.
+     */
+    const val TUN_DNS = "10.10.14.2"
+
+    /** Where lookups the core does not answer itself (MX, SRV, TXT…) are passed on. */
+    private const val PASS_THROUGH_DNS = "1.1.1.1"
+
+    private const val DNS_OUT_TAG = "dns-out"
+
+    /**
+     * Raised when the installed core physically cannot dial a node. [reason] is a string
+     * resource and [args] what goes into it; the text is looked up when it is read, so it
+     * comes in the app's language wherever it is shown (the server list, a failed connect).
+     */
+    class UnsupportedProtocolException(val reason: String, vararg val args: Any) :
+        IllegalStateException() {
+        override val message: String get() = describe(reason, args)
+    }
+
+    /** Raised when a node's link lacks something it needs; [reason] as above. */
+    class IncompleteServerException(val reason: String, vararg val args: Any) :
+        IllegalArgumentException() {
+        override val message: String get() = describe(reason, args)
+    }
+
+    /** The words for a reason; in unit tests, where there is no app, only its number. */
+    private fun describe(reason: String, args: Array<out Any>): String =
+        runCatching { Res.string(reason, *args) }
+            .getOrElse { "#$reason ${args.joinToString()}".trim() }
 
     fun build(
         server: ServerEntity,
@@ -67,16 +111,24 @@ object ConfigBuilder {
          * bound another profile explicitly, that routing is used exactly as shipped.
          */
         preferServerRouting: Boolean = false,
-        /** AdGuard DNS for every lookup in the tunnel; switches the DNS module on. */
+        /**
+         * AdGuard DNS for every lookup in the tunnel (switches the DNS module on), plus
+         * the core's own ad list on every connection.
+         */
         adBlock: AdBlockMode = AdBlockMode.OFF,
         /** Drops BitTorrent traffic whatever the profile says. */
         blockTorrents: Boolean = false,
         /** The SOCKS port whose traffic always leaves through the exit (see [EXIT_CHECK_PORT]). */
         exitCheckPort: Int = EXIT_CHECK_PORT,
         /** Where the core serves its traffic counters (/debug/vars); null = not at all. */
-        metricsPort: Int? = null
+        metricsPort: Int? = null,
+        /**
+         * The DNS server a TUN interface names to the system (Android: [TUN_DNS]); null
+         * in proxy mode, where no lookup is sent to the core by address.
+         */
+        tunDns: String? = null
     ): String {
-        // Ad blocking lives in DNS, so it needs the core to answer the lookups itself.
+        // AdGuard needs the core to answer the lookups itself.
         val dnsInCore = localDns || adBlock != AdBlockMode.OFF
         val root = JsonObject()
         root.add("log", JsonObject().apply {
@@ -135,7 +187,9 @@ object ConfigBuilder {
         } else {
             resolveRules(server, profile, providerRoutingJson)
         }.let { list -> if (geo == null) list else list.map(geo::rewrite) }
-            .let { list -> filterRules(blockTorrents) + list }
+            // After the rewrite: the filters always use the bundled geosite.dat, which is
+            // known to carry their lists; a subscription's own file may not.
+            .let { list -> filterRules(adBlock, blockTorrents) + list }
         val domainStrategy = if (useServerRouting) {
             serverRouting?.get("domainStrategy")?.takeIf { it.isJsonPrimitive }?.asString
         } else {
@@ -146,6 +200,7 @@ object ConfigBuilder {
             domainStrategy = domainStrategy?.ifBlank { null } ?: "IPIfNonMatch",
             proxyBalancerTag = if (useBalancer) BALANCER_TAG else null,
             dnsRuleEnabled = dnsInCore,
+            dnsAddress = tunDns,
             exitInboundTag = EXIT_CHECK_TAG
         )
         if (useBalancer) {
@@ -207,8 +262,27 @@ object ConfigBuilder {
         outboundFor(server, PROXY_TAG)
         null
     } catch (e: Exception) {
-        e.message ?: I18n.s.errUnsupported
+        e.message ?: describe(R.string.routing_dial_unsupported, emptyArray())
     }
+
+    /**
+     * True when [configJson] answers the phone's DNS lookups itself (it has the `dns-out`
+     * hand-over), so the tunnel may name [TUN_DNS] as its DNS server. A config without
+     * it must get a real resolver instead, or nothing would resolve at all.
+     */
+    fun answersAppDns(configJson: String): Boolean = configJson.contains(DNS_OUT_TAG) && runCatching {
+        JsonParser.parseString(configJson).asJsonObject
+            .getAsJsonArray("outbounds")
+            ?.any { el ->
+                el.isJsonObject &&
+                    el.asJsonObject.get("tag")?.takeIf { it.isJsonPrimitive }?.asString == DNS_OUT_TAG &&
+                    el.asJsonObject.get("protocol")?.takeIf { it.isJsonPrimitive }?.asString == "dns"
+            } == true
+    }.getOrDefault(false)
+
+    /** The DNS servers the VPN interface names to Android for [configJson]. */
+    fun tunDnsServers(configJson: String): List<String> =
+        if (answersAppDns(configJson)) listOf(TUN_DNS) else listOf("1.1.1.1", "8.8.8.8")
 
     // -------------------------------------------------------------- inbounds
 
@@ -223,6 +297,12 @@ object ConfigBuilder {
                 addProperty("udp", true)
                 addProperty("auth", "noauth")
             })
+            // Everything from the phone arrives here (the TUN bridge speaks SOCKS), and the
+            // app-wide filters depend on this sniffing staying on, for TCP and UDP alike:
+            // it reads the site name out of HTTP, TLS and QUIC, so the ad list matches a
+            // connection made straight to an IP (an app with its own DNS), and it is the
+            // only way the core recognises BitTorrent (the `protocol` rule). The protocol
+            // is noted whatever destOverride says.
             add("sniffing", JsonObject().apply {
                 addProperty("enabled", true)
                 add("destOverride", jsonArray("http", "tls", "quic"))
@@ -249,6 +329,14 @@ object ConfigBuilder {
             add("settings", JsonObject().apply {
                 addProperty("allowTransparent", false)
             })
+            // On Windows nearly everything comes through here (the system proxy): the
+            // browser names the site in its CONNECT, and sniffing also reads it out of
+            // connections made to a bare address, for the filters and the torrent rule.
+            add("sniffing", JsonObject().apply {
+                addProperty("enabled", true)
+                add("destOverride", jsonArray("http", "tls", "quic"))
+                addProperty("routeOnly", true)
+            })
         })
         return arr
     }
@@ -270,9 +358,16 @@ object ConfigBuilder {
     }
 
     private fun dnsOutbound() = JsonObject().apply {
-        addProperty("tag", "dns-out")
+        addProperty("tag", DNS_OUT_TAG)
         addProperty("protocol", "dns")
-        add("settings", JsonObject().apply { addProperty("nonIPQuery", "skip") })
+        add("settings", JsonObject().apply {
+            // Address lookups are answered by the core's resolver; anything else is
+            // passed on as is. Passed on to a real resolver, not to where it was sent:
+            // that is now TUN_DNS, where nothing would ever answer.
+            addProperty("nonIPQuery", "skip")
+            addProperty("address", PASS_THROUGH_DNS)
+            addProperty("port", 53)
+        })
     }
 
     /**
@@ -320,7 +415,9 @@ object ConfigBuilder {
             }
 
             ProtocolType.SHADOWSOCKS -> {
-                require(server.encryption.isNotBlank()) { I18n.s.errLinkIncomplete }
+                if (server.encryption.isBlank()) {
+                    throw IncompleteServerException(R.string.routing_dial_link_incomplete)
+                }
                 ob.addProperty("protocol", "shadowsocks")
                 ob.add("settings", JsonObject().apply {
                     add("servers", JsonArray().apply {
@@ -395,18 +492,71 @@ object ConfigBuilder {
                 })
             }
 
-            // On Android these run in helper processes (OpenFlux, voltaproxy) that Volta for
-            // Windows does not have yet.
-            ProtocolType.OPENFLUX, ProtocolType.AMNEZIAWG, ProtocolType.HYSTERIA ->
-                throw UnsupportedProtocolException(I18n.s.errNotOnWindows(server.protocol.label))
+            ProtocolType.OPENFLUX -> {
+                if (!OpenFluxRunner.available) {
+                    throw UnsupportedProtocolException(R.string.routing_dial_not_in_build, "OpenFlux")
+                }
+                // The OpenFlux helper carries the traffic; the core only hands it over
+                // to the helper's local SOCKS5 port (see OpenFluxRunner).
+                return localSocks(ob, OpenFluxRunner.PORT)
+            }
+
+            ProtocolType.AMNEZIAWG, ProtocolType.HYSTERIA -> {
+                val spec = helperSpec(server)
+                    ?: throw UnsupportedProtocolException(R.string.routing_dial_no_settings, server.remark)
+                if (!ProxyHelper.available) {
+                    throw UnsupportedProtocolException(
+                        R.string.routing_dial_not_in_build, server.protocol.label
+                    )
+                }
+                if (spec.kind == ProxyHelper.Spec.HYSTERIA) hysteriaV1Problem(server)?.let { throw it }
+                // The voltaproxy helper carries the traffic (see ProxyHelper).
+                return localSocks(ob, ProxyHelper.PORT)
+            }
 
             ProtocolType.RAW_JSON, ProtocolType.UNKNOWN ->
-                throw UnsupportedProtocolException(I18n.s.errUnknownType(server.remark))
+                throw UnsupportedProtocolException(R.string.routing_dial_unknown_type, server.remark)
         }
         ob.add("streamSettings", buildStreamSettings(server))
         val mux = muxSettings(server)
         if (mux != null) ob.add("mux", mux)
         return ob
+    }
+
+    /** A SOCKS5 outbound to a helper process on this phone. */
+    private fun localSocks(ob: JsonObject, port: Int): JsonObject {
+        ob.addProperty("protocol", "socks")
+        ob.add("settings", JsonObject().apply {
+            add("servers", JsonArray().apply {
+                add(JsonObject().apply {
+                    addProperty("address", "127.0.0.1")
+                    addProperty("port", port)
+                })
+            })
+        })
+        return ob
+    }
+
+    /**
+     * What the voltaproxy helper must run for [server], or null when the core dials
+     * it by itself: AmneziaWG (its .conf) and Hysteria v1 (its link).
+     */
+    fun helperSpec(server: ServerEntity): ProxyHelper.Spec? = when (server.protocol) {
+        ProtocolType.AMNEZIAWG -> server.rawLink.takeIf { it.isNotBlank() }
+            ?.let { ProxyHelper.Spec(ProxyHelper.Spec.AWG, it) }
+
+        ProtocolType.HYSTERIA -> server.rawLink.takeIf { it.isNotBlank() }
+            ?.let { ProxyHelper.Spec(ProxyHelper.Spec.HYSTERIA, it) }
+
+        else -> null
+    }
+
+    /** Hysteria v1 over its fake-TCP or "wechat-video" modes: not in the helper. */
+    private fun hysteriaV1Problem(server: ServerEntity): UnsupportedProtocolException? {
+        val mode = ConfigParser.extra(server.extraJson, "protocol").lowercase()
+        return if (mode.isNotBlank() && mode != "udp") {
+            UnsupportedProtocolException(R.string.routing_dial_variant_unsupported, server.remark)
+        } else null
     }
 
     /**
@@ -428,7 +578,7 @@ object ConfigBuilder {
         server: ServerEntity,
         userBlock: (JsonObject) -> Unit
     ): JsonObject {
-        require(server.uuid.isNotBlank()) { I18n.s.errNoKey(server.remark) }
+        if (server.uuid.isBlank()) throw IncompleteServerException(R.string.routing_dial_no_key, server.remark)
         return JsonObject().apply {
             add("vnext", JsonArray().apply {
                 add(JsonObject().apply {
@@ -452,7 +602,9 @@ object ConfigBuilder {
             .ifBlank { server.uuid }
         val publicKey = ConfigParser.extra(extras, "publicKey", "publickey", "peerPublicKey")
             .ifBlank { server.pbk }
-        require(secret.isNotBlank() && publicKey.isNotBlank()) { I18n.s.errNoKeys(server.remark) }
+        if (secret.isBlank() || publicKey.isBlank()) {
+            throw IncompleteServerException(R.string.routing_dial_no_keys, server.remark)
+        }
         val localAddresses = ConfigParser.extra(extras, "address", "localAddress", "ip")
             .ifBlank { "172.16.0.2/32" }
         val allowed = ConfigParser.extra(extras, "allowedIPs", "allowedips")
@@ -507,7 +659,7 @@ object ConfigBuilder {
         val protocol = outbound.get("protocol")?.takeIf { it.isJsonPrimitive }
             ?.asString?.lowercase().orEmpty()
         if (protocol !in DIALABLE_PROTOCOLS) {
-            throw UnsupportedProtocolException(I18n.s.errTypeUnsupported(server.remark))
+            throw UnsupportedProtocolException(R.string.routing_dial_type_unsupported, server.remark)
         }
         return dropRetired(outbound)
     }
@@ -577,20 +729,22 @@ object ConfigBuilder {
             "h2", "http" -> "xhttp"
             "splithttp" -> "xhttp"
             "mkcp" -> "kcp"
-            "quic" -> throw UnsupportedProtocolException(I18n.s.errOldTransport(server.remark))
+            "quic" -> throw UnsupportedProtocolException(R.string.routing_dial_outdated, server.remark)
             else -> network
         }
         // An unrecognised security value makes the core reject the whole config, taking
         // every other node down with it — refuse this one node loudly instead.
         if (security !in setOf("none", "tls", "reality")) {
-            throw UnsupportedProtocolException(I18n.s.errSecurityUnsupported(server.remark))
+            throw UnsupportedProtocolException(R.string.routing_dial_encryption, server.remark)
         }
         stream.addProperty("network", effectiveNetwork)
         stream.addProperty("security", security)
 
         when (security) {
             "reality" -> {
-                require(server.pbk.isNotBlank()) { I18n.s.errNoRealityKey(server.remark) }
+                if (server.pbk.isBlank()) {
+                    throw IncompleteServerException(R.string.routing_dial_missing_key, server.remark)
+                }
                 stream.add("realitySettings", JsonObject().apply {
                     addProperty(
                         "serverName",
@@ -725,7 +879,7 @@ object ConfigBuilder {
     private fun hysteriaSettings(server: ServerEntity): JsonObject {
         val extras = server.extraJson
         val auth = server.uuid.ifBlank { ConfigParser.extra(extras, "auth", "password") }
-        require(auth.isNotBlank()) { I18n.s.errNoPassword(server.remark) }
+        if (auth.isBlank()) throw IncompleteServerException(R.string.routing_dial_no_password, server.remark)
         return JsonObject().apply {
             addProperty("version", 2)
             addProperty("auth", auth)
@@ -807,19 +961,67 @@ object ConfigBuilder {
         }.getOrNull()
     }
 
-    /** App-wide filters, ahead of every profile rule so no profile can undo them. */
-    private fun filterRules(blockTorrents: Boolean): List<RoutingRuleDto> = buildList {
-        if (blockTorrents) {
+    /**
+     * App-wide filters, ahead of every profile rule so no profile can undo them. All of
+     * them send to the `block` (blackhole) outbound, which every config has.
+     *
+     * Ads: AdGuard DNS alone is not enough. Whatever finds an address without asking
+     * the core (a browser's own secure DNS, Private DNS set to a named provider, an app
+     * with a built-in resolver, an address cached from before) went straight to the ad
+     * server. The same category list in the routing catches those connections by the
+     * site name sniffing reads out of them, so ads stay blocked either way; AdGuard's
+     * bigger list still applies to every lookup the core answers.
+     *
+     * Torrents: the core can only tell BitTorrent by sniffing, from the plain TCP
+     * handshake (the "BitTorrent protocol" greeting) and from µTP over UDP. A client that
+     * encrypts its peer connections (MSE/PE, offered by default in most clients) looks
+     * like random bytes over TCP and slips through, as do DHT and UDP tracker packets,
+     * which the core has no sniffer for. Trackers reached by name over HTTP(S) are
+     * caught by the public-tracker list, which takes away most ways to find peers.
+     * This is a strong hint, not a guarantee.
+     *
+     * The geosite list names the hosts tracking code talks to, not their neighbours
+     * (consoles, secondary collectors, script CDNs), and AdGuard DNS leaves those alone
+     * too; [AdBlockLists] adds them, in tiers by mode. Geosite and Volta's list share one
+     * rule: the core builds one domain matcher per rule, so a second rule would only
+     * cost another pass over every connection.
+     *
+     * The geosite names come from the bundled geosite.dat; CI runs every built config
+     * through `xray run -test` against that file, so a list it lacks fails the build.
+     */
+    private fun filterRules(adBlock: AdBlockMode, blockTorrents: Boolean): List<RoutingRuleDto> = buildList {
+        if (adBlock != AdBlockMode.OFF) {
             add(
-                RoutingRuleDto(
-                    name = "Торренты",
-                    outbound = RouteOutbound.BLOCK,
-                    protocol = listOf("bittorrent"),
-                    source = "builtin"
+                filterRule(
+                    "ads and trackers",
+                    domains = listOf("geosite:category-ads-all") + AdBlockLists.domainsFor(adBlock)
                 )
             )
         }
+        if (adBlock == AdBlockMode.FAMILY) {
+            // Family DNS hides adult sites only from lookups the core answers.
+            add(filterRule("adult sites", domains = listOf("geosite:category-porn")))
+        }
+        if (blockTorrents) {
+            add(filterRule("torrents", protocol = listOf("bittorrent")))
+            add(filterRule("torrent trackers", domains = listOf("geosite:category-public-tracker")))
+        }
     }
+
+    /** [name] only labels the rule in the built config; it is never shown. */
+    private fun filterRule(
+        name: String,
+        domains: List<String> = emptyList(),
+        protocol: List<String> = emptyList()
+    ) = RoutingRuleDto(
+        name = name,
+        outbound = RouteOutbound.BLOCK,
+        domains = domains,
+        protocol = protocol,
+        source = "builtin",
+        // Rules are laid out by sortOrder; this keeps the filters first for certain.
+        sortOrder = Int.MIN_VALUE
+    )
 
     private fun buildDns(profile: RoutingProfileEntity?, adBlock: AdBlockMode): JsonObject {
         val dns = JsonObject()
@@ -829,6 +1031,16 @@ object ConfigBuilder {
                 .getOrNull()
                 ?.takeIf { it.size() > 0 }
                 ?.let { dns.add("hosts", it) }
+        }
+        // Volta's own tracker list, answered by the core itself: an app gets an address
+        // that leads nowhere at once, and a browser that sees no shared address cannot
+        // send these names down a connection it already has open to a sibling host,
+        // where the routing rule would never see them. The provider's own entries win.
+        AdBlockLists.domainsFor(adBlock).takeIf { it.isNotEmpty() }?.let { blocked ->
+            val hosts = dns.getAsJsonObject("hosts") ?: JsonObject().also { dns.add("hosts", it) }
+            blocked.forEach { name ->
+                if (!hosts.has(name)) hosts.add(name, jsonArray("0.0.0.0", "::"))
+            }
         }
         dns.addProperty("queryStrategy", "UseIP")
         dns.addProperty("disableCache", false)
@@ -846,7 +1058,8 @@ object ConfigBuilder {
         servers.add(remote)
         servers.add(JsonObject().apply {
             addProperty("address", domestic)
-            add("domains", jsonArray("geosite:category-ru", "domain:ru", "domain:su", "domain:рф"))
+            // xn--p1ai is .рф as DNS queries carry it (punycode), like the RU preset.
+            add("domains", jsonArray("geosite:category-ru", "domain:ru", "domain:su", "domain:xn--p1ai"))
             add("expectIPs", jsonArray("geoip:ru"))
         })
         servers.add("localhost")

@@ -1,6 +1,14 @@
 package com.ars3nb.volta.core.ping
 
+import com.ars3nb.volta.core.helper.ProxyHelper
+import com.ars3nb.volta.core.openflux.OpenFluxLink
+import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.vpn.ConfigBuilder
+import com.ars3nb.volta.desktop.i18n.R
+import com.ars3nb.volta.desktop.i18n.Res
+import java.net.HttpURLConnection
+import java.net.Proxy
+import java.net.URI
 import com.ars3nb.volta.data.model.PingResult
 import com.ars3nb.volta.data.model.PingType
 import com.ars3nb.volta.data.model.ProtocolType
@@ -53,6 +61,15 @@ class PingEngine(
                 server.protocol == ProtocolType.AMNEZIAWG ||
                 server.network.lowercase() in setOf("hysteria", "kcp", "mkcp")
 
+        /**
+         * OpenFlux nodes have a check of their own (see [openFluxDelay]), as on Android:
+         * they skip the TCP sweep and are always judged.
+         */
+        fun judgedByCarriers(server: ServerEntity): Boolean = server.protocol == ProtocolType.OPENFLUX
+
+        /** An OpenFlux node judged from outside counts this many of its carrier's handshakes. */
+        const val OPENFLUX_ROUND_TRIPS = 3
+
         internal fun reachableIds(tcpResults: List<Pair<Long, PingResult>>): Set<Long> =
             tcpResults.asSequence().filter { it.second.success }.map { it.first }.toSet()
     }
@@ -61,7 +78,7 @@ class PingEngine(
 
     suspend fun pingServer(server: ServerEntity, type: PingType = PingType.TCP): PingResult =
         when {
-            type == PingType.REAL_DELAY || speaksUdp(server) -> realDelay(listOf(server))[server.id]
+            type == PingType.REAL_DELAY || speaksUdp(server) || judgedByCarriers(server) -> realDelay(listOf(server))[server.id]
                 ?: failed(server, PingType.REAL_DELAY)
             else -> tcpPing(server.address, server.port).copy(target = server.remark)
         }
@@ -139,21 +156,93 @@ class PingEngine(
         timeoutMs: Long,
         rounds: Int,
         onFirst: (suspend (Long, Long) -> Unit)? = null
-    ): Map<Long, List<Long>> {
-        val t = tester
-        if (t == null) {
-            // No core to measure with: the honest fallback is a TCP handshake.
-            return coroutineScope {
-                servers.map { s ->
-                    async {
-                        val list = List(rounds) { tcpPing(s.address, s.port).latencyMs }
-                        onFirst?.invoke(s.id, list.first())
-                        s.id to list
-                    }
-                }.awaitAll().toMap()
+    ): Map<Long, List<Long>> = coroutineScope {
+        // As on Android: AmneziaWG and Hysteria v1 are timed by the voltaproxy helper,
+        // OpenFlux by its own check, the rest by a throw-away core.
+        val (helperNodes, others) = servers.partition { ConfigBuilder.helperSpec(it) != null }
+        val (fluxNodes, coreNodes) = others.partition(::judgedByCarriers)
+        val helper = helperNodes.map { s ->
+            async {
+                val spec = ConfigBuilder.helperSpec(s)!!
+                val list = List(rounds) {
+                    if (ConfigBuilder.dialProblem(s) != null) -1L
+                    else ProxyHelper.probe(spec, DELAY_TEST_URL, timeoutMs)
+                }
+                onFirst?.invoke(s.id, list.first())
+                s.id to list
             }
         }
-        return t.measure(servers, timeoutMs, rounds, onResult = onFirst)
+        val flux = fluxNodes.map { s ->
+            async {
+                val r = openFluxDelay(s, timeoutMs)
+                val list = List(rounds) { r.latencyMs }
+                onFirst?.invoke(s.id, list.first())
+                s.id to list
+            }
+        }
+        val t = tester
+        val core: Map<Long, List<Long>> = when {
+            coreNodes.isEmpty() -> emptyMap()
+            t == null -> coreNodes.map { s ->
+                // No core to measure with: the honest fallback is a TCP handshake.
+                async {
+                    val list = List(rounds) { tcpPing(s.address, s.port).latencyMs }
+                    onFirst?.invoke(s.id, list.first())
+                    s.id to list
+                }
+            }.awaitAll().toMap()
+
+            else -> t.measure(coreNodes, timeoutMs, rounds, onResult = onFirst)
+        }
+        core + helper.awaitAll().toMap() + flux.awaitAll().toMap()
+    }
+
+    /**
+     * An OpenFlux node, as on Android: through the helper when it runs on this very link
+     * (a real round trip through the exit), else judged from outside: all its carriers
+     * are knocked on at once and the best one that answers gives the figure, three of its
+     * handshakes, never less than the node's smoothed figure.
+     */
+    private suspend fun openFluxDelay(server: ServerEntity, timeoutMs: Long): PingResult {
+        val type = PingType.REAL_DELAY
+        if (!OpenFluxRunner.available) {
+            return PingResult(server.remark, type, -1, false, Res.string(R.string.servers_openflux_not_in_build))
+        }
+        if (OpenFluxRunner.runs(server.rawLink)) {
+            val ms = withContext(Dispatchers.IO) { throughOpenFlux(maxOf(timeoutMs, 10_000L)) }
+            return PingResult(
+                server.remark, type, ms, ms > 0,
+                if (ms > 0) "" else Res.string(R.string.servers_ping_node_no_answer)
+            )
+        }
+        val endpoints = OpenFluxLink.parse(server.rawLink)?.endpoints.orEmpty()
+        if (endpoints.isEmpty()) {
+            return PingResult(server.remark, type, -1, false, Res.string(R.string.servers_openflux_link_unreadable))
+        }
+        val knocks = coroutineScope { endpoints.map { e -> async { e to tcpPing(e.host, e.port) } }.awaitAll() }
+        val (carrier, knock) = knocks.firstOrNull { it.second.success }
+            ?: return PingResult(
+                server.remark, type, -1, false, Res.string(R.string.servers_openflux_carriers_silent), estimate = true
+            )
+        val figure = maxOf(knock.latencyMs.coerceAtLeast(1) * OPENFLUX_ROUND_TRIPS, server.ewmaMs)
+        return PingResult(server.remark, type, figure, true, OpenFluxLink.carrierName(carrier.type), estimate = true)
+    }
+
+    /** A page through the running OpenFlux helper's proxy: its exit's round trip, in ms. */
+    private fun throughOpenFlux(timeoutMs: Long): Long {
+        val start = System.nanoTime()
+        val ok = runCatching {
+            val c = URI(DELAY_TEST_URL).toURL()
+                .openConnection(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", OpenFluxRunner.PORT))) as HttpURLConnection
+            try {
+                c.connectTimeout = timeoutMs.toInt()
+                c.readTimeout = timeoutMs.toInt()
+                c.responseCode in 100..599
+            } finally {
+                c.disconnect()
+            }
+        }.getOrDefault(false)
+        return if (ok) ((System.nanoTime() - start) / 1_000_000L).coerceAtLeast(1L) else -1L
     }
 
     private fun result(server: ServerEntity, ms: Long) = PingResult(
@@ -161,7 +250,9 @@ class PingEngine(
         type = PingType.REAL_DELAY,
         latencyMs = if (ms > 0) ms else -1,
         success = ms > 0,
-        message = if (ms > 0) "" else (ConfigBuilder.dialProblem(server) ?: I18n.s.errServerSilent)
+        message = if (ms > 0) "" else (ConfigBuilder.dialProblem(server) ?: I18n.s.errServerSilent),
+        // An OpenFlux node not in use is judged by its carriers, not timed through its exit.
+        estimate = judgedByCarriers(server) && !OpenFluxRunner.runs(server.rawLink)
     )
 
     private fun failed(server: ServerEntity, type: PingType) =
@@ -188,7 +279,7 @@ class PingEngine(
         finalists: Int = 4
     ): List<Pair<Long, PingResult>> = coroutineScope {
         if (servers.isEmpty()) return@coroutineScope emptyList()
-        val (udp, tcpBased) = servers.partition(::speaksUdp)
+        val (udp, tcpBased) = servers.partition { speaksUdp(it) || judgedByCarriers(it) }
         val udpPicks = udp.sortedBy { it.score }.take(UDP_FINALISTS)
         val tcp = pingServers(tcpBased, PingType.TCP)
         if (type == PingType.TCP) {
@@ -236,8 +327,9 @@ class PingEngine(
         if (servers.isEmpty()) return@coroutineScope emptyList()
 
         if (type == PingType.REAL_DELAY) {
-            val tcp = pingServers(servers.filterNot(::speaksUdp), PingType.TCP, maxParallel)
-            val reachable = reachableIds(tcp) + servers.filter(::speaksUdp).map { it.id }
+            val swept = servers.filterNot { speaksUdp(it) || judgedByCarriers(it) }
+            val tcp = pingServers(swept, PingType.TCP, maxParallel)
+            val reachable = reachableIds(tcp) + servers.filter { speaksUdp(it) || judgedByCarriers(it) }.map { it.id }
             val unreachable = servers.filter { it.id !in reachable }.map { server ->
                 server.id to PingResult(server.remark, type, -1, false, I18n.s.errServerSilent)
             }

@@ -19,6 +19,21 @@ import java.util.UUID
  */
 object HappRoutingParser {
 
+    /** Called for every domain of a provider's rules (thousands): nothing is built per call. */
+    private val DOMAIN_PREFIXES = listOf("geosite:", "domain:", "full:", "regexp:", "keyword:", "ext:")
+
+    // Names Volta gives what it makes from a provider's lists. They are stored with the
+    // rules, so they stay the same in every language; [RoutingNames] shows them translated.
+    /** The set's name when the provider gives none. */
+    const val DEFAULT_NAME = "Правила подписки"
+    const val RULE_BLOCK = "Блок (из подписки)"
+    const val RULE_PROXY = "Через VPN (из подписки)"
+    const val RULE_DIRECT = "Напрямую (из подписки)"
+    const val RULE_LAN = "Локальная сеть"
+    const val RULE_REST_DIRECT = "Остальное напрямую (из подписки)"
+    /** Follows a rule's name when the provider's addresses make a rule of their own. */
+    const val IP_SUFFIX = " · IP"
+
     data class ParsedRouting(
         val name: String,
         val rules: List<RoutingRuleDto>,
@@ -176,7 +191,7 @@ object HappRoutingParser {
                 return parseAnyJson(json, activate)
             }
 
-            val name = o.str("Name").ifBlank { "Правила подписки" }
+            val name = o.str("Name").ifBlank { DEFAULT_NAME }
             val domainStrategy = o.str("DomainStrategy").ifBlank { "AsIs" }
             val remoteDns = dnsAddress(
                 type = o.str("RemoteDNSType"),
@@ -211,7 +226,7 @@ object HappRoutingParser {
                 if (ips.isNotEmpty()) {
                     rules += RoutingRuleDto(
                         id = UUID.randomUUID().toString(),
-                        name = "$label · IP",
+                        name = label + IP_SUFFIX,
                         enabled = true,
                         outbound = outbound,
                         ips = ips,
@@ -231,16 +246,16 @@ object HappRoutingParser {
 
             steps.forEach { step ->
                 when (step) {
-                    "block" -> addList("BlockSites", "BlockIp", RouteOutbound.BLOCK, "Блок (из подписки)")
-                    "proxy" -> addList("ProxySites", "ProxyIp", RouteOutbound.PROXY, "Через VPN (из подписки)")
-                    "direct" -> addList("DirectSites", "DirectIp", RouteOutbound.DIRECT, "Напрямую (из подписки)")
+                    "block" -> addList("BlockSites", "BlockIp", RouteOutbound.BLOCK, RULE_BLOCK)
+                    "proxy" -> addList("ProxySites", "ProxyIp", RouteOutbound.PROXY, RULE_PROXY)
+                    "direct" -> addList("DirectSites", "DirectIp", RouteOutbound.DIRECT, RULE_DIRECT)
                 }
             }
             // If empty steps still try all
             if (rules.isEmpty()) {
-                addList("BlockSites", "BlockIp", RouteOutbound.BLOCK, "Блок (из подписки)")
-                addList("ProxySites", "ProxyIp", RouteOutbound.PROXY, "Через VPN (из подписки)")
-                addList("DirectSites", "DirectIp", RouteOutbound.DIRECT, "Напрямую (из подписки)")
+                addList("BlockSites", "BlockIp", RouteOutbound.BLOCK, RULE_BLOCK)
+                addList("ProxySites", "ProxyIp", RouteOutbound.PROXY, RULE_PROXY)
+                addList("DirectSites", "DirectIp", RouteOutbound.DIRECT, RULE_DIRECT)
             }
 
             // Private always direct hint
@@ -248,7 +263,7 @@ object HappRoutingParser {
                 0,
                 RoutingRuleDto(
                     id = UUID.randomUUID().toString(),
-                    name = "Локальная сеть",
+                    name = RULE_LAN,
                     outbound = RouteOutbound.DIRECT,
                     ips = listOf("geoip:private"),
                     source = "provider",
@@ -262,7 +277,7 @@ object HappRoutingParser {
             if (!globalProxy) {
                 rules += RoutingRuleDto(
                     id = UUID.randomUUID().toString(),
-                    name = "Остальное напрямую (из подписки)",
+                    name = RULE_REST_DIRECT,
                     outbound = RouteOutbound.DIRECT,
                     network = "tcp,udp",
                     source = "provider",
@@ -334,7 +349,7 @@ object HappRoutingParser {
             RoutingEngine.parseRules(rulesArr.toString())
         } else emptyList()
         return ParsedRouting(
-            name = "Правила подписки",
+            name = DEFAULT_NAME,
             rules = rules.map { it.copy(source = "provider") },
             domainStrategy = routing.str("domainStrategy").ifBlank { "AsIs" },
             rawJson = routing.toString(),
@@ -359,7 +374,7 @@ object HappRoutingParser {
                     }
                     if (rules.isEmpty()) null
                     else ParsedRouting(
-                        name = o.str("Name").ifBlank { "Правила подписки" },
+                        name = o.str("Name").ifBlank { DEFAULT_NAME },
                         rules = rules.map { it.copy(source = "provider") },
                         rawJson = json,
                         activate = activate
@@ -379,11 +394,10 @@ object HappRoutingParser {
     private fun normalizeDomain(d: String): String {
         val t = d.trim()
         if (t.isEmpty()) return t
-        val prefixes = listOf("geosite:", "domain:", "full:", "regexp:", "keyword:", "ext:")
-        if (prefixes.any { t.startsWith(it, ignoreCase = true) }) return t
+        if (DOMAIN_PREFIXES.any { t.startsWith(it, ignoreCase = true) }) return t
         if (t.startsWith("*")) return "domain:" + t.removePrefix("*").removePrefix(".")
         // Looks like an address, not a host name.
-        if (t.contains('/') || t.contains(':') || t.matches(Regex("^[0-9.]+$"))) return ""
+        if (t.contains('/') || t.contains(':') || t.all { it in '0'..'9' || it == '.' }) return ""
         return "domain:$t"
     }
 

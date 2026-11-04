@@ -9,15 +9,15 @@ import com.google.gson.Gson
  *
  * A plain WireGuard `.conf` (no AmneziaWG fields) runs on Android through the voltaproxy
  * helper; Xray dials WireGuard itself, so here it becomes an ordinary WireGuard server.
- * AmneziaWG proper, Hysteria v1 and OpenFlux stay as they are and are reported as not
- * available on Windows.
+ * AmneziaWG proper and Hysteria v1 go through the same voltaproxy helper as on Android,
+ * OpenFlux through its own helper (both shipped next to xray.exe).
  */
 object WindowsCompat {
 
     private val gson = Gson()
 
-    /** Protocols that need an Android-only helper. */
-    fun needsAndroidHelper(server: ServerEntity): Boolean =
+    /** Protocols that run in a helper process rather than in the core. */
+    fun needsHelper(server: ServerEntity): Boolean =
         server.protocol == ProtocolType.AMNEZIAWG ||
             server.protocol == ProtocolType.HYSTERIA ||
             server.protocol == ProtocolType.OPENFLUX

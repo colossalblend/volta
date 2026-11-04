@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Volta for Windows only: what has no counterpart in the Android app. Everything
+     else on Windows reads the Android app's own strings (see desktop/build.gradle.kts). -->
+<resources>
+    <string name="desktop_bypass_title">Sitios fuera de la VPN</string>
+    <string name="desktop_bypass_text">En Windows no se puede dividir el tráfico por aplicación como en Android: Volta funciona a través del proxy del sistema, que es uno para todos los programas. En su lugar puedes indicar sitios: el navegador y los programas los abrirán directamente, fuera de la VPN.</string>
+    <string name="desktop_bypass_empty">Aún no hay sitios</string>
+    <string name="desktop_bypass_placeholder">banco.es o un enlace al sitio</string>
+    <string name="desktop_captcha_browser">La página se abrió en el navegador. Supera allí la verificación y pulsa «%1$s».</string>
+    <string name="desktop_captcha_open">Abrir la página</string>
+    <string name="desktop_update_quit">Se abrirá el instalador y Volta se cerrará para poder actualizarse</string>
+    <string name="desktop_update_error_installer">No se pudo iniciar el instalador.</string>
+    <string name="desktop_backup_restore_text">Abre un archivo guardado en Volta en un teléfono u otro ordenador</string>
+    <string name="desktop_backup_saved">Archivo guardado. En el otro dispositivo: Ajustes → Restaurar desde archivo</string>
+    <string name="desktop_section_move">Pasar a otro dispositivo</string>
+    <string name="desktop_adblock_hint">Funciona para los navegadores y programas que pasan por Volta (el proxy del sistema). Un programa que ignora el proxy del sistema no se filtra. El filtro no quita los anuncios dentro de YouTube.</string>
+    <string name="desktop_adblock_family_hint">Además oculta los sitios para adultos.</string>
+</resources>

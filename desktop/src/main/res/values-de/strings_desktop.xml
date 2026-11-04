@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Volta for Windows only: what has no counterpart in the Android app. Everything
+     else on Windows reads the Android app's own strings (see desktop/build.gradle.kts). -->
+<resources>
+    <string name="desktop_bypass_title">Seiten am VPN vorbei</string>
+    <string name="desktop_bypass_text">Windows kann den Verkehr nicht wie Android nach Apps aufteilen: Volta arbeitet über den System-Proxy, und den gibt es nur einmal für alle Programme. Stattdessen kannst du Seiten angeben – Browser und Programme öffnen sie direkt, am VPN vorbei.</string>
+    <string name="desktop_bypass_empty">Noch keine Seiten</string>
+    <string name="desktop_bypass_placeholder">bank.de oder ein Link zur Seite</string>
+    <string name="desktop_captcha_browser">Die Seite wurde im Browser geöffnet. Bestehe dort die Prüfung und klicke auf „%1$s“.</string>
+    <string name="desktop_captcha_open">Seite öffnen</string>
+    <string name="desktop_update_quit">Das Installationsprogramm öffnet sich, und Volta schließt sich, damit es aktualisiert werden kann</string>
+    <string name="desktop_update_error_installer">Das Installationsprogramm konnte nicht gestartet werden.</string>
+    <string name="desktop_backup_restore_text">Öffne eine Datei, die in Volta auf einem Telefon oder anderen Computer gespeichert wurde</string>
+    <string name="desktop_backup_saved">Datei gespeichert. Auf dem anderen Gerät: Einstellungen → Aus Datei wiederherstellen</string>
+    <string name="desktop_section_move">Auf ein anderes Gerät umziehen</string>
+    <string name="desktop_adblock_hint">Wirkt für Browser und Programme, die über Volta gehen (System-Proxy). Ein Programm, das den System-Proxy nicht liest, wird nicht gefiltert. Werbung in YouTube entfernt der Filter nicht.</string>
+    <string name="desktop_adblock_family_hint">Blendet außerdem Seiten für Erwachsene aus.</string>
+</resources>

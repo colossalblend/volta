@@ -1,0 +1,100 @@
+{
+  "format": "volta-backup",
+  "version": 1,
+  "createdAt": 1793836800000,
+  "app": "1.1.412",
+  "subscriptions": [
+    {
+      "name": "Мой VPN",
+      "nameLocked": true,
+      "userAgent": "",
+      "updateIntervalHours": 12,
+      "isEnabled": true,
+      "sortOrder": 0,
+      "hwidEnabled": true,
+      "colorHex": "#4A8FC4",
+      "serverTypes": "lte:1",
+      "url": "https://panel.invalid/sub/abc",
+      "routing": "Мои правила"
+    },
+    {
+      "name": "Секретная",
+      "nameLocked": false,
+      "userAgent": "",
+      "updateIntervalHours": 24,
+      "isEnabled": true,
+      "sortOrder": 1,
+      "hwidEnabled": true,
+      "colorHex": "#C4784A",
+      "serverTypes": "",
+      "hiddenUrl": "AQEErgaTWLSg4Ns_9tSZxpAwk_7aKFA55klX__tWO768cfvbKFwpslT20J6-hvg9_0u8CAB82AzrUvJ-UrncnWX4CO3Qwb4HmHzJzNfvMZN48E3ezT3P6jRDO8vzxN5m204JWbLOLtcxBVRfMG3Ui6_oKJ7R0vwD1trQ"
+    }
+  ],
+  "servers": [
+    {
+      "remark": "Мой сервер",
+      "protocol": "VLESS",
+      "address": "203.0.113.5",
+      "port": 443,
+      "uuid": "6a9c3b1e-1f2d-4c3b-9a8e-7d6c5b4a3f21",
+      "alterId": 0,
+      "security": "reality",
+      "encryption": "none",
+      "flow": "xtls-rprx-vision",
+      "network": "tcp",
+      "headerType": "",
+      "host": "",
+      "path": "",
+      "sni": "www.microsoft.com",
+      "fingerprint": "chrome",
+      "alpn": "",
+      "pbk": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
+      "sid": "0f",
+      "spx": "",
+      "rawLink": "vless://6a9c3b1e-1f2d-4c3b-9a8e-7d6c5b4a3f21@203.0.113.5:443?security=reality#Мой сервер",
+      "rawJson": "",
+      "isFavorite": true,
+      "sortOrder": 0,
+      "role": "BYPASS_WHITELIST",
+      "roleManual": true
+    },
+    {
+      "remark": "Из будущего",
+      "protocol": "QUANTUM",
+      "address": "198.51.100.1",
+      "port": 1
+    }
+  ],
+  "routing": [
+    {
+      "name": "Мои правила",
+      "description": "Свои правила",
+      "isBuiltIn": false,
+      "useProviderRules": true,
+      "rulesJson": "[{\"id\":\"r1\",\"name\":\"Банк\",\"enabled\":true,\"outbound\":\"DIRECT\",\"domains\":[\"domain:bank.ru\"],\"ips\":[],\"ports\":\"\",\"protocol\":[],\"network\":\"\",\"source\":\"user\",\"sortOrder\":0}]",
+      "domainStrategy": "IPIfNonMatch",
+      "remoteDns": "https://9.9.9.9/dns-query",
+      "domesticDns": "https://dns.google/dns-query",
+      "dnsHostsJson": ""
+    }
+  ],
+  "activeRouting": "Мои правила",
+  "settings": {
+    "auto_failover": false,
+    "ping_on_start": true,
+    "local_dns": true,
+    "block_torrents": true,
+    "battery_saver": false,
+    "follow_network": true,
+    "design_theme": "OCEAN",
+    "per_app_mode": "BYPASS",
+    "default_ping_type": "HTTP_GET",
+    "ad_block": "STRICT",
+    "connect_mode": "AUTO_HOME",
+    "mtu": 1400,
+    "per_app_packages": [
+      "ru.sberbankmobile",
+      "ru.vtb24.mobilebanking.android"
+    ]
+  }
+}

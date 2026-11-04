@@ -182,9 +182,12 @@ fun VoltaTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    val useLight = design == DesignTheme.LIGHT || (design == DesignTheme.SYSTEM && !darkTheme)
+    val dynamic = design == DesignTheme.DYNAMIC
+    val useLight = design == DesignTheme.LIGHT ||
+        ((design == DesignTheme.SYSTEM || design == DesignTheme.DYNAMIC) && !darkTheme)
 
     val scheme = when {
+        dynamic -> Accent.scheme(Accent.seed, dark = !useLight)
         useLight -> VoltaLightScheme
         design == DesignTheme.OCEAN -> OceanScheme
         design == DesignTheme.EMBER -> EmberScheme
@@ -192,6 +195,22 @@ fun VoltaTheme(
     }
 
     val palette = when {
+        // As Android's Material You palette: the accent for the glow and the groups.
+        dynamic -> VoltaPalette(
+            heroTop = scheme.primaryContainer.copy(alpha = 0.55f),
+            heroBottom = scheme.background,
+            glow = scheme.primary,
+            good = if (useLight) Color(0xFF2C7F5B) else VoltaSuccess,
+            fair = if (useLight) Color(0xFFB07C15) else VoltaWarning,
+            poor = scheme.error,
+            cardBorder = scheme.outlineVariant,
+            elevated = scheme.surfaceContainerHigh,
+            isDark = !useLight,
+            onAccent = if (useLight) Color.White else Color(0xFF07150E),
+            home = scheme.primary,
+            lte = scheme.tertiary
+        )
+
         useLight -> VoltaPalette(
             heroTop = Color(0xFFFFE3CE),
             heroBottom = LightBackground,

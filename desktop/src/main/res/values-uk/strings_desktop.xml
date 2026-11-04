@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Volta for Windows only: what has no counterpart in the Android app. Everything
+     else on Windows reads the Android app's own strings (see desktop/build.gradle.kts). -->
+<resources>
+    <string name="desktop_bypass_title">Сайти повз VPN</string>
+    <string name="desktop_bypass_text">Розділити трафік за застосунками, як на Android, у Windows не можна: Volta працює через системний проксі, а він один для всіх програм. Натомість можна вказати сайти — браузер і програми відкриють їх напряму, повз VPN.</string>
+    <string name="desktop_bypass_empty">Поки немає жодного сайту</string>
+    <string name="desktop_bypass_placeholder">bank.ua або посилання на сайт</string>
+    <string name="desktop_captcha_browser">Сторінка відкрилася в браузері. Пройдіть там перевірку й натисніть «%1$s».</string>
+    <string name="desktop_captcha_open">Відкрити сторінку</string>
+    <string name="desktop_update_quit">Відкриється інсталятор, а Volta закриється, щоб він міг її оновити</string>
+    <string name="desktop_update_error_installer">Не вдалося запустити інсталятор.</string>
+    <string name="desktop_backup_restore_text">Відкрийте файл, збережений у Volta на телефоні або іншому комп’ютері</string>
+    <string name="desktop_backup_saved">Файл збережено. На іншому пристрої: Налаштування → Відновити з файлу</string>
+    <string name="desktop_section_move">Перенесення на інший пристрій</string>
+    <string name="desktop_adblock_hint">Працює для браузерів і програм, які йдуть через Volta (системний проксі). Програму, що не читає системний проксі, фільтр не бачить. Рекламу всередині YouTube фільтр не прибирає.</string>
+    <string name="desktop_adblock_family_hint">Ще приховує сайти для дорослих.</string>
+</resources>

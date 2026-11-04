@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Volta for Windows only: what has no counterpart in the Android app. Everything
+     else on Windows reads the Android app's own strings (see desktop/build.gradle.kts). -->
+<resources>
+    <string name="desktop_bypass_title">VPN-нен тыс сайттар</string>
+    <string name="desktop_bypass_text">Android-тағыдай трафикті қолданбалар бойынша бөлу Windows-та мүмкін емес: Volta жүйелік прокси арқылы жұмыс істейді, ол барлық бағдарламаға біреу. Есесіне сайттарды көрсетуге болады — браузер мен бағдарламалар оларды VPN-ді айналып, тікелей ашады.</string>
+    <string name="desktop_bypass_empty">Әзірге бірде-бір сайт жоқ</string>
+    <string name="desktop_bypass_placeholder">bank.kz немесе сайтқа сілтеме</string>
+    <string name="desktop_captcha_browser">Бет браузерде ашылды. Сол жерде тексеруден өтіп, «%1$s» түймесін басыңыз.</string>
+    <string name="desktop_captcha_open">Бетті ашу</string>
+    <string name="desktop_update_quit">Орнатқыш ашылады, ал Volta жаңартылуы үшін жабылады</string>
+    <string name="desktop_update_error_installer">Орнатқышты іске қосу мүмкін болмады.</string>
+    <string name="desktop_backup_restore_text">Телефонда не басқа компьютерде Volta сақтаған файлды ашыңыз</string>
+    <string name="desktop_backup_saved">Файл сақталды. Басқа құрылғыда: Баптаулар → Файлдан қалпына келтіру</string>
+    <string name="desktop_section_move">Басқа құрылғыға көшіру</string>
+    <string name="desktop_adblock_hint">Volta (жүйелік прокси) арқылы өтетін браузерлер мен бағдарламаларда жұмыс істейді. Жүйелік проксиді оқымайтын бағдарламаны сүзгі көрмейді. YouTube ішіндегі жарнаманы сүзгі алып тастамайды.</string>
+    <string name="desktop_adblock_family_hint">Сондай-ақ ересектерге арналған сайттарды жасырады.</string>
+</resources>

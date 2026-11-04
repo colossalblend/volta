@@ -44,11 +44,13 @@ class SystemProxy(
     }
 
     /**
-     * Points Windows at 127.0.0.1:[httpPort]. Local addresses keep going direct. False
-     * when Windows refused; the previous settings are then put back at once.
+     * Points Windows at 127.0.0.1:[httpPort]. Local addresses keep going direct, and so do
+     * the user's [bypass] sites (each with everything under it): the per-app split of the
+     * Android app has no counterpart here, a list of sites does. False when Windows
+     * refused; the previous settings are then put back at once.
      */
     @Synchronized
-    fun apply(httpPort: Int): Boolean {
+    fun apply(httpPort: Int, bypass: List<String> = emptyList()): Boolean {
         if (!api.available) return false
         val target = "127.0.0.1:$httpPort"
         // Already switched (a reconnect): keep the backup of the user's own settings.
@@ -57,7 +59,7 @@ class SystemProxy(
         val ours = Snapshot(
             proxyEnable = 1,
             proxyServer = target,
-            proxyOverride = BYPASS,
+            proxyOverride = overrideFor(bypass),
             autoConfigUrl = null,
             flags = WinApi.PROXY_TYPE_DIRECT or WinApi.PROXY_TYPE_PROXY
         )
@@ -106,6 +108,32 @@ class SystemProxy(
     }.getOrDefault(false)
 
     companion object {
+        /**
+         * Windows' bypass list: the local addresses, then each site the user listed as
+         * itself and with everything under it (`example.com;*.example.com`).
+         */
+        fun overrideFor(sites: List<String>): String {
+            val extra = sites.mapNotNull(::normalizeSite).distinct()
+                .flatMap { if (it.startsWith("*.") || it.contains('*')) listOf(it) else listOf(it, "*.$it") }
+            return (extra + BYPASS).joinToString(";")
+        }
+
+        /**
+         * A site as the user typed it (a link, `www.` included, or a bare name) as Windows
+         * wants it in the list; null for what can't be one.
+         */
+        fun normalizeSite(raw: String): String? {
+            var t = raw.trim().lowercase()
+            t = t.substringAfter("://")
+            t = t.substringBefore('/').substringBefore('?').substringBefore('#')
+            t = t.substringAfterLast('@').substringBefore(':')
+            t = t.removePrefix("www.").trim('.')
+            if (t.isBlank() || t.length > 253) return null
+            if (!t.all { it.isLetterOrDigit() || it == '.' || it == '-' || it == '*' }) return null
+            if (!t.contains('.') && t != "localhost") return null
+            return t
+        }
+
         /** Addresses that never go through the proxy: this PC and the local network. */
         const val BYPASS = "localhost;127.*;10.*;172.16.*;172.17.*;172.18.*;172.19.*;172.20.*;172.21.*;" +
             "172.22.*;172.23.*;172.24.*;172.25.*;172.26.*;172.27.*;172.28.*;172.29.*;172.30.*;" +

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Volta for Windows only: what has no counterpart in the Android app. Everything
+     else on Windows reads the Android app's own strings (see desktop/build.gradle.kts). -->
+<resources>
+    <string name="desktop_bypass_title">مواقع خارج VPN</string>
+    <string name="desktop_bypass_text">لا يمكن في ويندوز تقسيم حركة البيانات حسب التطبيق كما في أندرويد: يعمل Volta عبر وكيل النظام، وهو واحد لكل البرامج. بدلًا من ذلك يمكنك تحديد مواقع يفتحها المتصفح والبرامج مباشرةً خارج VPN.</string>
+    <string name="desktop_bypass_empty">لا توجد مواقع بعد</string>
+    <string name="desktop_bypass_placeholder">bank.com أو رابط الموقع</string>
+    <string name="desktop_captcha_browser">فُتحت الصفحة في المتصفح. أكمل التحقق هناك ثم اضغط «%1$s».</string>
+    <string name="desktop_captcha_open">فتح الصفحة</string>
+    <string name="desktop_update_quit">سيفتح المثبّت، وسيُغلق Volta ليتمكن من تحديثه</string>
+    <string name="desktop_update_error_installer">تعذّر تشغيل المثبّت.</string>
+    <string name="desktop_backup_restore_text">افتح ملفًا حُفظ في Volta على هاتف أو كمبيوتر آخر</string>
+    <string name="desktop_backup_saved">تم حفظ الملف. على الجهاز الآخر: الإعدادات ← الاستعادة من ملف</string>
+    <string name="desktop_section_move">النقل إلى جهاز آخر</string>
+    <string name="desktop_adblock_hint">يعمل للمتصفحات والبرامج التي تمر عبر Volta (وكيل النظام). البرنامج الذي لا يقرأ وكيل النظام لا يراه الفلتر. لا يزيل الفلتر الإعلانات داخل YouTube.</string>
+    <string name="desktop_adblock_family_hint">يخفي أيضًا مواقع البالغين.</string>
+</resources>

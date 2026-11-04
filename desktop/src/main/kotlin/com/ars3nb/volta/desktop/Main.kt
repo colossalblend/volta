@@ -86,8 +86,16 @@ fun main(args: Array<String>) {
         }
 
         LaunchedEffect(Unit) {
+            controller.openUrl = bridge::openUrl
+            // After an update's installer starts: out the same way as «Выход» in the tray.
+            controller.quitApp = { javax.swing.SwingUtilities.invokeLater { quit() } }
             controller.startup()
             links.forEach { controller.importText(it) }
+        }
+        LaunchedEffect(Unit) {
+            controller.notices.collect { text ->
+                if (!visible) trayState.sendNotification(Notification("Volta", text, Notification.Type.Info))
+            }
         }
         LaunchedEffect(Unit) {
             incoming.collect { more ->
@@ -170,12 +178,18 @@ fun main(args: Array<String>) {
 @Composable
 private fun isDark(theme: DesignTheme): Boolean = when (theme) {
     DesignTheme.LIGHT -> false
-    DesignTheme.SYSTEM -> isSystemInDarkTheme()
+    DesignTheme.SYSTEM, DesignTheme.DYNAMIC -> isSystemInDarkTheme()
     else -> true
 }
 
 /** The title bar in the page colour, so the window reads as one sheet. */
 private fun frameColors(theme: DesignTheme, dark: Boolean): Pair<Int, Int> = when {
+    theme == DesignTheme.DYNAMIC -> {
+        val scheme = com.ars3nb.volta.desktop.ui.theme.Accent.scheme(com.ars3nb.volta.desktop.ui.theme.Accent.seed, dark)
+        fun rgb(c: androidx.compose.ui.graphics.Color) =
+            ((c.red * 255).toInt() shl 16) or ((c.green * 255).toInt() shl 8) or (c.blue * 255).toInt()
+        rgb(scheme.background) to rgb(scheme.onBackground)
+    }
     theme == DesignTheme.OCEAN -> 0x0B1A20 to 0xCBE7E3
     theme == DesignTheme.EMBER -> 0x161210 to 0xF4E7DC
     !dark -> 0xF6F3EE to 0x1A1C1E
@@ -229,4 +243,20 @@ class AwtBridge : DesktopBridge {
     override fun openFolder(dir: File) {
         thread(isDaemon = true) { runCatching { dir.mkdirs(); Desktop.getDesktop().open(dir) } }
     }
+
+    override fun chooseSaveFile(suggestedName: String): File? = runCatching {
+        val dialog = FileDialog(null as Frame?, "Volta", FileDialog.SAVE)
+        dialog.file = suggestedName
+        dialog.isVisible = true
+        val name = dialog.file ?: return null
+        File(dialog.directory, if (name.contains('.')) name else "$name.json")
+    }.getOrNull()
+
+    override fun chooseOpenFile(): File? = runCatching {
+        val dialog = FileDialog(null as Frame?, "Volta", FileDialog.LOAD)
+        dialog.file = "*.json"
+        dialog.isVisible = true
+        val name = dialog.file ?: return null
+        File(dialog.directory, name)
+    }.getOrNull()
 }
