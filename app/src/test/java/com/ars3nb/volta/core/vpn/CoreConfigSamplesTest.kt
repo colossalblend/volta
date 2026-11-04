@@ -56,6 +56,11 @@ class CoreConfigSamplesTest {
             adBlock = com.ars3nb.volta.data.model.AdBlockMode.FAMILY,
             blockTorrents = true
         )
+        out += "ads-standard" to ConfigBuilder.build(
+            ws,
+            null,
+            adBlock = com.ars3nb.volta.data.model.AdBlockMode.STANDARD
+        )
         val pool = servers.values.take(3).mapIndexed { i, s -> s.copy(id = i + 1L) }
         out += "balancer" to ConfigBuilder.build(pool.first(), null, balancerPool = pool)
         out += "probe" to ConfigBuilder.buildProbe(servers.getValue("vless-reality-vision"))

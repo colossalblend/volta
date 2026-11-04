@@ -120,12 +120,15 @@ object RoutingEngine {
      * @param proxyBalancerTag when set, PROXY rules target that balancer instead of
      *        the single `proxy` outbound.
      * @param dnsRuleEnabled routes plain DNS to the core's own resolver.
+     * @param dnsAddress the DNS server the tunnel names to Android (nothing listens
+     *        there): its lookups go to the core over UDP and TCP, the rest is refused.
      */
     fun toXrayRouting(
         rules: List<RoutingRuleDto>,
         domainStrategy: String = "IPIfNonMatch",
         proxyBalancerTag: String? = null,
         dnsRuleEnabled: Boolean = true,
+        dnsAddress: String? = null,
         /** Inbound whose traffic always goes to the exit, ahead of every profile rule. */
         exitInboundTag: String? = null
     ): JsonObject {
@@ -140,6 +143,24 @@ object RoutingEngine {
                 add("network", jsonArray("udp"))
                 addProperty("outboundTag", "dns-out")
             })
+            if (dnsAddress != null) {
+                // Android repeats a lookup over TCP when the answer is too long for UDP.
+                arr.add(JsonObject().apply {
+                    addProperty("type", "field")
+                    add("ip", jsonArray(dnsAddress))
+                    addProperty("port", "53")
+                    add("network", jsonArray("tcp"))
+                    addProperty("outboundTag", "dns-out")
+                })
+                // Everything else sent there, above all Android checking it for
+                // DNS-over-TLS on port 853, is turned away at once rather than left to
+                // time out, so Android settles on the plain lookups the core answers.
+                arr.add(JsonObject().apply {
+                    addProperty("type", "field")
+                    add("ip", jsonArray(dnsAddress))
+                    addProperty("outboundTag", "block")
+                })
+            }
         }
 
         // Ahead of every profile rule: the exit-address check always leaves via the exit.
