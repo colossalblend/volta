@@ -101,6 +101,7 @@ final class AppModel: ObservableObject {
         subscriptions = Store.loadSubscriptions()
         servers = Store.loadServers()
         Countries.displayLanguage = L10n.language
+        if Demo.isOn { Demo.apply(to: self) }
     }
 
     // MARK: - Derived
@@ -126,6 +127,10 @@ final class AppModel: ObservableObject {
     func onLaunch() async {
         guard !started else { return }
         started = true
+        if Demo.isOn {
+            coreVersion = await Task.detached(priority: .utility) { XrayBridge.version }.value
+            return
+        }
         vpn.onStatusChange = { [weak self] status in self?.apply(status) }
         await vpn.load()
         coreVersion = await Task.detached(priority: .utility) { XrayBridge.version }.value
@@ -140,6 +145,7 @@ final class AppModel: ObservableObject {
 
     func setActive(_ value: Bool) {
         active = value
+        if Demo.isOn { return }
         if value {
             apply(vpn.status)
             if isConnected { startStats() }

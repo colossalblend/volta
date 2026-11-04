@@ -179,6 +179,23 @@ jobs:
           SIGNED: ${{ steps.signed.outcome }}
         run: bash ios/scripts/publish-release.sh "$RUNNER_TEMP/out"
 
+      # Pictures of every screen from the simulator with sample data (Volta/Model/Demo.swift),
+      # to look at a design change before anyone installs it. Never fails the build.
+      - name: Screenshots
+        continue-on-error: true
+        timeout-minutes: 20
+        run: bash ios/scripts/screenshots.sh "$RUNNER_TEMP/screens"
+
+      - name: Upload screenshots
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v5
+        with:
+          name: ios-screens
+          path: ${{ runner.temp }}/screens
+          retention-days: 14
+          if-no-files-found: ignore
+
       - name: Upload logs
         if: failure()
         continue-on-error: true
