@@ -138,6 +138,23 @@ object ConfigParser {
             }
         }
 
+        // 3a) JSON по группам от провайдера: {"wifi": [...], "lte": [...], "balancers": [...]}
+        if (content.trimStart().startsWith("{")) {
+            parseGroupedJson(content, subscriptionId)?.let { grouped ->
+                return grouped.copy(
+                    title = title.ifBlank { grouped.title },
+                    expireAt = expireAt,
+                    trafficUsed = trafficUsed,
+                    trafficTotal = trafficTotal,
+                    announce = announce.ifBlank { grouped.announce },
+                    supportUrl = supportUrl.ifBlank { grouped.supportUrl },
+                    webPageUrl = webPageUrl,
+                    updateIntervalHours = updateInterval,
+                    routingJson = routingJson.ifBlank { grouped.routingJson }
+                )
+            }
+        }
+
         // 3) Полный Xray JSON (один объект или массив конфигов, как у v2rayNG)
         if (content.trimStart().startsWith("{")) {
             return parseXrayJson(content, subscriptionId).copy(
@@ -696,12 +713,114 @@ object ConfigParser {
             runCatching { parseOutbound(root, subscriptionId) }.getOrNull()?.let { servers += it }
         }
 
+        // A v2rayNG-style config names its server in "remarks"; the outbound tag is just
+        // "proxy". Without this every server of a JSON subscription was called "proxy",
+        // and the name check (Home/LTE/balancer) had nothing to go on.
+        val remarks = root.str("remarks").trim()
+        val named = if (remarks.isBlank()) servers else servers.map { s ->
+            val generic = s.remark.isBlank() || s.remark.startsWith("proxy", ignoreCase = true) ||
+                s.remark.contains("://")
+            when {
+                !generic -> s
+                servers.size == 1 -> s.copy(remark = remarks)
+                else -> s.copy(remark = "$remarks · ${s.remark}")
+            }
+        }
+
         return SubscriptionImportResult(
-            servers = servers,
+            servers = named,
             routingJson = routingJson,
-            title = root.str("remarks").ifBlank { "Xray JSON" }
+            title = remarks.ifBlank { "Xray JSON" }
         )
     }
+
+    /**
+     * A provider's subscription split into groups (see ServerMarkup):
+     *
+     * ```
+     * {
+     *   "title": "My VPN",
+     *   "wifi":      ["vless://…#Germany", {…full Xray config…}],
+     *   "lte":       [{"link": "vless://…", "name": "Moscow LTE"}],
+     *   "balancers": [{…outbound…}]
+     * }
+     * ```
+     *
+     * The lists may also sit under "groups" or "servers". An item is a share link (or
+     * several in one string), a full Xray config, a single outbound, or an object with
+     * "link"/"url"/"config" and an optional "name"/"remark". Every server gets the role
+     * of its list, marked as given by the provider. Null when the object has no group
+     * key holding a list, so ordinary Xray JSON is left to the code that handles it.
+     */
+    private fun parseGroupedJson(json: String, subscriptionId: Long?): SubscriptionImportResult? {
+        val root = runCatching { JsonParser.parseString(json) }.getOrNull()
+            ?.takeIf { it.isJsonObject }?.asJsonObject ?: return null
+        if (root.has("outbounds")) return null
+        val holder = listOf("groups", "servers")
+            .firstNotNullOfOrNull { key -> root.get(key)?.takeIf { it.isJsonObject }?.asJsonObject }
+            ?: root
+        val groups = holder.entrySet().mapNotNull { (key, value) ->
+            val role = com.ars3nb.volta.core.server.ServerMarkup.groupForKey(key) ?: return@mapNotNull null
+            if (!value.isJsonArray && !(value.isJsonPrimitive && value.asJsonPrimitive.isString)) {
+                return@mapNotNull null
+            }
+            role to value
+        }
+        if (groups.isEmpty()) return null
+
+        val servers = mutableListOf<ServerEntity>()
+        for ((role, value) in groups) {
+            val items = if (value.isJsonArray) value.asJsonArray.toList() else listOf(value)
+            for (item in items) {
+                runCatching { groupItem(item, subscriptionId) }.getOrNull().orEmpty().forEach { s ->
+                    servers += s.copy(role = role, roleFromProvider = true)
+                }
+            }
+        }
+        // A stray "mobile": "yes" in some other JSON is not a group list.
+        if (servers.isEmpty() && groups.none { it.second.isJsonArray }) return null
+        val routing = root.get("routing")?.let { el ->
+            when {
+                el.isJsonObject -> el.toString()
+                el.isJsonPrimitive -> el.asString
+                else -> ""
+            }
+        }.orEmpty()
+        return SubscriptionImportResult(
+            servers = servers,
+            routingJson = routing,
+            title = root.str("title").ifBlank { root.str("profile-title") }.ifBlank { root.str("name") },
+            announce = root.str("announce"),
+            supportUrl = root.str("support-url").ifBlank { root.str("supportUrl") },
+            skipped = servers.takeIf { it.isEmpty() }?.let { unsupportedProtocols(json) }.orEmpty()
+        )
+    }
+
+    private fun groupItem(item: com.google.gson.JsonElement, subscriptionId: Long?): List<ServerEntity> {
+        if (item.isJsonPrimitive && item.asJsonPrimitive.isString) return linksIn(item.asString, subscriptionId)
+        if (!item.isJsonObject) return emptyList()
+        val obj = item.asJsonObject
+        val name = obj.str("name").ifBlank { obj.str("remark") }.trim()
+        val link = listOf("link", "url", "config", "uri").firstNotNullOfOrNull { key ->
+            obj.get(key)?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotBlank() }
+        }
+        val parsed = when {
+            link != null -> linksIn(link, subscriptionId)
+            obj.has("outbounds") -> parseXrayJson(obj.toString(), subscriptionId).servers
+            obj.has("protocol") -> listOfNotNull(parseSingleOutboundJson(obj.toString(), subscriptionId))
+            else -> emptyList()
+        }
+        return if (name.isNotBlank() && parsed.size == 1) listOf(parsed[0].copy(remark = name)) else parsed
+    }
+
+    private fun linksIn(text: String, subscriptionId: Long?): List<ServerEntity> =
+        extractShareLinks(text).flatMap { link ->
+            if (link.startsWith("vpn://", ignoreCase = true)) {
+                AmneziaConfigs.parseAmneziaKey(link, subscriptionId)
+            } else {
+                listOfNotNull(parseShareLink(link, subscriptionId))
+            }
+        }
 
     private fun parseOutbound(
         el: com.google.gson.JsonElement,

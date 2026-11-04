@@ -128,7 +128,10 @@ fun HomeScreen(
         onOpenImport = onOpenImport,
         onOpenRouting = onOpenRouting,
         onRecheckNetwork = vm::runStartupProbesForce,
-        onInstallUpdate = vm::installUpdate
+        onInstallUpdate = vm::installUpdate,
+        onLteMissing = {
+            vm.showMessage("В подписках нет LTE-серверов: Volta работает как Авто Home и не проверяет сайты")
+        }
     )
 }
 
@@ -155,7 +158,8 @@ fun HomeContent(
     onOpenImport: () -> Unit,
     onOpenRouting: () -> Unit,
     onRecheckNetwork: () -> Unit,
-    onInstallUpdate: () -> Unit
+    onInstallUpdate: () -> Unit,
+    onLteMissing: () -> Unit = {}
 ) {
     val selected = state.selectedServer
     val subscriptionOf = remember(state.subscriptions) { state.subscriptions.associateBy { it.id } }
@@ -272,7 +276,8 @@ fun HomeContent(
                                 homeCount = homeCount,
                                 lteCount = lteCount,
                                 totalCount = autoCount,
-                                onSelect = onSelectMode
+                                onSelect = onSelectMode,
+                                onLteMissing = onLteMissing
                             )
                             AnimatedVisibility(visible = mode == ConnectMode.MANUAL) {
                                 // The capsule above already names the server.
@@ -309,12 +314,16 @@ fun HomeContent(
                     }
                 }
 
-                item(key = "network") {
-                    NetworkStatusCard(
-                        regime = state.networkRegime,
-                        probes = state.probes,
-                        onRecheck = onRecheckNetwork
-                    )
+                // The site check only chooses between Home and LTE; with no LTE server
+                // there is nothing to choose, so neither the check nor its card.
+                if (lteCount > 0) {
+                    item(key = "network") {
+                        NetworkStatusCard(
+                            regime = state.networkRegime,
+                            probes = state.probes,
+                            onRecheck = onRecheckNetwork
+                        )
+                    }
                 }
 
                 item(key = "routing") {

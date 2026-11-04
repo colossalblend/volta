@@ -12,7 +12,6 @@ import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.update.AppUpdater
 import com.ars3nb.volta.core.vpn.NetworkWatcher
 import com.ars3nb.volta.core.vpn.VoltaVpnService
-import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.repository.VoltaRepository
 import com.ars3nb.volta.ui.widget.VoltaWidget
 import com.ars3nb.volta.worker.ConnectionGuard
@@ -23,7 +22,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
@@ -60,16 +58,9 @@ class VoltaApp : Application() {
             }
         }
 
-        // Wi-Fi ↔ mobile data: the right server group may have changed under the tunnel.
-        NetworkWatcher(this, appScope) { _ ->
-            repository.forgetNetwork()
-            if (repository.isConnected() &&
-                repository.followNetwork.first() &&
-                repository.connectMode.first() == ConnectMode.AUTO_HOME_LTE
-            ) {
-                repository.reevaluateAuto()
-            }
-        }.start()
+        // Wi-Fi ↔ mobile data: the right server group may have changed under the tunnel,
+        // and the node in use may not have survived the hand-over. Checked right away.
+        NetworkWatcher(this, appScope) { _ -> repository.onNetworkChanged() }.start()
 
         // Every two minutes while the VPN is on and the screen is on: the sites (Home+LTE
         // only) and the server in use, pinged directly; a dead one or the wrong group

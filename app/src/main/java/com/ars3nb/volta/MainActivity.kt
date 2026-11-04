@@ -4,7 +4,6 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
@@ -21,7 +20,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.ars3nb.volta.core.openflux.OpenFluxLink
 import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.ui.VoltaViewModel
 import com.ars3nb.volta.ui.navigation.VoltaAppRoot
@@ -89,28 +87,11 @@ class MainActivity : ComponentActivity() {
             "com.ars3nb.volta.CONNECT_MODE" -> intent.getStringExtra("mode")
                 ?.let { name -> ConnectMode.entries.firstOrNull { it.name == name } }
                 ?.let(vm::connectIn)
-            Intent.ACTION_VIEW -> intent.data?.let(::importDeepLink)
+            Intent.ACTION_VIEW -> intent.data?.let { vm.handleDeepLink(it.toString()) }
             Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)
                 ?.trim()?.takeIf { it.isNotBlank() }?.let { vm.importLink(it) }
         }
         // A re-delivered intent must not import the same link twice.
         intent?.action = null
-    }
-
-    private fun importDeepLink(uri: Uri) {
-        // volta://openflux://v1/… and volta://of/…: an OpenFlux server.
-        OpenFluxLink.unwrap(uri.toString())?.let {
-            vm.importLink(it)
-            return
-        }
-        val value = if (uri.scheme.equals("volta", ignoreCase = true)) {
-            uri.getQueryParameter("url")
-                ?: uri.getQueryParameter("link")
-                ?: uri.getQueryParameter("config")
-                ?: uri.getQueryParameter("data")
-        } else {
-            uri.toString()
-        }
-        value?.trim()?.takeIf { it.isNotBlank() }?.let { vm.importLink(it) }
     }
 }

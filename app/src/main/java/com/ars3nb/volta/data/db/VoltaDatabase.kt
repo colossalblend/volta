@@ -36,7 +36,7 @@ class Converters {
         ServerEntity::class,
         RoutingProfileEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -114,6 +114,18 @@ abstract class VoltaDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v7: provider markup of server groups (JSON groups, [L]/[H]/[A], server-type)
+         * and subscriptions whose link the provider keeps private.
+         */
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE servers ADD COLUMN roleFromProvider INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE subscriptions ADD COLUMN urlHidden INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE subscriptions ADD COLUMN serverTypes TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         @Volatile
         private var INSTANCE: VoltaDatabase? = null
 
@@ -124,7 +136,10 @@ abstract class VoltaDatabase : RoomDatabase() {
                     VoltaDatabase::class.java,
                     "volta.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                    .addMigrations(
+                        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
+                        MIGRATION_5_6, MIGRATION_6_7
+                    )
                     .build()
                     .also { INSTANCE = it }
             }

@@ -183,7 +183,19 @@ data class SubscriptionEntity(
      * whose [RoutingProfileEntity.sourceSubscriptionId] is set may only ever be
      * referenced by that same subscription. 0 = "use the app default profile".
      */
-    val routingProfileId: Long = 0
+    val routingProfileId: Long = 0,
+    /**
+     * The provider asked to keep the subscription link private (`visible_subs=false`, or
+     * an encrypted `volta://crypt` link). The app then never shows, copies or edits it:
+     * only the name can be changed, and errors never quote the address.
+     */
+    val urlHidden: Boolean = false,
+    /**
+     * Provider markup from the import link (`server-type=lte:1,2;home:3`): which servers,
+     * by their 1-based position in the subscription, belong to which group. Kept with the
+     * subscription so every refresh applies it again. See [com.ars3nb.volta.core.server.ServerMarkup].
+     */
+    val serverTypes: String = ""
 )
 
 @Entity(
@@ -241,7 +253,13 @@ data class ServerEntity(
     val role: ServerRole = ServerRole.NORMAL,
     val roleManual: Boolean = false,
     val sortOrder: Int = 0,
-    val tags: String = ""
+    val tags: String = "",
+    /**
+     * The provider said which group this node is in (JSON groups, a `[L]`/`[H]`/`[A]`
+     * prefix or `server-type` in the import link). Such a role is never second-guessed
+     * by the name check; only the user's own choice ([roleManual]) overrides it.
+     */
+    val roleFromProvider: Boolean = false
 ) {
     /** Ranking score: lower is better. Unmeasured and flaky nodes sink. */
     val score: Long

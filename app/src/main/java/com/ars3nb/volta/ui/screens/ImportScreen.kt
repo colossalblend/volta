@@ -97,7 +97,7 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
                 value = url,
                 onValueChange = { url = it },
                 label = { Text("Ссылка на подписку") },
-                placeholder = { Text("https://…") },
+                placeholder = { Text("https://… или volta://crypt/…") },
                 trailingIcon = {
                     IconButton(onClick = {
                         clipboard.getText()?.text?.let { url = it.trim() }

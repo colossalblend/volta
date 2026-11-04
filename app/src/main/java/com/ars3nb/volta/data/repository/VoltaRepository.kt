@@ -3,7 +3,9 @@ package com.ars3nb.volta.data.repository
 import android.content.Context
 import com.ars3nb.volta.core.HwidProvider
 import com.ars3nb.volta.core.balancer.AutoBalancer
+import com.ars3nb.volta.core.balancer.GuardPolicy
 import com.ars3nb.volta.core.parser.ConfigParser
+import com.ars3nb.volta.core.server.ServerMarkup
 import com.ars3nb.volta.core.ping.IpChecker
 import com.ars3nb.volta.core.ping.NetworkProbe
 import com.ars3nb.volta.core.ping.PingEngine
@@ -54,7 +56,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
@@ -128,6 +132,16 @@ class VoltaRepository(private val context: Context) {
     val simpleMode = prefs.simpleMode
     val lastRegime = prefs.networkRegime
 
+    /**
+     * Whether any LTE server is there to switch to. Without one, "Авто LTE" and
+     * "Авто Home+LTE" run as Home (see [GuardPolicy.effectiveMode]) and no site is probed.
+     */
+    val hasLteServers: Flow<Boolean> = servers.map(GuardPolicy::hasLte).distinctUntilChanged()
+
+    /** The stored mode, corrected for a library without LTE servers. */
+    private suspend fun effectiveMode(): ConnectMode =
+        GuardPolicy.effectiveMode(prefs.connectMode.first(), GuardPolicy.hasLte(serverDao.getAll()))
+
     private val _autoPicking = MutableStateFlow(false)
 
     /** True while a connect is choosing its node, whoever asked (button, tile, boot). */
@@ -174,10 +188,17 @@ class VoltaRepository(private val context: Context) {
             }
             // Group rules change between versions (provider balancers became their own
             // group): re-sort stored nodes now instead of waiting for the next refresh.
-            serverDao.getAll().forEach { server ->
-                if (server.roleManual) return@forEach
-                val role = ServerClassifier.classify(server.remark)
-                if (role != server.role) serverDao.updateAutoRole(server.id, role)
+            // A role the provider gave is left alone, and a group it marked stays complete.
+            val typesBySub = subDao.getAll().associate { it.id to ServerMarkup.parseServerTypes(it.serverTypes) }
+            serverDao.getAll().groupBy { it.subscriptionId }.forEach { (subId, group) ->
+                val explicit = ServerClassifier.explicitGroups(
+                    group, typesBySub[subId] ?: ServerMarkup.TypeMap.EMPTY
+                )
+                group.forEach { server ->
+                    if (server.roleManual || server.roleFromProvider) return@forEach
+                    val role = ServerClassifier.roleByName(server.remark, explicit)
+                    if (role != server.role) serverDao.updateAutoRole(server.id, role)
+                }
             }
         }
     }
@@ -209,18 +230,58 @@ class VoltaRepository(private val context: Context) {
 
     // ------------------------------------------------------------ subscriptions
 
-    suspend fun addSubscription(name: String, url: String): Long = withContext(Dispatchers.IO) {
+    /**
+     * Adds a subscription, or updates the one already holding this address (an import
+     * link opened twice must not double every server).
+     *
+     * @param hidden the provider keeps the link private (`visible_subs=false` or an
+     *   encrypted link): the app will never show or edit it.
+     * @param reveal the link said `visible_subs=true` outright, so a stored hidden one
+     *   with the same address may become visible again.
+     * @param serverTypes `server-type` markup from the link; empty keeps what was stored.
+     */
+    suspend fun addSubscription(
+        name: String,
+        url: String,
+        hidden: Boolean = false,
+        serverTypes: String = "",
+        reveal: Boolean = false
+    ): Long = withContext(Dispatchers.IO) {
         val normalized = normalizeSubscriptionUrl(url)
         require(normalized.isNotBlank()) { "Вставьте ссылку на подписку" }
         require(!normalized.startsWith("http://", ignoreCase = true)) {
             "Используйте защищённую HTTPS-ссылку на подписку"
+        }
+        val types = ServerMarkup.normalize(serverTypes)
+        subDao.getAll().firstOrNull { it.url == normalized }?.let { existing ->
+            val updated = existing.copy(
+                name = name.trim().ifBlank { existing.name },
+                nameLocked = existing.nameLocked || name.isNotBlank(),
+                urlHidden = when {
+                    hidden -> true
+                    reveal -> false
+                    else -> existing.urlHidden
+                },
+                serverTypes = types.ifBlank { existing.serverTypes },
+                isEnabled = true
+            )
+            subDao.update(updated)
+            try {
+                refreshSubscription(existing.id)
+            } catch (e: Exception) {
+                subDao.update(existing)
+                throw e
+            }
+            return@withContext existing.id
         }
         val id = subDao.insert(
             SubscriptionEntity(
                 name = name.trim().ifBlank { "Подписка" },
                 nameLocked = name.trim().isNotBlank(),
                 url = normalized,
-                colorHex = SUBSCRIPTION_COLORS[(subDao.getAll().size) % SUBSCRIPTION_COLORS.size]
+                colorHex = SUBSCRIPTION_COLORS[(subDao.getAll().size) % SUBSCRIPTION_COLORS.size],
+                urlHidden = hidden,
+                serverTypes = types
             )
         )
         try {
@@ -234,7 +295,13 @@ class VoltaRepository(private val context: Context) {
 
     suspend fun refreshSubscription(id: Long) = withContext(Dispatchers.IO) {
         val sub = subDao.getById(id) ?: return@withContext
-        val fetched = fetchSubscriptionResilient(sub.url, sub.userAgent)
+        val fetched = try {
+            fetchSubscriptionResilient(sub.url, sub.userAgent)
+        } catch (e: Exception) {
+            // A hidden link must not leak through an error text ("…host sub.example…").
+            if (sub.urlHidden) throw IllegalStateException(concealAddress(e.message, sub.url))
+            throw e
+        }
         val body = fetched.body
         val parsed = ConfigParser.parseSubscriptionBody(body, subscriptionId = id)
 
@@ -246,7 +313,8 @@ class VoltaRepository(private val context: Context) {
         val servers = ServerClassifier.mergeProviderUpdate(
             previous = serverDao.getBySubscription(id),
             incoming = parsed.servers,
-            subscriptionId = id
+            subscriptionId = id,
+            serverTypes = sub.serverTypes
         )
         if (servers.isEmpty()) {
             val hint = if (parsed.skipped.isNotEmpty()) {
@@ -268,7 +336,9 @@ class VoltaRepository(private val context: Context) {
         // Routing shipped by the provider (routing header, happ://, Happ JSON).
         // A JSON subscription keeps its routing inside every config: that is used as-is
         // at connect time and is deliberately NOT turned into a separate profile.
-        val jsonConfigs = looksLikeXrayConfigs(body)
+        // Grouped JSON ({"wifi": […], "lte": […]}) may hold whole configs, yet its routing
+        // is the top-level "routing" field, like any other subscription's.
+        val jsonConfigs = looksLikeXrayConfigs(body) && parsed.servers.none { it.roleFromProvider }
         val routing = HappRoutingParser.parseRoutingLink(fetched.routingHeader)
             ?: if (jsonConfigs) {
                 null
@@ -414,7 +484,8 @@ class VoltaRepository(private val context: Context) {
     suspend fun updateSubscription(id: Long, name: String, url: String) =
         withContext(Dispatchers.IO) {
             val current = subDao.getById(id) ?: error("Подписка не найдена")
-            val normalized = normalizeSubscriptionUrl(url)
+            // A hidden link is never shown, so it can't be edited either: only the name.
+            val normalized = if (current.urlHidden) current.url else normalizeSubscriptionUrl(url)
             require(normalized.isNotBlank()) { "Вставьте ссылку на подписку" }
             require(!normalized.startsWith("http://", ignoreCase = true)) {
                 "Используйте защищённую HTTPS-ссылку на подписку"
@@ -917,7 +988,7 @@ class VoltaRepository(private val context: Context) {
 
     /** Servers of the group the current connect mode works with. */
     private suspend fun groupFor(servers: List<ServerEntity>): List<ServerEntity> =
-        when (prefs.connectMode.first()) {
+        when (effectiveMode()) {
             ConnectMode.AUTO_HOME -> AutoBalancer.poolFor(servers, BalancerScope.NORMAL)
             ConnectMode.AUTO_LTE -> AutoBalancer.poolFor(servers, BalancerScope.BYPASS)
             ConnectMode.AUTO_HOME_LTE -> AutoBalancer.filterByRegime(
@@ -1005,7 +1076,8 @@ class VoltaRepository(private val context: Context) {
         if (prefs.simpleMode.first() && prefs.connectMode.first() != ConnectMode.AUTO_HOME_LTE) {
             prefs.setConnectMode(ConnectMode.AUTO_HOME_LTE)
         }
-        val scope = prefs.connectMode.first().scope
+        // Without LTE servers Home+LTE and LTE run as Home: no site probe at connect.
+        val scope = effectiveMode().scope
         // Connect-time pick is the quick one: last good node or a short race, so the
         // tunnel is up in seconds. The thorough comparison follows in the background.
         val decision = scope?.let {
@@ -1071,7 +1143,7 @@ class VoltaRepository(private val context: Context) {
     /** Re-run the auto choice on a live tunnel, e.g. after Wi-Fi ↔ mobile data. */
     suspend fun reevaluateAuto(): AutoBalancer.Decision? = withContext(Dispatchers.IO) {
         if (!isConnected() || _autoPicking.value) return@withContext null
-        val scope = prefs.connectMode.first().scope ?: return@withContext null
+        val scope = effectiveMode().scope ?: return@withContext null
         val liveId = VoltaVpnService.serverId.value
         // Measured without the connect lock, so the button never waits on it.
         val decision = measureAside { runAutobalancer(scope, select = false) }
@@ -1088,20 +1160,84 @@ class VoltaRepository(private val context: Context) {
 
     // ------------------------------------------------------------ guard
 
+    /** Optional switches (slow node, faster one found) — never more than 3 in 10 minutes. */
+    private val switchLimiter = GuardPolicy.SwitchLimiter()
+
+    @Volatile
+    private var lastSlowRecheck = 0L
+
+    /** Downloaded bytes at the last check, and on which node: data through it proves it alive. */
+    @Volatile
+    private var guardTrafficMark = 0L
+
+    @Volatile
+    private var guardTrafficServer = 0L
+
+    private val exitProbeClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .proxy(
+                java.net.Proxy(
+                    java.net.Proxy.Type.SOCKS,
+                    java.net.InetSocketAddress("127.0.0.1", ConfigBuilder.EXIT_CHECK_PORT)
+                )
+            )
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .callTimeout(6, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(false)
+            .build()
+    }
+
+    /**
+     * A real site through the running tunnel's exit (its check port always leaves
+     * through the node, whatever the routing). The time in ms, or -1 when nothing came
+     * back: that is "data no longer passes through this server".
+     */
+    private suspend fun tunnelProbe(): Long = withContext(Dispatchers.IO) {
+        for (url in TUNNEL_PROBE_URLS) {
+            val start = System.nanoTime()
+            val ok = runCatching {
+                exitProbeClient.newCall(Request.Builder().url(url).head().build())
+                    .execute().use { it.code in 100..599 }
+            }.getOrDefault(false)
+            if (ok) return@withContext ((System.nanoTime() - start) / 1_000_000L).coerceAtLeast(1L)
+        }
+        -1L
+    }
+
     /**
      * One background check on a live tunnel, every two minutes while the screen is on
-     * (ConnectionGuard). In Home+LTE the sites go first: they are cheap and say whether
-     * the group in use still fits this network. Then the node in use is pinged directly;
-     * the group is measured only when the network moved or that node stopped answering.
-     * Everything here runs outside the tunnel (this app is excluded from its own VPN),
-     * so a dead server can't hide behind a working tunnel.
+     * (ConnectionGuard). Cheapest evidence first, and the group is measured only when
+     * the evidence calls for it:
+     *
+     *  1. No network or a captive portal: nothing a server change could fix — stop.
+     *  2. Home+LTE (only when LTE servers exist): the sites say which group fits this
+     *     network; the wrong group moves over at once.
+     *  3. The node in use is pinged directly (outside the tunnel). It answers:
+     *     - slow for itself ([GuardPolicy.isSlow]) and a site through the tunnel agrees →
+     *       the group is compared and a clearly faster node takes over;
+     *     - otherwise the periodic full comparison, if one is due.
+     *  4. It doesn't answer: it is only called dead when no data went through it since
+     *     the last check, a site through the tunnel fails too, and the internet itself
+     *     works. Then it is replaced.
+     *
+     * Everything runs outside the tunnel (this app is excluded from its own VPN), so a
+     * dead server can't hide behind a working tunnel.
      */
     suspend fun guardCheck(full: Boolean) = withContext(Dispatchers.IO) {
         if (!isConnected() || _autoPicking.value) return@withContext
         val live = serverDao.getById(VoltaVpnService.serverId.value) ?: return@withContext
-        val mode = prefs.connectMode.first()
+        if (com.ars3nb.volta.core.vpn.DeviceState.underlying(context) !=
+            com.ars3nb.volta.core.vpn.DeviceState.Underlying.OK
+        ) return@withContext
+        val mode = effectiveMode()
         val battery = prefs.batterySaver.first()
         val probe = NetworkProbe(battery)
+        val now = System.currentTimeMillis()
+
+        val down = traffic.value.downlinkBytes
+        val downloaded = if (guardTrafficServer == live.id) (down - guardTrafficMark).coerceAtLeast(0) else 0L
+        guardTrafficMark = down
+        guardTrafficServer = live.id
 
         if (mode == ConnectMode.AUTO_HOME_LTE) {
             var network = probe.runFast()
@@ -1130,11 +1266,28 @@ class VoltaRepository(private val context: Context) {
 
         val answer = PingEngine(context, batterySaver = battery).stillAnswers(live)
         if (answer.success) {
+            val usual = if (live.ewmaMs > 0) live.ewmaMs else live.latencyMs
             persist(live, answer)
-            if (full) reevaluateAuto()
+            val slow = mode.scope != null && GuardPolicy.isSlow(answer.latencyMs, usual)
+            if (slow && now - lastSlowRecheck >= GuardPolicy.SLOW_RECHECK_EVERY_MS) {
+                // One slow ping is not a slow server: a site through the tunnel must agree.
+                if (GuardPolicy.tunnelConfirmsSlow(tunnelProbe())) {
+                    lastSlowRecheck = now
+                    optionalRecheck(live.id, now)
+                    return@withContext
+                }
+            }
+            val power = com.ars3nb.volta.core.vpn.DeviceState.power(context)
+            if (full && GuardPolicy.fullAllowed(power.batteryLow, power.charging)) {
+                optionalRecheck(live.id, now)
+            }
             return@withContext
         }
 
+        // No answer from outside. Some networks drop the probe but not the traffic, so
+        // before calling the server dead: did data go through it, does a site load?
+        if (GuardPolicy.trafficProvesAlive(downloaded)) return@withContext
+        if (tunnelProbe() >= 0) return@withContext
         // Other modes don't watch the sites; ask them only now, to be sure it is the
         // server that went quiet and not the internet.
         if (mode != ConnectMode.AUTO_HOME_LTE && !probe.runFast().hasAnyNetwork) return@withContext
@@ -1147,6 +1300,28 @@ class VoltaRepository(private val context: Context) {
                 if (!isConnected() || VoltaVpnService.serverId.value != live.id) return@withLock
                 planAfterFailure(live.id)?.let { VoltaVpnService.connect(context, it) }
             }
+        }
+    }
+
+    /** A comparison that may switch to a faster node, within the flapping limit. */
+    private suspend fun optionalRecheck(liveId: Long, now: Long) {
+        if (!switchLimiter.allow(now)) return
+        reevaluateAuto()
+        if (serverDao.getSelected()?.id?.let { it != liveId } == true) switchLimiter.record(now)
+    }
+
+    /**
+     * Wi-Fi ↔ mobile data under a live tunnel. Home+LTE probes the network again and
+     * moves to the group that fits; Home or LTE alone checks the node in use right away
+     * (its sockets died with the old network) instead of two minutes later.
+     */
+    suspend fun onNetworkChanged(): Unit = withContext(Dispatchers.IO) {
+        forgetNetwork()
+        if (!isConnected()) return@withContext
+        when (effectiveMode()) {
+            ConnectMode.MANUAL -> Unit // the service's own health check covers it
+            ConnectMode.AUTO_HOME_LTE -> if (prefs.followNetwork.first()) reevaluateAuto() else guardCheck(full = false)
+            else -> guardCheck(full = false)
         }
     }
 
@@ -1201,6 +1376,16 @@ class VoltaRepository(private val context: Context) {
     // ------------------------------------------------------------- fetching
 
     private data class FetchedSubscription(val body: String, val routingHeader: String = "")
+
+    /** An error text with every trace of a hidden subscription's address taken out. */
+    private fun concealAddress(message: String?, url: String): String {
+        val host = runCatching { java.net.URI(url).host }.getOrNull().orEmpty()
+        var text = message?.trim().orEmpty()
+        listOf(url, host).filter { it.isNotBlank() }.forEach { text = text.replace(it, "…", ignoreCase = true) }
+        // Anything still looking like an address goes too.
+        text = text.replace(Regex("https?://\\S+"), "…")
+        return text.ifBlank { "Не удалось обновить подписку" }
+    }
 
     private fun normalizeSubscriptionUrl(url: String): String {
         var value = url.trim().removePrefix("\uFEFF")
@@ -1338,6 +1523,11 @@ class VoltaRepository(private val context: Context) {
 
         /** A tunnel not up by then failed; the comparison is not needed. */
         private const val REFINE_WAIT_FOR_TUNNEL_MS = 30_000L
+
+        private val TUNNEL_PROBE_URLS = listOf(
+            "https://www.gstatic.com/generate_204",
+            "https://cp.cloudflare.com/generate_204"
+        )
 
         val SUBSCRIPTION_COLORS = listOf(
             "#C4784A", "#4A8FC4", "#5FB07A", "#B05FA8", "#C4A24A", "#4AC4B8"

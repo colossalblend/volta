@@ -5,6 +5,7 @@ import android.net.VpnService
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.ars3nb.volta.VoltaApp
+import com.ars3nb.volta.core.link.VoltaLinks
 import com.ars3nb.volta.core.openflux.OpenFluxLink
 import com.ars3nb.volta.core.parser.AmneziaConfigs
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
@@ -341,7 +342,10 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 // Probing while the tunnel is up would describe the exit, not this network.
-                if (!repo.isConnected()) {
+                // Without LTE servers there is no Home-or-LTE choice to make: no probe.
+                if (!repo.isConnected() &&
+                    com.ars3nb.volta.core.balancer.GuardPolicy.hasLte(repo.servers.first())
+                ) {
                     val (regime, probes) = repo.probeNetwork()
                     _regime.value = regime
                     _probes.value = probes
@@ -553,6 +557,11 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     // ---------------------------------------------------------- subscriptions
 
     fun addSubscription(name: String, url: String, onComplete: (Boolean) -> Unit = {}) {
+        // An import or encrypted link pasted into the address field.
+        if (url.trim().startsWith("volta://", ignoreCase = true)) {
+            handleDeepLink(url, onComplete, nameOverride = name)
+            return
+        }
         viewModelScope.launch {
             _message.value = null
             _busy.value = true
@@ -623,7 +632,98 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // ------------------------------------------------------------- deep links
+
+    /**
+     * Every `volta://` link that reaches the app (see [VoltaLinks]): adding a plain,
+     * hidden or encrypted subscription, switching the tunnel on or off, or content for
+     * the ordinary importer.
+     */
+    fun handleDeepLink(raw: String, onComplete: (Boolean) -> Unit = {}, nameOverride: String = "") {
+        fun named(a: VoltaLinks.AddSubscription) =
+            if (nameOverride.isBlank()) a else a.copy(name = nameOverride.trim())
+        when (val action = VoltaLinks.parse(raw)) {
+            is VoltaLinks.AddSubscription -> addFromLink(named(action), onComplete)
+            is VoltaLinks.AddEncrypted -> viewModelScope.launch {
+                // ECDH + AES: a millisecond, but not on the main thread.
+                val opened = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                    VoltaLinks.openEncrypted(action)
+                }
+                when (opened) {
+                    is VoltaLinks.AddSubscription -> addFromLink(named(opened), onComplete)
+                    is VoltaLinks.Invalid -> {
+                        _message.value = opened.message
+                        onComplete(false)
+                    }
+                    else -> onComplete(false)
+                }
+            }
+            // Strictly shorter than the link it came from, so this always ends.
+            is VoltaLinks.ImportContent -> importLink(action.value, onComplete)
+            is VoltaLinks.Connect -> {
+                val mode = action.mode
+                if (mode != null) {
+                    connectIn(mode)
+                } else if (!uiState.value.isConnected && !uiState.value.isBusyConnecting &&
+                    connectPhase.value == ConnectPhase.IDLE
+                ) {
+                    connect()
+                }
+                onComplete(true)
+            }
+            VoltaLinks.Disconnect -> {
+                if (connectPhase.value != ConnectPhase.IDLE) cancelConnect()
+                if (uiState.value.isConnected || uiState.value.isBusyConnecting) disconnect()
+                onComplete(true)
+            }
+            VoltaLinks.Toggle -> {
+                toggleConnect()
+                onComplete(true)
+            }
+            is VoltaLinks.Invalid -> {
+                _message.value = action.message
+                onComplete(false)
+            }
+        }
+    }
+
+    private fun addFromLink(link: VoltaLinks.AddSubscription, onComplete: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            _busy.value = true
+            try {
+                val id = repo.addSubscription(
+                    name = link.name,
+                    url = link.url,
+                    hidden = link.hidden,
+                    serverTypes = link.serverTypes,
+                    reveal = link.visible == true
+                )
+                val count = repo.servers.first().count { it.subscriptionId == id }
+                val hidden = repo.subscriptions.first().firstOrNull { it.id == id }?.urlHidden == true
+                _message.value = "Подписка добавлена: $count серверов" + if (hidden) " · ссылка скрыта" else ""
+                onComplete(true)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // The repository already took a hidden address out of the error text.
+                _message.value = e.userMessage("Не удалось добавить подписку")
+                onComplete(false)
+            } finally {
+                _busy.value = false
+            }
+        }
+    }
+
     fun importLink(link: String, onComplete: (Boolean) -> Unit = {}) {
+        // A volta:// link pasted or shared into the app works like one that was opened.
+        if (link.trim().startsWith("volta://", ignoreCase = true)) {
+            handleDeepLink(link, onComplete)
+            return
+        }
+        importContent(link, onComplete)
+    }
+
+    private fun importContent(link: String, onComplete: (Boolean) -> Unit) {
         viewModelScope.launch {
             _busy.value = true
             try {

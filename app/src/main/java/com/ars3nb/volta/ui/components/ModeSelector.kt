@@ -1,6 +1,12 @@
 package com.ars3nb.volta.ui.components
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.border
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.SignalCellularAlt
+import androidx.compose.material.icons.rounded.SignalCellularOff
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Icon
@@ -72,6 +79,33 @@ private fun modeShort(mode: ConnectMode): String = when (mode) {
  */
 @Composable
 fun ModeSelector(
+    mode: ConnectMode,
+    homeCount: Int,
+    lteCount: Int,
+    totalCount: Int,
+    onSelect: (ConnectMode) -> Unit,
+    modifier: Modifier = Modifier,
+    /** Tapped the LTE side while there are no LTE servers. */
+    onLteMissing: () -> Unit = {}
+) {
+    // No LTE server anywhere: the three groups fold into one, Home, and the LTE side
+    // says why instead of offering a mode that would have nothing to connect to.
+    AnimatedContent(
+        targetState = lteCount > 0,
+        transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(160)) },
+        label = "lteFold",
+        modifier = modifier.fillMaxWidth()
+    ) { hasLte ->
+        if (hasLte) {
+            ThreeGroupSelector(mode, homeCount, lteCount, totalCount, onSelect)
+        } else {
+            HomeOnlySelector(mode, homeCount, onSelect, onLteMissing)
+        }
+    }
+}
+
+@Composable
+private fun ThreeGroupSelector(
     mode: ConnectMode,
     homeCount: Int,
     lteCount: Int,
@@ -148,6 +182,111 @@ fun ModeSelector(
                             maxLines = 1
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The selector when the subscriptions carry no LTE server: Home fills most of the
+ * track (every auto mode runs as Home now, and no site is probed), and a quiet LTE stub
+ * on the right says "нет серверов" rather than disappearing without a word.
+ */
+@Composable
+private fun HomeOnlySelector(
+    mode: ConnectMode,
+    homeCount: Int,
+    onSelect: (ConnectMode) -> Unit,
+    onLteMissing: () -> Unit
+) {
+    val palette = VoltaTheme.palette
+    val scheme = MaterialTheme.colorScheme
+    val haptics = LocalHapticFeedback.current
+    val auto = mode != ConnectMode.MANUAL
+    val homeTint by animateColorAsState(if (auto) palette.home else scheme.onSurface, label = "homeTint")
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = scheme.surface
+    ) {
+        Row(
+            Modifier.padding(4.dp).height(50.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .weight(0.68f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(
+                        if (auto) palette.home.copy(alpha = if (palette.isDark) 0.17f else 0.14f)
+                        else Color.Transparent
+                    )
+                    .semantics { this.selected = auto }
+                    .clickable(role = Role.Tab) {
+                        // Home+LTE is stored: it runs as Home now and picks LTE up by
+                        // itself the day the provider adds LTE servers.
+                        if (!auto) {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onSelect(ConnectMode.AUTO_HOME_LTE)
+                        }
+                    }
+                    .padding(horizontal = 14.dp)
+            ) {
+                Icon(Icons.Rounded.Wifi, null, tint = homeTint, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Авто Home",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = homeTint,
+                        maxLines = 1
+                    )
+                    Text(
+                        if (homeCount > 0) serversCount(homeCount) else "пусто",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = scheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+                }
+            }
+            Spacer(Modifier.width(4.dp))
+            // The missing group: dashed in spirit — outlined, muted, struck-out signal.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .weight(0.32f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(16.dp))
+                    .border(1.dp, scheme.outlineVariant.copy(alpha = 0.7f), RoundedCornerShape(16.dp))
+                    .clickable(onClick = onLteMissing)
+                    .padding(horizontal = 8.dp)
+            ) {
+                Icon(
+                    Icons.Rounded.SignalCellularOff,
+                    null,
+                    tint = scheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Column {
+                    Text(
+                        "LTE",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = scheme.onSurfaceVariant.copy(alpha = 0.75f),
+                        maxLines = 1
+                    )
+                    Text(
+                        "нет серверов",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = scheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }

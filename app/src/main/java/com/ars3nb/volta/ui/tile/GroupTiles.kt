@@ -47,8 +47,9 @@ abstract class GroupTileService(private val mode: ConnectMode) : TileService() {
                 VoltaVpnService.state,
                 VoltaVpnService.serverName,
                 repo.connectMode,
-                repo.autoPicking
-            ) { state, server, current, picking -> TileModel(state, server, current, picking) }
+                repo.autoPicking,
+                repo.hasLteServers
+            ) { state, server, current, picking, hasLte -> TileModel(state, server, current, picking, hasLte) }
                 .collectLatest { updateTile(it) }
         }
     }
@@ -71,6 +72,11 @@ abstract class GroupTileService(private val mode: ConnectMode) : TileService() {
     private fun toggle() {
         val app = VoltaApp.instance
         val repo = app.repository
+        // The LTE tile with no LTE server to go to: say so instead of connecting nowhere.
+        if (mode == ConnectMode.AUTO_LTE && qsTile?.state == Tile.STATE_UNAVAILABLE) {
+            Toast.makeText(app, "В подписках нет LTE-серверов", Toast.LENGTH_SHORT).show()
+            return
+        }
         // Consent can only be granted from an Activity: remember the group, then open
         // the app, where the big button finishes the job.
         if (VpnService.prepare(this) != null) {
@@ -132,6 +138,12 @@ abstract class GroupTileService(private val mode: ConnectMode) : TileService() {
         val ours = model.mode == mode
         val subtitle: String
         when {
+            // Nothing to connect to in this group: greyed out with the reason.
+            mode == ConnectMode.AUTO_LTE && !model.hasLte -> {
+                tile.state = Tile.STATE_UNAVAILABLE
+                subtitle = "Нет серверов"
+            }
+
             ours && model.picking && model.state != VpnConnectionState.CONNECTED -> {
                 tile.state = Tile.STATE_ACTIVE
                 subtitle = "Подбираю сервер…"
@@ -151,7 +163,8 @@ abstract class GroupTileService(private val mode: ConnectMode) : TileService() {
 
             else -> {
                 tile.state = Tile.STATE_INACTIVE
-                subtitle = "Выключено"
+                // Home+LTE without LTE servers runs as Home: the shade says so.
+                subtitle = if (mode == ConnectMode.AUTO_HOME_LTE && !model.hasLte) "Выключено · как Home" else "Выключено"
             }
         }
         tile.label = label(mode)
@@ -174,7 +187,8 @@ abstract class GroupTileService(private val mode: ConnectMode) : TileService() {
         val state: VpnConnectionState,
         val server: String,
         val mode: ConnectMode,
-        val picking: Boolean
+        val picking: Boolean,
+        val hasLte: Boolean
     )
 
     companion object {

@@ -25,14 +25,62 @@ object ServerClassifier {
         RegexOption.IGNORE_CASE
     )
 
-    fun classify(remark: String): ServerRole = when {
-        autoWords.containsMatchIn(remark.trim()) -> ServerRole.AUTO
-        bypassWords.containsMatchIn(remark.trim()) -> ServerRole.BYPASS_WHITELIST
-        else -> ServerRole.NORMAL
+    fun classify(remark: String): ServerRole {
+        ServerMarkup.prefixRole(remark)?.let { return it.role }
+        return when {
+            autoWords.containsMatchIn(remark.trim()) -> ServerRole.AUTO
+            bypassWords.containsMatchIn(remark.trim()) -> ServerRole.BYPASS_WHITELIST
+            else -> ServerRole.NORMAL
+        }
     }
 
-    fun classify(server: ServerEntity): ServerEntity =
-        server.copy(role = classify(server.remark), roleManual = false)
+    /**
+     * The old name check, minus the groups the provider listed explicitly: a group the
+     * provider marked is complete, so a stray "LTE" in an unmarked name doesn't add to it.
+     */
+    fun roleByName(remark: String, explicit: Set<ServerRole> = emptySet()): ServerRole {
+        val guess = classify(remark)
+        return if (guess != ServerRole.NORMAL && guess in explicit) ServerRole.NORMAL else guess
+    }
+
+    fun classify(server: ServerEntity): ServerEntity = classify(server, ServerMarkup.TypeMap.EMPTY, -1)
+
+    /**
+     * One server's group, provider markup first (see [ServerMarkup]):
+     * JSON group (already set, [ServerEntity.roleFromProvider]) → `[L]/[H]/[A]` prefix →
+     * `server-type` position ([position] is 0-based) → the name check.
+     */
+    fun classify(
+        server: ServerEntity,
+        types: ServerMarkup.TypeMap,
+        position: Int,
+        explicit: Set<ServerRole> = types.explicit
+    ): ServerEntity {
+        val prefixed = ServerMarkup.prefixRole(server.remark)
+        val remark = prefixed?.remark ?: server.remark
+        val providerRole = when {
+            server.roleFromProvider -> server.role
+            prefixed != null -> prefixed.role
+            else -> types.roles[position + 1]
+        }
+        return if (providerRole != null) {
+            server.copy(remark = remark, role = providerRole, roleFromProvider = true, roleManual = false)
+        } else {
+            server.copy(role = roleByName(remark, explicit), roleFromProvider = false, roleManual = false)
+        }
+    }
+
+    /** Every group the provider marked anywhere in this list (for [roleByName]). */
+    fun explicitGroups(incoming: List<ServerEntity>, types: ServerMarkup.TypeMap): Set<ServerRole> =
+        buildSet {
+            addAll(types.explicit)
+            incoming.forEach { s ->
+                when {
+                    s.roleFromProvider -> add(s.role)
+                    else -> ServerMarkup.prefixRole(s.remark)?.let { add(it.role) }
+                }
+            }
+        }
 
     /**
      * Identity of a node across refreshes.
@@ -60,14 +108,23 @@ object ServerClassifier {
     fun mergeProviderUpdate(
         previous: List<ServerEntity>,
         incoming: List<ServerEntity>,
-        subscriptionId: Long
+        subscriptionId: Long,
+        /** `server-type` from the import link, as stored with the subscription. */
+        serverTypes: String = ""
     ): List<ServerEntity> {
         val oldByKey = previous.associateBy(::stableKey)
+        val types = ServerMarkup.parseServerTypes(serverTypes)
+        val explicit = explicitGroups(incoming, types)
         // Two incoming rows must never claim the same stored id, or the REPLACE insert
         // would collapse them into one and silently drop a server.
         val claimed = mutableSetOf<Long>()
         return incoming.mapIndexed { index, raw ->
-            val classified = classify(raw.copy(subscriptionId = subscriptionId, sortOrder = index))
+            val classified = classify(
+                raw.copy(subscriptionId = subscriptionId, sortOrder = index),
+                types,
+                index,
+                explicit
+            )
             val old = oldByKey[stableKey(classified)]
                 ?.takeIf { claimed.add(it.id) }
                 ?: return@mapIndexed classified

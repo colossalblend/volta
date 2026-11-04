@@ -2,10 +2,20 @@ package com.ars3nb.volta.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -13,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.ars3nb.volta.data.model.SubscriptionEntity
@@ -27,7 +38,10 @@ fun SubscriptionEditorDialog(
     onDelete: () -> Unit
 ) {
     var name by remember(subscription.id) { mutableStateOf(subscription.name) }
-    var url by remember(subscription.id) { mutableStateOf(subscription.url) }
+    // A hidden address is never put into UI state at all.
+    var url by remember(subscription.id) {
+        mutableStateOf(if (subscription.urlHidden) "" else subscription.url)
+    }
     var confirmDelete by remember(subscription.id) { mutableStateOf(false) }
 
     AlertDialog(
@@ -49,13 +63,18 @@ fun SubscriptionEditorDialog(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    OutlinedTextField(
-                        value = url,
-                        onValueChange = { url = it },
-                        label = { Text("HTTPS-ссылка") },
-                        minLines = 2,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    if (subscription.urlHidden) {
+                        // The provider keeps the address private: no field, no copy.
+                        HiddenLinkNote()
+                    } else {
+                        OutlinedTextField(
+                            value = url,
+                            onValueChange = { url = it },
+                            label = { Text("HTTPS-ссылка") },
+                            minLines = 2,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                     if (subscription.lastUpdated > 0) {
                         Hint(
                             "Обновлялась " + android.text.format.DateUtils
@@ -70,8 +89,11 @@ fun SubscriptionEditorDialog(
         },
         confirmButton = {
             TextButton(
-                enabled = !busy && (confirmDelete || url.isNotBlank()),
-                onClick = { if (confirmDelete) onDelete() else onSave(name, url) }
+                enabled = !busy && (confirmDelete || subscription.urlHidden || url.isNotBlank()),
+                // A hidden subscription never hands its address back to the screen.
+                onClick = {
+                    if (confirmDelete) onDelete() else onSave(name, if (subscription.urlHidden) "" else url)
+                }
             ) { Text(if (confirmDelete) "Удалить" else "Сохранить") }
         },
         dismissButton = {
@@ -80,4 +102,33 @@ fun SubscriptionEditorDialog(
             }
         }
     )
+}
+
+/** In place of the address field when the provider hid the link. */
+@Composable
+private fun HiddenLinkNote() {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                Icons.Rounded.Lock,
+                null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text("Ссылка скрыта", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "VPN-сервис закрыл адрес подписки. Она обновляется как обычно, " +
+                        "а изменить можно только название.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
 }

@@ -30,6 +30,7 @@ import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Refresh
@@ -445,6 +446,9 @@ fun SubscriptionCard(
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             StatusPill("$serverCount серв.", MaterialTheme.colorScheme.primary)
+            if (sub.urlHidden) {
+                StatusPill("скрыта", MaterialTheme.colorScheme.onSurfaceVariant, icon = Icons.Rounded.Lock)
+            }
             if (routingName.isNotBlank()) {
                 StatusPill(
                     routingName,
