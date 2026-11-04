@@ -43,6 +43,13 @@ object ConfigParser {
         "anytls" to "AnyTLS"
     )
 
+    /** `hysteria://` is matched exactly so `hysteria2://` never trips it. Compiled once. */
+    private val UNSUPPORTED_PATTERNS: Map<Regex, String> =
+        UNSUPPORTED_SCHEMES.mapKeys { (scheme, _) -> Regex("(?i)(?<![a-z0-9])$scheme://") }
+    private val WHITESPACE = Regex("\\s")
+    private val BASE64_BODY = Regex("^[A-Za-z0-9+/=_-]+$")
+    private val BASE64_STRICT = Regex("^[A-Za-z0-9+/]+={0,2}$")
+
     fun parseSubscriptionBody(body: String, subscriptionId: Long? = null): SubscriptionImportResult {
         var title = ""
         var expireAt = 0L
@@ -252,8 +259,8 @@ object ConfigParser {
      * `hysteria://` is matched exactly so `hysteria2://` never trips it.
      */
     fun unsupportedProtocols(content: String): List<String> =
-        UNSUPPORTED_SCHEMES
-            .filterKeys { scheme -> Regex("(?i)(?<![a-z0-9])$scheme://").containsMatchIn(content) }
+        UNSUPPORTED_PATTERNS
+            .filterKeys { pattern -> pattern.containsMatchIn(content) }
             .values
             .distinct()
             .toList()
@@ -263,9 +270,9 @@ object ConfigParser {
         if (content.isBlank()) return false
         if (content.contains("://")) return false
         if (content.trimStart().startsWith("{")) return false
-        val cleaned = content.replace("\\s".toRegex(), "")
+        val cleaned = content.replace(WHITESPACE, "")
         if (cleaned.length < 16) return false
-        if (!cleaned.matches(Regex("^[A-Za-z0-9+/=_-]+$"))) return false
+        if (!cleaned.matches(BASE64_BODY)) return false
         // типичный старт vless:// / vmess:// / ss:// в base64
         val head = cleaned.take(12)
         return head.startsWith("dmxlc3") || // vless
@@ -1174,7 +1181,7 @@ object ConfigParser {
         if (decoded != value) return decoded
 
         if (value.length >= 12 && value.length % 4 == 0 &&
-            value.matches(Regex("^[A-Za-z0-9+/]+={0,2}$"))
+            value.matches(BASE64_STRICT)
         ) {
             decodeBase64(value)?.trim()?.let { candidate ->
                 val readable = candidate.isNotBlank() &&

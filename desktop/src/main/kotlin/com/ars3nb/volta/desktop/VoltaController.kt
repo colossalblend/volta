@@ -1078,7 +1078,7 @@ class VoltaController(
             d.copy(
                 subscriptions = d.subscriptions + SubscriptionEntity(
                     id = id,
-                    name = name.trim().ifBlank { s.subscription },
+                    name = name.trim().ifBlank { Res.string(R.string.home_default_subscription_name) },
                     nameLocked = name.trim().isNotBlank(),
                     url = normalized,
                     colorHex = SUBSCRIPTION_COLORS[d.subscriptions.size % SUBSCRIPTION_COLORS.size],
@@ -1230,8 +1230,8 @@ class VoltaController(
         val id = existing?.id ?: store.newIds(1).first()
         val entity = RoutingProfileEntity(
             id = id,
-            name = routing.name.ifBlank { "$displayName · ${I18n.s.routingTitle}" },
-            description = displayName,
+            name = routing.name.ifBlank { Res.string(R.string.home_routing_rules_name, displayName) },
+            description = Res.string(R.string.home_routing_from_subscription, displayName),
             isActive = false,
             isBuiltIn = false,
             sourceSubscriptionId = subscriptionId,

@@ -270,6 +270,21 @@ data class OpenFluxLink(
             else -> null
         }
 
+        /**
+         * A server's name as shown: the name a nameless link was stored under ("OpenFlux ·
+         * Яндекс Документы + напрямую", see [carriersLabel]) with its carriers in the
+         * language of [context]. Any other name is left as it is.
+         */
+        fun shownRemark(remark: String): String {
+            if (!remark.startsWith(STORED_PREFIX)) return remark
+            val parts = remark.removePrefix(STORED_PREFIX).split(" + ")
+            val types = parts.map { part -> CARRIER_TYPES.firstOrNull { storedCarrierName(it) == part } ?: return remark }
+            return STORED_PREFIX + types.joinToString(" + ") { carrierName(it) }
+        }
+
+        private const val STORED_PREFIX = "OpenFlux · "
+        private val CARRIER_TYPES = listOf("yandex", "vyandex", "boards", "mailru", "cupsonline", "avito", "telemost", "direct")
+
         /** Names that are the same in every language. */
         private fun carrierBrand(type: String): String = when (type) {
             "mailru" -> "Mail.ru"

@@ -2,6 +2,7 @@ package com.ars3nb.volta.core.balancer
 
 import com.ars3nb.volta.desktop.i18n.R
 import com.ars3nb.volta.desktop.i18n.Res
+import com.ars3nb.volta.core.locale.UiText
 import com.ars3nb.volta.core.ping.NetworkProbe
 import com.ars3nb.volta.core.ping.PingEngine
 import com.ars3nb.volta.core.vpn.ConfigBuilder
@@ -229,7 +230,8 @@ class AutoBalancer(
         val switched: Boolean,
         val ranked: List<Ranked>,
         val probes: List<SiteProbeResult>,
-        val reason: String,
+        /** What the user is told; read in the screen's language when it is shown. */
+        val reason: UiText,
         /** True when nothing could be measured, so the caller should retry later. */
         val retryLater: Boolean = false,
         /** Picked the fast way at connect time; a full comparison should follow. */
@@ -422,7 +424,7 @@ class AutoBalancer(
         scope: BalancerScope,
         regime: NetworkRegime,
         current: ServerEntity?,
-        reason: String
+        reason: UiText
     ) = Decision(
         scope = scope,
         regime = regime,
@@ -441,10 +443,10 @@ class AutoBalancer(
         selected: ServerEntity?,
         switched: Boolean,
         previous: ServerEntity?
-    ): String {
+    ): UiText {
         val alive = ranked.count { it.ok }
         val ms = ranked.firstOrNull { it.server.id == selected?.id }?.takeIf { it.ok }?.latencyMs
-        val speed = ms?.let { " · " + text(R.string.servers_ms, it) }.orEmpty()
+        val speed: UiText = ms?.let { UiText.Raw(" · ") + text(R.string.servers_ms, it) } ?: UiText.Raw("")
         val group = when (groupOf(scope, regime)) {
             BalancerScope.NORMAL -> "Home"
             BalancerScope.BYPASS -> "LTE"
@@ -461,6 +463,6 @@ class AutoBalancer(
         return if (group == null) said else text(R.string.servers_balancer_in_group, group, said)
     }
 
-    /** What the user is told, in the app's language. */
-    private fun text(id: String, vararg args: Any): String = Res.string(id, *args)
+    /** What the user is told; the screen reads it in its own language. */
+    private fun text(id: String, vararg args: Any): UiText = UiText.of(id, *args)
 }

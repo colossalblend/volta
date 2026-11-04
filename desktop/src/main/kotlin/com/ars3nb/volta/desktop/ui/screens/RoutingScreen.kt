@@ -109,6 +109,7 @@ import com.ars3nb.volta.desktop.i18n.R
 import com.ars3nb.volta.desktop.i18n.pluralStringResource
 import com.ars3nb.volta.desktop.i18n.stringResource
 import com.ars3nb.volta.desktop.platform.SystemProxy
+import com.ars3nb.volta.desktop.ui.LocalLang
 import com.ars3nb.volta.desktop.ui.components.CardShape
 import com.ars3nb.volta.desktop.ui.components.Hint
 import com.ars3nb.volta.desktop.ui.components.PageHeader
@@ -361,7 +362,7 @@ private fun ActiveProfileHero(profile: RoutingProfileEntity, onEdit: () -> Unit,
             }
             if (profile.description.isNotBlank()) {
                 Text(
-                    RoutingNames.profileDescription(profile)?.let { stringResource(it) } ?: profile.description,
+                    RoutingNames.shownProfileDescription(profile),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1224,10 +1225,15 @@ private fun ruleCount(n: Int) = pluralStringResource(R.plurals.routing_rules_cou
 @Composable
 private fun siteCount(n: Int) = pluralStringResource(R.plurals.routing_sites_count, n, n)
 
-/** A set's name as shown: Volta's own names in the app's language, the user's as typed. */
+/**
+ * A set's name as shown: Volta's own names (built-in sets, "… · rules", "… · copy") in the
+ * window's language, whatever language they were stored in; the user's as typed.
+ */
 @Composable
-private fun shownProfileName(profile: RoutingProfileEntity): String =
-    RoutingNames.profileName(profile)?.let { stringResource(it) } ?: profile.name
+private fun shownProfileName(profile: RoutingProfileEntity): String {
+    LocalLang.current
+    return RoutingNames.shownProfileName(profile)
+}
 
 /** A rule's name as shown, likewise. */
 @Composable

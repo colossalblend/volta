@@ -2,6 +2,7 @@ package com.ars3nb.volta.core.routing
 
 import com.ars3nb.volta.desktop.i18n.R
 import com.ars3nb.volta.desktop.i18n.Res
+import com.ars3nb.volta.core.locale.AnyLanguage
 import com.ars3nb.volta.data.model.RouteOutbound
 import com.ars3nb.volta.data.model.RoutingProfileEntity
 import com.ars3nb.volta.data.model.RoutingRuleDto
@@ -48,7 +49,7 @@ object RoutingEngine {
             if (json.trimStart().startsWith("[")) {
                 val first = json.trimStart().drop(1).trimStart()
                 if (first.startsWith("{") && json.contains("\"outbound\"")) {
-                    gson.fromJson(json, listType) ?: emptyList()
+                    sanitize(gson.fromJson(json, listType) ?: emptyList())
                 } else {
                     xrayRulesToDto(JsonParser.parseString(json).asJsonArray)
                 }
@@ -72,6 +73,43 @@ object RoutingEngine {
 
     fun serializeRules(rules: List<RoutingRuleDto>): String = gson.toJson(rules)
 
+    /**
+     * Gson fills a Kotlin class by reflection, past its types: a field the JSON gives as
+     * null comes out null, an outbound this build doesn't know comes out null, and ids
+     * may repeat. Rules from a provider or a pasted file are made whole here, so neither
+     * the config builder (a null list) nor the rules screen (a list keyed by id: a repeat
+     * crashes it) trips over them. A rule whose outbound is unknown is left out.
+     */
+    @Suppress("USELESS_CAST", "USELESS_ELVIS", "SENSELESS_COMPARISON")
+    internal fun sanitize(rules: List<RoutingRuleDto?>): List<RoutingRuleDto> {
+        val seen = HashSet<String>()
+        fun strings(list: List<String>?): List<String> =
+            (list as List<String?>?)?.filterNotNull().orEmpty()
+        return rules.filterNotNull().mapNotNull { r ->
+            val outbound = (r.outbound as RouteOutbound?) ?: return@mapNotNull null
+            val id = (r.id as String?)?.takeIf { it.isNotBlank() && it !in seen }
+                ?: java.util.UUID.randomUUID().toString()
+            seen += id
+            RoutingRuleDto(
+                id = id,
+                name = (r.name as String?).orEmpty(),
+                enabled = r.enabled,
+                outbound = outbound,
+                domains = strings(r.domains),
+                ips = strings(r.ips),
+                ports = (r.ports as String?).orEmpty(),
+                sourcePorts = (r.sourcePorts as String?).orEmpty(),
+                network = (r.network as String?).orEmpty(),
+                protocol = strings(r.protocol),
+                inboundTags = strings(r.inboundTags),
+                users = strings(r.users),
+                attributes = (r.attributes as String?).orEmpty(),
+                source = (r.source as String?)?.takeIf { it.isNotBlank() } ?: "user",
+                sortOrder = r.sortOrder
+            )
+        }
+    }
+
     fun importRules(json: String): List<RoutingRuleDto> {
         val element = JsonParser.parseString(json)
         val rulesElement = when {
@@ -88,7 +126,7 @@ object RoutingEngine {
 
         val text = rulesElement.toString()
         return if (text.contains("\"outbound\"")) {
-            gson.fromJson<List<RoutingRuleDto>>(text, listType) ?: emptyList()
+            sanitize(gson.fromJson<List<RoutingRuleDto?>>(text, listType) ?: emptyList())
         } else {
             xrayRulesToDto(rulesElement.asJsonArray)
         }
@@ -436,14 +474,70 @@ object RoutingNames {
         else -> null
     }
 
-    /** The set's name as shown, for code outside Compose (the home screen, for one). */
-    fun shownProfileName(profile: RoutingProfileEntity): String =
-        profileName(profile)?.let { Res.string(it) } ?: profile.name
+    /**
+     * The set's name as shown, in the language of [context]. Besides the built-in sets this
+     * knows the names Volta made in the language of the day and stored: "My VPN · rules"
+     * for a subscription's set and "… · copy" for a copy, in any language (older builds
+     * stored them in Russian). Anything else is the user's or the provider's own name.
+     */
+    fun shownProfileName(profile: RoutingProfileEntity): String {
+        profileName(profile)?.let { return Res.string(it) }
+        val name = profile.name
+        if (profile.isBuiltIn) return name
+        if (profile.sourceSubscriptionId != null) {
+            return relabel(R.string.home_routing_rules_name, name) { subscriptionName(it) } ?: name
+        }
+        return relabel(R.string.home_routing_copy_name, name) { base -> shownBaseName(base) } ?: name
+    }
 
     fun profileDescription(profile: RoutingProfileEntity): String? = when {
         !profile.isBuiltIn -> null
         profile.description == RoutingEngine.BUILTIN_ALL_DESCRIPTION -> R.string.routing_builtin_all_description
         profile.description == RoutingEngine.BUILTIN_RU_DESCRIPTION -> R.string.routing_builtin_ru_description
         else -> null
+    }
+
+    /** The set's description as shown; see [profileName]. */
+    fun shownProfileDescription(profile: RoutingProfileEntity): String {
+        profileDescription(profile)?.let { return Res.string(it) }
+        val text = profile.description
+        if (profile.isBuiltIn || text.isBlank()) return text
+        if (profile.sourceSubscriptionId != null) {
+            return relabel(R.string.home_routing_from_subscription, text) { subscriptionName(it) }
+                ?: text
+        }
+        return relabel(R.string.home_routing_copy_description, text) { base -> shownBaseName(base) }
+            ?: text
+    }
+
+    /** A name a copy was made from: a built-in set's or "… · rules", shown in today's language. */
+    private fun shownBaseName(name: String): String = when (name) {
+        RoutingEngine.BUILTIN_ALL_NAME -> Res.string(R.string.routing_builtin_all_name)
+        RoutingEngine.BUILTIN_RU_NAME -> Res.string(R.string.routing_builtin_ru_name)
+        HappRoutingParser.DEFAULT_NAME -> Res.string(R.string.routing_sub_rules_name)
+        else -> relabel(R.string.home_routing_rules_name, name) { subscriptionName(it) } ?: name
+    }
+
+    /**
+     * A subscription's name as shown: the default name Volta gives a nameless subscription
+     * ("Subscription", stored by older builds as "Подписка") in the language of [context];
+     * a name the user typed or the provider sent as it is.
+     */
+    fun subscriptionName(name: String): String =
+        AnyLanguage.translated(R.string.home_default_subscription_name, name)
+
+    /**
+     * [text] made from the one-argument string [id] in some language, made again in the
+     * language of [context] (its argument passed through [argument]); null when it isn't.
+     */
+    private fun relabel(
+        id: String,
+        text: String,
+        argument: (String) -> String = { it }
+    ): String? {
+        val arg = AnyLanguage.argumentIn(Res.string(id), text)
+            ?: AnyLanguage.argumentOf(id, text)
+            ?: return null
+        return Res.string(id, argument(arg))
     }
 }
