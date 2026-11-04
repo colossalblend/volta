@@ -93,9 +93,9 @@ class Tunnel(
     }
 
     /** Points Windows at the tunnel. */
-    fun applySystemProxy(): Boolean {
+    fun applySystemProxy(bypass: List<String> = emptyList()): Boolean {
         val p = ports ?: return false
-        return systemProxy.apply(p.http)
+        return systemProxy.apply(p.http, bypass)
     }
 
     fun stop(restoreProxy: Boolean = true) {

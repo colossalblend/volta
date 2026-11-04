@@ -1,6 +1,22 @@
 package com.ars3nb.volta.desktop
 
+import com.ars3nb.volta.core.backup.BackupCodec
+import com.ars3nb.volta.core.backup.RestoreReport
 import com.ars3nb.volta.core.balancer.AutoBalancer
+import com.ars3nb.volta.core.helper.ProxyHelper
+import com.ars3nb.volta.core.openflux.OpenFluxRunner
+import com.ars3nb.volta.core.stats.PendingTraffic
+import com.ars3nb.volta.core.stats.TrafficDayEntity
+import com.ars3nb.volta.core.stats.TrafficTally
+import com.ars3nb.volta.core.vpn.InternetCheck
+import com.ars3nb.volta.data.model.AdBlockMode
+import com.ars3nb.volta.data.model.ProtocolType
+import com.ars3nb.volta.data.model.RoutingRuleDto
+import com.ars3nb.volta.desktop.data.SettingsBackup
+import com.ars3nb.volta.desktop.i18n.R
+import com.ars3nb.volta.desktop.i18n.Res
+import com.ars3nb.volta.desktop.update.AppUpdater
+import com.ars3nb.volta.desktop.update.UpdateState
 import com.ars3nb.volta.core.link.VoltaLinks
 import com.ars3nb.volta.core.parser.AmneziaConfigs
 import com.ars3nb.volta.core.parser.ConfigParser
@@ -11,6 +27,7 @@ import com.ars3nb.volta.core.routing.GeoDataManager
 import com.ars3nb.volta.core.routing.GeoNames
 import com.ars3nb.volta.core.routing.HappRoutingParser
 import com.ars3nb.volta.core.routing.RoutingEngine
+import com.ars3nb.volta.core.routing.RoutingNames
 import com.ars3nb.volta.core.routing.RoutingResolver
 import com.ars3nb.volta.core.server.ServerClassifier
 import com.ars3nb.volta.core.server.ServerMarkup
@@ -92,11 +109,34 @@ class VoltaController(
             routingProfiles = d.routingProfiles,
             settings = d.settings,
             networkRegime = d.networkRegime,
+            trafficDays = d.trafficDays,
             runtime = r
         )
     }.stateIn(scope, SharingStarted.Eagerly, VoltaUiState(settings = store.value.settings))
 
     private val settings: AppSettings get() = store.value.settings
+
+    /** Opens a page in the user's browser; Main sets it (the captcha of an OpenFlux carrier). */
+    @Volatile
+    var openUrl: (String) -> Unit = {}
+
+    /** Ends Volta the way the tray's «Выход» does; Main sets it (after an update starts). */
+    @Volatile
+    var quitApp: () -> Unit = {}
+
+    /** Updates from GitHub Releases, as on Android (see AppUpdater). */
+    val updater = AppUpdater(
+        scope = scope,
+        downloadDir = java.io.File(paths.dataDir, "update"),
+        userAgent = "Volta/${AppPaths.appVersion} (Windows)",
+        tunnelPort = { if (ui.value.isConnected) tunnel.ports?.http else null },
+        beta = { settings.updateBeta },
+        launchInstaller = ::launchInstaller
+    )
+
+    private val pendingTraffic = PendingTraffic()
+    @Volatile
+    private var trafficFlushedAt = 0L
     private val connectLock = Mutex()
     private var connectJob: Job? = null
     private var trafficJob: Job? = null
@@ -105,6 +145,15 @@ class VoltaController(
     init {
         I18n.use(settings.language)
         ensureSeeded()
+        val resources = AppPaths.resourcesDir()
+        ProxyHelper.init(resources, java.io.File(paths.logDir, "voltaproxy.log"))
+        OpenFluxRunner.init(resources, java.io.File(paths.dataDir, "openflux"), java.io.File(paths.logDir, "openflux.log"))
+        OpenFluxRunner.onCaptcha = { captcha ->
+            // Android shows the page in a browser view of its own; here it is the user's
+            // browser. The carrier is told when the user presses «Готово» (see Home).
+            if (captcha.url.startsWith("http", ignoreCase = true)) runCatching { openUrl(captcha.url) }
+            message(Res.string(R.string.servers_openflux_captcha_title))
+        }
     }
 
     fun message(text: String) {
@@ -143,6 +192,27 @@ class VoltaController(
                 launch { refreshIp() }
             }
         }
+        // Is there a network at all: the home screen says so, a connect is not started.
+        scope.launch {
+            InternetCheck.watch().collect { status -> runtime.update { it.copy(internet = status) } }
+        }
+        // Updates: once at start, then every few hours, each new build announced once.
+        scope.launch(Dispatchers.IO) {
+            delay(5_000)
+            while (isActive) {
+                if (settings.updateAutoCheck) {
+                    val found = runCatching {
+                        updater.checkIfDue(if (updater.lastCheck == 0L) 0 else AppUpdater.BACKGROUND_EVERY_MS)
+                    }.getOrNull()
+                    val info = (found as? UpdateState.Available)?.info ?: (found as? UpdateState.Ready)?.info
+                    if (info != null && info.versionCode > settings.updateNotified) {
+                        message(Res.string(R.string.settings_update_notify_text, info.versionName))
+                        updateSettings { it.copy(updateNotified = info.versionCode) }
+                    }
+                }
+                delay(60 * 60_000L)
+            }
+        }
         // Like the Android worker: each subscription again once its own interval has passed.
         scope.launch(Dispatchers.IO) {
             while (isActive) {
@@ -162,6 +232,8 @@ class VoltaController(
         trafficJob?.cancel()
         guardJob?.cancel()
         runCatching { tunnel.stop(restoreProxy = true) }
+        runCatching { stopHelpers() }
+        runCatching { flushTraffic() }
         store.flush()
     }
 
@@ -213,7 +285,7 @@ class VoltaController(
         updateSettings { it.copy(systemProxy = v) }
         scope.launch(Dispatchers.IO) {
             if (!ui.value.isConnected) return@launch
-            val ok = if (v) tunnel.applySystemProxy() else tunnel.systemProxy.restore()
+            val ok = if (v) tunnel.applySystemProxy(settings.bypassSites) else tunnel.systemProxy.restore()
             if (v && !ok) message(I18n.s.msgProxyFailed)
             runtime.update { it.copy(proxyActive = tunnel.systemProxy.isApplied()) }
         }
@@ -265,7 +337,30 @@ class VoltaController(
 
     fun connect() {
         if (connectJob?.isActive == true) return
+        // No network at all: say so instead of spinning through a pick that can't work.
+        if (InternetCheck.status().blocksConnect) {
+            message(Res.string(R.string.network_connect_none))
+            return
+        }
         connectJob = scope.launch { runConnect() }
+        watchInternetWhileConnecting(connectJob)
+    }
+
+    /** The network going away while the disc still connects stops the attempt, with the reason. */
+    private fun watchInternetWhileConnecting(job: Job?) {
+        job ?: return
+        scope.launch {
+            while (job.isActive) {
+                delay(2_000)
+                if (job.isActive && runtime.value.vpnState == VpnConnectionState.CONNECTING &&
+                    InternetCheck.status().blocksConnect
+                ) {
+                    job.cancel()
+                    message(Res.string(R.string.network_connect_none))
+                    return@launch
+                }
+            }
+        }
     }
 
     /** Stops a connect in progress; runConnect cleans up after itself. */
@@ -300,6 +395,33 @@ class VoltaController(
         trafficJob?.cancel()
         guardJob?.cancel()
         tunnel.stop(restoreProxy = true)
+        stopHelpers()
+        flushTraffic()
+    }
+
+    private fun stopHelpers() {
+        ProxyHelper.stop()
+        OpenFluxRunner.stop()
+    }
+
+    /**
+     * The helper [server] needs, as on Android (VoltaVpnService): OpenFlux runs its own,
+     * AmneziaWG and Hysteria v1 run in voltaproxy, everything else needs none (and any
+     * that ran is stopped). Null when ready; otherwise why not.
+     */
+    private suspend fun prepareHelper(server: ServerEntity): String? {
+        if (server.protocol == ProtocolType.OPENFLUX) {
+            ProxyHelper.stop()
+            return OpenFluxRunner.start(server.rawLink).exceptionOrNull()?.let { it.message ?: I18n.s.errUnsupported }
+        }
+        val spec = ConfigBuilder.helperSpec(server)
+        if (spec != null) {
+            OpenFluxRunner.stop()
+            return withContext(Dispatchers.IO) { ProxyHelper.start(spec) }.exceptionOrNull()
+                ?.let { it.message ?: I18n.s.errUnsupported }
+        }
+        stopHelpers()
+        return null
     }
 
     fun setConnectMode(mode: ConnectMode) {
@@ -474,10 +596,11 @@ class VoltaController(
      * a server that doesn't pass the traffic check counts as failed (the next one is
      * tried); without it, the tunnel stays up and the user is told.
      */
-    private fun raise(server: ServerEntity, strict: Boolean): String? {
+    private suspend fun raise(server: ServerEntity, strict: Boolean): String? {
         val s = I18n.s
         val adapted = WindowsCompat.adapt(server)
         ConfigBuilder.dialProblem(adapted)?.let { return it }
+        prepareHelper(adapted)?.let { return it }
         val pinned = runCatching { CertPins.apply(adapted) }.getOrDefault(adapted)
         val routing = routingFor(adapted)
         val ports = try {
@@ -496,6 +619,8 @@ class VoltaController(
                         enableStats = true,
                         geo = routing.geo,
                         preferServerRouting = routing.preferServerRouting,
+                        adBlock = settings.adBlock,
+                        blockTorrents = settings.blockTorrents,
                         exitCheckPort = p.exitCheck,
                         metricsPort = p.metrics
                     )
@@ -503,19 +628,22 @@ class VoltaController(
                 onExit = { code -> onCoreDied(code) }
             )
         } catch (e: Tunnel.StartException) {
+            stopHelpers()
             return s.errCoreStart(e.message.orEmpty())
         } catch (e: Exception) {
+            stopHelpers()
             return e.userMessage(s.errUnsupported)
         }
         if (!tunnel.check()) {
             if (strict) {
                 tunnel.stop(restoreProxy = false)
+                stopHelpers()
                 return s.errServerSilent
             }
             message(s.msgServerSilent)
         }
         if (settings.systemProxy) {
-            if (!tunnel.applySystemProxy()) message(s.msgProxyFailed)
+            if (!tunnel.applySystemProxy(settings.bypassSites)) message(s.msgProxyFailed)
         }
         runtime.update { it.copy(ports = ports, proxyActive = tunnel.systemProxy.isApplied()) }
         return null
@@ -545,7 +673,8 @@ class VoltaController(
                 connectedSince = now,
                 traffic = TrafficStats(),
                 speed = SpeedHistory(),
-                error = null
+                error = null,
+                routingDirty = false
             )
         }
         startTrafficPolling()
@@ -557,6 +686,8 @@ class VoltaController(
         if (runtime.value.vpnState != VpnConnectionState.CONNECTED) return
         trafficJob?.cancel()
         guardJob?.cancel()
+        stopHelpers()
+        flushTraffic()
         runtime.update {
             it.copy(
                 vpnState = VpnConnectionState.ERROR,
@@ -587,6 +718,11 @@ class VoltaController(
                 val prev = last
                 val up = if (prev == null) 0 else ((now.uplink - prev.uplink).coerceAtLeast(0) / seconds).toLong()
                 val down = if (prev == null) 0 else ((now.downlink - prev.downlink).coerceAtLeast(0) / seconds).toLong()
+                // The core's counters start at nothing with it: the first reading counts whole.
+                countTraffic(
+                    (now.uplink - (prev?.uplink ?: 0)).coerceAtLeast(0),
+                    (now.downlink - (prev?.downlink ?: 0)).coerceAtLeast(0)
+                )
                 last = now
                 lastAt = t
                 runtime.update {
@@ -1172,6 +1308,385 @@ class VoltaController(
             reconcileTunnel()
             message(I18n.s.msgDeleted)
         }
+    }
+
+    // ================================================================ filters and routing
+
+    /** Changes that reach the running tunnel only with a reconnect: the screen offers one. */
+    private fun touchRouting() {
+        if (ui.value.isConnected) runtime.update { it.copy(routingDirty = true) }
+    }
+
+    /** Reconnects so pending routing changes reach the running tunnel. */
+    fun applyRoutingNow() {
+        runtime.update { it.copy(routingDirty = false) }
+        if (ui.value.isConnected && connectJob?.isActive != true) {
+            val current = runtime.value.connectedServerId
+            connectJob = scope.launch { runConnect(fixed = current) }
+        }
+    }
+
+    fun setAdBlock(mode: AdBlockMode) {
+        updateSettings { it.copy(adBlock = mode) }
+        touchRouting()
+    }
+
+    fun setBlockTorrents(v: Boolean) {
+        updateSettings { it.copy(blockTorrents = v) }
+        touchRouting()
+    }
+
+    /** The app-wide rule set (one of the user's, or a built-in one). */
+    fun setActiveRouting(id: Long) {
+        val target = store.value.routingProfiles.firstOrNull { it.id == id && it.sourceSubscriptionId == null } ?: return
+        store.update { d -> d.copy(routingProfiles = d.routingProfiles.map { it.copy(isActive = it.id == target.id) }) }
+        touchRouting()
+    }
+
+    fun createRoutingProfile(name: String) {
+        val id = store.newIds(1).first()
+        store.update { d ->
+            d.copy(
+                routingProfiles = d.routingProfiles + RoutingProfileEntity(
+                    id = id,
+                    name = name.trim(),
+                    // Stored with the set: written in the language it was made in.
+                    description = Res.string(R.string.home_routing_own_description),
+                    rulesJson = RoutingEngine.serializeRules(emptyList()),
+                    updatedAt = System.currentTimeMillis()
+                )
+            )
+        }
+        message(Res.string(R.string.home_routing_created))
+    }
+
+    fun renameRoutingProfile(id: Long, name: String) {
+        if (name.isBlank()) return
+        store.update { d ->
+            d.copy(routingProfiles = d.routingProfiles.map {
+                if (it.id == id && !it.isBuiltIn) it.copy(name = name.trim(), updatedAt = System.currentTimeMillis()) else it
+            })
+        }
+    }
+
+    /** Detaches a copy from its subscription (or a built-in set) so the user can edit it freely. */
+    fun copyRoutingProfile(id: Long) {
+        val source = store.value.routingProfiles.firstOrNull { it.id == id } ?: run {
+            message(Res.string(R.string.home_err_rules_not_found))
+            return
+        }
+        val newId = store.newIds(1).first()
+        val shown = RoutingNames.shownProfileName(source)
+        store.update { d ->
+            d.copy(
+                routingProfiles = d.routingProfiles + source.copy(
+                    id = newId,
+                    name = Res.string(R.string.home_routing_copy_name, shown),
+                    description = Res.string(R.string.home_routing_copy_description, shown),
+                    isActive = false,
+                    isBuiltIn = false,
+                    sourceSubscriptionId = null,
+                    useProviderRules = false,
+                    rulesJson = RoutingEngine.serializeRules(
+                        RoutingEngine.parseRules(source.rulesJson).map { it.copy(source = "user") }
+                    ),
+                    updatedAt = System.currentTimeMillis()
+                )
+            )
+        }
+        message(Res.string(R.string.home_routing_copy_created))
+    }
+
+    fun deleteRoutingProfile(id: Long) {
+        val profile = store.value.routingProfiles.firstOrNull { it.id == id } ?: return
+        if (profile.isBuiltIn) return
+        store.update { d ->
+            val left = d.routingProfiles.filter { it.id != id }
+            val fixed = if (left.none { it.isActive && it.sourceSubscriptionId == null }) {
+                val first = left.firstOrNull { it.isBuiltIn }?.id
+                left.map { it.copy(isActive = it.id == first) }
+            } else left
+            d.copy(
+                routingProfiles = fixed,
+                subscriptions = d.subscriptions.map { if (it.routingProfileId == id) it.copy(routingProfileId = 0) else it }
+            )
+        }
+        touchRouting()
+    }
+
+    fun saveRules(profileId: Long, rules: List<RoutingRuleDto>) {
+        store.update { d ->
+            d.copy(routingProfiles = d.routingProfiles.map {
+                if (it.id == profileId) it.copy(rulesJson = RoutingEngine.serializeRules(rules), updatedAt = System.currentTimeMillis())
+                else it
+            })
+        }
+        touchRouting()
+    }
+
+    fun setRoutingProviderRules(profileId: Long, enabled: Boolean) {
+        store.update { d ->
+            d.copy(routingProfiles = d.routingProfiles.map {
+                if (it.id == profileId) it.copy(useProviderRules = enabled, updatedAt = System.currentTimeMillis()) else it
+            })
+        }
+        touchRouting()
+    }
+
+    /** Binds a rule set to one subscription (0 = the app-wide one); never another subscription's set. */
+    fun bindSubscriptionRouting(subscriptionId: Long, profileId: Long) {
+        if (profileId != 0L) {
+            val profile = store.value.routingProfiles.firstOrNull { it.id == profileId }
+            if (profile == null) {
+                message(Res.string(R.string.home_err_rules_not_found))
+                return
+            }
+            if (profile.sourceSubscriptionId != null && profile.sourceSubscriptionId != subscriptionId) {
+                message(Res.string(R.string.home_err_rules_of_other_subscription))
+                return
+            }
+        }
+        store.update { d ->
+            d.copy(subscriptions = d.subscriptions.map { if (it.id == subscriptionId) it.copy(routingProfileId = profileId) else it })
+        }
+        touchRouting()
+        message(Res.string(R.string.home_rules_applied))
+    }
+
+    // ================================================================ sites past the VPN
+
+    /** Sites that skip Volta altogether (Windows' proxy bypass list); applied at once. */
+    fun setBypassSites(sites: List<String>) {
+        val clean = sites.mapNotNull(SystemProxy.Companion::normalizeSite).distinct()
+        updateSettings { it.copy(bypassSites = clean) }
+        scope.launch(Dispatchers.IO) {
+            if (ui.value.isConnected && settings.systemProxy && tunnel.systemProxy.isApplied()) {
+                if (!tunnel.applySystemProxy(clean)) message(I18n.s.msgProxyFailed)
+            }
+        }
+    }
+
+    // ================================================================ updates
+
+    fun setUpdateAutoCheck(v: Boolean) {
+        updateSettings { it.copy(updateAutoCheck = v) }
+        if (v) checkUpdates()
+    }
+
+    fun setUpdateBeta(v: Boolean) {
+        updateSettings { it.copy(updateBeta = v) }
+        scope.launch(Dispatchers.IO) { runCatching { updater.recheck() } }
+    }
+
+    fun checkUpdates() {
+        scope.launch(Dispatchers.IO) { runCatching { updater.check() } }
+    }
+
+    fun installUpdate() = updater.downloadAndInstall()
+
+    /**
+     * Starts the downloaded installer on its own (not as Volta's child, so it outlives
+     * Volta), then quits so the installer can replace the files. The tunnel goes down and
+     * the user's proxy comes back on the way out.
+     */
+    private fun launchInstaller(file: java.io.File): Boolean {
+        if (!file.isFile) return false
+        val started = runCatching {
+            if (com.ars3nb.volta.desktop.platform.WinApi.isWindows) {
+                ProcessBuilder("cmd.exe", "/c", "start", "\"\"", file.absolutePath).start()
+            } else {
+                ProcessBuilder(file.absolutePath).start()
+            }
+        }.isSuccess
+        if (started) {
+            scope.launch {
+                delay(1_200)
+                quitApp()
+            }
+        }
+        return started
+    }
+
+    // ================================================================ traffic
+
+    private fun countTraffic(up: Long, down: Long) {
+        if (up <= 0 && down <= 0) return
+        val now = System.currentTimeMillis()
+        pendingTraffic.add(TrafficTally.dayOf(now), up, down)
+        if (now - trafficFlushedAt >= 30_000L) flushTraffic(now)
+    }
+
+    /** Writes the counted bytes into the per-day totals; older than 400 days go. */
+    private fun flushTraffic(now: Long = System.currentTimeMillis()) {
+        trafficFlushedAt = now
+        if (pendingTraffic.isEmpty()) return
+        val drained = pendingTraffic.drain()
+        val oldest = TrafficTally.dayOf(now) - 400
+        store.update { d ->
+            val byDay = d.trafficDays.associateBy { it.day }.toMutableMap()
+            drained.forEach { (day, b) ->
+                val old = byDay[day] ?: TrafficDayEntity(day)
+                byDay[day] = old.copy(uplinkBytes = old.uplinkBytes + b.up, downlinkBytes = old.downlinkBytes + b.down)
+            }
+            d.copy(trafficDays = byDay.values.filter { it.day >= oldest }.sortedBy { it.day })
+        }
+    }
+
+    // ================================================================ backup
+
+    /** The backup file's contents, the same format as the Android app's (BackupCodec). */
+    fun exportBackup(): String {
+        val d = store.value
+        val appProfiles = d.routingProfiles.filter { it.sourceSubscriptionId == null }
+        val nameById = appProfiles.associate { it.id to it.name }
+        return BackupCodec.encode(
+            BackupCodec.Snapshot(
+                subscriptions = d.subscriptions,
+                subscriptionRouting = d.subscriptions.mapNotNull { sub -> nameById[sub.routingProfileId]?.let { sub.id to it } }.toMap(),
+                servers = d.servers.filter { it.subscriptionId == null },
+                routing = appProfiles.filter { BackupCodec.worthKeeping(it) },
+                activeRouting = appProfiles.firstOrNull { it.isActive }?.name,
+                settings = SettingsBackup.toBackup(d.settings),
+                appVersion = AppPaths.appVersion,
+                createdAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    /** Writes a backup to [file]; false (and a message) when it could not. */
+    fun saveBackup(file: java.io.File) {
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                file.parentFile?.mkdirs()
+                file.writeText(exportBackup())
+            }.onSuccess { message(Res.string(R.string.home_backup_saved)) }
+                .onFailure { message(Res.string(R.string.home_backup_save_failed)) }
+        }
+    }
+
+    /** Reads a backup file; the screen asks before [restoreBackup] puts it in. */
+    fun readBackup(file: java.io.File): BackupCodec.Contents? = try {
+        if (file.length() > BackupCodec.MAX_BYTES) throw BackupCodec.BackupException(R.string.settings_backup_error_too_big)
+        BackupCodec.decode(file.readText()).also {
+            if (it.isEmpty) message(Res.string(R.string.home_backup_nothing))
+        }.takeIf { !it.isEmpty }
+    } catch (e: BackupCodec.BackupException) {
+        message(Res.string(e.reason))
+        null
+    } catch (e: Exception) {
+        message(Res.string(R.string.home_backup_open_failed))
+        null
+    }
+
+    fun restoreBackup(contents: BackupCodec.Contents, onDone: (RestoreReport) -> Unit = {}) {
+        scope.launch(Dispatchers.IO) {
+            val report = busy { restoreInternal(contents) }
+            message(report.message())
+            withContext(Dispatchers.immediateOrDefault()) { onDone(report) }
+        }
+    }
+
+    /**
+     * The Android app's BackupManager.restore: only adds. A subscription or server already
+     * here is left as it is, so opening the same file twice changes nothing.
+     */
+    internal suspend fun restoreInternal(contents: BackupCodec.Contents): RestoreReport {
+        ensureSeeded()
+        val routingRestored = restoreRouting(contents.routing, contents.activeRouting)
+        val (newSettings, settingsRestored) = SettingsBackup.fromBackup(settings, contents.settings)
+        store.update { it.copy(settings = newSettings) }
+
+        val known = store.value.servers.filter { it.subscriptionId == null }.map(BackupCodec::sameServerKey).toMutableSet()
+        val toAdd = contents.servers.filter { known.add(BackupCodec.sameServerKey(it)) }
+        if (toAdd.isNotEmpty()) {
+            val ids = store.newIds(toAdd.size)
+            store.update { d ->
+                d.copy(servers = d.servers + toAdd.mapIndexed { i, srv ->
+                    srv.copy(id = ids[i], subscriptionId = null, isSelected = false, sortOrder = d.servers.size + i)
+                })
+            }
+        }
+
+        val urls = store.value.subscriptions.map { it.url }.toMutableSet()
+        val profileIds = store.value.routingProfiles.filter { it.sourceSubscriptionId == null }.associate { it.name to it.id }
+        var added = 0
+        var notLoaded = 0
+        var alreadyThere = 0
+        for (restored in contents.subscriptions) {
+            if (!urls.add(restored.entity.url)) {
+                alreadyThere++
+                continue
+            }
+            val id = store.newIds(1).first()
+            store.update { d ->
+                d.copy(subscriptions = d.subscriptions + restored.entity.copy(
+                    id = id,
+                    routingProfileId = restored.routingName?.let { profileIds[it] } ?: 0L,
+                    sortOrder = d.subscriptions.size
+                ))
+            }
+            added++
+            try {
+                refreshSubscriptionInternal(id)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                notLoaded++
+            }
+        }
+        if (store.value.servers.none { it.isSelected }) selectReplacement(null)
+        I18n.use(settings.language)
+        return RestoreReport(
+            subscriptionsAdded = added,
+            subscriptionsNotLoaded = notLoaded,
+            subscriptionsAlreadyThere = alreadyThere,
+            serversAdded = toAdd.size,
+            routingRestored = routingRestored,
+            settingsRestored = settingsRestored,
+            skipped = contents.skipped
+        )
+    }
+
+    /** Rule sets by name: one with the same name gets the saved rules, a new one is added. */
+    private fun restoreRouting(profiles: List<RoutingProfileEntity>, activeName: String?): Int {
+        var count = 0
+        for (saved in profiles) {
+            val existing = store.value.routingProfiles.firstOrNull { it.sourceSubscriptionId == null && it.name == saved.name }
+            when {
+                existing != null -> {
+                    store.update { d ->
+                        d.copy(routingProfiles = d.routingProfiles.map {
+                            if (it.id != existing.id) it else it.copy(
+                                description = saved.description.ifBlank { existing.description },
+                                useProviderRules = saved.useProviderRules,
+                                rulesJson = saved.rulesJson,
+                                domainStrategy = saved.domainStrategy,
+                                remoteDns = saved.remoteDns,
+                                domesticDns = saved.domesticDns,
+                                dnsHostsJson = saved.dnsHostsJson,
+                                updatedAt = System.currentTimeMillis()
+                            )
+                        })
+                    }
+                    count++
+                }
+
+                !saved.isBuiltIn -> {
+                    val id = store.newIds(1).first()
+                    store.update { d ->
+                        d.copy(routingProfiles = d.routingProfiles + saved.copy(id = id, isActive = false, updatedAt = System.currentTimeMillis()))
+                    }
+                    count++
+                }
+            }
+        }
+        activeName?.let { name ->
+            store.value.routingProfiles.firstOrNull { it.sourceSubscriptionId == null && it.name == name }?.let { target ->
+                store.update { d -> d.copy(routingProfiles = d.routingProfiles.map { it.copy(isActive = it.id == target.id) }) }
+            }
+        }
+        if (count > 0) touchRouting()
+        return count
     }
 
     // ================================================================ helpers

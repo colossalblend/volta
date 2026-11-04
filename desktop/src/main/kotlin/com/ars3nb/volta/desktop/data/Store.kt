@@ -1,5 +1,7 @@
 package com.ars3nb.volta.desktop.data
 
+import com.ars3nb.volta.core.stats.TrafficDayEntity
+import com.ars3nb.volta.data.model.AdBlockMode
 import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.NetworkRegime
 import com.ars3nb.volta.data.model.PingType
@@ -7,13 +9,19 @@ import com.ars3nb.volta.data.model.RoutingProfileEntity
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.SubscriptionEntity
 import com.google.gson.GsonBuilder
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/** The colour themes; Android's wallpaper-based one has no Windows counterpart. */
-enum class DesignTheme { SYSTEM, VOLTA, LIGHT, OCEAN, EMBER }
+/**
+ * The colour themes, named as on Android (a backup carries the name). DYNAMIC is the
+ * Material theme: Android takes its colours from the wallpaper, Windows from the accent
+ * colour the user picked in Windows' own settings.
+ */
+enum class DesignTheme { SYSTEM, VOLTA, LIGHT, OCEAN, EMBER, DYNAMIC }
 
 /** Every setting, with the Android app's defaults where the two apps share one. */
 data class AppSettings(
@@ -35,7 +43,23 @@ data class AppSettings(
     /** The ports Volta tries first; taken ones are swapped for free ones at connect time. */
     val socksPort: Int = 10808,
     val httpPort: Int = 10809,
-    val trayHintShown: Boolean = false
+    val trayHintShown: Boolean = false,
+    /** Ad blocking, as on Android (see AdBlockMode and ConfigBuilder.filterRules). */
+    val adBlock: AdBlockMode = AdBlockMode.OFF,
+    val blockTorrents: Boolean = false,
+    /** «Проверка обновлений»: look for a newer build on start and now and then. */
+    val updateAutoCheck: Boolean = true,
+    /** «Бета-версии»: also the main branch's test build. */
+    val updateBeta: Boolean = false,
+    /** The build last announced, so each one is announced once. */
+    val updateNotified: Int = 0,
+    /** Sites that skip Volta altogether (Windows' proxy bypass list). */
+    val bypassSites: List<String> = emptyList(),
+    /**
+     * Android settings a backup brought that Windows has no use for (per-app lists, MTU,
+     * battery saver…), kept so the next backup carries them back to a phone.
+     */
+    val foreign: Map<String, Any> = emptyMap()
 )
 
 /** Everything Volta remembers, saved as one JSON file. */
@@ -48,6 +72,8 @@ data class StoreData(
     /** The node that last carried traffic in each auto group ("NORMAL"/"BYPASS"). */
     val remembered: Map<String, Long> = emptyMap(),
     val networkRegime: NetworkRegime = NetworkRegime.UNKNOWN,
+    /** Bytes through the VPN server per day (see TrafficTally), the last 400 days. */
+    val trafficDays: List<TrafficDayEntity> = emptyList(),
     val schema: Int = 1
 )
 
@@ -81,12 +107,26 @@ class Store(private val file: File) {
 
     private fun load(): StoreData {
         val text = runCatching { file.readText() }.getOrNull() ?: return StoreData()
-        return runCatching { sanitize(gson.fromJson(text, StoreData::class.java)) }
+        return runCatching { sanitize(gson.fromJson(withDefaults(text), StoreData::class.java)) }
             .getOrElse {
                 // Keep the unreadable file for a look later rather than losing it.
                 runCatching { file.copyTo(File(file.parentFile, file.name + ".broken"), overwrite = true) }
                 StoreData()
             }
+    }
+
+    /**
+     * The file over the defaults: a setting an older Volta did not write takes its
+     * default (Gson alone would make a missing true switch false).
+     */
+    private fun withDefaults(text: String): JsonObject {
+        val file = JsonParser.parseString(text).asJsonObject
+        val defaults = gson.toJsonTree(AppSettings()).asJsonObject
+        file.get("settings")?.takeIf { it.isJsonObject }?.asJsonObject?.entrySet()?.forEach { (k, v) ->
+            if (!v.isJsonNull) defaults.add(k, v)
+        }
+        file.add("settings", defaults)
+        return file
     }
 
     /** Gson ignores Kotlin's non-null types: anything missing in an old file gets its default. */
@@ -102,7 +142,18 @@ class Store(private val file: File) {
             subscriptions = subs,
             servers = servers,
             routingProfiles = profiles,
-            settings = d.settings ?: AppSettings(),
+            settings = (d.settings ?: AppSettings()).let { st ->
+                st.copy(
+                    designTheme = st.designTheme ?: DesignTheme.VOLTA,
+                    language = st.language ?: "system",
+                    connectMode = st.connectMode ?: ConnectMode.AUTO_HOME_LTE,
+                    pingType = st.pingType ?: PingType.REAL_DELAY,
+                    adBlock = st.adBlock ?: AdBlockMode.OFF,
+                    bypassSites = (st.bypassSites ?: emptyList()).filterNotNull(),
+                    foreign = st.foreign ?: emptyMap()
+                )
+            },
+            trafficDays = (d.trafficDays ?: emptyList()).filterNotNull(),
             nextId = maxOf(d.nextId, maxId + 1),
             remembered = d.remembered ?: emptyMap(),
             networkRegime = d.networkRegime ?: NetworkRegime.UNKNOWN

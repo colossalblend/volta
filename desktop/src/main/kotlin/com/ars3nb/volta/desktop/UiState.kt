@@ -1,6 +1,8 @@
 package com.ars3nb.volta.desktop
 
 import com.ars3nb.volta.core.balancer.AutoBalancer
+import com.ars3nb.volta.core.stats.TrafficDayEntity
+import com.ars3nb.volta.core.vpn.InternetCheck
 import com.ars3nb.volta.data.model.BalancerScope
 import com.ars3nb.volta.data.model.IpInfo
 import com.ars3nb.volta.data.model.NetworkRegime
@@ -112,7 +114,11 @@ data class RuntimeState(
     val ports: LocalPorts? = null,
     val proxyActive: Boolean = false,
     val coreVersion: String = "",
-    val autostart: Boolean = false
+    val autostart: Boolean = false,
+    /** Routing or filters changed while connected: they reach the tunnel with a reconnect. */
+    val routingDirty: Boolean = false,
+    /** Is there a network at all (see InternetCheck). */
+    val internet: InternetCheck.Status = InternetCheck.Status.OK
 )
 
 data class VoltaUiState(
@@ -121,6 +127,7 @@ data class VoltaUiState(
     val routingProfiles: List<RoutingProfileEntity> = emptyList(),
     val settings: AppSettings = AppSettings(),
     val networkRegime: NetworkRegime = NetworkRegime.UNKNOWN,
+    val trafficDays: List<TrafficDayEntity> = emptyList(),
     val runtime: RuntimeState = RuntimeState()
 ) {
     val selectedServer: ServerEntity? get() = servers.firstOrNull { it.isSelected }
