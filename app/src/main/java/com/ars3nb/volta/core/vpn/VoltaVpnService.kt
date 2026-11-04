@@ -397,7 +397,17 @@ class VoltaVpnService : VpnService() {
         pending.enter()
         scope.launch {
             try {
-                connectionMutex.withLock { block() }
+                connectionMutex.withLock {
+                    block()
+                    // The last job of a run that ended without a tunnel (a failure that
+                    // left the stop to a job queued behind it, which then had nothing
+                    // to do) ends the service: no "connecting" notification left behind.
+                    if (!tunnelActive.get() &&
+                        (_state.value == VpnConnectionState.ERROR || _state.value == VpnConnectionState.DISCONNECTED)
+                    ) {
+                        stopUnlessMoreQueued()
+                    }
+                }
             } finally {
                 pending.leave()
             }
