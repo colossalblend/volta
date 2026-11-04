@@ -145,7 +145,8 @@ enum Countries {
     private static let names: [(String, String)] = {
         var out: [(String, String)] = []
         let locales = [Locale(identifier: "ru"), Locale(identifier: "en")]
-        for code in Locale.isoRegionCodes {
+        let codes = Locale.Region.isoRegions.map { $0.identifier }.filter { $0.count == 2 && $0.allSatisfy { $0.isLetter } }
+        for code in codes {
             for locale in locales {
                 guard let name = locale.localizedString(forRegionCode: code)?.lowercased() else { continue }
                 if name.isBlank || name == code.lowercased() || ambiguous.contains(name) { continue }
