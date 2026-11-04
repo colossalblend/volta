@@ -5,6 +5,7 @@ import android.app.Application
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.content.pm.PackageInfo
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -75,6 +76,7 @@ import com.ars3nb.volta.ui.PickSummary
 import com.ars3nb.volta.ui.SpeedHistory
 import com.ars3nb.volta.ui.VoltaUiState
 import com.ars3nb.volta.ui.VoltaViewModel
+import com.ars3nb.volta.ui.components.FormatText
 import com.ars3nb.volta.ui.components.PowerButton
 import com.ars3nb.volta.ui.navigation.Routes
 import com.ars3nb.volta.ui.navigation.VoltaBottomBar
@@ -144,6 +146,9 @@ abstract class StoreShots(private val lang: String) {
         System.setProperty("http.proxyPort", "9")
         System.setProperty("https.proxyHost", "127.0.0.1")
         System.setProperty("https.proxyPort", "9")
+        // What MainActivity does: the units drawn outside a composable ("48 мс" in a
+        // server row) read the app's language from here.
+        FormatText.resources = compose.activity.resources
     }
 
     // ------------------------------------------------------------------ home (stateless)
@@ -312,6 +317,30 @@ abstract class StoreShots(private val lang: String) {
         vm.viewModelScope.cancel()
     }
 
+    /**
+     * The TV's Add screen on a box with Bluetooth LE: a phone nearby sends the link, so
+     * nothing is typed with the remote. Without a tab, so without the rail, as in TvApp.
+     */
+    @Test
+    @Config(qualifiers = "+w1280dp-h720dp-land-television-hdpi")
+    fun tvImport() {
+        shadowOf(compose.activity.packageManager).setSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE, true)
+        val vm = viewModel()
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            VoltaTheme(design = DesignTheme.VOLTA) {
+                ProvideTv(true) {
+                    TvFrame(Routes.IMPORT, rail = false) { ImportScreen(vm, onBack = {}) }
+                }
+            }
+        }
+        settle(2_000)
+        runCatching { compose.onAllNodesWithText(text(R.string.share_receive_action))[0].requestFocus() }
+        settle(800)
+        capture("tv-import")
+        vm.viewModelScope.cancel()
+    }
+
     // ------------------------------------------------------------------ frames
 
     /** What MainActivity puts under every screen: the background and its content colour. */
@@ -329,14 +358,14 @@ abstract class StoreShots(private val lang: String) {
 
     /** The TV layout of VoltaNav's TvApp: the rail, then the screen at reading width. */
     @Composable
-    private fun TvFrame(route: String, content: @Composable () -> Unit) {
+    private fun TvFrame(route: String, rail: Boolean = true, content: @Composable () -> Unit) {
         Row(
             Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(horizontal = 24.dp, vertical = 12.dp)
         ) {
-            VoltaRail(route) {}
+            if (rail) VoltaRail(route) {}
             Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
                 Box(Modifier.widthIn(max = 720.dp).fillMaxSize()) { content() }
             }

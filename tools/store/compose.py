@@ -56,15 +56,15 @@ PHONE = {
         ("servers", "servers", "Все серверы с откликом",
          "По странам, в группах Home и LTE"),
         ("add", "import", "Вставьте ссылку — Volta разберётся",
-         "Подписки, ключи AmneziaVPN и WireGuard"),
+         "Подписки, серверы и ключи — в одно поле"),
         ("apps", "perapp", "Банки и доставка мимо VPN",
          "Готовые наборы приложений — одним нажатием"),
         ("routing", "routing", "Фильтры рекламы и торрентов",
          "Строгий режим убирает ещё и баннеры cookie"),
         ("traffic", "home-details", "Скорость и трафик на виду",
          "Сегодня, за месяц и по дням за две недели"),
-        ("look", "settings-look", "Темы, 15 языков и Android TV",
-         "Тёмные, светлая, Material You и пульт"),
+        ("look", "settings-look", "15 языков, темы и Android TV",
+         "Ссылку на телевизор — с телефона по Bluetooth"),
     ],
     "en": [
         ("home", "home-on", "Tap the disc",
@@ -74,19 +74,24 @@ PHONE = {
         ("servers", "servers", "Every server with its ping",
          "By country, in Home and LTE groups"),
         ("add", "import", "Paste a link, Volta sorts it out",
-         "Subscriptions, AmneziaVPN keys, WireGuard"),
+         "Subscriptions, servers and keys in one field"),
         ("apps", "perapp", "Banking apps can skip the VPN",
          "Ready-made app sets turn on with one tap"),
         ("routing", "routing", "Filters for ads and torrents",
          "Strict mode also hides cookie banners"),
         ("traffic", "home-details", "Speed and traffic at a glance",
          "Today, this month and per day for two weeks"),
-        ("look", "settings-look", "Themes, languages and Android TV",
-         "15 languages, Material You, a remote on TV"),
+        ("look", "settings-look", "15 languages, themes and Android TV",
+         "Your phone sends the link to the TV by Bluetooth"),
     ],
 }
 
-TV = [("home", "tv-home"), ("servers", "tv-servers")]
+TV = [("home", "tv-home"), ("add", "tv-import")]
+
+# Screens whose last lines are a section header cut by the screen's bottom edge: the
+# header (and anything below it) gives way to the screen's own background, as on a
+# phone a few dp shorter. Nothing above it changes.
+TRIM_TAIL = {"import"}
 
 FEATURE = {
     "ru": ["VPN-клиент", "для ваших подписок"],
@@ -110,6 +115,8 @@ def wrap(draw, text, fnt, width):
         a, b = " ".join(words[:i]), " ".join(words[i:])
         if b.startswith("—"):
             continue  # a dash stays at the end of its line
+        if len(words[i - 1]) <= 2 and words[i - 1].isalpha():
+            continue  # «и», «в», «a» go to the next line with their word
         widest = max(draw.textlength(a, font=fnt), draw.textlength(b, font=fnt))
         if widest <= width and (best is None or widest < best[0]):
             best = (widest, [a, b])
@@ -154,8 +161,36 @@ def status_strip(width, color, ink):
     return strip
 
 
-def phone(raw_png, title, line):
+def trim_tail(screen, gap=16):
+    """Blanks a line cut by the bottom edge: everything below the first run of [gap]
+    empty rows above it, in the screen's own background."""
+    sw, sh = screen.size
+    bg = screen.getpixel((2, sh - 2))
+    px = screen.load()
+
+    def empty(y):
+        return all(max(abs(a - b) for a, b in zip(px[x, y], bg)) < 6 for x in range(0, sw, 2))
+
+    y = sh - 1
+    while y > 0 and empty(y):
+        y -= 1  # the bottom margin, if any
+    while y > 0 and not empty(y):
+        y -= 1  # the cut line
+    run = 0
+    while y > 0 and run < gap:
+        run = run + 1 if empty(y) else 0
+        y -= 1
+    if y <= sh // 2:
+        raise SystemExit("trim_tail: no gap above the cut line")
+    # From the gap's last row: what is above keeps its margin, the cut line goes.
+    ImageDraw.Draw(screen).rectangle((0, y + gap, sw, sh), fill=bg)
+    return screen
+
+
+def phone(raw_png, title, line, trim=False):
     screen = Image.open(raw_png).convert("RGB")
+    if trim:
+        screen = trim_tail(screen)
     sw, sh = screen.size
     canvas = Image.new("RGB", (W, H), BG)
     draw = ImageDraw.Draw(canvas)
@@ -240,7 +275,7 @@ def main():
             if not src.exists():
                 print(f"missing {src}", file=sys.stderr)
                 continue
-            phone(src, title, line).save(out / f"phone-{i:02d}-{slug}.png", optimize=True)
+            phone(src, title, line, trim=name in TRIM_TAIL).save(out / f"phone-{i:02d}-{slug}.png", optimize=True)
             done += 1
         for i, (slug, name) in enumerate(TV, 1):
             src = raw / f"{name}.png"
