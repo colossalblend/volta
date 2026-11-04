@@ -1,0 +1,50 @@
+package com.ars3nb.volta.core.share
+
+import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class ShareProtocolTest {
+
+    private val sid = byteArrayOf(0x12, 0x34, 0x56, 0x78)
+
+    @Test
+    fun advertRoundTrip() {
+        for (role in listOf(ShareProtocol.ROLE_RECEIVER, ShareProtocol.ROLE_SENDER)) {
+            val ad = ShareProtocol.advert(role, sid)
+            assertEquals(6, ad.size)
+            assertArrayEquals(ShareProtocol.advertPrefix(role), ad.copyOf(2))
+            assertEquals(ShareProtocol.Advert(role, sid), ShareProtocol.parseAdvert(ad))
+        }
+    }
+
+    @Test
+    fun advertFitsLegacyAdvertising() {
+        // Flags (3) + service data with a 128-bit UUID (2 + 16 + payload) must fit 31 bytes.
+        assertTrue(3 + 2 + 16 + ShareProtocol.advert(ShareProtocol.ROLE_RECEIVER, sid).size <= 31)
+    }
+
+    @Test
+    fun strayAdvertsAreIgnored() {
+        assertNull(ShareProtocol.parseAdvert(null))
+        assertNull(ShareProtocol.parseAdvert(byteArrayOf(1, 'R'.code.toByte(), 1, 2)))
+        assertNull(ShareProtocol.parseAdvert(byteArrayOf(2, 'R'.code.toByte(), 1, 2, 3, 4)))
+        assertNull(ShareProtocol.parseAdvert(byteArrayOf(1, 'X'.code.toByte(), 1, 2, 3, 4)))
+    }
+
+    @Test
+    fun shortTagIsHexOfTheSession() {
+        assertEquals("1234", ShareProtocol.shortTag(sid))
+        assertEquals("00FF", ShareProtocol.shortTag(byteArrayOf(0, -1, 0, 0)))
+    }
+
+    @Test
+    fun characteristicsShareTheServiceBase() {
+        val base = ShareProtocol.SERVICE.toString().substring(8)
+        listOf(ShareProtocol.KEY, ShareProtocol.DATA, ShareProtocol.STATUS).forEach {
+            assertEquals(base, it.toString().substring(8))
+        }
+    }
+}

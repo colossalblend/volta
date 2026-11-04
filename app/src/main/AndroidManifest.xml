@@ -9,6 +9,27 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- Sending a link to a device nearby over Bluetooth LE (core/share, docs/ble-share.md).
+         Asked for only when the user opens «Send / Receive via Bluetooth». Android 12+:
+         the Nearby devices permissions; scanning never derives location. Android 8–11:
+         the old install-time Bluetooth permissions, and fine location, which those
+         versions require for any BLE scan (it is used for nothing else). -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="31" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="30" />
+
     <!-- The same APK runs on Android TV and Google TV boxes: nothing here needs a touch
          screen, and nothing needs a camera, a phone line or Wi-Fi hardware, so none of
          them may keep the app off a TV in Google Play. -->
@@ -18,6 +39,11 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
     <uses-feature android:name="android.hardware.wifi" android:required="false" />
+    <!-- Bluetooth sharing is an extra: hidden on a device without Bluetooth LE. The
+         permissions above would otherwise imply these as required. -->
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
 
     <!-- Split tunnelling lists the apps that have an icon in the launcher (on a TV: a
          tile in the TV launcher). That is all the Google Play build sees; the GitHub

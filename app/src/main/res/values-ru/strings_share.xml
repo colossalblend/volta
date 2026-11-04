@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sharing over Bluetooth: sending a subscription or server link to a TV or a phone nearby,
+     receiving one, the 4-digit code both screens compare, and what can go wrong on the way
+     (core/share, ui/share/BleShareSheet.kt, docs/ble-share.md). "Bluetooth" and "Volta"
+     stay as they are. -->
+<resources>
+
+    <!-- Where the feature is opened: subscription and server actions, the Add screen, Home on a TV -->
+    <string name="share_send_action">Отправить по Bluetooth</string>
+    <string name="share_send_action_text">На телевизор или телефон рядом, с шифрованием</string>
+    <string name="share_send_hidden_text">С шифрованием; ссылка останется скрытой и там</string>
+    <string name="share_send_field_text">То, что в поле, — на телевизор или телефон рядом</string>
+    <string name="share_receive_action">Получить по Bluetooth</string>
+    <string name="share_receive_action_text">Телефон рядом пришлёт ссылку — ничего не нужно вводить</string>
+
+    <!-- The sheet, and what may be in the way first -->
+    <string name="share_sheet_note">С шифрованием, из одного Volta в другой рядом</string>
+    <string name="share_no_ble">На этом устройстве нет Bluetooth LE, так что ссылки так не передать.</string>
+    <string name="share_close">Закрыть</string>
+    <string name="share_perm_title">Доступ к устройствам поблизости</string>
+    <string name="share_perm_text">Volta использует Bluetooth, только пока открыто это окно: чтобы найти другое устройство и передать ссылку. Ваше местоположение не используется.</string>
+    <string name="share_perm_location_text">На этой версии Android для поиска Bluetooth-устройств нужно разрешение на местоположение. Volta его не использует: ищет, только пока открыто это окно.</string>
+    <string name="share_perm_allow">Разрешить</string>
+    <string name="share_perm_settings">Открыть настройки приложения</string>
+    <string name="share_bt_off_title">Bluetooth выключен</string>
+    <string name="share_bt_off_text">Включите его, чтобы связаться с другим устройством. Потом его можно снова выключить.</string>
+    <string name="share_bt_turn_on">Включить Bluetooth</string>
+    <string name="share_location_off_title">Местоположение выключено</string>
+    <string name="share_location_off_text">На этой версии Android Bluetooth-устройства находятся, только когда включено местоположение. Volta не узнаёт, где вы.</string>
+    <string name="share_location_open">Настройки местоположения</string>
+
+    <!-- Finding the other device -->
+    <string name="share_searching">Ищем устройства рядом…</string>
+    <string name="share_searching_send_hint">На другом устройстве откройте Volta → Добавить → Получить по Bluetooth</string>
+    <string name="share_searching_receive_hint">На телефоне откройте подписку или сервер и выберите «Отправить по Bluetooth»</string>
+    <string name="share_found">Найдены рядом</string>
+    <string name="share_pick_receiver">Выберите устройство, на котором показан код</string>
+    <string name="share_pick_sender">Выберите устройство, которое отправляет</string>
+    <string name="share_nothing_found">Ничего не найдено</string>
+    <string name="share_nothing_found_hint">Держите устройства рядом, с включённым Bluetooth и открытым Volta на обоих.</string>
+    <string name="share_search_again">Искать снова</string>
+
+    <!-- The code both screens show, and comparing it -->
+    <string name="share_waiting_title">Ждём ссылку</string>
+    <string name="share_waiting_text">На телефоне выберите «Отправить по Bluetooth» и это устройство</string>
+    <string name="share_code_connected">Подключено: %1$s. Ждём, пока там подтвердят код</string>
+    <string name="share_code_label">Код</string>
+    <string name="share_code_hint">На другом экране должен быть тот же код</string>
+    <string name="share_connecting">Подключаемся к %1$s…</string>
+    <string name="share_confirm_title">Коды совпадают?</string>
+    <string name="share_confirm_text">Сравните с кодом на %1$s</string>
+    <string name="share_match">Совпадает</string>
+    <string name="share_mismatch">Не совпадает</string>
+
+    <!-- The transfer and its end -->
+    <string name="share_sending">Отправляем…</string>
+    <string name="share_receiving">Получаем…</string>
+    <string name="share_sent_title">Отправлено</string>
+    <string name="share_sent_text">Ссылка на %1$s — там предложат её добавить.</string>
+    <string name="share_received_title">Получено от %1$s</string>
+    <string name="share_received_hidden">Ссылка скрыта: её добавят, не показывая</string>
+    <string name="share_received_cannot">Volta не может это добавить</string>
+    <string name="share_received_add">Добавить</string>
+    <string name="share_received_discard">Не добавлять</string>
+    <string name="share_device_unnamed">Устройство %1$s</string>
+
+    <!-- When it fails -->
+    <string name="share_error_title">Не получилось</string>
+    <string name="share_mismatch_title">Ничего не отправлено</string>
+    <string name="share_expired_title">Время вышло</string>
+    <string name="share_error_bt_off">Bluetooth выключили.</string>
+    <string name="share_error_permission">У Volta больше нет доступа к устройствам поблизости.</string>
+    <string name="share_error_advertise">Это устройство не смогло стать видимым по Bluetooth. Попробуйте ещё раз или перезапустите Bluetooth.</string>
+    <string name="share_error_scan">Не удалось начать поиск. Выключите и включите Bluetooth и попробуйте снова.</string>
+    <string name="share_error_connect">Связь прервалась. Поднесите устройства ближе и попробуйте снова.</string>
+    <string name="share_error_not_volta">Это устройство не ждёт ссылку от Volta.</string>
+    <string name="share_error_mismatch">Коды разные, поэтому ссылка не отправлена: могло ответить другое устройство. Попробуйте ещё раз.</string>
+    <string name="share_error_damaged">Ссылка пришла повреждённой. Попробуйте ещё раз.</string>
+    <string name="share_error_too_large">Это слишком много для Bluetooth.</string>
+    <string name="share_error_rejected">Другое устройство не смогло открыть ссылку. Попробуйте ещё раз.</string>
+    <string name="share_error_timeout">Другое устройство не ответило.</string>
+    <string name="share_error_expired">Сеанс длится две минуты. Начните новый.</string>
+    <string name="share_try_again">Ещё раз</string>
+
+</resources>

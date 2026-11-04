@@ -30,6 +30,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Bluetooth
+import androidx.compose.material.icons.rounded.BluetoothConnected
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentPaste
@@ -68,6 +70,7 @@ import androidx.annotation.StringRes
 import com.ars3nb.volta.R
 import com.ars3nb.volta.core.link.ImportDetector
 import com.ars3nb.volta.core.link.ImportDetector.Kind
+import com.ars3nb.volta.core.share.SharePayload
 import com.ars3nb.volta.ui.VoltaViewModel
 import com.ars3nb.volta.ui.collectQuietState
 import com.ars3nb.volta.ui.components.Hint
@@ -76,6 +79,9 @@ import com.ars3nb.volta.ui.components.LinkRow
 import com.ars3nb.volta.ui.components.SectionHeader
 import com.ars3nb.volta.ui.components.VoltaCard
 import com.ars3nb.volta.ui.components.VoltaField
+import com.ars3nb.volta.ui.share.BleReceiveSheet
+import com.ars3nb.volta.ui.share.BleSendSheet
+import com.ars3nb.volta.ui.share.rememberBleShareAvailable
 import com.ars3nb.volta.ui.theme.VoltaTheme
 import com.ars3nb.volta.ui.tv.focusRing
 
@@ -95,6 +101,10 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
     val kind = remember(input) { ImportDetector.detect(input) }
     val clipboardEmpty = stringResource(R.string.settings_import_clipboard_empty)
     val noFilePicker = stringResource(R.string.settings_import_no_file_picker)
+    val bluetooth = rememberBleShareAvailable()
+    var receiving by remember { mutableStateOf(false) }
+    // What is being sent: plain remember, never saved state, as it may be a private link.
+    var sending by remember { mutableStateOf<String?>(null) }
 
     // A .conf from AmneziaVPN, AmneziaWG or WireGuard. Its type varies by file manager,
     // so any file is offered; the parser decides.
@@ -241,6 +251,26 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
                     }
                 }
             )
+            if (bluetooth) {
+                // Typing a link with a TV remote is the worst part of setting up a TV:
+                // a phone nearby sends it instead.
+                LinkRow(
+                    icon = Icons.Rounded.Bluetooth,
+                    tint = MaterialTheme.colorScheme.primary,
+                    title = stringResource(R.string.share_receive_action),
+                    subtitle = stringResource(R.string.share_receive_action_text),
+                    onClick = { if (!state.busy) receiving = true }
+                )
+                if (kind.canSubmit && kind != Kind.Control) {
+                    LinkRow(
+                        icon = Icons.Rounded.BluetoothConnected,
+                        tint = MaterialTheme.colorScheme.primary,
+                        title = stringResource(R.string.share_send_action),
+                        subtitle = stringResource(R.string.share_send_field_text),
+                        onClick = { sending = SharePayload.fromField(input, if (kind.isSubscription) name else "") }
+                    )
+                }
+            }
         }
 
         Spacer(Modifier.height(24.dp))
@@ -258,6 +288,15 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
         }
         Spacer(Modifier.height(24.dp))
     }
+
+    if (receiving) {
+        BleReceiveSheet(
+            // The ordinary import, as if the text had been pasted and «Add» pressed.
+            onAdd = { text -> vm.importLink(text) { ok -> if (ok) onBack() } },
+            onDismiss = { receiving = false }
+        )
+    }
+    sending?.let { payload -> BleSendSheet(payload, onDismiss = { sending = null }) }
 }
 
 /** What Volta made of the field, said back in a line with a badge. */

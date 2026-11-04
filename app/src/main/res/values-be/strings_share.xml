@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sharing over Bluetooth: sending a subscription or server link to a TV or a phone nearby,
+     receiving one, the 4-digit code both screens compare, and what can go wrong on the way
+     (core/share, ui/share/BleShareSheet.kt, docs/ble-share.md). "Bluetooth" and "Volta"
+     stay as they are. -->
+<resources>
+
+    <!-- Where the feature is opened: subscription and server actions, the Add screen, Home on a TV -->
+    <string name="share_send_action">Адправіць праз Bluetooth</string>
+    <string name="share_send_action_text">На тэлевізар ці тэлефон побач, з шыфраваннем</string>
+    <string name="share_send_hidden_text">З шыфраваннем; спасылка і там застанецца схаванай</string>
+    <string name="share_send_field_text">Тое, што ў полі, — на тэлевізар ці тэлефон побач</string>
+    <string name="share_receive_action">Атрымаць праз Bluetooth</string>
+    <string name="share_receive_action_text">Тэлефон побач дашле спасылку — нічога не трэба ўводзіць</string>
+
+    <!-- The sheet, and what may be in the way first -->
+    <string name="share_sheet_note">З шыфраваннем, з аднаго Volta ў іншы побач</string>
+    <string name="share_no_ble">На гэтай прыладзе няма Bluetooth LE, таму так спасылкі не перадаць.</string>
+    <string name="share_close">Закрыць</string>
+    <string name="share_perm_title">Доступ да прылад паблізу</string>
+    <string name="share_perm_text">Volta выкарыстоўвае Bluetooth, толькі пакуль адкрыта гэта акно: каб знайсці іншую прыладу і перадаць спасылку. Ваша месцазнаходжанне не выкарыстоўваецца.</string>
+    <string name="share_perm_location_text">На гэтай версіі Android для пошуку Bluetooth-прылад патрэбны дазвол на месцазнаходжанне. Volta яго не выкарыстоўвае: шукае, толькі пакуль адкрыта гэта акно.</string>
+    <string name="share_perm_allow">Дазволіць</string>
+    <string name="share_perm_settings">Адкрыць налады праграмы</string>
+    <string name="share_bt_off_title">Bluetooth выключаны</string>
+    <string name="share_bt_off_text">Уключыце яго, каб звязацца з іншай прыладай. Потым яго можна зноў выключыць.</string>
+    <string name="share_bt_turn_on">Уключыць Bluetooth</string>
+    <string name="share_location_off_title">Месцазнаходжанне выключана</string>
+    <string name="share_location_off_text">На гэтай версіі Android Bluetooth-прылады знаходзяцца, толькі калі ўключана месцазнаходжанне. Volta не даведваецца, дзе вы.</string>
+    <string name="share_location_open">Налады месцазнаходжання</string>
+
+    <!-- Finding the other device -->
+    <string name="share_searching">Шукаем прылады побач…</string>
+    <string name="share_searching_send_hint">На іншай прыладзе адкрыйце Volta → Дадаць → Атрымаць праз Bluetooth</string>
+    <string name="share_searching_receive_hint">На тэлефоне адкрыйце падпіску ці сервер і выберыце «Адправіць праз Bluetooth»</string>
+    <string name="share_found">Знойдзены побач</string>
+    <string name="share_pick_receiver">Выберыце прыладу, на якой паказаны код</string>
+    <string name="share_pick_sender">Выберыце прыладу, якая адпраўляе</string>
+    <string name="share_nothing_found">Нічога не знойдзена</string>
+    <string name="share_nothing_found_hint">Трымайце прылады побач, з уключаным Bluetooth і адкрытым Volta на абедзвюх.</string>
+    <string name="share_search_again">Шукаць зноў</string>
+
+    <!-- The code both screens show, and comparing it -->
+    <string name="share_waiting_title">Чакаем спасылку</string>
+    <string name="share_waiting_text">На тэлефоне выберыце «Адправіць праз Bluetooth» і гэту прыладу</string>
+    <string name="share_code_connected">Падключана: %1$s. Чакаем, пакуль там пацвердзяць код</string>
+    <string name="share_code_label">Код</string>
+    <string name="share_code_hint">На іншым экране павінен быць той самы код</string>
+    <string name="share_connecting">Падключаемся да %1$s…</string>
+    <string name="share_confirm_title">Коды супадаюць?</string>
+    <string name="share_confirm_text">Параўнайце з кодам на %1$s</string>
+    <string name="share_match">Супадае</string>
+    <string name="share_mismatch">Не супадае</string>
+
+    <!-- The transfer and its end -->
+    <string name="share_sending">Адпраўляем…</string>
+    <string name="share_receiving">Атрымліваем…</string>
+    <string name="share_sent_title">Адпраўлена</string>
+    <string name="share_sent_text">Спасылка на %1$s — там прапануюць яе дадаць.</string>
+    <string name="share_received_title">Атрымана ад %1$s</string>
+    <string name="share_received_hidden">Спасылка схаваная: яе дададуць, не паказваючы</string>
+    <string name="share_received_cannot">Volta не можа гэта дадаць</string>
+    <string name="share_received_add">Дадаць</string>
+    <string name="share_received_discard">Не дадаваць</string>
+    <string name="share_device_unnamed">Прылада %1$s</string>
+
+    <!-- When it fails -->
+    <string name="share_error_title">Не атрымалася</string>
+    <string name="share_mismatch_title">Нічога не адпраўлена</string>
+    <string name="share_expired_title">Час скончыўся</string>
+    <string name="share_error_bt_off">Bluetooth выключылі.</string>
+    <string name="share_error_permission">У Volta больш няма доступу да прылад паблізу.</string>
+    <string name="share_error_advertise">Гэта прылада не змагла стаць бачнай праз Bluetooth. Паспрабуйце яшчэ раз або перазапусціце Bluetooth.</string>
+    <string name="share_error_scan">Не ўдалося пачаць пошук. Выключыце і ўключыце Bluetooth і паспрабуйце зноў.</string>
+    <string name="share_error_connect">Сувязь перарвалася. Паднясіце прылады бліжэй і паспрабуйце зноў.</string>
+    <string name="share_error_not_volta">Гэта прылада не чакае спасылку ад Volta.</string>
+    <string name="share_error_mismatch">Коды розныя, таму спасылка не адпраўлена: магла адказаць іншая прылада. Паспрабуйце яшчэ раз.</string>
+    <string name="share_error_damaged">Спасылка прыйшла пашкоджанай. Паспрабуйце яшчэ раз.</string>
+    <string name="share_error_too_large">Гэта занадта шмат для Bluetooth.</string>
+    <string name="share_error_rejected">Іншая прылада не змагла адкрыць спасылку. Паспрабуйце яшчэ раз.</string>
+    <string name="share_error_timeout">Іншая прылада не адказала.</string>
+    <string name="share_error_expired">Сеанс доўжыцца дзве хвіліны. Пачніце новы.</string>
+    <string name="share_try_again">Яшчэ раз</string>
+
+</resources>

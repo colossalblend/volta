@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sharing over Bluetooth: sending a subscription or server link to a TV or a phone nearby,
+     receiving one, the 4-digit code both screens compare, and what can go wrong on the way
+     (core/share, ui/share/BleShareSheet.kt, docs/ble-share.md). "Bluetooth" and "Volta"
+     stay as they are. -->
+<resources>
+
+    <!-- Where the feature is opened: subscription and server actions, the Add screen, Home on a TV -->
+    <string name="share_send_action">Per Bluetooth senden</string>
+    <string name="share_send_action_text">An einen Fernseher oder ein Handy in der Nähe, verschlüsselt</string>
+    <string name="share_send_hidden_text">Verschlüsselt; der Link bleibt auch dort verborgen</string>
+    <string name="share_send_field_text">Den Inhalt des Felds an einen Fernseher oder ein Handy in der Nähe</string>
+    <string name="share_receive_action">Per Bluetooth empfangen</string>
+    <string name="share_receive_action_text">Ein Handy in der Nähe schickt den Link – nichts abzutippen</string>
+
+    <!-- The sheet, and what may be in the way first -->
+    <string name="share_sheet_note">Verschlüsselt, von einem Volta zum anderen in der Nähe</string>
+    <string name="share_no_ble">Dieses Gerät hat kein Bluetooth LE und kann Links daher nicht so übertragen.</string>
+    <string name="share_close">Schließen</string>
+    <string name="share_perm_title">Zugriff auf Geräte in der Nähe</string>
+    <string name="share_perm_text">Volta nutzt Bluetooth nur, solange dieses Fenster offen ist: um das andere Gerät zu finden und den Link zu übergeben. Ihr Standort wird nicht verwendet.</string>
+    <string name="share_perm_location_text">Unter dieser Android-Version braucht die Suche nach Bluetooth-Geräten die Standortberechtigung. Volta verwendet Ihren Standort nicht und sucht nur, solange dieses Fenster offen ist.</string>
+    <string name="share_perm_allow">Erlauben</string>
+    <string name="share_perm_settings">App-Einstellungen öffnen</string>
+    <string name="share_bt_off_title">Bluetooth ist aus</string>
+    <string name="share_bt_off_text">Schalten Sie es ein, um das andere Gerät zu erreichen. Danach können Sie es wieder ausschalten.</string>
+    <string name="share_bt_turn_on">Bluetooth einschalten</string>
+    <string name="share_location_off_title">Standort ist aus</string>
+    <string name="share_location_off_text">Unter dieser Android-Version werden Bluetooth-Geräte nur bei eingeschaltetem Standort gefunden. Volta erfährt nicht, wo Sie sind.</string>
+    <string name="share_location_open">Standorteinstellungen</string>
+
+    <!-- Finding the other device -->
+    <string name="share_searching">Geräte in der Nähe werden gesucht…</string>
+    <string name="share_searching_send_hint">Auf dem anderen Gerät: Volta → Hinzufügen → Per Bluetooth empfangen</string>
+    <string name="share_searching_receive_hint">Auf dem Handy ein Abo oder einen Server öffnen und „Per Bluetooth senden“ wählen</string>
+    <string name="share_found">In der Nähe gefunden</string>
+    <string name="share_pick_receiver">Wählen Sie das Gerät, das einen Code zeigt</string>
+    <string name="share_pick_sender">Wählen Sie das Gerät, das sendet</string>
+    <string name="share_nothing_found">Nichts gefunden</string>
+    <string name="share_nothing_found_hint">Halten Sie die Geräte nah beieinander, mit Bluetooth an und Volta offen auf beiden.</string>
+    <string name="share_search_again">Erneut suchen</string>
+
+    <!-- The code both screens show, and comparing it -->
+    <string name="share_waiting_title">Warten auf den Link</string>
+    <string name="share_waiting_text">Wählen Sie auf dem Handy „Per Bluetooth senden“ und dieses Gerät</string>
+    <string name="share_code_connected">Mit %1$s verbunden. Warten, bis dort der Code bestätigt wird</string>
+    <string name="share_code_label">Code</string>
+    <string name="share_code_hint">Auf dem anderen Bildschirm muss derselbe Code stehen</string>
+    <string name="share_connecting">Verbinden mit %1$s…</string>
+    <string name="share_confirm_title">Stimmen die Codes überein?</string>
+    <string name="share_confirm_text">Vergleichen Sie ihn mit dem Code auf %1$s</string>
+    <string name="share_match">Stimmt überein</string>
+    <string name="share_mismatch">Stimmt nicht überein</string>
+
+    <!-- The transfer and its end -->
+    <string name="share_sending">Wird gesendet…</string>
+    <string name="share_receiving">Wird empfangen…</string>
+    <string name="share_sent_title">Gesendet</string>
+    <string name="share_sent_text">%1$s hat den Link und bietet an, ihn hinzuzufügen.</string>
+    <string name="share_received_title">Von %1$s empfangen</string>
+    <string name="share_received_hidden">Der Link ist verborgen: Er wird hinzugefügt, ohne angezeigt zu werden</string>
+    <string name="share_received_cannot">Volta kann das nicht hinzufügen</string>
+    <string name="share_received_add">Hinzufügen</string>
+    <string name="share_received_discard">Verwerfen</string>
+    <string name="share_device_unnamed">Gerät %1$s</string>
+
+    <!-- When it fails -->
+    <string name="share_error_title">Das hat nicht geklappt</string>
+    <string name="share_mismatch_title">Nichts gesendet</string>
+    <string name="share_expired_title">Zeit abgelaufen</string>
+    <string name="share_error_bt_off">Bluetooth wurde ausgeschaltet.</string>
+    <string name="share_error_permission">Volta hat keinen Zugriff mehr auf Geräte in der Nähe.</string>
+    <string name="share_error_advertise">Dieses Gerät konnte sich per Bluetooth nicht sichtbar machen. Versuchen Sie es erneut oder starten Sie Bluetooth neu.</string>
+    <string name="share_error_scan">Die Suche ließ sich nicht starten. Schalten Sie Bluetooth aus und wieder ein und versuchen Sie es erneut.</string>
+    <string name="share_error_connect">Die Verbindung ist abgebrochen. Bringen Sie die Geräte näher zusammen und versuchen Sie es erneut.</string>
+    <string name="share_error_not_volta">Dieses Gerät wartet nicht auf einen Link von Volta.</string>
+    <string name="share_error_mismatch">Die Codes waren verschieden, deshalb wurde der Link nicht gesendet: Vielleicht hat ein anderes Gerät geantwortet. Versuchen Sie es erneut.</string>
+    <string name="share_error_damaged">Der Link kam beschädigt an. Versuchen Sie es erneut.</string>
+    <string name="share_error_too_large">Das ist zu groß für Bluetooth.</string>
+    <string name="share_error_rejected">Das andere Gerät konnte den Link nicht öffnen. Versuchen Sie es erneut.</string>
+    <string name="share_error_timeout">Das andere Gerät hat nicht geantwortet.</string>
+    <string name="share_error_expired">Eine Sitzung dauert zwei Minuten. Starten Sie eine neue.</string>
+    <string name="share_try_again">Erneut versuchen</string>
+
+</resources>

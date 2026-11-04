@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sharing over Bluetooth: sending a subscription or server link to a TV or a phone nearby,
+     receiving one, the 4-digit code both screens compare, and what can go wrong on the way
+     (core/share, ui/share/BleShareSheet.kt, docs/ble-share.md). "Bluetooth" and "Volta"
+     stay as they are. -->
+<resources>
+
+    <!-- Where the feature is opened: subscription and server actions, the Add screen, Home on a TV -->
+    <string name="share_send_action">إرسال عبر البلوتوث</string>
+    <string name="share_send_action_text">إلى تلفاز أو هاتف قريب، بشكل مشفّر</string>
+    <string name="share_send_hidden_text">مشفّر، ويبقى الرابط مخفيًا هناك أيضًا</string>
+    <string name="share_send_field_text">محتوى الحقل إلى تلفاز أو هاتف قريب</string>
+    <string name="share_receive_action">استلام عبر البلوتوث</string>
+    <string name="share_receive_action_text">يرسل هاتف قريب الرابط، فلا حاجة إلى كتابة شيء</string>
+
+    <!-- The sheet, and what may be in the way first -->
+    <string name="share_sheet_note">مشفّر، من Volta إلى Volta آخر قريب</string>
+    <string name="share_no_ble">لا يحتوي هذا الجهاز على Bluetooth LE، لذا لا يمكن نقل الروابط بهذه الطريقة.</string>
+    <string name="share_close">إغلاق</string>
+    <string name="share_perm_title">الوصول إلى الأجهزة القريبة</string>
+    <string name="share_perm_text">يستخدم Volta البلوتوث فقط ما دامت هذه النافذة مفتوحة: للعثور على الجهاز الآخر وتمرير الرابط. لا يُستخدم موقعك.</string>
+    <string name="share_perm_location_text">في هذا الإصدار من Android يتطلب البحث عن أجهزة البلوتوث إذن الموقع. لا يستخدم Volta موقعك، ويبحث فقط ما دامت هذه النافذة مفتوحة.</string>
+    <string name="share_perm_allow">السماح</string>
+    <string name="share_perm_settings">فتح إعدادات التطبيق</string>
+    <string name="share_bt_off_title">البلوتوث متوقف</string>
+    <string name="share_bt_off_text">شغّله للوصول إلى الجهاز الآخر. يمكنك إيقافه مجددًا بعد ذلك.</string>
+    <string name="share_bt_turn_on">تشغيل البلوتوث</string>
+    <string name="share_location_off_title">الموقع متوقف</string>
+    <string name="share_location_off_text">في هذا الإصدار من Android لا يُعثر على أجهزة البلوتوث إلا والموقع مشغّل. لا يعرف Volta مكانك.</string>
+    <string name="share_location_open">إعدادات الموقع</string>
+
+    <!-- Finding the other device -->
+    <string name="share_searching">جارٍ البحث عن أجهزة قريبة…</string>
+    <string name="share_searching_send_hint">على الجهاز الآخر افتح: Volta ← إضافة ← استلام عبر البلوتوث</string>
+    <string name="share_searching_receive_hint">على الهاتف افتح اشتراكًا أو خادمًا واختر «إرسال عبر البلوتوث»</string>
+    <string name="share_found">أجهزة قريبة</string>
+    <string name="share_pick_receiver">اختر الجهاز الذي يعرض رمزًا</string>
+    <string name="share_pick_sender">اختر الجهاز الذي يرسل</string>
+    <string name="share_nothing_found">لم يُعثر على شيء</string>
+    <string name="share_nothing_found_hint">أبقِ الجهازين متقاربين، والبلوتوث مشغّلًا وVolta مفتوحًا على كليهما.</string>
+    <string name="share_search_again">البحث مجددًا</string>
+
+    <!-- The code both screens show, and comparing it -->
+    <string name="share_waiting_title">في انتظار الرابط</string>
+    <string name="share_waiting_text">على الهاتف اختر «إرسال عبر البلوتوث» ثم هذا الجهاز</string>
+    <string name="share_code_connected">تم الاتصال بـ %1$s. في انتظار تأكيد الرمز هناك</string>
+    <string name="share_code_label">الرمز</string>
+    <string name="share_code_hint">يجب أن تعرض الشاشة الأخرى الرمز نفسه</string>
+    <string name="share_connecting">جارٍ الاتصال بـ %1$s…</string>
+    <string name="share_confirm_title">هل الرمزان متطابقان؟</string>
+    <string name="share_confirm_text">قارنه بالرمز على %1$s</string>
+    <string name="share_match">متطابقان</string>
+    <string name="share_mismatch">غير متطابقين</string>
+
+    <!-- The transfer and its end -->
+    <string name="share_sending">جارٍ الإرسال…</string>
+    <string name="share_receiving">جارٍ الاستلام…</string>
+    <string name="share_sent_title">تم الإرسال</string>
+    <string name="share_sent_text">وصل الرابط إلى %1$s وسيُعرض هناك إضافته.</string>
+    <string name="share_received_title">مستلَم من %1$s</string>
+    <string name="share_received_hidden">الرابط مخفي: ستتم إضافته دون عرضه</string>
+    <string name="share_received_cannot">لا يستطيع Volta إضافة هذا</string>
+    <string name="share_received_add">إضافة</string>
+    <string name="share_received_discard">تجاهل</string>
+    <string name="share_device_unnamed">الجهاز %1$s</string>
+
+    <!-- When it fails -->
+    <string name="share_error_title">لم ينجح ذلك</string>
+    <string name="share_mismatch_title">لم يُرسل شيء</string>
+    <string name="share_expired_title">انتهى الوقت</string>
+    <string name="share_error_bt_off">أُوقف البلوتوث.</string>
+    <string name="share_error_permission">لم يعد لدى Volta إذن الوصول إلى الأجهزة القريبة.</string>
+    <string name="share_error_advertise">تعذّر على هذا الجهاز أن يصبح مرئيًا عبر البلوتوث. أعد المحاولة أو أعد تشغيل البلوتوث.</string>
+    <string name="share_error_scan">تعذّر بدء البحث. أوقف البلوتوث ثم شغّله وأعد المحاولة.</string>
+    <string name="share_error_connect">انقطع الاتصال. قرّب الجهازين وأعد المحاولة.</string>
+    <string name="share_error_not_volta">هذا الجهاز لا ينتظر رابطًا من Volta.</string>
+    <string name="share_error_mismatch">الرمزان مختلفان، لذا لم يُرسل الرابط: ربما أجاب جهاز آخر. أعد المحاولة.</string>
+    <string name="share_error_damaged">وصل الرابط تالفًا. أعد المحاولة.</string>
+    <string name="share_error_too_large">هذا أكبر من أن يُرسل عبر البلوتوث.</string>
+    <string name="share_error_rejected">تعذّر على الجهاز الآخر فتح الرابط. أعد المحاولة.</string>
+    <string name="share_error_timeout">لم يُجب الجهاز الآخر.</string>
+    <string name="share_error_expired">تستمر الجلسة دقيقتين. ابدأ جلسة جديدة.</string>
+    <string name="share_try_again">إعادة المحاولة</string>
+
+</resources>

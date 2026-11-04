@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sharing over Bluetooth: sending a subscription or server link to a TV or a phone nearby,
+     receiving one, the 4-digit code both screens compare, and what can go wrong on the way
+     (core/share, ui/share/BleShareSheet.kt, docs/ble-share.md). "Bluetooth" and "Volta"
+     stay as they are. -->
+<resources>
+
+    <!-- Where the feature is opened: subscription and server actions, the Add screen, Home on a TV -->
+    <string name="share_send_action">Bluetooth ile gönder</string>
+    <string name="share_send_action_text">Yakındaki bir TV\'ye veya telefona, şifreli</string>
+    <string name="share_send_hidden_text">Şifreli; bağlantı orada da gizli kalır</string>
+    <string name="share_send_field_text">Alandakini yakındaki bir TV\'ye veya telefona</string>
+    <string name="share_receive_action">Bluetooth ile al</string>
+    <string name="share_receive_action_text">Yakındaki bir telefon bağlantıyı gönderir — bir şey yazmanız gerekmez</string>
+
+    <!-- The sheet, and what may be in the way first -->
+    <string name="share_sheet_note">Şifreli, bir Volta\'dan yakındaki diğerine</string>
+    <string name="share_no_ble">Bu cihazda Bluetooth LE yok, bu yüzden bağlantılar bu yolla aktarılamaz.</string>
+    <string name="share_close">Kapat</string>
+    <string name="share_perm_title">Yakındaki cihazlara erişim</string>
+    <string name="share_perm_text">Volta, Bluetooth\'u yalnızca bu pencere açıkken kullanır: diğer cihazı bulmak ve bağlantıyı iletmek için. Konumunuz kullanılmaz.</string>
+    <string name="share_perm_location_text">Android\'in bu sürümünde Bluetooth cihazlarını aramak için konum izni gerekir. Volta konumunuzu kullanmaz: yalnızca bu pencere açıkken arar.</string>
+    <string name="share_perm_allow">İzin ver</string>
+    <string name="share_perm_settings">Uygulama ayarlarını aç</string>
+    <string name="share_bt_off_title">Bluetooth kapalı</string>
+    <string name="share_bt_off_text">Diğer cihaza ulaşmak için açın. Sonra yeniden kapatabilirsiniz.</string>
+    <string name="share_bt_turn_on">Bluetooth\'u aç</string>
+    <string name="share_location_off_title">Konum kapalı</string>
+    <string name="share_location_off_text">Android\'in bu sürümünde Bluetooth cihazları yalnızca konum açıkken bulunur. Volta nerede olduğunuzu öğrenmez.</string>
+    <string name="share_location_open">Konum ayarları</string>
+
+    <!-- Finding the other device -->
+    <string name="share_searching">Yakındaki cihazlar aranıyor…</string>
+    <string name="share_searching_send_hint">Diğer cihazda açın: Volta → Ekle → Bluetooth ile al</string>
+    <string name="share_searching_receive_hint">Telefonda bir abonelik veya sunucu açıp “Bluetooth ile gönder”i seçin</string>
+    <string name="share_found">Yakında bulunanlar</string>
+    <string name="share_pick_receiver">Kod gösteren cihazı seçin</string>
+    <string name="share_pick_sender">Gönderen cihazı seçin</string>
+    <string name="share_nothing_found">Hiçbir şey bulunamadı</string>
+    <string name="share_nothing_found_hint">Cihazları yakın tutun; ikisinde de Bluetooth ve Volta açık olsun.</string>
+    <string name="share_search_again">Yeniden ara</string>
+
+    <!-- The code both screens show, and comparing it -->
+    <string name="share_waiting_title">Bağlantı bekleniyor</string>
+    <string name="share_waiting_text">Telefonda “Bluetooth ile gönder”i ve bu cihazı seçin</string>
+    <string name="share_code_connected">Bağlandı: %1$s. Orada kodun onaylanması bekleniyor</string>
+    <string name="share_code_label">Kod</string>
+    <string name="share_code_hint">Diğer ekranda aynı kod görünmeli</string>
+    <string name="share_connecting">Bağlanılıyor: %1$s…</string>
+    <string name="share_confirm_title">Kodlar aynı mı?</string>
+    <string name="share_confirm_text">Şu cihazdaki kodla karşılaştırın: %1$s</string>
+    <string name="share_match">Aynı</string>
+    <string name="share_mismatch">Aynı değil</string>
+
+    <!-- The transfer and its end -->
+    <string name="share_sending">Gönderiliyor…</string>
+    <string name="share_receiving">Alınıyor…</string>
+    <string name="share_sent_title">Gönderildi</string>
+    <string name="share_sent_text">Bağlantı ulaştı: %1$s. Orada eklenmesi önerilecek.</string>
+    <string name="share_received_title">Alındı: %1$s</string>
+    <string name="share_received_hidden">Bağlantı gizli: gösterilmeden eklenecek</string>
+    <string name="share_received_cannot">Volta bunu ekleyemez</string>
+    <string name="share_received_add">Ekle</string>
+    <string name="share_received_discard">Ekleme</string>
+    <string name="share_device_unnamed">Cihaz %1$s</string>
+
+    <!-- When it fails -->
+    <string name="share_error_title">Olmadı</string>
+    <string name="share_mismatch_title">Hiçbir şey gönderilmedi</string>
+    <string name="share_expired_title">Süre doldu</string>
+    <string name="share_error_bt_off">Bluetooth kapatıldı.</string>
+    <string name="share_error_permission">Volta\'nın artık yakındaki cihazlara erişimi yok.</string>
+    <string name="share_error_advertise">Bu cihaz Bluetooth\'ta görünür olamadı. Yeniden deneyin veya Bluetooth\'u yeniden başlatın.</string>
+    <string name="share_error_scan">Arama başlatılamadı. Bluetooth\'u kapatıp açın ve yeniden deneyin.</string>
+    <string name="share_error_connect">İletişim koptu. Cihazları yaklaştırıp yeniden deneyin.</string>
+    <string name="share_error_not_volta">Bu cihaz Volta\'dan bağlantı beklemiyor.</string>
+    <string name="share_error_mismatch">Kodlar farklıydı, bu yüzden bağlantı gönderilmedi: başka bir cihaz yanıt vermiş olabilir. Yeniden deneyin.</string>
+    <string name="share_error_damaged">Bağlantı bozuk geldi. Yeniden deneyin.</string>
+    <string name="share_error_too_large">Bu, Bluetooth için çok büyük.</string>
+    <string name="share_error_rejected">Diğer cihaz bağlantıyı açamadı. Yeniden deneyin.</string>
+    <string name="share_error_timeout">Diğer cihaz yanıt vermedi.</string>
+    <string name="share_error_expired">Bir oturum iki dakika sürer. Yenisini başlatın.</string>
+    <string name="share_try_again">Yeniden dene</string>
+
+</resources>

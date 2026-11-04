@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Refresh
@@ -61,7 +62,9 @@ fun SubscriptionEditorDialog(
     onSave: (String, String) -> Unit,
     onDelete: () -> Unit,
     serverCount: Int = 0,
-    onRefresh: () -> Unit = {}
+    onRefresh: () -> Unit = {},
+    /** «Отправить по Bluetooth»; null where the device has no Bluetooth LE. */
+    onSendBluetooth: (() -> Unit)? = null
 ) {
     val scheme = MaterialTheme.colorScheme
     var name by remember(subscription.id) { mutableStateOf(subscription.name) }
@@ -163,6 +166,18 @@ fun SubscriptionEditorDialog(
                         subtitle = stringResource(R.string.settings_subs_refresh_text),
                         onClick = onRefresh
                     )
+                    if (onSendBluetooth != null) {
+                        SheetAction(
+                            icon = Icons.Rounded.Bluetooth,
+                            title = stringResource(R.string.share_send_action),
+                            // A hidden address goes hidden and stays hidden over there.
+                            subtitle = stringResource(
+                                if (subscription.urlHidden) R.string.share_send_hidden_text
+                                else R.string.share_send_action_text
+                            ),
+                            onClick = onSendBluetooth
+                        )
+                    }
                     SheetAction(
                         icon = Icons.Rounded.Delete,
                         title = stringResource(R.string.settings_subs_delete_action),

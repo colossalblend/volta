@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sharing over Bluetooth: sending a subscription or server link to a TV or a phone nearby,
+     receiving one, the 4-digit code both screens compare, and what can go wrong on the way
+     (core/share, ui/share/BleShareSheet.kt, docs/ble-share.md). "Bluetooth" and "Volta"
+     stay as they are. -->
+<resources>
+
+    <!-- Where the feature is opened: subscription and server actions, the Add screen, Home on a TV -->
+    <string name="share_send_action">Bluetooth ilə göndər</string>
+    <string name="share_send_action_text">Yaxındakı televizora və ya telefona, şifrələnmiş</string>
+    <string name="share_send_hidden_text">Şifrələnmiş; keçid orada da gizli qalacaq</string>
+    <string name="share_send_field_text">Sahədəkini yaxındakı televizora və ya telefona</string>
+    <string name="share_receive_action">Bluetooth ilə qəbul et</string>
+    <string name="share_receive_action_text">Yaxındakı telefon keçidi göndərəcək — heç nə yazmaq lazım deyil</string>
+
+    <!-- The sheet, and what may be in the way first -->
+    <string name="share_sheet_note">Şifrələnmiş, bir Volta-dan yaxındakı digərinə</string>
+    <string name="share_no_ble">Bu cihazda Bluetooth LE yoxdur, ona görə keçidləri bu yolla ötürmək olmur.</string>
+    <string name="share_close">Bağla</string>
+    <string name="share_perm_title">Yaxındakı cihazlara giriş</string>
+    <string name="share_perm_text">Volta Bluetooth-dan yalnız bu pəncərə açıq olanda istifadə edir: digər cihazı tapmaq və keçidi ötürmək üçün. Məkanınızdan istifadə edilmir.</string>
+    <string name="share_perm_location_text">Android-in bu versiyasında Bluetooth cihazlarını axtarmaq üçün məkan icazəsi lazımdır. Volta ondan istifadə etmir: yalnız bu pəncərə açıq olanda axtarır.</string>
+    <string name="share_perm_allow">İcazə ver</string>
+    <string name="share_perm_settings">Tətbiq ayarlarını aç</string>
+    <string name="share_bt_off_title">Bluetooth sönülüdür</string>
+    <string name="share_bt_off_text">Digər cihazla əlaqə üçün onu yandırın. Sonra yenidən söndürmək olar.</string>
+    <string name="share_bt_turn_on">Bluetooth-u yandır</string>
+    <string name="share_location_off_title">Məkan sönülüdür</string>
+    <string name="share_location_off_text">Android-in bu versiyasında Bluetooth cihazları yalnız məkan açıq olanda tapılır. Volta harada olduğunuzu bilmir.</string>
+    <string name="share_location_open">Məkan ayarları</string>
+
+    <!-- Finding the other device -->
+    <string name="share_searching">Yaxındakı cihazlar axtarılır…</string>
+    <string name="share_searching_send_hint">Digər cihazda açın: Volta → Əlavə et → Bluetooth ilə qəbul et</string>
+    <string name="share_searching_receive_hint">Telefonda abunəni və ya serveri açıb «Bluetooth ilə göndər» seçin</string>
+    <string name="share_found">Yaxında tapıldı</string>
+    <string name="share_pick_receiver">Kod göstərən cihazı seçin</string>
+    <string name="share_pick_sender">Göndərən cihazı seçin</string>
+    <string name="share_nothing_found">Heç nə tapılmadı</string>
+    <string name="share_nothing_found_hint">Cihazları yaxın saxlayın: hər ikisində Bluetooth və Volta açıq olsun.</string>
+    <string name="share_search_again">Yenidən axtar</string>
+
+    <!-- The code both screens show, and comparing it -->
+    <string name="share_waiting_title">Keçid gözlənilir</string>
+    <string name="share_waiting_text">Telefonda «Bluetooth ilə göndər» və bu cihazı seçin</string>
+    <string name="share_code_connected">Qoşuldu: %1$s. Orada kodun təsdiqlənməsi gözlənilir</string>
+    <string name="share_code_label">Kod</string>
+    <string name="share_code_hint">Digər ekranda eyni kod olmalıdır</string>
+    <string name="share_connecting">Qoşulur: %1$s…</string>
+    <string name="share_confirm_title">Kodlar eynidir?</string>
+    <string name="share_confirm_text">Bu cihazdakı kodla müqayisə edin: %1$s</string>
+    <string name="share_match">Eynidir</string>
+    <string name="share_mismatch">Eyni deyil</string>
+
+    <!-- The transfer and its end -->
+    <string name="share_sending">Göndərilir…</string>
+    <string name="share_receiving">Qəbul edilir…</string>
+    <string name="share_sent_title">Göndərildi</string>
+    <string name="share_sent_text">Keçid çatdı: %1$s. Orada onu əlavə etməyi təklif edəcək.</string>
+    <string name="share_received_title">Qəbul edildi: %1$s</string>
+    <string name="share_received_hidden">Keçid gizlidir: göstərilmədən əlavə olunacaq</string>
+    <string name="share_received_cannot">Volta bunu əlavə edə bilmir</string>
+    <string name="share_received_add">Əlavə et</string>
+    <string name="share_received_discard">Əlavə etmə</string>
+    <string name="share_device_unnamed">Cihaz %1$s</string>
+
+    <!-- When it fails -->
+    <string name="share_error_title">Alınmadı</string>
+    <string name="share_mismatch_title">Heç nə göndərilmədi</string>
+    <string name="share_expired_title">Vaxt bitdi</string>
+    <string name="share_error_bt_off">Bluetooth söndürüldü.</string>
+    <string name="share_error_permission">Volta-nın artıq yaxındakı cihazlara girişi yoxdur.</string>
+    <string name="share_error_advertise">Bu cihaz Bluetooth ilə görünən ola bilmədi. Yenidən cəhd edin və ya Bluetooth-u yenidən başladın.</string>
+    <string name="share_error_scan">Axtarışa başlamaq olmadı. Bluetooth-u söndürüb yandırın və yenidən cəhd edin.</string>
+    <string name="share_error_connect">Əlaqə kəsildi. Cihazları yaxınlaşdırın və yenidən cəhd edin.</string>
+    <string name="share_error_not_volta">Bu cihaz Volta-dan keçid gözləmir.</string>
+    <string name="share_error_mismatch">Kodlar fərqli idi, ona görə keçid göndərilmədi: başqa cihaz cavab vermiş ola bilər. Yenidən cəhd edin.</string>
+    <string name="share_error_damaged">Keçid zədələnmiş gəldi. Yenidən cəhd edin.</string>
+    <string name="share_error_too_large">Bu, Bluetooth üçün çox böyükdür.</string>
+    <string name="share_error_rejected">Digər cihaz keçidi aça bilmədi. Yenidən cəhd edin.</string>
+    <string name="share_error_timeout">Digər cihaz cavab vermədi.</string>
+    <string name="share_error_expired">Seans iki dəqiqə davam edir. Yenisini başladın.</string>
+    <string name="share_try_again">Yenidən cəhd et</string>
+
+</resources>

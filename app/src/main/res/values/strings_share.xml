@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sharing over Bluetooth: sending a subscription or server link to a TV or a phone nearby,
+     receiving one, the 4-digit code both screens compare, and what can go wrong on the way
+     (core/share, ui/share/BleShareSheet.kt, docs/ble-share.md). "Bluetooth" and "Volta"
+     stay as they are. -->
+<resources>
+
+    <!-- Where the feature is opened: subscription and server actions, the Add screen, Home on a TV -->
+    <string name="share_send_action">Send via Bluetooth</string>
+    <string name="share_send_action_text">To a TV or a phone nearby, encrypted</string>
+    <string name="share_send_hidden_text">Encrypted; the link stays hidden on the other device too</string>
+    <string name="share_send_field_text">What is in the field, to a TV or a phone nearby</string>
+    <string name="share_receive_action">Receive via Bluetooth</string>
+    <string name="share_receive_action_text">A phone nearby sends the link: nothing to type</string>
+
+    <!-- The sheet, and what may be in the way first -->
+    <string name="share_sheet_note">Encrypted, from one Volta to another nearby</string>
+    <string name="share_no_ble">This device has no Bluetooth LE, so it can\'t send or receive links this way.</string>
+    <string name="share_close">Close</string>
+    <string name="share_perm_title">Access to nearby devices</string>
+    <string name="share_perm_text">Volta uses Bluetooth only while this window is open: to find the other device and pass the link. It does not use your location.</string>
+    <string name="share_perm_location_text">On this Android version, finding Bluetooth devices needs the location permission. Volta does not use your location; it only searches while this window is open.</string>
+    <string name="share_perm_allow">Allow</string>
+    <string name="share_perm_settings">Open app settings</string>
+    <string name="share_bt_off_title">Bluetooth is off</string>
+    <string name="share_bt_off_text">Turn it on to reach the other device. You can turn it off again afterwards.</string>
+    <string name="share_bt_turn_on">Turn on Bluetooth</string>
+    <string name="share_location_off_title">Location is off</string>
+    <string name="share_location_off_text">On this Android version, Bluetooth devices can only be found with location on. Volta doesn\'t read where you are.</string>
+    <string name="share_location_open">Location settings</string>
+
+    <!-- Finding the other device -->
+    <string name="share_searching">Looking for devices nearby…</string>
+    <string name="share_searching_send_hint">On the other device, open Volta → Add → Receive via Bluetooth</string>
+    <string name="share_searching_receive_hint">On the phone, open a subscription or a server and choose “Send via Bluetooth”</string>
+    <string name="share_found">Found nearby</string>
+    <string name="share_pick_receiver">Choose the device that shows a code</string>
+    <string name="share_pick_sender">Choose the device that is sending</string>
+    <string name="share_nothing_found">Nothing found</string>
+    <string name="share_nothing_found_hint">Keep the devices close, with Bluetooth on and Volta open on both.</string>
+    <string name="share_search_again">Search again</string>
+
+    <!-- The code both screens show, and comparing it -->
+    <string name="share_waiting_title">Waiting for the link</string>
+    <string name="share_waiting_text">On the phone, choose “Send via Bluetooth” and pick this device</string>
+    <string name="share_code_connected">Connected to %1$s. Waiting for it to confirm the code</string>
+    <string name="share_code_label">Code</string>
+    <string name="share_code_hint">The other screen must show the same code</string>
+    <string name="share_connecting">Connecting to %1$s…</string>
+    <string name="share_confirm_title">Do the codes match?</string>
+    <string name="share_confirm_text">Compare it with the code on %1$s</string>
+    <string name="share_match">They match</string>
+    <string name="share_mismatch">They don\'t match</string>
+
+    <!-- The transfer and its end -->
+    <string name="share_sending">Sending…</string>
+    <string name="share_receiving">Receiving…</string>
+    <string name="share_sent_title">Sent</string>
+    <string name="share_sent_text">%1$s has the link and will offer to add it.</string>
+    <string name="share_received_title">Received from %1$s</string>
+    <string name="share_received_hidden">The link is hidden: it will be added without being shown</string>
+    <string name="share_received_cannot">Volta can\'t add this</string>
+    <string name="share_received_add">Add</string>
+    <string name="share_received_discard">Discard</string>
+    <string name="share_device_unnamed">Device %1$s</string>
+
+    <!-- When it fails -->
+    <string name="share_error_title">It didn\'t work</string>
+    <string name="share_mismatch_title">Nothing was sent</string>
+    <string name="share_expired_title">Time is up</string>
+    <string name="share_error_bt_off">Bluetooth was turned off.</string>
+    <string name="share_error_permission">Volta no longer has access to nearby devices.</string>
+    <string name="share_error_advertise">This device couldn\'t make itself visible over Bluetooth. Try again or restart Bluetooth.</string>
+    <string name="share_error_scan">Couldn\'t search for devices. Turn Bluetooth off and on, then try again.</string>
+    <string name="share_error_connect">The connection broke. Bring the devices closer and try again.</string>
+    <string name="share_error_not_volta">That device isn\'t waiting for a link from Volta.</string>
+    <string name="share_error_mismatch">The codes were different, so the link was not sent: another device may have answered. Try again.</string>
+    <string name="share_error_damaged">The link arrived damaged. Try again.</string>
+    <string name="share_error_too_large">This is too large to send over Bluetooth.</string>
+    <string name="share_error_rejected">The other device couldn\'t open the link. Try again.</string>
+    <string name="share_error_timeout">The other device didn\'t answer.</string>
+    <string name="share_error_expired">A session lasts two minutes. Start a new one.</string>
+    <string name="share_try_again">Try again</string>
+
+</resources>

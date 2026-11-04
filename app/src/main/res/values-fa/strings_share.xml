@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sharing over Bluetooth: sending a subscription or server link to a TV or a phone nearby,
+     receiving one, the 4-digit code both screens compare, and what can go wrong on the way
+     (core/share, ui/share/BleShareSheet.kt, docs/ble-share.md). "Bluetooth" and "Volta"
+     stay as they are. -->
+<resources>
+
+    <!-- Where the feature is opened: subscription and server actions, the Add screen, Home on a TV -->
+    <string name="share_send_action">ارسال با بلوتوث</string>
+    <string name="share_send_action_text">به تلویزیون یا گوشی نزدیک، رمزگذاری‌شده</string>
+    <string name="share_send_hidden_text">رمزگذاری‌شده؛ پیوند آنجا هم پنهان می‌ماند</string>
+    <string name="share_send_field_text">محتوای کادر، به تلویزیون یا گوشی نزدیک</string>
+    <string name="share_receive_action">دریافت با بلوتوث</string>
+    <string name="share_receive_action_text">گوشی نزدیک پیوند را می‌فرستد؛ لازم نیست چیزی تایپ کنید</string>
+
+    <!-- The sheet, and what may be in the way first -->
+    <string name="share_sheet_note">رمزگذاری‌شده، از یک Volta به Volta دیگری در نزدیکی</string>
+    <string name="share_no_ble">این دستگاه Bluetooth LE ندارد، پس نمی‌توان پیوندها را این‌گونه فرستاد.</string>
+    <string name="share_close">بستن</string>
+    <string name="share_perm_title">دسترسی به دستگاه‌های نزدیک</string>
+    <string name="share_perm_text">Volta فقط تا وقتی این پنجره باز است از بلوتوث استفاده می‌کند: برای یافتن دستگاه دیگر و رساندن پیوند. از موقعیت مکانی شما استفاده نمی‌شود.</string>
+    <string name="share_perm_location_text">در این نسخهٔ Android، جست‌وجوی دستگاه‌های بلوتوث به مجوز موقعیت مکانی نیاز دارد. Volta از موقعیت شما استفاده نمی‌کند و فقط تا وقتی این پنجره باز است جست‌وجو می‌کند.</string>
+    <string name="share_perm_allow">اجازه دادن</string>
+    <string name="share_perm_settings">باز کردن تنظیمات برنامه</string>
+    <string name="share_bt_off_title">بلوتوث خاموش است</string>
+    <string name="share_bt_off_text">برای ارتباط با دستگاه دیگر روشنش کنید. بعداً می‌توانید دوباره خاموشش کنید.</string>
+    <string name="share_bt_turn_on">روشن کردن بلوتوث</string>
+    <string name="share_location_off_title">موقعیت مکانی خاموش است</string>
+    <string name="share_location_off_text">در این نسخهٔ Android، دستگاه‌های بلوتوث فقط با موقعیت مکانی روشن پیدا می‌شوند. Volta نمی‌فهمد کجا هستید.</string>
+    <string name="share_location_open">تنظیمات موقعیت مکانی</string>
+
+    <!-- Finding the other device -->
+    <string name="share_searching">در حال جست‌وجوی دستگاه‌های نزدیک…</string>
+    <string name="share_searching_send_hint">در دستگاه دیگر باز کنید: Volta ← افزودن ← دریافت با بلوتوث</string>
+    <string name="share_searching_receive_hint">در گوشی، یک اشتراک یا سرور را باز کنید و «ارسال با بلوتوث» را بزنید</string>
+    <string name="share_found">یافته‌شده در نزدیکی</string>
+    <string name="share_pick_receiver">دستگاهی را که کد نشان می‌دهد انتخاب کنید</string>
+    <string name="share_pick_sender">دستگاهی را که می‌فرستد انتخاب کنید</string>
+    <string name="share_nothing_found">چیزی پیدا نشد</string>
+    <string name="share_nothing_found_hint">دستگاه‌ها را نزدیک هم نگه دارید و در هر دو بلوتوث را روشن و Volta را باز نگه دارید.</string>
+    <string name="share_search_again">جست‌وجوی دوباره</string>
+
+    <!-- The code both screens show, and comparing it -->
+    <string name="share_waiting_title">در انتظار پیوند</string>
+    <string name="share_waiting_text">در گوشی «ارسال با بلوتوث» و سپس این دستگاه را انتخاب کنید</string>
+    <string name="share_code_connected">به %1$s وصل شد. در انتظار تأیید کد در آنجا</string>
+    <string name="share_code_label">کد</string>
+    <string name="share_code_hint">صفحهٔ دیگر باید همین کد را نشان دهد</string>
+    <string name="share_connecting">در حال اتصال به %1$s…</string>
+    <string name="share_confirm_title">کدها یکی هستند؟</string>
+    <string name="share_confirm_text">با کد روی %1$s مقایسه کنید</string>
+    <string name="share_match">یکی است</string>
+    <string name="share_mismatch">یکی نیست</string>
+
+    <!-- The transfer and its end -->
+    <string name="share_sending">در حال ارسال…</string>
+    <string name="share_receiving">در حال دریافت…</string>
+    <string name="share_sent_title">ارسال شد</string>
+    <string name="share_sent_text">پیوند به %1$s رسید و آنجا افزودنش پیشنهاد می‌شود.</string>
+    <string name="share_received_title">دریافت‌شده از %1$s</string>
+    <string name="share_received_hidden">پیوند پنهان است: بدون نمایش افزوده می‌شود</string>
+    <string name="share_received_cannot">Volta نمی‌تواند این را اضافه کند</string>
+    <string name="share_received_add">افزودن</string>
+    <string name="share_received_discard">کنار گذاشتن</string>
+    <string name="share_device_unnamed">دستگاه %1$s</string>
+
+    <!-- When it fails -->
+    <string name="share_error_title">انجام نشد</string>
+    <string name="share_mismatch_title">چیزی ارسال نشد</string>
+    <string name="share_expired_title">زمان تمام شد</string>
+    <string name="share_error_bt_off">بلوتوث خاموش شد.</string>
+    <string name="share_error_permission">Volta دیگر به دستگاه‌های نزدیک دسترسی ندارد.</string>
+    <string name="share_error_advertise">این دستگاه نتوانست از طریق بلوتوث قابل مشاهده شود. دوباره امتحان کنید یا بلوتوث را دوباره راه‌اندازی کنید.</string>
+    <string name="share_error_scan">جست‌وجو آغاز نشد. بلوتوث را خاموش و روشن کنید و دوباره امتحان کنید.</string>
+    <string name="share_error_connect">ارتباط قطع شد. دستگاه‌ها را نزدیک‌تر کنید و دوباره امتحان کنید.</string>
+    <string name="share_error_not_volta">آن دستگاه منتظر پیوندی از Volta نیست.</string>
+    <string name="share_error_mismatch">کدها متفاوت بودند، پس پیوند ارسال نشد: شاید دستگاه دیگری پاسخ داده باشد. دوباره امتحان کنید.</string>
+    <string name="share_error_damaged">پیوند آسیب‌دیده رسید. دوباره امتحان کنید.</string>
+    <string name="share_error_too_large">این برای بلوتوث بیش از حد بزرگ است.</string>
+    <string name="share_error_rejected">دستگاه دیگر نتوانست پیوند را باز کند. دوباره امتحان کنید.</string>
+    <string name="share_error_timeout">دستگاه دیگر پاسخ نداد.</string>
+    <string name="share_error_expired">هر نشست دو دقیقه طول می‌کشد. نشست تازه‌ای شروع کنید.</string>
+    <string name="share_try_again">دوباره امتحان کنید</string>
+
+</resources>
