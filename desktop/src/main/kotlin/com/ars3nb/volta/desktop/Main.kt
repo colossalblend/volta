@@ -93,6 +93,11 @@ fun main(args: Array<String>) {
             links.forEach { controller.importText(it) }
         }
         LaunchedEffect(Unit) {
+            controller.notices.collect { text ->
+                if (!visible) trayState.sendNotification(Notification("Volta", text, Notification.Type.Info))
+            }
+        }
+        LaunchedEffect(Unit) {
             incoming.collect { more ->
                 show()
                 more.filter { it.startsWith("volta://", ignoreCase = true) }.forEach {

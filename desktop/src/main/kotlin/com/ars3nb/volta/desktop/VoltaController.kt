@@ -102,6 +102,13 @@ class VoltaController(
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 16)
     val messages: SharedFlow<String> = _messages.asSharedFlow()
 
+    /**
+     * What Android says in a notification (a new build, a check OpenFlux waits for): Main
+     * shows these by the tray icon too, so they reach a user whose window is hidden.
+     */
+    private val _notices = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    val notices: SharedFlow<String> = _notices.asSharedFlow()
+
     val ui: StateFlow<VoltaUiState> = combine(store.data, runtime) { d, r ->
         VoltaUiState(
             subscriptions = d.subscriptions.sortedBy { it.sortOrder },
@@ -153,6 +160,7 @@ class VoltaController(
             // browser. The carrier is told when the user presses «Готово» (see Home).
             if (captcha.url.startsWith("http", ignoreCase = true)) runCatching { openUrl(captcha.url) }
             message(Res.string(R.string.servers_openflux_captcha_title))
+            _notices.tryEmit(Res.string(R.string.servers_openflux_captcha_title))
         }
     }
 
@@ -207,6 +215,7 @@ class VoltaController(
                     val info = (found as? UpdateState.Available)?.info ?: (found as? UpdateState.Ready)?.info
                     if (info != null && info.versionCode > settings.updateNotified) {
                         message(Res.string(R.string.settings_update_notify_text, info.versionName))
+                        _notices.tryEmit(Res.string(R.string.settings_update_notify_title) + ": " + info.versionName)
                         updateSettings { it.copy(updateNotified = info.versionCode) }
                     }
                 }
