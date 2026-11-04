@@ -108,6 +108,16 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
             .build()
     }
 
+    /** «Бета-версии»: also the test build of the main branch, whichever is newer. */
+    val beta = prefs.updateBeta
+
+    suspend fun setBeta(enabled: Boolean) {
+        prefs.setUpdateBeta(enabled)
+        // Forget what was found on the other channel and look again.
+        if (_state.value !is UpdateState.Downloading) _state.value = UpdateState.Idle
+        check()
+    }
+
     suspend fun setAutoCheck(enabled: Boolean) {
         prefs.setUpdateAutoCheck(enabled)
         if (enabled) {
@@ -242,10 +252,22 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
         }
     }
 
-    /** The latest published release, or null when there is none yet. */
-    private fun findNewest(): UpdateInfo? {
+    /**
+     * The latest published release, or null when there is none yet. With «Бета-версии»
+     * on, also the main branch's rolling test build, and whichever is newer wins. Every
+     * build is signed with the same key and numbered by one counter, so either installs
+     * over the other.
+     */
+    private suspend fun findNewest(): UpdateInfo? {
         val repo = BuildConfig.UPDATE_REPO
-        val manifest = fetchText(latestUrl(repo, "update.json"))?.let { parseManifest(it) } ?: return null
+        val stable = fetchText(latestUrl(repo, "update.json"))?.let { parseManifest(it) }
+        val beta = if (prefs.updateBeta.first()) {
+            // A missing or broken test build must not hide a good release.
+            runCatching { fetchText(betaUrl(repo, "update.json"))?.let { parseManifest(it) } }.getOrNull()
+        } else {
+            null
+        }
+        val manifest = listOfNotNull(stable, beta).maxByOrNull { it.versionCode } ?: return null
         val apk = pickApk(manifest.apks, Build.SUPPORTED_ABIS.toList(), BuildConfig.DEBUG) ?: return null
         return UpdateInfo(
             versionCode = manifest.versionCode,
@@ -389,6 +411,13 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
 
         /** No release published yet (404), or the repository went private (401/403). */
         private val NOT_THERE = setOf(401, 403, 404)
+
+        /** The rolling pre-release CI keeps for the main branch (android.yml: apk-<branch>). */
+        internal const val BETA_TAG = "apk-main"
+
+        /** A file of the main branch's test build. */
+        internal fun betaUrl(repo: String, file: String): String =
+            "https://github.com/$repo/releases/download/$BETA_TAG/$file"
 
         /** GitHub's link to a file of the newest published (non-pre-)release. */
         internal fun latestUrl(repo: String, file: String): String =

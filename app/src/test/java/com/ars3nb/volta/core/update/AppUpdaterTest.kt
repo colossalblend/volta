@@ -83,4 +83,12 @@ class AppUpdaterTest {
             AppUpdater.assetUrl("o/r", "", "a.apk")
         )
     }
+
+    @Test
+    fun betaReadsTheMainBranchTestBuild() {
+        assertEquals(
+            "https://github.com/colossalblend/volta/releases/download/apk-main/update.json",
+            AppUpdater.betaUrl("colossalblend/volta", "update.json")
+        )
+    }
 }

@@ -37,6 +37,7 @@ import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Public
+import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.SyncAlt
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.TouchApp
@@ -122,6 +123,7 @@ fun SettingsScreen(vm: VoltaViewModel) {
     val simpleMode by vm.simpleMode.collectAsStateWithLifecycle()
     val update by vm.updateState.collectAsStateWithLifecycle()
     val updateAutoCheck by vm.updateAutoCheck.collectAsStateWithLifecycle()
+    val updateBeta by vm.updateBeta.collectAsStateWithLifecycle()
     val alwaysOn by vm.alwaysOn.collectAsStateWithLifecycle()
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
@@ -372,6 +374,14 @@ fun SettingsScreen(vm: VoltaViewModel) {
                             },
                             checked = updateAutoCheck,
                             onChecked = vm::setUpdateAutoCheck
+                        )
+                        SwitchRow(
+                            icon = Icons.Rounded.Science,
+                            tint = palette.lte,
+                            title = "Бета-версии",
+                            subtitle = "Получать пробные сборки раньше всех. В них могут быть ошибки",
+                            checked = updateBeta,
+                            onChecked = vm::setUpdateBeta
                         )
                     }
                     LinkRow(

@@ -289,6 +289,10 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     fun installUpdate() = updater.downloadAndInstall()
     fun setUpdateAutoCheck(v: Boolean) = viewModelScope.launch { updater.setAutoCheck(v) }
 
+    val updateBeta = updater.beta
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    fun setUpdateBeta(v: Boolean) = viewModelScope.launch { updater.setBeta(v) }
+
     fun coreAvailable(): Boolean = repo.isCoreAvailable()
     fun openFluxAvailable(): Boolean = OpenFluxRunner.available
     fun coreVersion(): String = repo.coreVersion()

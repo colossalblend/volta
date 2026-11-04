@@ -55,6 +55,7 @@ class AppPreferences(private val context: Context) {
         val lastGoodLte = longPreferencesKey("last_good_lte")
         val otaEnabled = booleanPreferencesKey("ota_enabled")
         val updateAutoCheck = booleanPreferencesKey("update_auto_check")
+        val updateBeta = booleanPreferencesKey("update_beta")
         val updateLastCheck = longPreferencesKey("update_last_check")
         val updateNotified = intPreferencesKey("update_notified")
         val reconnectAfterUpdate = booleanPreferencesKey("reconnect_after_update")
@@ -81,6 +82,13 @@ class AppPreferences(private val context: Context) {
 
     /** The VPN was on when the update was installed: turn it back on after the restart. */
     val reconnectAfterUpdate: Flow<Boolean> = context.dataStore.data.map { it[Keys.reconnectAfterUpdate] ?: false }
+
+    /** Also offer test builds from the main branch, not only published releases. */
+    val updateBeta: Flow<Boolean> = context.dataStore.data.map { it[Keys.updateBeta] ?: false }
+
+    suspend fun setUpdateBeta(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.updateBeta] = enabled }
+    }
 
     suspend fun setUpdateAutoCheck(enabled: Boolean) {
         context.dataStore.edit { it[Keys.updateAutoCheck] = enabled }
