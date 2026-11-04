@@ -4,74 +4,97 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Volta для VPN-сервисов</title>
-<meta name="description" content="Как VPN-сервису подключить Volta: ссылки «Открыть в Volta», скрытые и зашифрованные подписки, разметка серверов Home, LTE и балансеров, заголовки подписки.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=Unbounded:wght@500;600&display=swap" rel="stylesheet">
+<meta name="description" content="Как VPN-сервису подключить Volta: ссылки «Открыть в Volta», скрытые и зашифрованные подписки, разметка серверов Home, LTE и балансеров, серверы OpenFlux, заголовки подписки.">
+<meta name="theme-color" content="#101316">
+<link rel="preload" href="assets/fonts/onest.woff" as="font" type="font/woff" crossorigin>
+<link rel="preload" href="assets/fonts/unbounded.woff" as="font" type="font/woff" crossorigin>
 <link rel="stylesheet" href="assets/style.css">
-<script src="assets/toc.js" defer></script>
 <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<script src="assets/site.js" defer></script>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M4.5 10.2 12 4l7.5 6.2V19a1 1 0 0 1-1 1H15v-5.5H9V20H5.5a1 1 0 0 1-1-1z"/></symbol>
+<symbol id="i-book" viewBox="0 0 24 24"><path d="M12 7c-1.8-1.4-4.4-2-8-1.8v12.6c3.6-.2 6.2.4 8 1.8 1.8-1.4 4.4-2 8-1.8V5.2c-3.6-.2-6.2.4-8 1.8z"/><path d="M12 7v12.6"/></symbol>
+<symbol id="i-server" viewBox="0 0 24 24"><rect x="4" y="4.5" width="16" height="6.5" rx="2"/><rect x="4" y="13" width="16" height="6.5" rx="2"/><path d="M8 7.75h.01M8 16.25h.01"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3.6 5.2 6.1v5.3c0 4.2 2.8 7.5 6.8 8.9 4-1.4 6.8-4.7 6.8-8.9V6.1z"/><path d="m9.2 12 2 2 3.8-4"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4.5v10M7.8 10.6 12 14.8l4.2-4.2M5.5 19.5h13"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10.6 13.4a3.6 3.6 0 0 0 5.1 0l2.9-2.9a3.6 3.6 0 0 0-5.1-5.1l-1 1"/><path d="M13.4 10.6a3.6 3.6 0 0 0-5.1 0l-2.9 2.9a3.6 3.6 0 0 0 5.1 5.1l1-1"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11.2v4.8M12 8h.01"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 5.2 3.6 17a2 2 0 0 0 1.7 3h13.4a2 2 0 0 0 1.7-3L13.7 5.2a2 2 0 0 0-3.4 0z"/><path d="M12 9.8v3.6M12 16.6h.01"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="m9.5 6 6 6-6 6"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5.5v13M5.5 12h13"/></symbol>
+<symbol id="i-tv" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2.5"/><path d="M8.5 20.5h7"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M6.5 13.5 12 19l5.5-5.5"/></symbol>
+<symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M5 6.5h14M5 12h14M5 17.5h14"/></symbol>
+<symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7.5 18.5H17a4 4 0 0 0 .6-7.95A5.5 5.5 0 0 0 7 11.3a3.6 3.6 0 0 0 .5 7.2z"/></symbol>
+<symbol id="i-fork" viewBox="0 0 24 24"><path d="M12 20v-6c0-2-1-3.2-2.6-4.6L5.5 5.5M5.5 5.5h4M5.5 5.5v4M12 14c0-2 1-3.2 2.6-4.6l3.9-3.9M18.5 5.5h-4M18.5 5.5v4"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.6"/><circle cx="12" cy="12" r="6.2"/><path d="M12 3.4v2.4M12 18.2v2.4M3.4 12h2.4M18.2 12h2.4M5.9 5.9l1.7 1.7M16.4 16.4l1.7 1.7M5.9 18.1l1.7-1.7M16.4 7.6l1.7-1.7"/></symbol>
+</svg>
+<a class="skip" href="#main">Перейти к содержанию</a>
 <header class="top">
-  <a class="brand" href="./"><svg viewBox="0 0 20 26" aria-hidden="true"><rect x="1" y="2" width="18" height="4.5" rx="1.5" fill="#252a29"/><rect x="3" y="8" width="14" height="3" rx="1.2" fill="#8e9693"/><rect x="1" y="12.5" width="18" height="4.5" rx="1.5" fill="#252a29"/><rect x="3" y="18.5" width="14" height="3" rx="1.2" fill="#8e9693"/><rect x="1" y="23" width="18" height="2.5" rx="1" fill="#252a29"/></svg>Volta</a>
-  <nav aria-label="Разделы">
-    <a href="./">Главная</a>
-    <a href="guide.html">Как пользоваться</a>
-    <a href="providers.html" aria-current="page">VPN-сервисам</a>
-    <a href="privacy.html">Конфиденциальность</a>
-  </nav>
+  <div class="top-inner">
+    <a class="brand" href="./"><img src="assets/icon.svg" alt="" width="28" height="28">Volta</a>
+    <nav class="nav" aria-label="Разделы">
+      <a href="./"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-home"/></svg></span>Главная</a>
+      <a href="guide.html"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-book"/></svg></span>Инструкция</a>
+      <a href="providers.html" aria-current="page"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-server"/></svg></span>VPN-сервисам</a>
+      <a href="privacy.html"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg></span>Приватность</a>
+    </nav>
+    <a class="btn primary dl" href="https://github.com/colossalblend/volta/releases/latest"><svg class="i" aria-hidden="true"><use href="#i-download"/></svg>Скачать</a>
+  </div>
 </header>
 
-<div class="page">
+<main class="page" id="main">
+  <header class="doc-head">
+    <h1>Volta для VPN-сервисов</h1>
+    <p class="lead">Volta понимает обычные подписки так же, как Happ и v2rayNG. Здесь — то, что работает только в Volta: добавление в одно нажатие, скрытые и зашифрованные ссылки и разметка серверов для Wi-Fi и мобильной сети.</p>
+  </header>
+
   <nav class="toc" aria-label="Содержание">
     <details open>
-      <summary>Содержание</summary>
-      <ul>
+      <summary>Содержание<svg class="i" aria-hidden="true"><use href="#i-chev"/></svg></summary>
+      <ol>
         <li><a href="#button">Кнопка «Открыть в Volta»</a></li>
         <li><a href="#hidden">Скрытая ссылка</a></li>
         <li><a href="#crypt">Зашифрованная ссылка</a></li>
         <li><a href="#groups">Разметка Home / LTE</a></li>
+        <li><a href="#openflux">Серверы OpenFlux</a></li>
         <li><a href="#format">Что принимает подписка</a></li>
         <li><a href="#headers">Заголовки ответа</a></li>
         <li><a href="#control">Включить и выключить</a></li>
-      </ul>
+      </ol>
     </details>
   </nav>
 
-  <main class="doc">
-    <header class="doc-head">
-      <h1>Volta для VPN-сервисов</h1>
-      <p class="lead">Volta понимает обычные подписки так же, как Happ и v2rayNG. Здесь — то, что работает только в Volta: добавление в одно нажатие, скрытые и зашифрованные ссылки и разметка серверов для Wi-Fi и мобильной сети.</p>
-    </header>
-    <section class="part" aria-labelledby="button">
+  <div class="doc">
+    <section aria-labelledby="button">
       <h2 id="button">Кнопка «Открыть в Volta»</h2>
-      <div class="part-body">
       <p>Всё после <code>volta://import/</code> — адрес подписки вместе с его собственными параметрами. Volta забирает из него только свои ключи, остальное уходит на ваш сервер как было.</p>
 <pre><code>volta://import/https://sub.example.com/u/abc?token=42
-volta://import/https://sub.example.com/u/abc#Мой%20VPN        название после #
+volta://import/https://sub.example.com/u/abc#Мой%20VPN        <span class="c">название после #</span>
 volta://import?url=https%3A%2F%2Fsub.example.com%2Fu%2Fabc&amp;name=Мой%20VPN</code></pre>
       <p>Вместо <code>import/</code> можно писать <code>add/</code> или <code>sub/</code>. Повторное нажатие не создаёт дубль: подписка с тем же адресом обновляется.</p>
 <pre><code>&lt;a href="volta://import/https://sub.example.com/u/abc#Мой VPN"&gt;Открыть в Volta&lt;/a&gt;</code></pre>
-      </div>
     </section>
-    <section class="part" aria-labelledby="hidden">
+
+    <section aria-labelledby="hidden">
       <h2 id="hidden">Скрытая ссылка</h2>
-      <div class="part-body">
       <p>Параметр <code>visible_subs</code> решает, увидит ли пользователь адрес подписки в приложении.</p>
 <pre><code>volta://import/https://sub.example.com/u/abc?visible_subs=false</code></pre>
       <ul>
         <li><code>false</code> — адрес нигде не показывается: ни в карточке, ни в редакторе, ни в сообщениях об ошибках. Его нельзя скопировать или изменить, только переименовать подписку. Обновления работают как обычно.</li>
         <li><code>true</code> или без параметра — адрес виден и редактируется.</li>
       </ul>
-      <div class="panel note">
+      <div class="note">
+        <span class="bubble"><svg class="i" aria-hidden="true"><use href="#i-info"/></svg></span>
         <p>Без шифрования адрес всё ещё можно прочитать из самой ссылки. Если это важно, используйте зашифрованную ссылку.</p>
       </div>
-      </div>
     </section>
-    <section class="part" aria-labelledby="crypt">
+
+    <section aria-labelledby="crypt">
       <h2 id="crypt">Зашифрованная ссылка</h2>
-      <div class="part-body">
       <p>Адрес шифруется открытым ключом Volta, открыть его может только приложение. Такая подписка всегда скрыта.</p>
 <pre><code>pip install cryptography
 python3 tools/volta_crypt.py "https://sub.example.com/u/abc"
@@ -82,14 +105,14 @@ python3 tools/volta_crypt.py "https://sub.example.com/u/abc" --server-type "lte:
         <li>Снаружи можно добавить <code>?name=…</code> и <code>server-type=…</code> как подсказки.</li>
         <li>Шифрование: P-256, HKDF-SHA256, AES-256-GCM; каждая ссылка уникальна.</li>
       </ul>
-      <div class="panel warn">
+      <div class="note">
+        <span class="bubble fair"><svg class="i" aria-hidden="true"><use href="#i-alert"/></svg></span>
         <p>Как и в Happ, ключ для расшифровки находится внутри приложения. Шифрование не даёт прочитать, переслать или вставить ссылку в другой клиент, но не защитит от разбора приложения.</p>
       </div>
-      </div>
     </section>
-    <section class="part" aria-labelledby="groups">
+
+    <section aria-labelledby="groups">
       <h2 id="groups">Разметка Home / LTE</h2>
-      <div class="part-body">
       <p>Volta делит серверы на группы: <span class="group home">Home</span> для обычного интернета, <span class="group lte">LTE</span> для мобильной сети с ограничениями и балансеры. По группам работают авто-режимы. Подойдёт любой из трёх способов, их можно смешивать. Без разметки Volta определяет группу по названию: «LTE», «обход», «белые списки», «Авто», «Балансер».</p>
 
       <h3>Способ 1. JSON по группам</h3>
@@ -118,55 +141,71 @@ python3 tools/volta_crypt.py "https://sub.example.com/u/abc" --server-type "lte:
       <h3>Что важнее</h3>
       <p>JSON-группа, затем метка, затем <code>server-type</code>, затем название. Выбор пользователя главнее всего. Группа, которую вы разметили явно, считается полной: сервер без разметки не попадёт в неё из-за слова «LTE» в названии.</p>
       <p>Если LTE-серверов нет совсем, приложение показывает только «Авто Home» и не проверяет сеть — режимы LTE появятся, когда вы добавите такие серверы.</p>
-      </div>
     </section>
-    <section class="part" aria-labelledby="format">
-      <h2 id="format">Что принимает подписка</h2>
-      <div class="part-body">
+
+    <section aria-labelledby="openflux">
+      <h2 id="openflux">Серверы OpenFlux</h2>
+      <p>Volta принимает ссылки и конфиги OpenFlux — они начинаются с <code>openflux://</code>. Такие серверы работают и дома по Wi-Fi, и на мобильном интернете, в том числе когда оператор открывает только сайты из белого списка. Их можно отдавать и в группе <span class="group home">Home</span>, и в группе <span class="group lte">LTE</span>. В одном конфиге OpenFlux может быть несколько серверов.</p>
+      <p>Отдавайте их так же, как остальные серверы: строкой в подписке, в списке JSON по группам или кнопкой «Открыть в Volta». Пользователь может и сам вставить ссылку или конфиг на экране «Добавить», как любую другую ссылку.</p>
+<pre><code>openflux://v1/…              <span class="c">строка в подписке</span>
+volta://openflux://v1/…      <span class="c">кнопка «Открыть в Volta»</span>
+volta://of/…                 <span class="c">то же, короче</span></code></pre>
+      <p>Обёртка <code>volta://</code> нужна, чтобы ссылка открылась именно в Volta, даже если на телефоне стоит другое приложение OpenFlux. В короткой форме после <code>volta://of/</code> идёт всё, что стояло после <code>openflux://v1/</code>.</p>
+
+      <h3>Home или LTE</h3>
+      <p>Серверы OpenFlux размечаются теми же способами, что и остальные:</p>
       <ul>
-        <li>Список ссылок: <code>vless://</code>, <code>vmess://</code>, <code>trojan://</code>, <code>ss://</code> (включая SS-2022), <code>socks://</code>, <code>hysteria2://</code>/<code>hy2://</code>, <code>hysteria://</code>, <code>wireguard://</code>, ключи <code>vpn://</code> AmneziaVPN — построчно или в base64.</li>
+        <li>JSON по группам — ссылка в списке <code>wifi</code> или <code>lte</code>, можно с названием: <code>{"link": "openflux://v1/…", "name": "Москва"}</code>;</li>
+        <li>метка <code>[H]</code> или <code>[L]</code> в начале названия — в поле <code>name</code> внутри конфига OpenFlux или рядом со ссылкой в JSON;</li>
+        <li><code>server-type</code> в ссылке «Открыть в Volta» — серверы OpenFlux нумеруются по порядку в подписке вместе с остальными.</li>
+      </ul>
+      <p>Если сервер размечен несколькими способами, порядок важности тот же, что и для остальных серверов.</p>
+    </section>
+
+    <section aria-labelledby="format">
+      <h2 id="format">Что принимает подписка</h2>
+      <ul>
+        <li>Список ссылок: <code>vless://</code>, <code>vmess://</code>, <code>trojan://</code>, <code>ss://</code> (включая SS-2022), <code>socks://</code>, <code>hysteria2://</code>/<code>hy2://</code>, <code>hysteria://</code>, <code>wireguard://</code>, <code>openflux://</code>, ключи <code>vpn://</code> AmneziaVPN — построчно или в base64.</li>
         <li>Полный Xray-конфиг или массив конфигов, как в v2rayNG; название сервера берётся из <code>remarks</code>.</li>
         <li>JSON по группам (см. выше).</li>
         <li>Конфиги WireGuard и AmneziaWG от 1.0 до 3.</li>
       </ul>
       <p>Подписка запрашивается по HTTPS. Volta представляется как <code>Volta/1.0 (Android)</code> и передаёт <code>x-device-os</code>, <code>x-ver-os</code>, <code>x-device-model</code>. Заголовок <code>x-hwid</code> уходит, только если пользователь включил «Привязка к устройству».</p>
-      </div>
     </section>
-    <section class="part" aria-labelledby="headers">
+
+    <section aria-labelledby="headers">
       <h2 id="headers">Заголовки ответа</h2>
-      <div class="part-body">
       <div class="table-wrap">
-      <table>
-        <thead><tr><th>Заголовок</th><th>Что делает</th></tr></thead>
-        <tbody>
-          <tr><td><code>profile-title</code></td><td>Название подписки (можно <code>base64:…</code>).</td></tr>
-          <tr><td><code>subscription-userinfo</code></td><td>Трафик и срок: <code>upload=…; download=…; total=…; expire=…</code>. Показывается на карточке.</td></tr>
-          <tr><td><code>profile-update-interval</code></td><td>Как часто обновлять, в часах.</td></tr>
-          <tr><td><code>announce</code></td><td>Короткое сообщение пользователю на карточке подписки.</td></tr>
-          <tr><td><code>support-url</code>, <code>profile-web-page-url</code></td><td>Ссылки на поддержку и личный кабинет.</td></tr>
-          <tr><td><code>routing</code></td><td>Правила маршрутизации в формате Happ (<code>happ://routing/…</code>), включая свои geoip/geosite.</td></tr>
-        </tbody>
-      </table>
+        <table>
+          <thead><tr><th>Заголовок</th><th>Что делает</th></tr></thead>
+          <tbody>
+            <tr><td><code>profile-title</code></td><td>Название подписки (можно <code>base64:…</code>).</td></tr>
+            <tr><td><code>subscription-userinfo</code></td><td>Трафик и срок: <code>upload=…; download=…; total=…; expire=…</code>. Показывается на карточке.</td></tr>
+            <tr><td><code>profile-update-interval</code></td><td>Как часто обновлять, в часах.</td></tr>
+            <tr><td><code>announce</code></td><td>Короткое сообщение пользователю на карточке подписки.</td></tr>
+            <tr><td><code>support-url</code>, <code>profile-web-page-url</code></td><td>Ссылки на поддержку и личный кабинет.</td></tr>
+            <tr><td><code>routing</code></td><td>Правила маршрутизации в формате Happ (<code>happ://routing/…</code>), включая свои geoip/geosite.</td></tr>
+          </tbody>
+        </table>
       </div>
       <p>Те же поля можно передать строками в начале тела: <code>#profile-title: …</code>, <code>#announce: …</code>.</p>
-      </div>
     </section>
-    <section class="part" aria-labelledby="control">
+
+    <section aria-labelledby="control">
       <h2 id="control">Включить и выключить</h2>
-      <div class="part-body">
-<pre><code>volta://connect                  включить в текущем режиме
-volta://connect?mode=home        Авто Home   (lte, auto, manual)
-volta://disconnect               выключить
-volta://toggle                   переключить</code></pre>
+<pre><code>volta://connect                  <span class="c">включить в текущем режиме</span>
+volta://connect?mode=home        <span class="c">Авто Home   (lte, auto, manual)</span>
+volta://disconnect               <span class="c">выключить</span>
+volta://toggle                   <span class="c">переключить</span></code></pre>
       <p>Если пользователь ещё не дал разрешение на VPN, Android сначала спросит его.</p>
-      </div>
     </section>
-  </main>
-</div>
+  </div>
+</main>
 
 <footer>
   <div class="inner">
-    <span>Volta для Android</span>
+    <span class="rule" aria-hidden="true"></span>
+    <span class="made"><img src="assets/icon.svg" alt="" width="20" height="20">Volta для Android</span>
     <a href="https://github.com/colossalblend/volta">Исходный код</a>
     <a href="https://github.com/colossalblend/volta/releases">Все версии</a>
     <a href="privacy.html">Конфиденциальность</a>

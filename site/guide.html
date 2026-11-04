@@ -4,31 +4,64 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Как пользоваться Volta</title>
-<meta name="description" content="Инструкция по Volta: добавить подписку, режимы Home и LTE, простой режим, плитки, приложения мимо VPN, обновления и частые вопросы.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=Unbounded:wght@500;600&display=swap" rel="stylesheet">
+<meta name="description" content="Инструкция по Volta: добавить подписку и ссылку OpenFlux, режимы Home и LTE, простой режим, плитки, приложения мимо VPN, Android TV, обновления и частые вопросы.">
+<meta name="theme-color" content="#101316">
+<link rel="preload" href="assets/fonts/onest.woff" as="font" type="font/woff" crossorigin>
+<link rel="preload" href="assets/fonts/unbounded.woff" as="font" type="font/woff" crossorigin>
 <link rel="stylesheet" href="assets/style.css">
-<script src="assets/toc.js" defer></script>
 <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<script src="assets/site.js" defer></script>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M4.5 10.2 12 4l7.5 6.2V19a1 1 0 0 1-1 1H15v-5.5H9V20H5.5a1 1 0 0 1-1-1z"/></symbol>
+<symbol id="i-book" viewBox="0 0 24 24"><path d="M12 7c-1.8-1.4-4.4-2-8-1.8v12.6c3.6-.2 6.2.4 8 1.8 1.8-1.4 4.4-2 8-1.8V5.2c-3.6-.2-6.2.4-8 1.8z"/><path d="M12 7v12.6"/></symbol>
+<symbol id="i-server" viewBox="0 0 24 24"><rect x="4" y="4.5" width="16" height="6.5" rx="2"/><rect x="4" y="13" width="16" height="6.5" rx="2"/><path d="M8 7.75h.01M8 16.25h.01"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3.6 5.2 6.1v5.3c0 4.2 2.8 7.5 6.8 8.9 4-1.4 6.8-4.7 6.8-8.9V6.1z"/><path d="m9.2 12 2 2 3.8-4"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4.5v10M7.8 10.6 12 14.8l4.2-4.2M5.5 19.5h13"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10.6 13.4a3.6 3.6 0 0 0 5.1 0l2.9-2.9a3.6 3.6 0 0 0-5.1-5.1l-1 1"/><path d="M13.4 10.6a3.6 3.6 0 0 0-5.1 0l-2.9 2.9a3.6 3.6 0 0 0 5.1 5.1l1-1"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11.2v4.8M12 8h.01"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 5.2 3.6 17a2 2 0 0 0 1.7 3h13.4a2 2 0 0 0 1.7-3L13.7 5.2a2 2 0 0 0-3.4 0z"/><path d="M12 9.8v3.6M12 16.6h.01"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="m9.5 6 6 6-6 6"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5.5v13M5.5 12h13"/></symbol>
+<symbol id="i-tv" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2.5"/><path d="M8.5 20.5h7"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M6.5 13.5 12 19l5.5-5.5"/></symbol>
+<symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M5 6.5h14M5 12h14M5 17.5h14"/></symbol>
+<symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7.5 18.5H17a4 4 0 0 0 .6-7.95A5.5 5.5 0 0 0 7 11.3a3.6 3.6 0 0 0 .5 7.2z"/></symbol>
+<symbol id="i-fork" viewBox="0 0 24 24"><path d="M12 20v-6c0-2-1-3.2-2.6-4.6L5.5 5.5M5.5 5.5h4M5.5 5.5v4M12 14c0-2 1-3.2 2.6-4.6l3.9-3.9M18.5 5.5h-4M18.5 5.5v4"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.6"/><circle cx="12" cy="12" r="6.2"/><path d="M12 3.4v2.4M12 18.2v2.4M3.4 12h2.4M18.2 12h2.4M5.9 5.9l1.7 1.7M16.4 16.4l1.7 1.7M5.9 18.1l1.7-1.7M16.4 7.6l1.7-1.7"/></symbol>
+</svg>
+<a class="skip" href="#main">Перейти к содержанию</a>
 <header class="top">
-  <a class="brand" href="./"><svg viewBox="0 0 20 26" aria-hidden="true"><rect x="1" y="2" width="18" height="4.5" rx="1.5" fill="#252a29"/><rect x="3" y="8" width="14" height="3" rx="1.2" fill="#8e9693"/><rect x="1" y="12.5" width="18" height="4.5" rx="1.5" fill="#252a29"/><rect x="3" y="18.5" width="14" height="3" rx="1.2" fill="#8e9693"/><rect x="1" y="23" width="18" height="2.5" rx="1" fill="#252a29"/></svg>Volta</a>
-  <nav aria-label="Разделы">
-    <a href="./">Главная</a>
-    <a href="guide.html" aria-current="page">Как пользоваться</a>
-    <a href="providers.html">VPN-сервисам</a>
-    <a href="privacy.html">Конфиденциальность</a>
-  </nav>
+  <div class="top-inner">
+    <a class="brand" href="./"><img src="assets/icon.svg" alt="" width="28" height="28">Volta</a>
+    <nav class="nav" aria-label="Разделы">
+      <a href="./"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-home"/></svg></span>Главная</a>
+      <a href="guide.html" aria-current="page"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-book"/></svg></span>Инструкция</a>
+      <a href="providers.html"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-server"/></svg></span>VPN-сервисам</a>
+      <a href="privacy.html"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg></span>Приватность</a>
+    </nav>
+    <a class="btn primary dl" href="https://github.com/colossalblend/volta/releases/latest"><svg class="i" aria-hidden="true"><use href="#i-download"/></svg>Скачать</a>
+  </div>
 </header>
 
-<div class="page">
+<main class="page" id="main">
+  <header class="doc-head">
+    <h1>Как пользоваться Volta</h1>
+    <p class="lead">Всё, что нужно, — подписка от VPN-сервиса. Остальное Volta настраивает сама, а здесь написано, что и где можно поменять.</p>
+    <div class="note key">
+      <span class="bubble"><svg class="i" aria-hidden="true"><use href="#i-link"/></svg></span>
+      <p>В приложении нет своих серверов. Нужна ссылка-подписка от вашего VPN-сервиса — её вставляют на экране «Добавить».</p>
+    </div>
+  </header>
+
   <nav class="toc" aria-label="Содержание">
     <details open>
-      <summary>Содержание</summary>
-      <ul>
+      <summary>Содержание<svg class="i" aria-hidden="true"><use href="#i-chev"/></svg></summary>
+      <ol>
         <li><a href="#add">Добавить подписку</a></li>
+        <li><a href="#openflux">Ссылки OpenFlux</a></li>
         <li><a href="#modes">Режимы подключения</a></li>
         <li><a href="#auto">Что Volta делает сама</a></li>
         <li><a href="#simple">Простой режим</a></li>
@@ -36,21 +69,16 @@
         <li><a href="#apps">Приложения мимо VPN</a></li>
         <li><a href="#routes">Маршруты и фильтры</a></li>
         <li><a href="#quick">Плитки, ярлыки, виджет</a></li>
+        <li><a href="#tv">Android TV</a></li>
         <li><a href="#updates">Обновления</a></li>
         <li><a href="#faq">Частые вопросы</a></li>
-      </ul>
+      </ol>
     </details>
   </nav>
 
-  <main class="doc">
-    <header class="doc-head">
-      <h1>Как пользоваться Volta</h1>
-      <p class="lead">Всё, что нужно, — подписка от VPN-сервиса. Остальное Volta настраивает сама, а здесь написано, что и где можно поменять.</p>
-      <p class="no-servers">В приложении нет своих серверов. Нужна ссылка-подписка от вашего VPN-сервиса — её вставляют на экране «Добавить».</p>
-    </header>
-    <section class="part" aria-labelledby="add">
+  <div class="doc">
+    <section aria-labelledby="add">
       <h2 id="add">Добавить подписку</h2>
-      <div class="part-body">
       <p>Подписка — это ссылка, которую выдаёт ваш VPN-сервис. В ней список серверов, и Volta сама обновляет его, когда сервис что-то меняет.</p>
       <ol class="steps">
         <li><strong>Скопируйте ссылку</strong>Обычно она в личном кабинете или в боте сервиса.</li>
@@ -58,37 +86,47 @@
         <li><strong>Нажмите «Вставить», затем «Добавить подписку»</strong>Под полем Volta пишет, что именно вы вставили: подписку, отдельный сервер или ключ.</li>
       </ol>
       <p>Если сервис показывает кнопку «Открыть в Volta», нажмите её — подписка добавится сразу, без копирования.</p>
-      <div class="panel note">
+      <div class="note">
+        <span class="bubble"><svg class="i" aria-hidden="true"><use href="#i-info"/></svg></span>
         <p><strong>Скрытая ссылка.</strong> Некоторые сервисы не показывают адрес подписки. Тогда в карточке подписки стоит отметка «ссылка скрыта»: подписка работает и обновляется как обычно, а поменять можно только её название.</p>
       </div>
-      <p>Кроме подписок, в то же поле можно вставить ссылку на один сервер или ключ AmneziaVPN, а кнопкой «Открыть файл настроек» — добавить файл, который прислал сервис.</p>
-      </div>
+      <p>Кроме подписок, в то же поле можно вставить ссылку на один сервер, ключ AmneziaVPN или <a href="#openflux">ссылку OpenFlux</a>, а кнопкой «Открыть файл настроек» — добавить файл, который прислал сервис.</p>
     </section>
-    <section class="part" aria-labelledby="modes">
+
+    <section aria-labelledby="openflux">
+      <h2 id="openflux">Ссылки OpenFlux</h2>
+      <p>Volta понимает и ссылки OpenFlux — они начинаются с <code>openflux://</code>. Серверы OpenFlux работают и дома по Wi-Fi, и на мобильном интернете, даже когда оператор открывает только разрешённые сайты. Поэтому они подходят и для режима <span class="group home">Home</span>, и для <span class="group lte">LTE</span>.</p>
+      <ol class="steps">
+        <li><strong>Скопируйте ссылку или конфиг OpenFlux</strong>Их даёт ваш VPN-сервис.</li>
+        <li><strong>Откройте «Добавить»</strong>Тот же экран, что и для подписки.</li>
+        <li><strong>Вставьте и нажмите кнопку под полем</strong>Как с любой другой ссылкой. В одном конфиге OpenFlux может быть несколько серверов — Volta добавит их все.</li>
+      </ol>
+      <p>Иногда сервис, через который идёт OpenFlux, просит пройти проверку «я не робот». Тогда на главном экране появится «OpenFlux просит пройти проверку»: нажмите «Открыть» и пройдите её.</p>
+    </section>
+
+    <section aria-labelledby="modes">
       <h2 id="modes">Режимы подключения</h2>
-      <div class="part-body">
       <p>Под диском на главном экране три режима. Volta делит серверы подписки на две группы:</p>
       <ul>
         <li><span class="group home">Home</span> — обычные серверы. Подходят для домашнего Wi-Fi и любого интернета без ограничений.</li>
         <li><span class="group lte">LTE</span> — серверы для мобильного интернета, когда оператор пропускает только разрешённые сайты.</li>
       </ul>
       <div class="table-wrap">
-      <table>
-        <thead><tr><th>Режим</th><th>Что делает</th></tr></thead>
-        <tbody>
-          <tr><td><span class="group auto">Home+LTE</span></td><td>Проверяет, какая сейчас сеть, и выбирает сервер из подходящей группы. При переходе с Wi-Fi на мобильный интернет переключается сама. Выбирайте, если не уверены.</td></tr>
-          <tr><td><span class="group home">Home</span></td><td>Только обычные серверы, самый быстрый из них.</td></tr>
-          <tr><td><span class="group lte">LTE</span></td><td>Только серверы для мобильного интернета.</td></tr>
-          <tr><td>Свой сервер</td><td>Включается, когда вы сами выбираете сервер в списке. Volta не меняет его, пока вы не нажмёте «Вернуть авто».</td></tr>
-        </tbody>
-      </table>
+        <table>
+          <thead><tr><th>Режим</th><th>Что делает</th></tr></thead>
+          <tbody>
+            <tr><td><span class="group auto">Home+LTE</span></td><td>Проверяет, какая сейчас сеть, и выбирает сервер из подходящей группы. При переходе с Wi-Fi на мобильный интернет переключается сама. Выбирайте, если не уверены.</td></tr>
+            <tr><td><span class="group home">Home</span></td><td>Только обычные серверы, самый быстрый из них.</td></tr>
+            <tr><td><span class="group lte">LTE</span></td><td>Только серверы для мобильного интернета.</td></tr>
+            <tr><td>Свой сервер</td><td>Включается, когда вы сами выбираете сервер в списке. Volta не меняет его, пока вы не нажмёте «Вернуть авто».</td></tr>
+          </tbody>
+        </table>
       </div>
       <p>Если в ваших подписках нет LTE-серверов, вместо трёх режимов остаётся «Авто Home», а рядом приглушённая плашка «LTE · нет серверов». Как только сервис добавит такие серверы, режимы вернутся сами.</p>
-      </div>
     </section>
-    <section class="part" aria-labelledby="auto">
+
+    <section aria-labelledby="auto">
       <h2 id="auto">Что Volta делает сама</h2>
-      <div class="part-body">
       <p>Пока VPN включён и экран горит, Volta раз в две минуты проверяет сервер, через который идёт интернет:</p>
       <ul>
         <li>сервер перестал отвечать и через него не проходят данные — переходит на другой;</li>
@@ -97,35 +135,31 @@
       </ul>
       <p>Проверки короткие и почти не тратят батарею. С выключенным экраном они не идут, а при низком заряде или в режиме энергосбережения — реже. Если вас перебрасывает между серверами слишком часто, Volta сама делает паузу на десять минут.</p>
       <p>Выключить эти проверки можно в «Настройках»: «Следить за сменой сети», «Улучшать выбор сервера» и «Менять сервер при обрыве».</p>
-      </div>
     </section>
-    <section class="part" aria-labelledby="simple">
+
+    <section aria-labelledby="simple">
       <h2 id="simple">Простой режим</h2>
-      <div class="part-body">
       <p>Для родителей и всех, кому не нужны настройки: на экране остаётся одна большая кнопка «Включить / Выключить», сервер выбирается сам. Включается в «Настройках» первой же строкой, там же выключается.</p>
-      </div>
     </section>
-    <section class="part" aria-labelledby="servers">
+
+    <section aria-labelledby="servers">
       <h2 id="servers">Серверы</h2>
-      <div class="part-body">
       <ul>
         <li>Серверы всех подписок собраны в один список и сгруппированы по странам. Переключатель «Страны / Список» показывает их одним списком.</li>
         <li>Цифра справа — отклик в миллисекундах: чем меньше, тем быстрее. Зелёный — хорошо, жёлтый — терпимо, красный — медленно.</li>
         <li>Плитки «Home+LTE», «Home» и «LTE» вверху находят лучший сервер в группе.</li>
         <li>Долгое нажатие на сервер открывает действия: проверить, добавить в избранное, поделиться или перенести в другую группу, если Volta определила её неправильно.</li>
       </ul>
-      </div>
     </section>
-    <section class="part" aria-labelledby="apps">
+
+    <section aria-labelledby="apps">
       <h2 id="apps">Приложения мимо VPN</h2>
-      <div class="part-body">
       <p>Банки, Госуслуги и некоторые магазины не любят VPN. Их можно пустить напрямую: «Маршруты» → «Раздельное туннелирование». Там же готовые наборы — банки, госсервисы, маркетплейсы, — их включают одним нажатием.</p>
       <p>Можно и наоборот: пускать через VPN только выбранные приложения.</p>
-      </div>
     </section>
-    <section class="part" aria-labelledby="routes">
+
+    <section aria-labelledby="routes">
       <h2 id="routes">Маршруты и фильтры</h2>
-      <div class="part-body">
       <p>Маршруты решают, какие сайты открываются через VPN, а какие напрямую. Обычно ничего менять не нужно: подписка сама присылает подходящие правила.</p>
       <ul>
         <li><strong>Блокировка рекламы</strong> — фильтр AdGuard убирает рекламу и трекеры во всех приложениях. Если в настройках Android включён «Частный DNS», выключите его, иначе фильтр не сработает.</li>
@@ -133,68 +167,75 @@
         <li><strong>Свои правила</strong> — в профиле можно добавить сайт и выбрать: через VPN, напрямую или блокировать.</li>
       </ul>
       <p>Если поменять маршруты при включённом VPN, сверху появится «Применить» — нажмите, и Volta переподключится с новыми правилами.</p>
-      </div>
     </section>
-    <section class="part" aria-labelledby="quick">
+
+    <section aria-labelledby="quick">
       <h2 id="quick">Плитки, ярлыки, виджет</h2>
-      <div class="part-body">
       <ul>
         <li><strong>Плитки в шторке.</strong> «Настройки» → «Плитки в шторке»: нажмите на плитку, и Android предложит добавить её. Нажатие на плитку включает VPN в её режиме, повторное — выключает.</li>
         <li><strong>Ярлыки.</strong> Долгое нажатие на значок Volta: подключиться в нужном режиме или отключиться.</li>
         <li><strong>Виджет</strong> на рабочем столе показывает состояние и включает VPN.</li>
         <li><strong>Постоянный VPN.</strong> «Настройки» → «Постоянный VPN» → шестерёнка рядом с Volta. Android будет держать Volta включённым и после перезагрузки.</li>
       </ul>
-      </div>
     </section>
-    <section class="part" aria-labelledby="updates">
+
+    <section aria-labelledby="tv">
+      <h2 id="tv">Android TV</h2>
+      <p>Volta работает и на телевизорах с Android TV.</p>
+      <ol class="steps">
+        <li><strong>Установите APK на телевизор</strong>Например, с флешки или через файловый менеджер. Если не знаете, какой файл выбрать, берите тот, где в названии есть <code>universal</code>: он подходит любому устройству.</li>
+        <li><strong>Добавьте подписку</strong>По ссылке или файлом.</li>
+        <li><strong>Управляйте пультом</strong>Стрелками и кнопкой «ОК», как любым приложением на телевизоре.</li>
+      </ol>
+    </section>
+
+    <section aria-labelledby="updates">
       <h2 id="updates">Обновления</h2>
-      <div class="part-body">
       <p>Если Volta установлена из Google Play, её обновляет Google Play.</p>
-      <p>Если вы ставили файл со страницы загрузки, Volta сама проверяет новые версии и присылает уведомление. Проверить вручную: «Настройки» → «О приложении» → «Проверить». При первом обновлении Android попросит разрешить Volta устанавливать приложения — это нужно один раз.</p>
+      <p>Если вы ставили файл со страницы загрузки, Volta сама проверяет новые версии — при запуске и в фоне, раз в несколько часов, — и присылает уведомление. Проверить вручную: «Настройки» → «О приложении» → «Проверить». При первом обновлении Android попросит разрешить Volta устанавливать приложения — это нужно один раз.</p>
       <p>Не хотите, чтобы Volta проверяла обновления сама? Выключите «Настройки» → «О приложении» → «Проверка обновлений». Тогда она проверяет только когда вы нажмёте «Проверить».</p>
-      </div>
     </section>
-    <section class="part" aria-labelledby="faq">
+
+    <section aria-labelledby="faq">
       <h2 id="faq">Частые вопросы</h2>
-      <div class="part-body">
       <div class="faq">
         <details>
-          <summary>VPN включён, но сайты не открываются</summary>
+          <summary>VPN включён, но сайты не открываются<svg class="i" aria-hidden="true"><use href="#i-chev"/></svg></summary>
           <p>Откройте вкладку «Серверы» и нажмите плитку своего режима — Volta проверит серверы и выберет рабочий. Если не помогло, обновите подписку: «Подписки» → кнопка обновления на карточке. Возможно, у подписки закончился срок — он написан на карточке.</p>
         </details>
         <details>
-          <summary>На мобильном интернете не работает, а на Wi-Fi работает</summary>
+          <summary>На мобильном интернете не работает, а на Wi-Fi работает<svg class="i" aria-hidden="true"><use href="#i-chev"/></svg></summary>
           <p>Нужны LTE-серверы. Если режимов LTE нет, значит, в подписке нет таких серверов — спросите у своего VPN-сервиса. Если есть, выберите «Home+LTE» или «LTE».</p>
         </details>
         <details>
-          <summary>Сервер попал не в ту группу</summary>
+          <summary>Сервер попал не в ту группу<svg class="i" aria-hidden="true"><use href="#i-chev"/></svg></summary>
           <p>Долгое нажатие на сервер → «Группа» → выберите правильную. Ваш выбор сохраняется и при обновлении подписки.</p>
         </details>
         <details>
-          <summary>Банковское приложение пишет, что включён VPN</summary>
+          <summary>Банковское приложение пишет, что включён VPN<svg class="i" aria-hidden="true"><use href="#i-chev"/></svg></summary>
           <p>Пустите его мимо VPN: «Маршруты» → «Раздельное туннелирование» → готовый набор «Банки» или само приложение из списка.</p>
         </details>
         <details>
-          <summary>Volta пишет «Эта версия Volta не умеет открывать…»</summary>
+          <summary>Volta пишет «Эта версия Volta не умеет открывать…»<svg class="i" aria-hidden="true"><use href="#i-chev"/></svg></summary>
           <p>Сервис прислал серверы, которые Volta пока не поддерживает. Попросите у сервиса другую ссылку или обновите Volta.</p>
         </details>
         <details>
-          <summary>Реклама всё равно показывается</summary>
+          <summary>Реклама всё равно показывается<svg class="i" aria-hidden="true"><use href="#i-chev"/></svg></summary>
           <p>Проверьте, что в настройках Android выключен «Частный DNS» (обычно «Подключения» → «Другие настройки»). Рекламу внутри некоторых приложений фильтр убрать не может.</p>
         </details>
         <details>
-          <summary>VPN выключается сам</summary>
+          <summary>VPN выключается сам<svg class="i" aria-hidden="true"><use href="#i-chev"/></svg></summary>
           <p>Скорее всего, телефон экономит батарею. Включите «Постоянный VPN» и уберите Volta из экономии батареи в настройках Android.</p>
         </details>
       </div>
-      </div>
     </section>
-  </main>
-</div>
+  </div>
+</main>
 
 <footer>
   <div class="inner">
-    <span>Volta для Android</span>
+    <span class="rule" aria-hidden="true"></span>
+    <span class="made"><img src="assets/icon.svg" alt="" width="20" height="20">Volta для Android</span>
     <a href="https://github.com/colossalblend/volta">Исходный код</a>
     <a href="https://github.com/colossalblend/volta/releases">Все версии</a>
     <a href="privacy.html">Конфиденциальность</a>
