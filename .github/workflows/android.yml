@@ -484,13 +484,10 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v5
 
-      # The pictures go to the branch's "shots-…" pre-release as l10n-screens.zip (and an
-      # artifact); each test's failure and the text of every screen go to the log.
+      # The text of every screen and each test's failure go to the log, and so do the
+      # pictures, base64 between "=== PNG <name> ===" lines, for anyone who can read the
+      # log but not fetch artifacts; the artifact has them as files.
       - name: Screens
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           set +e -o pipefail
           export VOLTA_SHOTS="$RUNNER_TEMP/shots"
@@ -508,12 +505,16 @@ jobs:
             [ -f "$f" ] || continue
             echo "::group::$f"; cat "$f"; echo; echo "::endgroup::"
           done
+          echo "::group::Pictures (base64)"
+          for f in "$VOLTA_SHOTS"/l10n/*/*.png; do
+            [ -f "$f" ] || continue
+            echo "=== PNG ${f#$VOLTA_SHOTS/} ==="
+            base64 -w 1000 "$f"
+            echo "=== END ==="
+          done
+          echo "::endgroup::"
           cp -r "$RESULTS" "$VOLTA_SHOTS/results" 2>/dev/null
           (cd "$VOLTA_SHOTS" && zip -qr "$RUNNER_TEMP/l10n-screens.zip" .)
-          TAG="shots-${BRANCH//\//-}"
-          gh release view "$TAG" > /dev/null 2>&1 || gh release create "$TAG" --prerelease --target "$GITHUB_SHA" \
-            --title "Screens · $BRANCH" --notes "The main screens in English and German (LocalizedScreensTest)."
-          gh release upload "$TAG" "$RUNNER_TEMP/l10n-screens.zip" --clobber
           exit $status
 
       - name: Upload the screens
