@@ -25,7 +25,6 @@ import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.InstallMobile
 import androidx.compose.material.icons.rounded.SystemUpdate
-import androidx.compose.material.icons.rounded.UpdateDisabled
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -100,21 +99,20 @@ fun UpdateBanner(state: UpdateState, onInstall: () -> Unit) {
 
 /**
  * The «О приложении» row in Settings: which version this is and what the update is doing.
- * [on] is false when updating from the app is switched off; [storeNote] replaces
- * everything for the Google Play build, which has no updater of its own.
+ * [storeNote] replaces everything for the Google Play build, which has no updater of its
+ * own. The «Проверить» pill is always there, even with automatic checks off.
  */
 @Composable
 fun UpdatePanel(
     state: UpdateState,
     currentVersion: String,
-    on: Boolean,
     onCheck: () -> Unit,
     onInstall: () -> Unit,
     storeNote: String? = null
 ) {
     val scheme = MaterialTheme.colorScheme
     val palette = VoltaTheme.palette
-    val quiet = storeNote != null || !on
+    val quiet = storeNote != null
     val tint = when {
         quiet -> scheme.onSurfaceVariant
         state is UpdateState.UpToDate -> palette.good
@@ -126,26 +124,16 @@ fun UpdatePanel(
             Modifier.padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconBubble(
-                if (quiet && storeNote == null) Icons.Rounded.UpdateDisabled else updateIcon(state),
-                tint,
-                active = !quiet
-            )
+            IconBubble(updateIcon(state), tint, active = !quiet)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     if (quiet) "Volta $currentVersion" else panelTitle(state, currentVersion),
                     style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                Hint(
-                    when {
-                        storeNote != null -> storeNote
-                        !on -> "Обновления из приложения выключены"
-                        else -> panelHint(state, currentVersion)
-                    }
-                )
+                Hint(storeNote ?: panelHint(state, currentVersion))
             }
             if (!quiet) {
                 Spacer(Modifier.width(10.dp))

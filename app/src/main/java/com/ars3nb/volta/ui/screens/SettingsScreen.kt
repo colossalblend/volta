@@ -5,11 +5,6 @@ import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -37,7 +32,6 @@ import androidx.compose.material.icons.rounded.BatterySaver
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Dns
-import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
@@ -76,6 +70,9 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ars3nb.volta.BuildConfig
 import com.ars3nb.volta.data.model.ConnectMode
@@ -118,7 +115,6 @@ fun SettingsScreen(vm: VoltaViewModel) {
     val simpleMode by vm.simpleMode.collectAsStateWithLifecycle()
     val update by vm.updateState.collectAsStateWithLifecycle()
     val updateAutoCheck by vm.updateAutoCheck.collectAsStateWithLifecycle()
-    val otaEnabled by vm.otaEnabled.collectAsStateWithLifecycle()
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val palette = VoltaTheme.palette
@@ -250,7 +246,8 @@ fun SettingsScreen(vm: VoltaViewModel) {
                                 VoltaChip(
                                     text = pingLabel(t),
                                     selected = pingType == t,
-                                    onClick = { vm.setDefaultPingType(t) }
+                                    onClick = { vm.setDefaultPingType(t) },
+                                    rest = MaterialTheme.colorScheme.surfaceVariant
                                 )
                             }
                         }
@@ -337,7 +334,6 @@ fun SettingsScreen(vm: VoltaViewModel) {
                     UpdatePanel(
                         state = update,
                         currentVersion = BuildConfig.VERSION_NAME,
-                        on = otaEnabled,
                         onCheck = vm::checkForUpdate,
                         onInstall = vm::installUpdate,
                         storeNote = if (vm.updaterBuilt) null else "Обновления приходят через Google Play"
@@ -345,43 +341,17 @@ fun SettingsScreen(vm: VoltaViewModel) {
                     // The Google Play build has no updater of its own: nothing to switch.
                     if (vm.updaterBuilt) {
                         SwitchRow(
-                            icon = Icons.Rounded.SystemUpdate,
+                            icon = Icons.Rounded.Autorenew,
                             tint = primary,
-                            title = "Обновления из приложения",
-                            subtitle = "Volta сама скачает и предложит установить новую версию",
-                            checked = otaEnabled,
-                            onChecked = vm::setOtaEnabled
+                            title = "Проверка обновлений",
+                            subtitle = if (updateAutoCheck) {
+                                "При запуске и раз в несколько часов. О новой версии придёт уведомление"
+                            } else {
+                                "Выключена. Проверить можно кнопкой «Проверить»"
+                            },
+                            checked = updateAutoCheck,
+                            onChecked = vm::setUpdateAutoCheck
                         )
-                        AnimatedVisibility(
-                            visible = otaEnabled,
-                            enter = fadeIn() + expandVertically(),
-                            exit = fadeOut() + shrinkVertically()
-                        ) {
-                            SwitchRow(
-                                icon = Icons.Rounded.Autorenew,
-                                tint = primary,
-                                title = "Проверять без меня",
-                                subtitle = "При запуске и раз в несколько часов. О новой версии придёт уведомление",
-                                checked = updateAutoCheck,
-                                onChecked = vm::setUpdateAutoCheck
-                            )
-                        }
-                        if (!otaEnabled) {
-                            LinkRow(
-                                icon = Icons.Rounded.Download,
-                                tint = primary,
-                                title = "Скачать вручную",
-                                subtitle = "Страница с последней версией",
-                                onClick = {
-                                    runCatching {
-                                        context.startActivity(
-                                            Intent(Intent.ACTION_VIEW, android.net.Uri.parse(RELEASES_URL))
-                                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        )
-                                    }
-                                }
-                            )
-                        }
                     }
                     LinkRow(
                         icon = Icons.AutoMirrored.Rounded.MenuBook,
@@ -407,8 +377,6 @@ fun SettingsScreen(vm: VoltaViewModel) {
 /** Where the user guide lives (the docs site built from site/). */
 private const val HELP_URL = "https://colossalblend.github.io/volta/"
 
-/** The newest published build, for when updating from the app is switched off. */
-private val RELEASES_URL = "https://github.com/${BuildConfig.UPDATE_REPO}/releases/latest"
 
 /** A Quick Settings tile as it will look in the shade; a tap asks Android to add it. */
 @Composable
@@ -431,7 +399,17 @@ private fun TilePad(mode: ConnectMode, modifier: Modifier = Modifier, onClick: (
                 modifier = Modifier.size(22.dp)
             )
             Spacer(Modifier.height(10.dp))
-            Text(GroupTileService.label(mode), style = MaterialTheme.typography.titleSmall, maxLines = 1)
+            // "Home+LTE" must fit a third of the row on any phone: shrink, don't cut.
+            BasicText(
+                GroupTileService.label(mode),
+                style = MaterialTheme.typography.titleSmall.copy(color = scheme.onSurface),
+                maxLines = 1,
+                softWrap = false,
+                autoSize = TextAutoSize.StepBased(
+                    minFontSize = 10.sp,
+                    maxFontSize = MaterialTheme.typography.titleSmall.fontSize
+                )
+            )
             Text("добавить", style = MaterialTheme.typography.labelMedium, color = scheme.primary)
         }
     }
@@ -440,7 +418,7 @@ private fun TilePad(mode: ConnectMode, modifier: Modifier = Modifier, onClick: (
 /**
  * One colour theme as a coin painted in its own colours: the background as the rim,
  * the surface as the face and the accent as the centre, like the power disc. "Система"
- * is half night, half day; "Обои" shows the wallpaper colours where Android has them.
+ * is half night, half day; "Material" shows the wallpaper colours where Android has them.
  */
 @Composable
 private fun ThemeCoin(theme: DesignTheme, selected: Boolean, onClick: () -> Unit) {
@@ -501,10 +479,10 @@ private fun ThemeCoin(theme: DesignTheme, selected: Boolean, onClick: () -> Unit
 }
 
 private fun pingLabel(t: PingType) = when (t) {
-    PingType.REAL_DELAY -> "Точно"
-    PingType.HTTP_GET -> "Через сайт"
-    PingType.TCP -> "Быстро"
-    PingType.ICMP -> "Просто"
+    PingType.REAL_DELAY -> "Через сервер"
+    PingType.HTTP_GET -> "HTTP GET"
+    PingType.TCP -> "TCP"
+    PingType.ICMP -> "ICMP"
 }
 
 private fun pingHint(t: PingType) = when (t) {
@@ -520,5 +498,5 @@ private fun themeLabel(t: DesignTheme) = when (t) {
     DesignTheme.LIGHT -> "Светлая"
     DesignTheme.OCEAN -> "Океан"
     DesignTheme.EMBER -> "Уголь"
-    DesignTheme.DYNAMIC -> "Обои"
+    DesignTheme.DYNAMIC -> "Material"
 }

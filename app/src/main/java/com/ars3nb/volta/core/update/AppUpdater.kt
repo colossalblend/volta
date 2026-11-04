@@ -29,12 +29,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -76,9 +74,7 @@ sealed interface UpdateState {
  * key, so it installs over.
  *
  * Builds for Google Play have no updater at all ([BuildConfig.OTA] is false): there the
- * store updates the app, and an app may not update itself around it. In the GitHub build
- * the user can switch the updater off ([setOtaEnabled]); then it is as good as absent:
- * no checks, no banner, no notification, nothing downloaded.
+ * store updates the app, and an app may not update itself around it.
  */
 class AppUpdater(private val context: Context, private val scope: CoroutineScope) {
 
@@ -86,25 +82,15 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
     private val _state = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val state: StateFlow<UpdateState> = _state.asStateFlow()
 
-    val autoCheck = prefs.updateAutoCheck
-
-    /** The user's switch «Обновления из приложения»; always false in the Google Play build. */
-    val otaEnabled: StateFlow<Boolean> = prefs.otaEnabled
-        .map { BuildConfig.OTA && it }
-        .stateIn(scope, SharingStarted.Eagerly, BuildConfig.OTA)
-
     /**
-     * False in the Google Play build (the store does the updating) and while the user has
-     * the updater switched off. Synchronous for the UI, so it reads the cached switch;
-     * the checks themselves read the stored value ([isOn]), which is never stale.
+     * «Проверка обновлений»: on, Volta looks on launch and in the background and sends a
+     * notification; off, it never looks by itself, but the «Проверить» button still works.
+     * The old «Обновления из приложения» switch (1.1.30 only) counts as off here too.
      */
-    val enabled: Boolean get() = otaEnabled.value
+    val autoCheck = combine(prefs.updateAutoCheck, prefs.otaEnabled) { auto, legacy -> auto && legacy }
 
-    private suspend fun isOn(): Boolean = BuildConfig.OTA && prefs.otaEnabled.first()
-
-    /** Set when the updater is switched off mid-download, so the download loop stops. */
-    @Volatile
-    private var stopped = false
+    /** False in the Google Play build: the store does the updating. */
+    val enabled: Boolean get() = BuildConfig.OTA
 
     private var download: Job? = null
 
@@ -125,53 +111,41 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
     @Volatile
     private var preferTunnel = false
 
-    suspend fun setAutoCheck(enabled: Boolean) = prefs.setUpdateAutoCheck(enabled)
-
-    /**
-     * The switch «Обновления из приложения». Off stops a download under way, forgets what
-     * was found, deletes what was downloaded and takes back a notification already shown.
-     * On checks straight away, so the user sees the answer under the switch.
-     */
-    suspend fun setOtaEnabled(on: Boolean) {
-        if (!BuildConfig.OTA) return
-        prefs.setOtaEnabled(on)
-        if (on) {
-            stopped = false
+    suspend fun setAutoCheck(enabled: Boolean) {
+        prefs.setUpdateAutoCheck(enabled)
+        if (enabled) {
+            prefs.setOtaEnabled(true)
             check()
         } else {
-            stopped = true
-            download?.cancel()
-            download = null
-            _state.value = UpdateState.Idle
-            withContext(Dispatchers.IO) { updateDir().deleteRecursively() }
+            // Nothing announced while checks are off.
             context.getSystemService(NotificationManager::class.java)?.cancel(NOTIFICATION_ID)
         }
     }
 
     /** On opening the app: once per process, then at most every half hour. */
     suspend fun checkOnLaunch() {
-        if (!isOn() || !prefs.updateAutoCheck.first()) return
+        if (!enabled || !autoCheck.first()) return
         val recent = System.currentTimeMillis() - prefs.updateLastCheck.first() < LAUNCH_EVERY_MS
         if (_state.value is UpdateState.Idle || !recent) check()
     }
 
     /** From the hourly worker: every few hours, and a notification once per new build. */
     suspend fun checkInBackground() {
-        if (!isOn() || !prefs.updateAutoCheck.first()) return
+        if (!enabled || !autoCheck.first()) return
         if (System.currentTimeMillis() - prefs.updateLastCheck.first() < BACKGROUND_EVERY_MS) return
         val info = when (val found = check()) {
             is UpdateState.Available -> found.info
             is UpdateState.Ready -> found.info
             else -> return
         }
-        if (info.versionCode > prefs.updateNotified.first() && isOn()) {
+        if (info.versionCode > prefs.updateNotified.first()) {
             notifyAvailable(info)
             prefs.setUpdateNotified(info.versionCode)
         }
     }
 
     suspend fun check(): UpdateState {
-        if (!isOn()) return UpdateState.Idle
+        if (!enabled) return UpdateState.Idle
         val current = _state.value
         if (current is UpdateState.Checking || current is UpdateState.Downloading) return current
         _state.value = UpdateState.Checking
@@ -197,11 +171,6 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
             }
         }
         prefs.setUpdateLastCheck(now)
-        // Switched off while GitHub was answering: keep quiet about what it said.
-        if (!isOn()) {
-            _state.value = UpdateState.Idle
-            return UpdateState.Idle
-        }
         _state.value = next
         return next
     }
@@ -216,7 +185,6 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
             else -> null
         } ?: return
         if (download?.isActive == true) return
-        stopped = false
         download = scope.launch { fetchAndInstall(info, retry = true) }
     }
 
@@ -229,12 +197,6 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
             runCatching { if (!verified(info)) fetchApk(info) }
         }
         val error = result.exceptionOrNull()
-        if (!isOn()) {
-            // Switched off meanwhile: no installer, no error, nothing left behind.
-            _state.value = UpdateState.Idle
-            withContext(Dispatchers.IO) { updateDir().deleteRecursively() }
-            return
-        }
         when {
             error == null -> install(info)
             error is CancellationException -> throw error
@@ -314,18 +276,6 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
         updateDir().apply { mkdirs() }.listFiles()?.forEach { it.delete() }
         val part = File(target.path + ".part")
         _state.value = UpdateState.Downloading(info, 0f)
-        try {
-            downloadTo(part, info)
-        } catch (e: IOException) {
-            // Switched off mid-way: the half-file is of no use to anyone.
-            if (stopped) part.delete()
-            throw e
-        }
-        target.delete()
-        if (!part.renameTo(target)) throw IOException("could not keep the download")
-    }
-
-    private fun downloadTo(part: File, info: UpdateInfo) {
         route { client ->
             client.newCall(request(info.url))
                 .execute().use { response ->
@@ -340,14 +290,13 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
                         part.outputStream().use { output ->
                             val buffer = ByteArray(64 * 1024)
                             while (true) {
-                                if (stopped) throw IOException("updates switched off")
                                 val n = input.read(buffer)
                                 if (n < 0) break
                                 output.write(buffer, 0, n)
                                 digest.update(buffer, 0, n)
                                 read += n
                                 val percent = if (total > 0) (read * 100 / total).toInt().coerceAtMost(100) else 0
-                                if (percent != shown && !stopped) {
+                                if (percent != shown) {
                                     shown = percent
                                     _state.value = UpdateState.Downloading(info, percent / 100f)
                                 }
@@ -360,6 +309,8 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
                     }
                 }
         }
+        target.delete()
+        if (!part.renameTo(target)) throw IOException("could not keep the download")
     }
 
     /** Direct first (Volta is outside its own tunnel); through the tunnel if that fails. */
@@ -369,7 +320,7 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
         return try {
             call(first)
         } catch (e: IOException) {
-            if (!tunnelUp || stopped) throw e
+            if (!tunnelUp) throw e
             val second = if (first === direct) tunnel else direct
             call(second).also { preferTunnel = second === tunnel }
         }

@@ -60,8 +60,8 @@ class AppPreferences(private val context: Context) {
     }
 
     /**
-     * The app updates itself at all. Off: no checks, no banner, no notification — new
-     * versions are then the user's own business (the releases page, another store).
+     * Left from 1.1.30, where updating could be switched off as a whole. Now folded into
+     * [updateAutoCheck]: false here means automatic checks are off until switched on.
      */
     val otaEnabled: Flow<Boolean> = context.dataStore.data.map { it[Keys.otaEnabled] ?: true }
 

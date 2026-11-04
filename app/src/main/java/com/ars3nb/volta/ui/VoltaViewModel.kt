@@ -258,13 +258,9 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     /** This build can update itself at all: the GitHub one, not the Google Play one. */
     val updaterBuilt: Boolean get() = BuildConfig.OTA
 
-    /** The switch «Обновления из приложения»; always false in the Google Play build. */
-    val otaEnabled: StateFlow<Boolean> = updater.otaEnabled
-
     fun checkForUpdate() = viewModelScope.launch { updater.check() }
     fun installUpdate() = updater.downloadAndInstall()
     fun setUpdateAutoCheck(v: Boolean) = viewModelScope.launch { updater.setAutoCheck(v) }
-    fun setOtaEnabled(v: Boolean) = viewModelScope.launch { updater.setOtaEnabled(v) }
 
     fun coreAvailable(): Boolean = repo.isCoreAvailable()
     fun openFluxAvailable(): Boolean = OpenFluxRunner.available

@@ -84,13 +84,15 @@ fun VoltaField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
     shape: Shape = FieldShape,
     container: Color = MaterialTheme.colorScheme.surface,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    /** The outline while the field is not in focus; none by default. */
+    restingOutline: Color = Color.Transparent
 ) {
     val scheme = MaterialTheme.colorScheme
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     val ring by animateColorAsState(
-        if (focused) scheme.primary.copy(alpha = 0.8f) else Color.Transparent,
+        if (focused) scheme.primary.copy(alpha = 0.8f) else restingOutline,
         label = "fieldRing"
     )
     // Typed slots: a lambda built inside ?.let would not be @Composable.
@@ -168,12 +170,14 @@ fun VoltaChip(
     modifier: Modifier = Modifier,
     accent: Color = MaterialTheme.colorScheme.primary,
     icon: ImageVector? = null,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    /** The fill of a chip not chosen: pass surfaceVariant when the chip sits on a card. */
+    rest: Color = MaterialTheme.colorScheme.surface
 ) {
     val scheme = MaterialTheme.colorScheme
     val dark = VoltaTheme.palette.isDark
     val fill by animateColorAsState(
-        if (selected) accent.copy(alpha = if (dark) 0.18f else 0.14f) else scheme.surface,
+        if (selected) accent.copy(alpha = if (dark) 0.18f else 0.14f) else rest,
         label = "chipFill"
     )
     val ink by animateColorAsState(

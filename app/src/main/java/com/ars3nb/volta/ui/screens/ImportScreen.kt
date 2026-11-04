@@ -30,6 +30,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CloudSync
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.DataObject
 import androidx.compose.material.icons.rounded.Description
@@ -86,9 +87,6 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val kind = remember(input) { ImportDetector.detect(input) }
-    // Only whether there is text: reading it would show Android's "pasted" toast for
-    // nothing. The text itself is read when the button is tapped.
-    val canPaste = remember(input.isEmpty()) { input.isEmpty() && clipboard.hasText() }
 
     // A .conf from AmneziaVPN, AmneziaWG or WireGuard. Its type varies by file manager,
     // so any file is offered; the parser decides.
@@ -142,43 +140,39 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
         )
         Spacer(Modifier.height(20.dp))
 
-        Box {
-            VoltaField(
-                value = input,
-                onValueChange = { input = it },
-                placeholder = "Ссылка или ключ от VPN-сервиса",
-                minLines = 4,
-                maxLines = 9
-            )
-            // Pasting is what nearly everyone comes here to do: the button sits in the
-            // empty field, where the thumb already is.
-            if (canPaste) {
-                Surface(
-                    onClick = { clipboard.getText()?.text?.trim()?.let { input = it } },
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(10.dp)
-                ) {
-                    Row(
-                        Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Rounded.ContentPaste,
-                            null,
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            "Вставить",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
+        VoltaField(
+            value = input,
+            onValueChange = { input = it },
+            placeholder = "Вставьте сюда ссылку на подписку, ссылку на сервер " +
+                "(vless://, vmess://, trojan://, ss://, hysteria2://, openflux://) " +
+                "или ключ vpn://",
+            minLines = 4,
+            maxLines = 9,
+            container = MaterialTheme.colorScheme.surface,
+            restingOutline = MaterialTheme.colorScheme.outlineVariant
+        )
+        Spacer(Modifier.height(10.dp))
+        // Pasting is what nearly everyone comes here to do, so the button is always there.
+        // The clipboard is read only on the tap: reading it earlier would show Android's
+        // "pasted" toast for nothing, and before the window has focus it reads as empty.
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FieldButton(
+                icon = Icons.Rounded.ContentPaste,
+                text = "Вставить из буфера",
+                filled = input.isEmpty(),
+                onClick = {
+                    val text = clipboard.getText()?.text?.trim()
+                    if (text.isNullOrEmpty()) vm.showMessage("В буфере обмена пусто")
+                    else input = text
                 }
+            )
+            if (input.isNotEmpty()) {
+                FieldButton(
+                    icon = Icons.Rounded.Close,
+                    text = "Очистить",
+                    filled = false,
+                    onClick = { input = "" }
+                )
             }
         }
 
@@ -315,8 +309,32 @@ private val FORMATS = listOf(
     "Подписка" to "Ссылка от VPN-сервиса, обычная или зашифрованная. Серверы в ней обновляются сами",
     "Сервер" to "Ссылка на один сервер, которую прислал сервис",
     "Ключ AmneziaVPN" to "Длинный ключ, который начинается с vpn://",
+    "Ссылка OpenFlux" to "Ссылка, которая начинается с openflux://",
+    "Ссылка Volta" to "Ссылка volta://, которую даёт VPN-сервис: обычная или зашифрованная",
     "Файл настроек" to "Файл, который прислал сервис: его можно открыть кнопкой выше"
 )
+
+/** A pill under the field: filled copper for the main move, a copper wash otherwise. */
+@Composable
+private fun FieldButton(icon: ImageVector, text: String, filled: Boolean, onClick: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val dark = VoltaTheme.palette.isDark
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = if (filled) scheme.primary else scheme.primary.copy(alpha = if (dark) 0.18f else 0.14f)
+    ) {
+        Row(
+            Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val ink = if (filled) scheme.onPrimary else scheme.primary
+            Icon(icon, null, tint = ink, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(text, style = MaterialTheme.typography.labelLarge, color = ink)
+        }
+    }
+}
 
 /** A config file is a few kilobytes; anything far bigger is not one. */
 private const val MAX_FILE_BYTES = 512 * 1024
