@@ -29,7 +29,7 @@ object RoutingEngine {
     private val listType = object : TypeToken<List<RoutingRuleDto>>() {}.type
 
     /** Pasted rules that are not rules at all; [reason] says why, for the screen. */
-    class RulesFormatException(@StringRes val reason: Int) : IllegalArgumentException()
+    class RulesFormatException(@param:StringRes val reason: Int) : IllegalArgumentException()
 
     // Names of the built-in sets and their rules. They are stored in the database and
     // backups find the built-in sets by them, so they stay as they always were; the

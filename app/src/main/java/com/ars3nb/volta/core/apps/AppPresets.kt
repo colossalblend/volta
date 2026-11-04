@@ -23,7 +23,7 @@ enum class AppRoute {
 data class AppPreset(
     val id: String,
     /** The set's name on the screen. */
-    @StringRes val title: Int,
+    @param:StringRes val title: Int,
     val route: AppRoute,
     val packages: List<String>
 )

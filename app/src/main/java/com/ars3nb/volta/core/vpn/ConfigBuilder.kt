@@ -69,13 +69,13 @@ object ConfigBuilder {
      * resource and [args] what goes into it; the text is looked up when it is read, so it
      * comes in the app's language wherever it is shown (the server list, a failed connect).
      */
-    class UnsupportedProtocolException(@StringRes val reason: Int, vararg val args: Any) :
+    class UnsupportedProtocolException(@param:StringRes val reason: Int, vararg val args: Any) :
         IllegalStateException() {
         override val message: String get() = describe(reason, args)
     }
 
     /** Raised when a node's link lacks something it needs; [reason] as above. */
-    class IncompleteServerException(@StringRes val reason: Int, vararg val args: Any) :
+    class IncompleteServerException(@param:StringRes val reason: Int, vararg val args: Any) :
         IllegalArgumentException() {
         override val message: String get() = describe(reason, args)
     }

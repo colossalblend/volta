@@ -21,13 +21,13 @@ data class SitePreset(
      * shown through [label].
      */
     val title: String,
-    @StringRes val subtitle: Int,
+    @param:StringRes val subtitle: Int,
     /** Where the preset points by default; the user can change it before adding. */
     val suggested: RouteOutbound,
     val domains: List<String>,
     val ips: List<String> = emptyList(),
     /** What the screen shows instead of [title], when that isn't just brand names. */
-    @StringRes val label: Int? = null
+    @param:StringRes val label: Int? = null
 ) {
     fun toRule(outbound: RouteOutbound = suggested) = RoutingRuleDto(
         id = UUID.randomUUID().toString(),
