@@ -13,4 +13,6 @@
     <string name="desktop_backup_restore_text">Telefonda yoki boshqa kompyuterda Volta’da saqlangan faylni oching</string>
     <string name="desktop_backup_saved">Fayl saqlandi. Boshqa qurilmada: Sozlamalar → Fayldan tiklash</string>
     <string name="desktop_section_move">Boshqa qurilmaga ko‘chirish</string>
+    <string name="desktop_adblock_hint">Volta (tizim proksisi) orqali o‘tadigan brauzer va dasturlarda ishlaydi. Tizim proksisini o‘qimaydigan dasturni filtr ko‘rmaydi. YouTube ichidagi reklamani filtr olib tashlamaydi.</string>
+    <string name="desktop_adblock_family_hint">Kattalar uchun saytlarni ham yashiradi.</string>
 </resources>

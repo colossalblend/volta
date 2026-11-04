@@ -13,4 +13,6 @@
     <string name="desktop_backup_restore_text">افتح ملفًا حُفظ في Volta على هاتف أو كمبيوتر آخر</string>
     <string name="desktop_backup_saved">تم حفظ الملف. على الجهاز الآخر: الإعدادات ← الاستعادة من ملف</string>
     <string name="desktop_section_move">النقل إلى جهاز آخر</string>
+    <string name="desktop_adblock_hint">يعمل للمتصفحات والبرامج التي تمر عبر Volta (وكيل النظام). البرنامج الذي لا يقرأ وكيل النظام لا يراه الفلتر. لا يزيل الفلتر الإعلانات داخل YouTube.</string>
+    <string name="desktop_adblock_family_hint">يخفي أيضًا مواقع البالغين.</string>
 </resources>

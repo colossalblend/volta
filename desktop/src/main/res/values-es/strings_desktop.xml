@@ -13,4 +13,6 @@
     <string name="desktop_backup_restore_text">Abre un archivo guardado en Volta en un teléfono u otro ordenador</string>
     <string name="desktop_backup_saved">Archivo guardado. En el otro dispositivo: Ajustes → Restaurar desde archivo</string>
     <string name="desktop_section_move">Pasar a otro dispositivo</string>
+    <string name="desktop_adblock_hint">Funciona para los navegadores y programas que pasan por Volta (el proxy del sistema). Un programa que ignora el proxy del sistema no se filtra. El filtro no quita los anuncios dentro de YouTube.</string>
+    <string name="desktop_adblock_family_hint">Además oculta los sitios para adultos.</string>
 </resources>

@@ -13,4 +13,6 @@
     <string name="desktop_backup_restore_text">فایلی را که در Volta روی تلفن یا رایانهٔ دیگری ذخیره شده باز کنید</string>
     <string name="desktop_backup_saved">فایل ذخیره شد. در دستگاه دیگر: تنظیمات ← بازیابی از فایل</string>
     <string name="desktop_section_move">انتقال به دستگاه دیگر</string>
+    <string name="desktop_adblock_hint">برای مرورگرها و برنامه‌هایی کار می‌کند که از Volta (پراکسی سیستم) عبور می‌کنند. برنامه‌ای که پراکسی سیستم را نمی‌خواند فیلتر نمی‌شود. فیلتر تبلیغات داخل YouTube را حذف نمی‌کند.</string>
+    <string name="desktop_adblock_family_hint">سایت‌های بزرگسالان را هم پنهان می‌کند.</string>
 </resources>

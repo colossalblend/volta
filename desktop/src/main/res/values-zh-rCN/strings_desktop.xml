@@ -13,4 +13,6 @@
     <string name="desktop_backup_restore_text">打开在手机或另一台电脑上的 Volta 中保存的文件</string>
     <string name="desktop_backup_saved">文件已保存。在另一台设备上：设置 → 从文件恢复</string>
     <string name="desktop_section_move">迁移到其他设备</string>
+    <string name="desktop_adblock_hint">适用于通过 Volta（系统代理）上网的浏览器和程序。不读取系统代理的程序不会被过滤。过滤器无法去除 YouTube 内部的广告。</string>
+    <string name="desktop_adblock_family_hint">还会隐藏成人网站。</string>
 </resources>

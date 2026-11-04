@@ -13,4 +13,6 @@
     <string name="desktop_backup_restore_text">Open a file saved in Volta on a phone or another computer</string>
     <string name="desktop_backup_saved">File saved. On the other device: Settings → Restore from file</string>
     <string name="desktop_section_move">Move to another device</string>
+    <string name="desktop_adblock_hint">It works for browsers and programs that go through Volta (the system proxy). A program that ignores the system proxy isn\'t filtered. The filter doesn\'t remove ads inside YouTube.</string>
+    <string name="desktop_adblock_family_hint">Also hides adult sites.</string>
 </resources>

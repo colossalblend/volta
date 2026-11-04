@@ -437,12 +437,14 @@ private fun FiltersCard(
                     stringResource(
                         when (adBlock) {
                             AdBlockMode.STRICT -> R.string.routing_adblock_strict_hint
-                            AdBlockMode.FAMILY -> R.string.routing_adblock_family_hint
+                            // Safe search lives in DNS, which the browsers behind a proxy don't ask.
+                            AdBlockMode.FAMILY -> R.string.desktop_adblock_family_hint
                             else -> R.string.routing_adblock_standard_desc
                         }
                     )
                 )
-                Hint(stringResource(R.string.routing_adblock_standard_hint), modifier = Modifier.padding(top = 4.dp))
+                // Android's hint is about its Private DNS; Windows' about the system proxy.
+                Hint(stringResource(R.string.desktop_adblock_hint), modifier = Modifier.padding(top = 4.dp))
                 Hint(stringResource(R.string.routing_adblock_test_note), modifier = Modifier.padding(top = 4.dp))
             }
         }

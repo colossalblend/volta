@@ -13,4 +13,6 @@
     <string name="desktop_backup_restore_text">Telefonda və ya başqa kompüterdə Volta-da saxlanılmış faylı açın</string>
     <string name="desktop_backup_saved">Fayl saxlanıldı. Digər cihazda: Ayarlar → Fayldan bərpa et</string>
     <string name="desktop_section_move">Başqa cihaza köçürmə</string>
+    <string name="desktop_adblock_hint">Volta (sistem proksisi) ilə işləyən brauzer və proqramlar üçün işləyir. Sistem proksisini oxumayan proqramı filtr görmür. YouTube daxilindəki reklamı filtr silmir.</string>
+    <string name="desktop_adblock_family_hint">Böyüklər üçün saytları da gizlədir.</string>
 </resources>

@@ -250,7 +250,9 @@ class PingEngine(
         type = PingType.REAL_DELAY,
         latencyMs = if (ms > 0) ms else -1,
         success = ms > 0,
-        message = if (ms > 0) "" else (ConfigBuilder.dialProblem(server) ?: I18n.s.errServerSilent)
+        message = if (ms > 0) "" else (ConfigBuilder.dialProblem(server) ?: I18n.s.errServerSilent),
+        // An OpenFlux node not in use is judged by its carriers, not timed through its exit.
+        estimate = judgedByCarriers(server) && !OpenFluxRunner.runs(server.rawLink)
     )
 
     private fun failed(server: ServerEntity, type: PingType) =

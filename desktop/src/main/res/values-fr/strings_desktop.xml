@@ -13,4 +13,6 @@
     <string name="desktop_backup_restore_text">Ouvrez un fichier enregistré dans Volta sur un téléphone ou un autre ordinateur</string>
     <string name="desktop_backup_saved">Fichier enregistré. Sur l’autre appareil : Réglages → Restaurer depuis un fichier</string>
     <string name="desktop_section_move">Passer à un autre appareil</string>
+    <string name="desktop_adblock_hint">Fonctionne pour les navigateurs et programmes qui passent par Volta (le proxy du système). Un programme qui ignore le proxy du système n’est pas filtré. Le filtre ne retire pas les publicités dans YouTube.</string>
+    <string name="desktop_adblock_family_hint">Masque aussi les sites pour adultes.</string>
 </resources>

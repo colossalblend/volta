@@ -13,4 +13,6 @@
     <string name="desktop_backup_restore_text">Телефонда не басқа компьютерде Volta сақтаған файлды ашыңыз</string>
     <string name="desktop_backup_saved">Файл сақталды. Басқа құрылғыда: Баптаулар → Файлдан қалпына келтіру</string>
     <string name="desktop_section_move">Басқа құрылғыға көшіру</string>
+    <string name="desktop_adblock_hint">Volta (жүйелік прокси) арқылы өтетін браузерлер мен бағдарламаларда жұмыс істейді. Жүйелік проксиді оқымайтын бағдарламаны сүзгі көрмейді. YouTube ішіндегі жарнаманы сүзгі алып тастамайды.</string>
+    <string name="desktop_adblock_family_hint">Сондай-ақ ересектерге арналған сайттарды жасырады.</string>
 </resources>

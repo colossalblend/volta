@@ -15,9 +15,14 @@ import com.ars3nb.volta.data.model.ServerRole
  *     1-based position in the subscription.
  *
  * Precedence for one server: JSON group, then prefix, then `server-type`. A server none
- * of them marks falls back to the name check ([ServerClassifier.classify]) — except that
- * a group the provider marked explicitly is treated as complete, so the name check never
+ * of them marks falls back to the name check ([ServerClassifier.autoRole]; an OpenFlux
+ * server riding only documents and other Russian services goes to LTE) — except that a
+ * group the provider marked explicitly is treated as complete, so the name check never
  * adds more servers to it.
+ *
+ * All of it works the same for every protocol, OpenFlux included: an `openflux://` link
+ * takes a `#[L] name` after it like any share link, a JSON group may list OpenFlux links
+ * or OpenFlux configurations (`{"name", "secret", "transports": [...]}`).
  */
 object ServerMarkup {
 

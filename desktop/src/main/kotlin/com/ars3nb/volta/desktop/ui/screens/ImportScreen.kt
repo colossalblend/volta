@@ -56,6 +56,8 @@ import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.desktop.VoltaController
 import com.ars3nb.volta.desktop.VoltaUiState
 import com.ars3nb.volta.core.vpn.ConfigBuilder
+import com.ars3nb.volta.desktop.i18n.R
+import com.ars3nb.volta.desktop.i18n.stringResource
 import com.ars3nb.volta.desktop.core.WindowsCompat
 import com.ars3nb.volta.desktop.i18n.Strings
 import com.ars3nb.volta.desktop.ui.LocalStrings
@@ -181,7 +183,10 @@ fun ImportScreen(
                             s.fmtServerTitle to s.fmtServerBody,
                             s.fmtVoltaTitle to s.fmtVoltaBody,
                             s.fmtFileTitle to s.fmtFileBody,
-                            s.fmtWindowsTitle to s.fmtWindowsBody
+                            // As on Android: these run in Volta's helpers, on Windows too.
+                            s.detAmneziaTitle to stringResource(R.string.settings_import_format_amnezia),
+                            stringResource(R.string.settings_import_format_openflux_title) to
+                                stringResource(R.string.settings_import_format_openflux)
                         ).forEach { (title, body) ->
                             Column {
                                 Text(title, style = MaterialTheme.typography.titleSmall)

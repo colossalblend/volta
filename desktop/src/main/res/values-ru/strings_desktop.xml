@@ -13,4 +13,6 @@
     <string name="desktop_backup_restore_text">Откройте файл, сохранённый в Volta на телефоне или другом компьютере</string>
     <string name="desktop_backup_saved">Файл сохранён. На другом устройстве: Настройки → Восстановить из файла</string>
     <string name="desktop_section_move">Перенос на другое устройство</string>
+    <string name="desktop_adblock_hint">Работает для браузеров и программ, которые идут через Volta (системный прокси). Программу, которая системный прокси не читает, фильтр не видит. Рекламу внутри YouTube фильтр не убирает.</string>
+    <string name="desktop_adblock_family_hint">Ещё скрывает сайты для взрослых.</string>
 </resources>
