@@ -81,6 +81,7 @@ import com.ars3nb.volta.ui.components.Hint
 import com.ars3nb.volta.ui.components.SectionHeader
 import com.ars3nb.volta.ui.components.ServerRow
 import com.ars3nb.volta.ui.components.VoltaCard
+import com.ars3nb.volta.ui.components.shownSubscriptionName
 
 private enum class ServerSort { BEST, NAME, SUBSCRIPTION }
 
@@ -271,7 +272,7 @@ fun ServersScreen(
                         )
                         state.subscriptions.forEach { sub ->
                             VoltaChip(
-                                text = sub.name,
+                                text = shownSubscriptionName(sub),
                                 selected = subscriptionFilter == sub.id,
                                 onClick = {
                                     subscriptionFilter = if (subscriptionFilter == sub.id) null else sub.id
@@ -368,7 +369,7 @@ fun ServersScreen(
                             ServerRow(
                                 server = server,
                                 selected = state.selectedServer?.id == server.id,
-                                subscriptionName = subsById[server.subscriptionId]?.name.orEmpty(),
+                                subscriptionName = subsById[server.subscriptionId]?.let { shownSubscriptionName(it) }.orEmpty(),
                                 supported = supported[server.id] != false,
                                 onClick = { vm.selectServer(server.id) },
                                 onLongClick = { sheetServer = server },
@@ -382,7 +383,7 @@ fun ServersScreen(
                     ServerRow(
                         server = server,
                         selected = state.selectedServer?.id == server.id,
-                        subscriptionName = subsById[server.subscriptionId]?.name.orEmpty(),
+                        subscriptionName = subsById[server.subscriptionId]?.let { shownSubscriptionName(it) }.orEmpty(),
                         supported = supported[server.id] != false,
                         onClick = { vm.selectServer(server.id) },
                         onLongClick = { sheetServer = server }

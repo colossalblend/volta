@@ -162,7 +162,7 @@ fun ServerRow(
                         )
                     }
                     Text(
-                        Countries.withoutLeadingFlag(server.remark),
+                        shownServerName(server.remark),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                         maxLines = 1,
@@ -450,7 +450,7 @@ fun SubscriptionCard(
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    sub.name,
+                    shownSubscriptionName(sub),
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -562,8 +562,9 @@ fun subscriptionColor(sub: SubscriptionEntity): Color = remember(sub.colorHex) {
 /** A coin in the subscription's colour with the first letter of its name. */
 @Composable
 fun SubscriptionCoin(sub: SubscriptionEntity, tint: Color = subscriptionColor(sub), size: Int = 42) {
-    val initial = remember(sub.name) {
-        sub.name.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "V"
+    val name = shownSubscriptionName(sub)
+    val initial = remember(name) {
+        name.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "V"
     }
     Box(
         Modifier

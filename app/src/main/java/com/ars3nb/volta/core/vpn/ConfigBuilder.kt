@@ -955,18 +955,19 @@ object ConfigBuilder {
      */
     private fun filterRules(adBlock: AdBlockMode, blockTorrents: Boolean): List<RoutingRuleDto> = buildList {
         if (adBlock != AdBlockMode.OFF) {
-            add(filterRule("Реклама и трекеры", domains = listOf("geosite:category-ads-all")))
+            add(filterRule("ads and trackers", domains = listOf("geosite:category-ads-all")))
         }
         if (adBlock == AdBlockMode.FAMILY) {
             // Family DNS hides adult sites only from lookups the core answers.
-            add(filterRule("Сайты для взрослых", domains = listOf("geosite:category-porn")))
+            add(filterRule("adult sites", domains = listOf("geosite:category-porn")))
         }
         if (blockTorrents) {
-            add(filterRule("Торренты", protocol = listOf("bittorrent")))
-            add(filterRule("Торрент-трекеры", domains = listOf("geosite:category-public-tracker")))
+            add(filterRule("torrents", protocol = listOf("bittorrent")))
+            add(filterRule("torrent trackers", domains = listOf("geosite:category-public-tracker")))
         }
     }
 
+    /** [name] only labels the rule in the built config; it is never shown. */
     private fun filterRule(
         name: String,
         domains: List<String> = emptyList(),
@@ -1006,7 +1007,8 @@ object ConfigBuilder {
         servers.add(remote)
         servers.add(JsonObject().apply {
             addProperty("address", domestic)
-            add("domains", jsonArray("geosite:category-ru", "domain:ru", "domain:su", "domain:рф"))
+            // xn--p1ai is .рф as DNS queries carry it (punycode), like the RU preset.
+            add("domains", jsonArray("geosite:category-ru", "domain:ru", "domain:su", "domain:xn--p1ai"))
             add("expectIPs", jsonArray("geoip:ru"))
         })
         servers.add("localhost")

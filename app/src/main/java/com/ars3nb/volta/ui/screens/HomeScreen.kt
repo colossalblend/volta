@@ -60,7 +60,6 @@ import com.ars3nb.volta.R
 import com.ars3nb.volta.core.balancer.AutoBalancer
 import com.ars3nb.volta.core.locale.UiText
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
-import com.ars3nb.volta.core.server.Countries
 import com.ars3nb.volta.core.stats.TrafficSummary
 import com.ars3nb.volta.core.update.UpdateState
 import com.ars3nb.volta.data.model.BalancerScope
@@ -99,6 +98,9 @@ import com.ars3nb.volta.ui.theme.VoltaTheme
 import com.ars3nb.volta.ui.tv.StartFocus
 import com.ars3nb.volta.ui.tv.focusRing
 import kotlinx.coroutines.delay
+import com.ars3nb.volta.ui.components.shownServerName
+import com.ars3nb.volta.ui.components.shownProfileName
+import com.ars3nb.volta.ui.components.shownIpCountry
 
 @Composable
 fun HomeScreen(
@@ -224,7 +226,7 @@ fun HomeContent(
                         TopBar(
                             regime = state.networkRegime,
                             ip = state.ipInfo?.ip,
-                            country = state.ipInfo?.country,
+                            country = shownIpCountry(state.ipInfo),
                             onAdd = onOpenImport.takeIf { hasServers }
                         )
                         (openFlux as? OpenFluxRunner.Status.Captcha)?.let { OpenFluxCaptchaBanner(it) }
@@ -247,7 +249,7 @@ fun HomeContent(
                         ConnectionHeadline(
                             state = state.vpnState,
                             phaseCaption = if (phase.caption != 0) stringResource(phase.caption) else "",
-                            serverName = selected?.let { Countries.withoutLeadingFlag(it.remark) }.orEmpty(),
+                            serverName = selected?.let { shownServerName(it.remark) }.orEmpty(),
                             idleCaption = if (hasServers) {
                                 stringResource(R.string.home_tap_disc)
                             } else {
@@ -359,10 +361,11 @@ fun HomeContent(
                     RoutingRow(
                         name = selected?.subscriptionId
                             ?.let { subscriptionOf[it] }
-                            ?.let { sub -> routingNameFor(sub, state.routingProfiles) }
+                            ?.let { sub -> routingFor(sub, state.routingProfiles) }
+                            ?.let { shownProfileName(it) }
                             ?: state.routingProfiles
                                 .firstOrNull { it.isActive && it.sourceSubscriptionId == null }
-                                ?.name.orEmpty(),
+                                ?.let { shownProfileName(it) }.orEmpty(),
                         onClick = onOpenRouting
                     )
                 }
@@ -507,7 +510,7 @@ private fun ServerIdentity(server: ServerEntity?, subscription: SubscriptionEnti
         Column(Modifier.weight(1f)) {
             Text(
                 when {
-                    server != null -> Countries.withoutLeadingFlag(server.remark)
+                    server != null -> shownServerName(server.remark)
                     manual -> stringResource(R.string.home_server_none)
                     else -> stringResource(R.string.home_server_fastest)
                 },
@@ -611,7 +614,7 @@ private fun RoutingRow(name: String, onClick: () -> Unit) {
     }
 }
 
-internal fun routingNameFor(
+internal fun routingFor(
     sub: SubscriptionEntity,
     profiles: List<com.ars3nb.volta.data.model.RoutingProfileEntity>
-): String = com.ars3nb.volta.core.routing.RoutingResolver.resolve(sub, profiles)?.name.orEmpty()
+): com.ars3nb.volta.data.model.RoutingProfileEntity? = com.ars3nb.volta.core.routing.RoutingResolver.resolve(sub, profiles)

@@ -45,6 +45,7 @@ import com.ars3nb.volta.ui.VoltaViewModel
 import com.ars3nb.volta.ui.components.PowerButton
 import com.ars3nb.volta.ui.theme.VoltaTheme
 import com.ars3nb.volta.ui.tv.StartFocus
+import com.ars3nb.volta.ui.components.shownIpCountry
 
 /**
  * Simple mode: the whole app is one big button. It turns the VPN on (Home+LTE picks
@@ -72,7 +73,7 @@ fun SimpleHomeScreen(vm: VoltaViewModel, modifier: Modifier = Modifier) {
         noServers -> stringResource(R.string.home_no_servers) to stringResource(R.string.home_simple_no_servers_hint)
         starting -> stringResource(R.string.home_simple_turning_on) to stringResource(R.string.home_simple_wait)
         vpn == VpnConnectionState.DISCONNECTING -> stringResource(R.string.home_simple_turning_off) to ""
-        on -> stringResource(R.string.home_simple_on) to (state.ipInfo?.country?.takeIf { it.isNotBlank() }
+        on -> stringResource(R.string.home_simple_on) to (shownIpCountry(state.ipInfo)?.takeIf { it.isNotBlank() }
             ?: stringResource(R.string.home_simple_tap_to_turn_off))
         vpn == VpnConnectionState.ERROR ->
             stringResource(R.string.home_simple_failed) to stringResource(R.string.home_simple_tap_again)

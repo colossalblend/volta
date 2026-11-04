@@ -38,7 +38,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ars3nb.volta.R
-import com.ars3nb.volta.core.server.Countries
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.ServerRole
 import com.ars3nb.volta.ui.components.Hint
@@ -48,6 +47,7 @@ import com.ars3nb.volta.ui.components.flagOf
 import com.ars3nb.volta.ui.components.groupColor
 import com.ars3nb.volta.ui.components.roleLabel
 import com.ars3nb.volta.ui.theme.VoltaTheme
+import com.ars3nb.volta.ui.components.shownServerName
 
 /**
  * Long-press actions for one server. A bottom sheet rather than a dropdown so the
@@ -92,7 +92,7 @@ fun ServerActionsSheet(
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        Countries.withoutLeadingFlag(server.remark),
+                        shownServerName(server.remark),
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis

@@ -819,7 +819,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
                     else -> {
                         val s = repo.importShareLink(value)
                             ?: throw UiTextException(UiText.of(R.string.home_link_unsupported), context)
-                        _message.value = UiText.of(R.string.home_server_added_named, s.remark)
+                        _message.value = UiText.of(R.string.home_server_added_named, OpenFluxLink.shownRemark(context, s.remark))
                     }
                 }
                 onComplete(true)

@@ -244,7 +244,7 @@ class NetworkProbe(
 
         val LTE_HOSTS: List<Pair<String, String>> = listOf(
             "vk.ru" to "VK",
-            "ya.ru" to "Яндекс",
+            "ya.ru" to "Yandex",
             "appbank.pw" to "appbank"
         )
 
