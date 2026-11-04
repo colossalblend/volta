@@ -1022,11 +1022,6 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
         _message.value = null
     }
 
-    /** Text that is already in the screen's language. */
-    fun showMessage(text: String) {
-        _message.value = UiText.Raw(text)
-    }
-
     fun showMessage(text: UiText) {
         _message.value = text
     }

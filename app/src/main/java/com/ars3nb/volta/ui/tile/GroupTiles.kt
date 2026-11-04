@@ -287,8 +287,4 @@ object TileInstaller {
 
     /** How to put the tiles in the shade by hand (Android 12 and older, or a refusal). */
     fun manualHint(context: android.content.Context): String = context.getString(R.string.home_tile_manual_hint)
-
-    /** [manualHint] for a caller with no Context at hand, in the app's language. */
-    val MANUAL_HINT: String
-        get() = manualHint(VoltaApp.instance)
 }

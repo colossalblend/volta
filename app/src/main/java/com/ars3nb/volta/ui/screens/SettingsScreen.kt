@@ -226,7 +226,7 @@ fun SettingsScreen(vm: VoltaViewModel) {
                                     }
                             }
                         } else {
-                            Hint(TileInstaller.MANUAL_HINT)
+                            Hint(stringResource(R.string.home_tile_manual_hint))
                         }
                     }
                 }
