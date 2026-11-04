@@ -5,135 +5,194 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Volta — VPN-клиент</title>
 <meta name="description" content="Volta — VPN-клиент для Android. Добавьте подписку от вашего VPN-сервиса, а Volta сама выберет быстрый сервер и переключится, когда вы уйдёте с Wi-Fi на мобильный интернет.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=Unbounded:wght@500;600&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#101316">
+<link rel="preload" href="assets/fonts/onest.woff" as="font" type="font/woff" crossorigin>
+<link rel="preload" href="assets/fonts/unbounded.woff" as="font" type="font/woff" crossorigin>
 <link rel="stylesheet" href="assets/style.css">
 <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<script src="assets/site.js" defer></script>
+<script src="assets/disc.js" defer></script>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M4.5 10.2 12 4l7.5 6.2V19a1 1 0 0 1-1 1H15v-5.5H9V20H5.5a1 1 0 0 1-1-1z"/></symbol>
+<symbol id="i-book" viewBox="0 0 24 24"><path d="M12 7c-1.8-1.4-4.4-2-8-1.8v12.6c3.6-.2 6.2.4 8 1.8 1.8-1.4 4.4-2 8-1.8V5.2c-3.6-.2-6.2.4-8 1.8z"/><path d="M12 7v12.6"/></symbol>
+<symbol id="i-server" viewBox="0 0 24 24"><rect x="4" y="4.5" width="16" height="6.5" rx="2"/><rect x="4" y="13" width="16" height="6.5" rx="2"/><path d="M8 7.75h.01M8 16.25h.01"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3.6 5.2 6.1v5.3c0 4.2 2.8 7.5 6.8 8.9 4-1.4 6.8-4.7 6.8-8.9V6.1z"/><path d="m9.2 12 2 2 3.8-4"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4.5v10M7.8 10.6 12 14.8l4.2-4.2M5.5 19.5h13"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10.6 13.4a3.6 3.6 0 0 0 5.1 0l2.9-2.9a3.6 3.6 0 0 0-5.1-5.1l-1 1"/><path d="M13.4 10.6a3.6 3.6 0 0 0-5.1 0l-2.9 2.9a3.6 3.6 0 0 0 5.1 5.1l1-1"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11.2v4.8M12 8h.01"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 5.2 3.6 17a2 2 0 0 0 1.7 3h13.4a2 2 0 0 0 1.7-3L13.7 5.2a2 2 0 0 0-3.4 0z"/><path d="M12 9.8v3.6M12 16.6h.01"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="m9.5 6 6 6-6 6"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5.5v13M5.5 12h13"/></symbol>
+<symbol id="i-tv" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2.5"/><path d="M8.5 20.5h7"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M6.5 13.5 12 19l5.5-5.5"/></symbol>
+<symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M5 6.5h14M5 12h14M5 17.5h14"/></symbol>
+<symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7.5 18.5H17a4 4 0 0 0 .6-7.95A5.5 5.5 0 0 0 7 11.3a3.6 3.6 0 0 0 .5 7.2z"/></symbol>
+<symbol id="i-fork" viewBox="0 0 24 24"><path d="M12 20v-6c0-2-1-3.2-2.6-4.6L5.5 5.5M5.5 5.5h4M5.5 5.5v4M12 14c0-2 1-3.2 2.6-4.6l3.9-3.9M18.5 5.5h-4M18.5 5.5v4"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.6"/><circle cx="12" cy="12" r="6.2"/><path d="M12 3.4v2.4M12 18.2v2.4M3.4 12h2.4M18.2 12h2.4M5.9 5.9l1.7 1.7M16.4 16.4l1.7 1.7M5.9 18.1l1.7-1.7M16.4 7.6l1.7-1.7"/></symbol>
+</svg>
+<a class="skip" href="#main">Перейти к содержанию</a>
 <header class="top">
-  <a class="brand" href="./"><svg viewBox="0 0 20 26" aria-hidden="true"><rect x="1" y="2" width="18" height="4.5" rx="1.5" fill="#252a29"/><rect x="3" y="8" width="14" height="3" rx="1.2" fill="#8e9693"/><rect x="1" y="12.5" width="18" height="4.5" rx="1.5" fill="#252a29"/><rect x="3" y="18.5" width="14" height="3" rx="1.2" fill="#8e9693"/><rect x="1" y="23" width="18" height="2.5" rx="1" fill="#252a29"/></svg>Volta</a>
-  <nav aria-label="Разделы">
-    <a href="./" aria-current="page">Главная</a>
-    <a href="guide.html">Как пользоваться</a>
-    <a href="providers.html">VPN-сервисам</a>
-    <a href="privacy.html">Конфиденциальность</a>
-  </nav>
+  <div class="top-inner">
+    <a class="brand" href="./"><img src="assets/icon.svg" alt="" width="28" height="28">Volta</a>
+    <nav class="nav" aria-label="Разделы">
+      <a href="./" aria-current="page"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-home"/></svg></span>Главная</a>
+      <a href="guide.html"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-book"/></svg></span>Инструкция</a>
+      <a href="providers.html"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-server"/></svg></span>VPN-сервисам</a>
+      <a href="privacy.html"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg></span>Приватность</a>
+    </nav>
+    <a class="btn primary dl" href="https://github.com/colossalblend/volta/releases/latest"><svg class="i" aria-hidden="true"><use href="#i-download"/></svg>Скачать</a>
+  </div>
 </header>
 
-<main class="landing">
-  <section class="hero">
+<main id="main">
+  <section class="hero" aria-labelledby="title">
     <div class="hero-text">
-      <h1>VPN-клиент</h1>
+      <h1 class="lockup" id="title"><span class="wm">Volta</span> <span class="tg">VPN-клиент</span></h1>
       <p class="lead">Добавьте подписку от вашего VPN-сервиса и нажмите на диск. Volta найдёт быстрый сервер, а когда вы уйдёте из дома на мобильный интернет, проверит сеть и переключится сама.</p>
-      <p class="no-servers">В приложении нет своих серверов. Нужна ссылка-подписка от вашего VPN-сервиса — её вставляют на экране «Добавить».</p>
-      <div class="cta">
-        <a class="button primary" href="https://github.com/colossalblend/volta/releases/latest">Скачать для Android</a>
-        <a class="button" href="guide.html">Как начать</a>
+      <div class="note key">
+        <span class="bubble"><svg class="i" aria-hidden="true"><use href="#i-link"/></svg></span>
+        <p>В приложении нет своих серверов. Нужна ссылка-подписка от вашего VPN-сервиса — её вставляют на экране «Добавить».</p>
       </div>
+      <div class="cta">
+        <a class="btn primary" href="https://github.com/colossalblend/volta/releases/latest"><svg class="i" aria-hidden="true"><use href="#i-download"/></svg>Скачать для Android</a>
+        <a class="btn" href="guide.html">Как начать</a>
+      </div>
+      <p class="fine">Файл APK для Android 8 и новее, подходит и для <a href="guide.html#tv">Android TV</a>. Версии для Windows и iOS готовятся и выйдут отдельными сборками на <a href="https://github.com/colossalblend/volta/releases">странице релизов</a>.</p>
     </div>
-    <figure class="pile-figure">
-      <svg class="pile" viewBox="0 64 400 560" role="img" aria-labelledby="pile-t">
-<title id="pile-t">Вольтов столб: медные и цинковые диски, переложенные картоном, провод и искра</title>
-<defs>
-<linearGradient id="g-copper" x1="0" x2="1"><stop offset="0" stop-color="#5a2a10"/><stop offset=".3" stop-color="#d68e57"/><stop offset=".45" stop-color="#e9b07f"/><stop offset=".75" stop-color="#9c4f22"/><stop offset="1" stop-color="#4b220c"/></linearGradient>
-<linearGradient id="g-zinc" x1="0" x2="1"><stop offset="0" stop-color="#596163"/><stop offset=".3" stop-color="#c5cccd"/><stop offset=".45" stop-color="#eef1f1"/><stop offset=".75" stop-color="#8d9698"/><stop offset="1" stop-color="#4e5557"/></linearGradient>
-<linearGradient id="g-card" x1="0" x2="1"><stop offset="0" stop-color="#4f3a24"/><stop offset=".35" stop-color="#9b7c52"/><stop offset=".75" stop-color="#76593a"/><stop offset="1" stop-color="#463220"/></linearGradient>
-<linearGradient id="g-wood" x1="0" x2="1"><stop offset="0" stop-color="#2c2622"/><stop offset=".35" stop-color="#5b4a3d"/><stop offset=".75" stop-color="#3e332b"/><stop offset="1" stop-color="#231e1b"/></linearGradient>
-<linearGradient id="g-glass" x1="0" x2="1"><stop offset="0" stop-color="#9fb3ad" stop-opacity=".55"/><stop offset=".4" stop-color="#f6fbf9" stop-opacity=".9"/><stop offset="1" stop-color="#7e938d" stop-opacity=".55"/></linearGradient>
-<radialGradient id="g-glow"><stop offset="0" stop-color="#fffbe6"/><stop offset=".25" stop-color="#ffe27a" stop-opacity=".9"/><stop offset=".6" stop-color="#ffc94a" stop-opacity=".25"/><stop offset="1" stop-color="#ffc94a" stop-opacity="0"/></radialGradient>
-</defs>
-<ellipse cx="160" cy="594" rx="150" ry="22" fill="#262b2a" opacity=".14"/>
-<g><ellipse cx="160" cy="580" rx="122" ry="15" fill="url(#g-wood)"/><rect x="38" y="548" width="244" height="32" fill="url(#g-wood)"/><ellipse cx="160" cy="548" rx="122" ry="15" fill="#4a3d33"/></g>
-<g class="rods"><rect x="63" y="144" width="8" height="404" rx="4" fill="url(#g-glass)"/><rect x="249" y="144" width="8" height="404" rx="4" fill="url(#g-glass)"/></g>
-<g class="discs">
-<g><ellipse cx="160" cy="548" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="538" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="538" rx="80" ry="15" fill="#d9dfdf"/></g>
-<g><ellipse cx="160" cy="538" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="531" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="531" rx="75" ry="15" fill="#a3865d"/></g>
-<g><ellipse cx="160" cy="531" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="522" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="522" rx="80" ry="15" fill="#d99a68"/></g>
-<g><ellipse cx="160" cy="522" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="512" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="512" rx="80" ry="15" fill="#d9dfdf"/></g>
-<g><ellipse cx="160" cy="512" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="505" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="505" rx="75" ry="15" fill="#a3865d"/></g>
-<g><ellipse cx="160" cy="505" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="496" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="496" rx="80" ry="15" fill="#d99a68"/></g>
-<g><ellipse cx="160" cy="496" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="486" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="486" rx="80" ry="15" fill="#d9dfdf"/></g>
-<g><ellipse cx="160" cy="486" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="479" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="479" rx="75" ry="15" fill="#a3865d"/></g>
-<g><ellipse cx="160" cy="479" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="470" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="470" rx="80" ry="15" fill="#d99a68"/></g>
-<g><ellipse cx="160" cy="470" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="460" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="460" rx="80" ry="15" fill="#d9dfdf"/></g>
-<g><ellipse cx="160" cy="460" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="453" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="453" rx="75" ry="15" fill="#a3865d"/></g>
-<g><ellipse cx="160" cy="453" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="444" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="444" rx="80" ry="15" fill="#d99a68"/></g>
-<g><ellipse cx="160" cy="444" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="434" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="434" rx="80" ry="15" fill="#d9dfdf"/></g>
-<g><ellipse cx="160" cy="434" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="427" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="427" rx="75" ry="15" fill="#a3865d"/></g>
-<g><ellipse cx="160" cy="427" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="418" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="418" rx="80" ry="15" fill="#d99a68"/></g>
-<g><ellipse cx="160" cy="418" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="408" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="408" rx="80" ry="15" fill="#d9dfdf"/></g>
-<g><ellipse cx="160" cy="408" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="401" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="401" rx="75" ry="15" fill="#a3865d"/></g>
-<g><ellipse cx="160" cy="401" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="392" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="392" rx="80" ry="15" fill="#d99a68"/></g>
-<g><ellipse cx="160" cy="392" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="382" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="382" rx="80" ry="15" fill="#d9dfdf"/></g>
-<g><ellipse cx="160" cy="382" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="375" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="375" rx="75" ry="15" fill="#a3865d"/></g>
-<g><ellipse cx="160" cy="375" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="366" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="366" rx="80" ry="15" fill="#d99a68"/></g>
-<g><ellipse cx="160" cy="366" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="356" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="356" rx="80" ry="15" fill="#d9dfdf"/></g>
-<g><ellipse cx="160" cy="356" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="349" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="349" rx="75" ry="15" fill="#a3865d"/></g>
-<g><ellipse cx="160" cy="349" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="340" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="340" rx="80" ry="15" fill="#d99a68"/></g>
-<g><ellipse cx="160" cy="340" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="330" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="330" rx="80" ry="15" fill="#d9dfdf"/></g>
-<g><ellipse cx="160" cy="330" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="323" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="323" rx="75" ry="15" fill="#a3865d"/></g>
-<g><ellipse cx="160" cy="323" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="314" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="314" rx="80" ry="15" fill="#d99a68"/></g>
-<g><ellipse cx="160" cy="314" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="304" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="304" rx="80" ry="15" fill="#d9dfdf"/></g>
-<g><ellipse cx="160" cy="304" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="297" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="297" rx="75" ry="15" fill="#a3865d"/></g>
-<g><ellipse cx="160" cy="297" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="288" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="288" rx="80" ry="15" fill="#d99a68"/></g>
-<g><ellipse cx="160" cy="288" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="278" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="278" rx="80" ry="15" fill="#d9dfdf"/></g>
-<g><ellipse cx="160" cy="278" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="271" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="271" rx="75" ry="15" fill="#a3865d"/></g>
-<g><ellipse cx="160" cy="271" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="262" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="262" rx="80" ry="15" fill="#d99a68"/></g>
-<g><ellipse cx="160" cy="262" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="252" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="252" rx="80" ry="15" fill="#d9dfdf"/></g>
-<g><ellipse cx="160" cy="252" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="245" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="245" rx="75" ry="15" fill="#a3865d"/></g>
-<g><ellipse cx="160" cy="245" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="236" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="236" rx="80" ry="15" fill="#d99a68"/></g>
-<g><ellipse cx="160" cy="236" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="226" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="226" rx="80" ry="15" fill="#d9dfdf"/></g>
-<g><ellipse cx="160" cy="226" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="219" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="219" rx="75" ry="15" fill="#a3865d"/></g>
-<g><ellipse cx="160" cy="219" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="210" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="210" rx="80" ry="15" fill="#d99a68"/></g>
-<g><ellipse cx="160" cy="210" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="200" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="200" rx="80" ry="15" fill="#d9dfdf"/></g>
-<g><ellipse cx="160" cy="200" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="193" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="193" rx="75" ry="15" fill="#a3865d"/></g>
-<g><ellipse cx="160" cy="193" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="184" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="184" rx="80" ry="15" fill="#d99a68"/></g>
-</g>
-<g><ellipse cx="160" cy="184" rx="106" ry="15" fill="url(#g-wood)"/><rect x="54" y="172" width="212" height="12" fill="url(#g-wood)"/><ellipse cx="160" cy="172" rx="106" ry="15" fill="#54463a"/></g>
-<rect x="63" y="158" width="8" height="16" rx="4" fill="url(#g-glass)"/><ellipse cx="67" cy="158" rx="7" ry="3" fill="#cfd9d5"/><rect x="249" y="158" width="8" height="16" rx="4" fill="url(#g-glass)"/><ellipse cx="253" cy="158" rx="7" ry="3" fill="#cfd9d5"/>
-<rect x="154" y="146" width="12" height="26" fill="#7a3b17"/><ellipse cx="160" cy="146" rx="11" ry="4" fill="#c27a45"/>
-<rect x="268" y="556" width="14" height="16" rx="2" fill="#7a3b17"/>
-<path d="M160,144 C160,54 350,34 336,240 S330,290 330,300" fill="none" stroke="#5a2a10" stroke-width="6" stroke-linecap="round"/>
-<path d="M160,144 C160,54 350,34 336,240 S330,290 330,300" fill="none" stroke="#c9844f" stroke-width="3" stroke-linecap="round"/>
-<path d="M282,564 C360,562 370,500 344,418 S330,370 330,358" fill="none" stroke="#5a2a10" stroke-width="6" stroke-linecap="round"/>
-<path d="M282,564 C360,562 370,500 344,418 S330,370 330,358" fill="none" stroke="#c9844f" stroke-width="3" stroke-linecap="round"/>
-<circle cx="330" cy="300" r="6" fill="#c9844f" stroke="#5a2a10" stroke-width="1.5"/><circle cx="330" cy="358" r="6" fill="#c9844f" stroke="#5a2a10" stroke-width="1.5"/>
-<g transform="translate(330 329.0)"><g class="spark"><g transform="scale(1.45)"><circle r="48" fill="url(#g-glow)"/><path d="M0,-15 L3,-4 L16,-10 L6,1 L19,8 L3,5 L1,15 L-3,5 L-17,10 L-6,0 L-15,-11 L-3,-4 Z" fill="#fff6c8" stroke="#ffd34d" stroke-width="1.5" stroke-linejoin="round"/><circle r="3.5" fill="#fff"/></g></g></g>
-</svg>
-      <figcaption>Вольтов столб, первая батарея. От него и название.</figcaption>
+
+    <figure class="device">
+      <div class="phone" data-demo data-phase="off">
+        <div class="screen">
+          <div class="ph-status" aria-hidden="true">
+            <span class="ph-time">9:41</span>
+            <span class="ph-sys">
+              <svg viewBox="0 0 16 16"><rect x="1" y="10" width="2.6" height="4" rx=".6"/><rect x="4.8" y="7.5" width="2.6" height="6.5" rx=".6"/><rect x="8.6" y="5" width="2.6" height="9" rx=".6"/><rect x="12.4" y="2" width="2.6" height="12" rx=".6"/></svg>
+              <svg viewBox="0 0 16 16"><path d="M8 13.6 5.6 11a3.4 3.4 0 0 1 4.8 0zM3.4 8.8a6.5 6.5 0 0 1 9.2 0l-1.1 1.1a5 5 0 0 0-7 0zM1.2 6.6a9.6 9.6 0 0 1 13.6 0l-1.1 1.1a8 8 0 0 0-11.4 0z"/></svg>
+              <svg class="batt" viewBox="0 0 24 16"><rect x="1" y="3.5" width="19" height="9" rx="2.4" fill="none" stroke="currentColor" stroke-width="1.3" style="color:#eee8df"/><rect x="2.8" y="5.3" width="11" height="5.4" rx="1.1"/><rect x="21" y="6.3" width="1.6" height="3.4" rx=".7"/></svg>
+            </span>
+          </div>
+
+          <div class="ph-bar" aria-hidden="true">
+            <div class="ph-id">
+              <div class="ph-line"><span class="ph-name">Volta</span><span class="ph-chip">Home</span></div>
+              <div class="ph-ip" data-ip>Россия, 198.51.100.23</div>
+            </div>
+            <span class="ph-add"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg></span>
+          </div>
+
+          <div class="ph-mid">
+            <div class="ph-power">
+              <svg class="ph-field" viewBox="0 0 200 200" aria-hidden="true">
+                <defs>
+                  <radialGradient id="ph-shadow"><stop offset="0" stop-color="#000" stop-opacity=".5"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+                  <radialGradient id="ph-glow"><stop offset="0" stop-color="#ffe6c7" stop-opacity=".55"/><stop offset="1" stop-color="#ffe6c7" stop-opacity="0"/></radialGradient>
+                </defs>
+                <circle cx="100" cy="107.4" r="77.5" fill="url(#ph-shadow)"/>
+                <g class="ph-rings" fill="none" stroke="#52b094" stroke-width="1.2">
+                  <circle cx="100" cy="100" r="62" vector-effect="non-scaling-stroke"/>
+                  <circle cx="100" cy="100" r="62" vector-effect="non-scaling-stroke"/>
+                  <circle cx="100" cy="100" r="62" vector-effect="non-scaling-stroke"/>
+                </g>
+                <circle class="ph-burst" cx="100" cy="100" r="62" fill="none" stroke="#a6e3cf" stroke-width="2"/>
+                <g class="ph-spark">
+                  <g fill="none" stroke="#f0b486" stroke-width="1.8" stroke-linecap="round">
+                    <path d="M86.28 35.44A66 66 0 0 1 100.69 34.00" stroke-opacity=".85"/>
+                    <path d="M73.16 39.71A66 66 0 0 1 86.95 35.30" stroke-opacity=".77"/>
+                    <path d="M61.21 46.60A66 66 0 0 1 73.79 39.43" stroke-opacity=".68"/>
+                    <path d="M50.95 55.84A66 66 0 0 1 61.77 46.20" stroke-opacity=".59"/>
+                    <path d="M42.84 67.00A66 66 0 0 1 51.42 55.33" stroke-opacity=".51"/>
+                    <path d="M37.23 79.60A66 66 0 0 1 43.19 66.40" stroke-opacity=".42"/>
+                    <path d="M34.36 93.10A66 66 0 0 1 37.45 78.95" stroke-opacity=".34"/>
+                    <path d="M34.36 106.90A66 66 0 0 1 34.44 92.41" stroke-opacity=".26"/>
+                    <path d="M37.23 120.40A66 66 0 0 1 34.29 106.21" stroke-opacity=".17"/>
+                    <path d="M42.84 133.00A66 66 0 0 1 37.02 119.74" stroke-opacity=".08"/>
+                  </g>
+                  <circle cx="100" cy="34" r="12" fill="url(#ph-glow)"/>
+                  <circle cx="100" cy="34" r="3" fill="#ffe6c7"/>
+                </g>
+              </svg>
+              <button class="disc" type="button" aria-pressed="false" aria-label="Медный диск с главного экрана Volta. Нажмите, чтобы посмотреть, как он включается">
+                <span class="metal copper"></span>
+                <span class="metal patina"></span>
+                <svg class="cut" viewBox="0 0 100 100" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="ph-band" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f0b486"/><stop offset=".5" stop-color="#c9773f"/><stop offset="1" stop-color="#7b3f1b"/></linearGradient>
+                    <linearGradient id="ph-rim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></linearGradient>
+                  </defs>
+                  <circle cx="50" cy="50" r="48.5" fill="none" stroke="url(#ph-band)" stroke-width="3"/>
+                  <g fill="none" stroke-width="4.25" stroke-linecap="round">
+                    <g stroke="#fff" stroke-opacity=".22" transform="translate(0 .8)"><path d="M57.95 37.28A15 15 0 1 1 42.05 37.28"/><path d="M50 32.3V45.8"/></g>
+                    <g class="ink"><path d="M57.95 37.28A15 15 0 1 1 42.05 37.28"/><path d="M50 32.3V45.8"/></g>
+                  </g>
+                  <circle cx="50" cy="50" r="49.4" fill="none" stroke="url(#ph-rim)" stroke-width="1.2"/>
+                </svg>
+              </button>
+            </div>
+            <div class="ph-head" aria-hidden="true">
+              <div class="ph-state" data-title>Выключено</div>
+              <div class="ph-caption" data-caption>Нажмите на диск, чтобы включить VPN</div>
+              <div class="ph-meter"><span data-timer>00:00</span><span class="dn"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg>2.4 МБ/с</span><span class="up"><svg class="i" aria-hidden="true"><use href="#i-up"/></svg>180 КБ/с</span></div>
+            </div>
+          </div>
+
+          <div class="ph-capsule" aria-hidden="true">
+            <span class="ph-flag"><svg viewBox="0 0 24 24"><clipPath id="ph-nl"><circle cx="12" cy="12" r="12"/></clipPath><g clip-path="url(#ph-nl)"><rect width="24" height="8" fill="#ae1c28"/><rect y="8" width="24" height="8" fill="#f2f2f2"/><rect y="16" width="24" height="8" fill="#21468b"/></g></svg></span>
+            <span class="ph-server"><b>Нидерланды</b><small><span class="h">Home</span>Мой VPN</small></span>
+            <span class="ph-ping"><span class="bars"><i></i><i></i><i></i><i></i></span><span>48 мс</span></span>
+            <svg class="i" aria-hidden="true"><use href="#i-chev"/></svg>
+          </div>
+          <div class="ph-modes" aria-hidden="true">
+            <span class="on"><b>Home+LTE</b><small>12 серверов</small></span>
+            <span><b>Home</b><small>8 серверов</small></span>
+            <span><b>LTE</b><small>4 сервера</small></span>
+          </div>
+
+          <div class="ph-tabs" aria-hidden="true">
+            <span class="on"><i><svg class="i" aria-hidden="true"><use href="#i-home"/></svg></i><em>Главная</em></span>
+            <span><i><svg class="i" aria-hidden="true"><use href="#i-list"/></svg></i><em>Серверы</em></span>
+            <span><i><svg class="i" aria-hidden="true"><use href="#i-cloud"/></svg></i><em>Подписки</em></span>
+            <span><i><svg class="i" aria-hidden="true"><use href="#i-fork"/></svg></i><em>Маршруты</em></span>
+            <span><i><svg class="i" aria-hidden="true"><use href="#i-gear"/></svg></i><em>Настройки</em></span>
+          </div>
+          <div class="ph-homebar" aria-hidden="true"></div>
+        </div>
+      </div>
+      <figcaption>Главный экран Volta. Диск можно нажать.</figcaption>
     </figure>
   </section>
 
-  <section class="part quick" aria-labelledby="start">
+  <section class="band" aria-labelledby="start">
     <h2 id="start">Начать за минуту</h2>
-    <div class="part-body">
-      <ol class="steps">
-        <li><strong>Установите Volta</strong>Из Google Play или файлом с <a href="https://github.com/colossalblend/volta/releases/latest">страницы загрузки</a>. Для большинства телефонов подходит файл с <code>arm64-v8a</code> в названии.</li>
-        <li><strong>Добавьте подписку</strong>Нажмите «Добавить подписку», вставьте ссылку, которую прислал VPN-сервис, и нажмите «Добавить». Если сервис дал кнопку «Открыть в Volta», достаточно нажать её.</li>
-        <li><strong>Нажмите на диск</strong>Android один раз спросит разрешение на VPN. Дальше Volta подключается сама и сама меняет сервер, если он перестал работать.</li>
-      </ol>
-    </div>
+    <ol class="track">
+      <li><strong>Установите Volta</strong><span>Из Google Play или файлом с <a href="https://github.com/colossalblend/volta/releases/latest">страницы загрузки</a>. Для большинства телефонов подходит файл с <code>arm64-v8a</code> в названии.</span></li>
+      <li><strong>Добавьте подписку</strong><span>Нажмите «Добавить подписку», вставьте ссылку, которую прислал VPN-сервис, и нажмите «Добавить». Если сервис дал кнопку «Открыть в Volta», достаточно нажать её.</span></li>
+      <li><strong>Нажмите на диск</strong><span>Android один раз спросит разрешение на VPN. Дальше Volta подключается сама и сама меняет сервер, если он перестал работать.</span></li>
+    </ol>
   </section>
 
-  <section class="paths">
-    <a class="path" href="guide.html">
-      <h2>Как пользоваться</h2>
-      <p>Режимы Home и LTE, простой режим, плитки в шторке, приложения мимо VPN, обновления и ответы на частые вопросы.</p>
-      <span class="more">Открыть инструкцию</span>
-    </a>
-    <a class="path" href="providers.html">
-      <h2>VPN-сервисам</h2>
-      <p>Ссылки «Открыть в Volta», зашифрованные и скрытые подписки, разметка серверов для Wi-Fi и мобильной сети.</p>
-      <span class="more">Открыть для сервисов</span>
-    </a>
+  <section class="band" aria-label="Разделы сайта">
+    <div class="rows">
+      <a class="row-link" href="guide.html">
+        <span class="bubble"><svg class="i" aria-hidden="true"><use href="#i-book"/></svg></span>
+        <span><span class="title">Как пользоваться</span><span class="sub">Режимы Home и LTE, простой режим, плитки в шторке, приложения мимо VPN, ссылки OpenFlux, Android TV, обновления и ответы на частые вопросы.</span></span>
+        <svg class="i chev" aria-hidden="true"><use href="#i-chev"/></svg>
+      </a>
+      <a class="row-link" href="providers.html">
+        <span class="bubble home"><svg class="i" aria-hidden="true"><use href="#i-server"/></svg></span>
+        <span><span class="title">VPN-сервисам</span><span class="sub">Ссылки «Открыть в Volta», зашифрованные и скрытые подписки, разметка серверов для Wi-Fi и мобильной сети, серверы OpenFlux.</span></span>
+        <svg class="i chev" aria-hidden="true"><use href="#i-chev"/></svg>
+      </a>
+    </div>
   </section>
 </main>
 
 <footer>
   <div class="inner">
-    <span>Volta для Android</span>
+    <span class="rule" aria-hidden="true"></span>
+    <span class="made"><img src="assets/icon.svg" alt="" width="20" height="20">Volta для Android</span>
     <a href="https://github.com/colossalblend/volta">Исходный код</a>
     <a href="https://github.com/colossalblend/volta/releases">Все версии</a>
     <a href="privacy.html">Конфиденциальность</a>

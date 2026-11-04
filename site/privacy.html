@@ -5,112 +5,130 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Политика конфиденциальности Volta</title>
 <meta name="description" content="Какие данные Volta хранит на телефоне и куда обращается по сети.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=Unbounded:wght@500;600&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#101316">
+<link rel="preload" href="assets/fonts/onest.woff" as="font" type="font/woff" crossorigin>
+<link rel="preload" href="assets/fonts/unbounded.woff" as="font" type="font/woff" crossorigin>
 <link rel="stylesheet" href="assets/style.css">
-<script src="assets/toc.js" defer></script>
 <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<script src="assets/site.js" defer></script>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M4.5 10.2 12 4l7.5 6.2V19a1 1 0 0 1-1 1H15v-5.5H9V20H5.5a1 1 0 0 1-1-1z"/></symbol>
+<symbol id="i-book" viewBox="0 0 24 24"><path d="M12 7c-1.8-1.4-4.4-2-8-1.8v12.6c3.6-.2 6.2.4 8 1.8 1.8-1.4 4.4-2 8-1.8V5.2c-3.6-.2-6.2.4-8 1.8z"/><path d="M12 7v12.6"/></symbol>
+<symbol id="i-server" viewBox="0 0 24 24"><rect x="4" y="4.5" width="16" height="6.5" rx="2"/><rect x="4" y="13" width="16" height="6.5" rx="2"/><path d="M8 7.75h.01M8 16.25h.01"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3.6 5.2 6.1v5.3c0 4.2 2.8 7.5 6.8 8.9 4-1.4 6.8-4.7 6.8-8.9V6.1z"/><path d="m9.2 12 2 2 3.8-4"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4.5v10M7.8 10.6 12 14.8l4.2-4.2M5.5 19.5h13"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10.6 13.4a3.6 3.6 0 0 0 5.1 0l2.9-2.9a3.6 3.6 0 0 0-5.1-5.1l-1 1"/><path d="M13.4 10.6a3.6 3.6 0 0 0-5.1 0l-2.9 2.9a3.6 3.6 0 0 0 5.1 5.1l1-1"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11.2v4.8M12 8h.01"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 5.2 3.6 17a2 2 0 0 0 1.7 3h13.4a2 2 0 0 0 1.7-3L13.7 5.2a2 2 0 0 0-3.4 0z"/><path d="M12 9.8v3.6M12 16.6h.01"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="m9.5 6 6 6-6 6"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5.5v13M5.5 12h13"/></symbol>
+<symbol id="i-tv" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2.5"/><path d="M8.5 20.5h7"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M6.5 13.5 12 19l5.5-5.5"/></symbol>
+<symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M5 6.5h14M5 12h14M5 17.5h14"/></symbol>
+<symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7.5 18.5H17a4 4 0 0 0 .6-7.95A5.5 5.5 0 0 0 7 11.3a3.6 3.6 0 0 0 .5 7.2z"/></symbol>
+<symbol id="i-fork" viewBox="0 0 24 24"><path d="M12 20v-6c0-2-1-3.2-2.6-4.6L5.5 5.5M5.5 5.5h4M5.5 5.5v4M12 14c0-2 1-3.2 2.6-4.6l3.9-3.9M18.5 5.5h-4M18.5 5.5v4"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.6"/><circle cx="12" cy="12" r="6.2"/><path d="M12 3.4v2.4M12 18.2v2.4M3.4 12h2.4M18.2 12h2.4M5.9 5.9l1.7 1.7M16.4 16.4l1.7 1.7M5.9 18.1l1.7-1.7M16.4 7.6l1.7-1.7"/></symbol>
+</svg>
+<a class="skip" href="#main">Перейти к содержанию</a>
 <header class="top">
-  <a class="brand" href="./"><svg viewBox="0 0 20 26" aria-hidden="true"><rect x="1" y="2" width="18" height="4.5" rx="1.5" fill="#252a29"/><rect x="3" y="8" width="14" height="3" rx="1.2" fill="#8e9693"/><rect x="1" y="12.5" width="18" height="4.5" rx="1.5" fill="#252a29"/><rect x="3" y="18.5" width="14" height="3" rx="1.2" fill="#8e9693"/><rect x="1" y="23" width="18" height="2.5" rx="1" fill="#252a29"/></svg>Volta</a>
-  <nav aria-label="Разделы">
-    <a href="./">Главная</a>
-    <a href="guide.html">Как пользоваться</a>
-    <a href="providers.html">VPN-сервисам</a>
-    <a href="privacy.html" aria-current="page">Конфиденциальность</a>
-  </nav>
+  <div class="top-inner">
+    <a class="brand" href="./"><img src="assets/icon.svg" alt="" width="28" height="28">Volta</a>
+    <nav class="nav" aria-label="Разделы">
+      <a href="./"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-home"/></svg></span>Главная</a>
+      <a href="guide.html"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-book"/></svg></span>Инструкция</a>
+      <a href="providers.html"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-server"/></svg></span>VPN-сервисам</a>
+      <a href="privacy.html" aria-current="page"><span class="ico"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg></span>Приватность</a>
+    </nav>
+    <a class="btn primary dl" href="https://github.com/colossalblend/volta/releases/latest"><svg class="i" aria-hidden="true"><use href="#i-download"/></svg>Скачать</a>
+  </div>
 </header>
 
-<div class="page">
+<main class="page" id="main">
+  <header class="doc-head">
+    <h1>Политика конфиденци&shy;альности</h1>
+    <p class="lead">Действует с 4 ноября 2026 года для приложения Volta для Android.</p>
+  </header>
+
   <nav class="toc" aria-label="Содержание">
     <details open>
-      <summary>Содержание</summary>
-      <ul>
+      <summary>Содержание<svg class="i" aria-hidden="true"><use href="#i-chev"/></svg></summary>
+      <ol>
         <li><a href="#short">Коротко</a></li>
         <li><a href="#phone">Что хранится на телефоне</a></li>
         <li><a href="#network">Куда обращается приложение</a></li>
         <li><a href="#vpn">Ваш трафик</a></li>
         <li><a href="#permissions">Разрешения</a></li>
         <li><a href="#contact">Связь</a></li>
-      </ul>
+      </ol>
     </details>
   </nav>
 
-  <main class="doc">
-    <header class="doc-head">
-      <h1>Политика конфиденциальности</h1>
-      <p class="lead">Действует с 4 ноября 2026 года для приложения Volta для Android.</p>
-    </header>
-    <section class="part" aria-labelledby="short">
+  <div class="doc">
+    <section aria-labelledby="short">
       <h2 id="short">Коротко</h2>
-      <div class="part-body">
       <ul>
         <li>У Volta нет аккаунтов, рекламы и аналитики. Мы не собираем и не получаем ваши данные.</li>
         <li>Подписки, серверы и настройки хранятся только на вашем телефоне.</li>
         <li>Ваш интернет-трафик идёт к серверам вашего VPN-сервиса. Volta его не записывает и никуда не отправляет.</li>
       </ul>
-      </div>
     </section>
-    <section class="part" aria-labelledby="phone">
+
+    <section aria-labelledby="phone">
       <h2 id="phone">Что хранится на телефоне</h2>
-      <div class="part-body">
       <ul>
         <li>Ссылки на подписки, полученные из них серверы, правила маршрутизации и результаты проверок скорости.</li>
         <li>Настройки приложения и список приложений, которые вы пустили мимо VPN или через него.</li>
       </ul>
       <p>Эти данные не покидают телефон, кроме случаев ниже. Резервное копирование в облако для них отключено. Удалить всё можно, удалив приложение или очистив его данные в настройках Android.</p>
-      </div>
     </section>
-    <section class="part" aria-labelledby="network">
+
+    <section aria-labelledby="network">
       <h2 id="network">Куда обращается приложение</h2>
-      <div class="part-body">
       <div class="table-wrap">
-      <table>
-        <thead><tr><th>Куда</th><th>Зачем и что передаётся</th></tr></thead>
-        <tbody>
-          <tr><td>Ваш VPN-сервис</td><td>Загрузка и обновление подписки. Передаются модель телефона и версия Android. Код устройства — только если вы включили «Привязка к устройству»: он вычисляется на телефоне и не раскрывает других данных о нём.</td></tr>
-          <tr><td>Серверы из вашей подписки</td><td>Проверка скорости и подключение VPN.</td></tr>
-          <tr><td>google.com, vk.ru, ya.ru и ещё несколько сайтов</td><td>Проверка, какой сейчас интернет: обычный или мобильный с ограничениями. Отправляется только сам запрос к сайту.</td></tr>
-          <tr><td>gstatic.com, cloudflare.com</td><td>Проверка, что сервер действительно передаёт данные.</td></tr>
-          <tr><td>Службы определения адреса (ipwho.is, ip.sb, ipapi.co, ipinfo.io и подобные)</td><td>Показать на главном экране, какой адрес и страну видит интернет. Эти службы видят адрес, с которого пришёл запрос.</td></tr>
-          <tr><td>AdGuard DNS</td><td>Только если вы включили «Блокировка рекламы».</td></tr>
-          <tr><td>GitHub</td><td>Только в версии со страницы загрузки: проверка и загрузка обновлений. Версия из Google Play обновляется через Google Play.</td></tr>
-        </tbody>
-      </table>
-      </div>
+        <table>
+          <thead><tr><th>Куда</th><th>Зачем и что передаётся</th></tr></thead>
+          <tbody>
+            <tr><td>Ваш VPN-сервис</td><td>Загрузка и обновление подписки. Передаются модель телефона и версия Android. Код устройства — только если вы включили «Привязка к устройству»: он вычисляется на телефоне и не раскрывает других данных о нём.</td></tr>
+            <tr><td>Серверы из вашей подписки</td><td>Проверка скорости и подключение VPN.</td></tr>
+            <tr><td>google.com, vk.ru, ya.ru и ещё несколько сайтов</td><td>Проверка, какой сейчас интернет: обычный или мобильный с ограничениями. Отправляется только сам запрос к сайту.</td></tr>
+            <tr><td>gstatic.com, cloudflare.com</td><td>Проверка, что сервер действительно передаёт данные.</td></tr>
+            <tr><td>Службы определения адреса (ipwho.is, ip.sb, ipapi.co, ipinfo.io и подобные)</td><td>Показать на главном экране, какой адрес и страну видит интернет. Эти службы видят адрес, с которого пришёл запрос.</td></tr>
+            <tr><td>AdGuard DNS</td><td>Только если вы включили «Блокировка рекламы».</td></tr>
+            <tr><td>GitHub</td><td>Только в версии со страницы загрузки: проверка и загрузка обновлений. Версия из Google Play обновляется через Google Play.</td></tr>
+          </tbody>
+        </table>
       </div>
     </section>
-    <section class="part" aria-labelledby="vpn">
+
+    <section aria-labelledby="vpn">
       <h2 id="vpn">Ваш трафик</h2>
-      <div class="part-body">
       <p>Volta использует системный VPN Android, чтобы направить трафик к выбранному серверу вашего VPN-сервиса. Что видит и хранит сам сервис, определяет его собственная политика конфиденциальности. Volta не продаёт и не передаёт данные третьим лицам.</p>
-      </div>
     </section>
-    <section class="part" aria-labelledby="permissions">
+
+    <section aria-labelledby="permissions">
       <h2 id="permissions">Разрешения</h2>
-      <div class="part-body">
       <ul>
         <li><strong>VPN</strong> — чтобы работать как VPN.</li>
         <li><strong>Уведомления</strong> — показывать состояние подключения и новые версии.</li>
         <li><strong>Запуск после включения телефона</strong> — если вы включили «Подключаться при запуске».</li>
         <li><strong>Список приложений</strong> — чтобы вы могли выбрать, какие приложения идут мимо VPN. Список не покидает телефон.</li>
       </ul>
-      </div>
     </section>
-    <section class="part" aria-labelledby="contact">
+
+    <section aria-labelledby="contact">
       <h2 id="contact">Связь</h2>
-      <div class="part-body">
       <p>Вопросы о конфиденциальности — в <a href="https://github.com/colossalblend/volta/issues">обсуждениях проекта на GitHub</a>. Если политика изменится, новая версия появится на этой странице с новой датой.</p>
-      </div>
     </section>
-  </main>
-</div>
+  </div>
+</main>
 
 <footer>
   <div class="inner">
-    <span>Volta для Android</span>
+    <span class="rule" aria-hidden="true"></span>
+    <span class="made"><img src="assets/icon.svg" alt="" width="20" height="20">Volta для Android</span>
     <a href="https://github.com/colossalblend/volta">Исходный код</a>
     <a href="https://github.com/colossalblend/volta/releases">Все версии</a>
     <a href="privacy.html">Конфиденциальность</a>
