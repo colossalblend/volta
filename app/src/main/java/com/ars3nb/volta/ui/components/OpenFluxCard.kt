@@ -15,8 +15,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.ars3nb.volta.core.openflux.OpenFluxLink
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.ui.openflux.OpenFluxCaptchaActivity
 
@@ -34,10 +35,11 @@ fun OpenFluxCaptchaBanner(captcha: OpenFluxRunner.Status.Captcha) {
             )
             Spacer(Modifier.size(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("OpenFlux просит пройти проверку", style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.servers_openflux_captcha_title), style = MaterialTheme.typography.titleSmall)
+                val carrier = carrierName(captcha.carrier.substringBefore('-'))
                 Hint(
-                    OpenFluxLink.carrierName(captcha.carrier.substringBefore('-')) +
-                        if (captcha.proxy.isNotBlank()) " на сервере" else ""
+                    if (captcha.proxy.isNotBlank()) stringResource(R.string.servers_openflux_captcha_on_server, carrier)
+                    else carrier
                 )
             }
             Button(onClick = {
@@ -45,7 +47,7 @@ fun OpenFluxCaptchaBanner(captcha: OpenFluxRunner.Status.Captcha) {
                     Intent(context, OpenFluxCaptchaActivity::class.java)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 )
-            }) { Text("Открыть") }
+            }) { Text(stringResource(R.string.servers_open)) }
         }
     }
 }

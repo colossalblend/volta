@@ -18,6 +18,7 @@ import androidx.core.content.ContextCompat
 import androidx.webkit.ProxyConfig
 import androidx.webkit.ProxyController
 import androidx.webkit.WebViewFeature
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
 
 /**
@@ -43,7 +44,7 @@ class OpenFluxCaptchaActivity : Activity() {
         if (captcha == null || !captcha.url.startsWith("http")) {
             Toast.makeText(
                 this,
-                if (captcha == null) "Проверка больше не нужна" else "Эту проверку Volta пока не открывает",
+                if (captcha == null) R.string.servers_captcha_not_needed else R.string.servers_captcha_cant_open,
                 Toast.LENGTH_LONG
             ).show()
             finish()
@@ -64,8 +65,8 @@ class OpenFluxCaptchaActivity : Activity() {
         val pad = (16 * resources.displayMetrics.density).toInt()
         val hint = TextView(this).apply {
             text = buildString {
-                append("Пройдите проверку на странице и нажмите «Готово».")
-                if (captcha.proxy.isNotBlank()) append(" Страница открыта через сервер OpenFlux.")
+                append(getString(R.string.servers_captcha_hint, getString(R.string.servers_captcha_done)))
+                if (captcha.proxy.isNotBlank()) append(" ").append(getString(R.string.servers_captcha_via_server))
             }
             setPadding(pad, pad, pad, pad / 2)
         }
@@ -74,14 +75,14 @@ class OpenFluxCaptchaActivity : Activity() {
             gravity = Gravity.END
             setPadding(pad, pad / 2, pad, pad)
             addView(Button(this@OpenFluxCaptchaActivity).apply {
-                text = "Отмена"
+                text = getString(R.string.servers_captcha_cancel)
                 setOnClickListener {
                     OpenFluxRunner.cancelCaptcha()
                     finish()
                 }
             })
             addView(Button(this@OpenFluxCaptchaActivity).apply {
-                text = "Готово"
+                text = getString(R.string.servers_captcha_done)
                 setOnClickListener { submit(captcha.url) }
             })
         }
@@ -113,8 +114,7 @@ class OpenFluxCaptchaActivity : Activity() {
     private fun submit(url: String) {
         val cookies = CookieManager.getInstance().getCookie(url).orEmpty()
         if (cookies.isBlank()) {
-            Toast.makeText(this, "Страница ещё не пропустила: пройдите проверку до конца", Toast.LENGTH_LONG)
-                .show()
+            Toast.makeText(this, R.string.servers_captcha_not_passed, Toast.LENGTH_LONG).show()
             return
         }
         CookieManager.getInstance().flush()

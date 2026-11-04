@@ -32,10 +32,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.server.Countries
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.ServerRole
@@ -95,26 +97,29 @@ fun ServerActionsSheet(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Hint("Группа ${roleLabel(server.role)}")
+                    Hint(stringResource(R.string.servers_group_named, roleLabel(server.role)))
                 }
             }
             Spacer(Modifier.height(16.dp))
 
             SheetAction(
                 icon = Icons.Rounded.Speed,
-                title = "Проверить отклик",
+                title = stringResource(R.string.servers_check_response),
                 onClick = { onPing(); onDismiss() }
             )
             SheetAction(
                 icon = if (server.isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
-                title = if (server.isFavorite) "Убрать из избранного" else "В избранное",
+                title = stringResource(
+                    if (server.isFavorite) R.string.servers_unfavorite else R.string.servers_favorite
+                ),
                 tint = if (server.isFavorite) scheme.primary else scheme.onSurface,
                 onClick = { onToggleFavorite(); onDismiss() }
             )
             if (shareText.isNotBlank()) {
+                val chooserTitle = stringResource(R.string.servers_share_server)
                 SheetAction(
                     icon = Icons.Rounded.ContentCopy,
-                    title = "Скопировать ссылку",
+                    title = stringResource(R.string.servers_copy_link),
                     onClick = {
                         clipboard.setText(AnnotatedString(shareText))
                         onCopied()
@@ -123,14 +128,14 @@ fun ServerActionsSheet(
                 )
                 SheetAction(
                     icon = Icons.Rounded.Share,
-                    title = "Поделиться",
+                    title = stringResource(R.string.servers_share),
                     onClick = {
                         val send = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
                             putExtra(Intent.EXTRA_TEXT, shareText)
                         }
                         context.startActivity(
-                            Intent.createChooser(send, "Поделиться сервером")
+                            Intent.createChooser(send, chooserTitle)
                                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         )
                         onDismiss()
@@ -140,11 +145,13 @@ fun ServerActionsSheet(
 
             Spacer(Modifier.height(16.dp))
             Column(Modifier.padding(horizontal = 8.dp)) {
-                Text("Группа", style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.servers_group), style = MaterialTheme.typography.titleSmall)
                 Hint(
-                    if (server.roleManual) "Выбрана вами, обновления подписки её не меняют"
-                    else if (server.roleFromProvider) "Указана VPN-сервисом"
-                    else "Определена по названию"
+                    stringResource(
+                        if (server.roleManual) R.string.servers_group_manual
+                        else if (server.roleFromProvider) R.string.servers_group_provider
+                        else R.string.servers_group_by_name
+                    )
                 )
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -169,7 +176,7 @@ fun ServerActionsSheet(
                 Spacer(Modifier.height(12.dp))
                 SheetAction(
                     icon = Icons.Rounded.Delete,
-                    title = "Удалить сервер",
+                    title = stringResource(R.string.servers_delete),
                     onClick = { onDelete(); onDismiss() },
                     danger = true
                 )

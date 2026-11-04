@@ -1,6 +1,9 @@
 package com.ars3nb.volta.core.server
 
+import com.ars3nb.volta.R
+import java.util.Locale
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class CountriesTest {
@@ -40,9 +43,14 @@ class CountriesTest {
     @Test
     fun namesAndFlags() {
         val de = Countries.byCode("de")
-        assertEquals("Германия", de.name)
+        assertEquals("DE", de.code)
         assertEquals("🇩🇪", de.flag)
-        assertEquals("США", Countries.byCode("US").name)
+        // Shown in the app's language: the system's name, or Volta's own short one.
+        assertEquals("Германия", Countries.systemName("DE", Locale("ru")))
+        assertEquals("Germany", Countries.systemName("DE", Locale.ENGLISH))
+        assertEquals(R.string.servers_country_us, Countries.shortNameRes("us"))
+        assertEquals(R.string.servers_country_other, Countries.shortNameRes(Countries.UNKNOWN_CODE))
+        assertNull(Countries.shortNameRes("DE"))
     }
 
     @Test

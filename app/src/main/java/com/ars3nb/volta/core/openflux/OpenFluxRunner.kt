@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import com.ars3nb.volta.BuildConfig
 import com.ars3nb.volta.R
@@ -113,7 +114,9 @@ object OpenFluxRunner {
         stop()
         val exe = binary(context)
         if (!exe.canExecute()) {
-            return@withContext Result.failure(IllegalStateException("OpenFlux не входит в эту сборку Volta"))
+            return@withContext Result.failure(
+                IllegalStateException(context.getString(R.string.servers_openflux_not_in_build))
+            )
         }
         val dataDir = File(context.filesDir, "openflux").apply { mkdirs() }
         val started = runCatching {
@@ -122,7 +125,9 @@ object OpenFluxRunner {
                 .apply { environment()["TMPDIR"] = context.cacheDir.absolutePath }
                 .start()
         }.getOrElse {
-            return@withContext Result.failure(IllegalStateException("OpenFlux не запустился: ${it.message}", it))
+            return@withContext Result.failure(
+                IllegalStateException(context.getString(R.string.servers_openflux_start_failed, it.message.orEmpty()), it)
+            )
         }
         process = started
         runningLink = link
@@ -154,15 +159,17 @@ object OpenFluxRunner {
             if (outcome != null) break
             outcome = when {
                 !started.isAlive && _status.value !is Status.Failed ->
-                    Result.failure(IllegalStateException("OpenFlux остановился при запуске"))
+                    Result.failure(IllegalStateException(context.getString(R.string.servers_openflux_stopped_on_start)))
 
                 now > deadline -> Result.failure(
                     IllegalStateException(
-                        if (_status.value is Status.Captcha) {
-                            "OpenFlux: проверка не пройдена"
-                        } else {
-                            "OpenFlux: узел не ответил за 30 секунд"
-                        }
+                        context.getString(
+                            if (_status.value is Status.Captcha) {
+                                R.string.servers_openflux_check_failed
+                            } else {
+                                R.string.servers_openflux_timeout
+                            }
+                        )
                     )
                 )
 
@@ -170,7 +177,8 @@ object OpenFluxRunner {
             }
             if (outcome == null) delay(200)
         }
-        val result = outcome ?: Result.failure(IllegalStateException("OpenFlux не подключился"))
+        val result = outcome
+            ?: Result.failure(IllegalStateException(context.getString(R.string.servers_openflux_not_connected)))
         if (result.isFailure) stop()
         result
     }
@@ -232,7 +240,7 @@ object OpenFluxRunner {
         // The helper is gone. When nobody stopped it, that is a failure (its own error
         // event, if it sent one, says more).
         if (process === p && _status.value !is Status.Failed) {
-            _status.value = Status.Failed("OpenFlux остановился")
+            _status.value = Status.Failed(text(R.string.servers_openflux_stopped))
         }
     }, "openflux-events").apply { isDaemon = true }.start()
 
@@ -263,13 +271,26 @@ object OpenFluxRunner {
     }
 
     /** The helper's own words are Russian already; link problems get plainer ones. */
-    internal fun describe(code: String, message: String): String = when (code) {
-        "not_link", "damaged", "case_changed" -> "Ссылка OpenFlux повреждена, скопируйте её заново"
-        "unsupported_version" -> "Ссылка OpenFlux новее, чем умеет эта версия Volta"
-        "unknown_transport", "not_shareable" -> "В ссылке OpenFlux транспорт, который Volta не знает"
-        "session_secret", "short_secret" -> "В ссылке OpenFlux слишком короткий ключ"
-        else -> "OpenFlux: ${message.ifBlank { "не удалось подключиться" }}"
+    private fun describe(code: String, message: String): String =
+        problemRes(code)?.let { text(it) }
+            ?: text(R.string.servers_openflux_error, message.ifBlank { text(R.string.servers_openflux_connect_failed) })
+
+    /** The plain words for a link problem the helper reports by [code]; null for the rest. */
+    @StringRes
+    internal fun problemRes(code: String): Int? = when (code) {
+        "not_link", "damaged", "case_changed" -> R.string.servers_openflux_link_damaged
+        "unsupported_version" -> R.string.servers_openflux_link_newer
+        "unknown_transport", "not_shareable" -> R.string.servers_openflux_unknown_transport
+        "session_secret", "short_secret" -> R.string.servers_openflux_short_key
+        else -> null
     }
+
+    /**
+     * Words in the app's language. [appContext] is set before the helper starts, so it is
+     * there for everything the helper reports; without it, only the resource's number.
+     */
+    private fun text(@StringRes id: Int, vararg args: Any): String =
+        appContext?.getString(id, *args) ?: "#$id ${args.joinToString()}".trim()
 
     private fun binary(context: Context) = File(context.applicationInfo.nativeLibraryDir, BINARY)
 
@@ -278,7 +299,7 @@ object OpenFluxRunner {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL_ID, "OpenFlux", NotificationManager.IMPORTANCE_HIGH)
-                .apply { description = "Проверки, которые просит пройти OpenFlux" }
+                .apply { description = context.getString(R.string.servers_openflux_channel_description) }
         )
         val open = PendingIntent.getActivity(
             context, 30,
@@ -287,10 +308,12 @@ object OpenFluxRunner {
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_vpn_key)
-            .setContentTitle("OpenFlux просит пройти проверку")
+            .setContentTitle(context.getString(R.string.servers_openflux_captcha_title))
             .setContentText(
-                "${OpenFluxLink.carrierName(captcha.carrier.substringBefore('-'))}: " +
-                    "нажмите, чтобы открыть"
+                context.getString(
+                    R.string.servers_openflux_captcha_text,
+                    OpenFluxLink.carrierName(context, captcha.carrier.substringBefore('-'))
+                )
             )
             .setContentIntent(open)
             .setAutoCancel(true)

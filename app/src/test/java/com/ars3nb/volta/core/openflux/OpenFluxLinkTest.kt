@@ -1,5 +1,6 @@
 package com.ars3nb.volta.core.openflux
 
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.balancer.AutoBalancer
 import com.ars3nb.volta.core.parser.ConfigParser
 import com.ars3nb.volta.core.server.ServerClassifier
@@ -266,11 +267,20 @@ class OpenFluxLinkTest {
 
     @Test
     fun linkProblemsReadPlainly() {
-        assertEquals(
-            "Ссылка OpenFlux повреждена, скопируйте её заново",
-            OpenFluxRunner.describe("damaged", "share: bad link encoding")
-        )
-        assertEquals("OpenFlux: Порт занят", OpenFluxRunner.describe("", "Порт занят"))
+        assertEquals(R.string.servers_openflux_link_damaged, OpenFluxRunner.problemRes("damaged"))
+        assertEquals(R.string.servers_openflux_short_key, OpenFluxRunner.problemRes("short_secret"))
+        // Anything else is told in the helper's own words.
+        assertNull(OpenFluxRunner.problemRes(""))
+    }
+
+    @Test
+    fun carriersAreShownInTheAppsLanguageButStoredAsBefore() {
+        assertEquals(R.string.servers_carrier_yandex, OpenFluxLink.carrierNameRes("yandex"))
+        assertEquals(R.string.servers_carrier_direct, OpenFluxLink.carrierNameRes("direct"))
+        // Brand names are the same in every language.
+        assertNull(OpenFluxLink.carrierNameRes("mailru"))
+        // The stored name of a nameless link is unchanged.
+        assertEquals("напрямую + Яндекс Документы", OpenFluxLink.parse(SESSION)!!.carriersLabel)
     }
 
     companion object {
