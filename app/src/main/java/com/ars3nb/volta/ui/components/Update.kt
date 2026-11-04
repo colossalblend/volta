@@ -36,9 +36,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.update.UpdateInfo
 import com.ars3nb.volta.core.update.UpdateState
 import com.ars3nb.volta.ui.theme.Motion
@@ -83,7 +85,7 @@ fun UpdateBanner(state: UpdateState, onInstall: () -> Unit) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    "Вышла версия ${info.versionName}",
+                    stringResource(R.string.settings_update_available, info.versionName),
                     style = MaterialTheme.typography.titleSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -154,20 +156,25 @@ fun UpdatePill(state: UpdateState, onCheck: () -> Unit, onInstall: () -> Unit) {
             }
 
         is UpdateState.Downloading -> Text(
-            "${(state.progress * 100).toInt()}%",
+            stringResource(R.string.settings_update_percent, (state.progress * 100).toInt()),
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(horizontal = 6.dp)
         )
 
-        is UpdateState.Available -> Pill("Обновить", filled = true, onClick = onInstall)
-        is UpdateState.Ready -> Pill("Установить", filled = true, onClick = onInstall)
-        is UpdateState.Failed ->
-            if (state.info != null) Pill("Ещё раз", filled = false, onClick = onInstall)
-            else Pill("Ещё раз", filled = false, onClick = onCheck)
+        is UpdateState.Available ->
+            Pill(stringResource(R.string.settings_update_action_update), filled = true, onClick = onInstall)
+        is UpdateState.Ready ->
+            Pill(stringResource(R.string.settings_update_action_install), filled = true, onClick = onInstall)
+        is UpdateState.Failed -> Pill(
+            stringResource(R.string.settings_update_action_retry),
+            filled = false,
+            onClick = if (state.info != null) onInstall else onCheck
+        )
 
-        UpdateState.Idle, is UpdateState.UpToDate -> Pill("Проверить", filled = false, onClick = onCheck)
+        UpdateState.Idle, is UpdateState.UpToDate ->
+            Pill(stringResource(R.string.settings_update_action_check), filled = false, onClick = onCheck)
     }
 }
 
@@ -236,34 +243,39 @@ private fun updateIcon(state: UpdateState): ImageVector = when (state) {
     UpdateState.Idle, UpdateState.Checking -> Icons.Rounded.SystemUpdate
 }
 
+@Composable
 private fun panelTitle(state: UpdateState, current: String): String = when (state) {
     is UpdateState.UpToDate -> "Volta $current"
-    is UpdateState.Available -> "Вышла версия ${state.info.versionName}"
-    is UpdateState.Downloading -> "Скачиваю версию ${state.info.versionName}"
-    is UpdateState.Ready -> "Версия ${state.info.versionName} скачана"
-    is UpdateState.Failed -> "Не получилось"
+    is UpdateState.Available -> stringResource(R.string.settings_update_available, state.info.versionName)
+    is UpdateState.Downloading -> stringResource(R.string.settings_update_downloading_version, state.info.versionName)
+    is UpdateState.Ready -> stringResource(R.string.settings_update_downloaded, state.info.versionName)
+    is UpdateState.Failed -> stringResource(R.string.settings_update_failed)
     UpdateState.Idle, UpdateState.Checking -> "Volta $current"
 }
 
+@Composable
 private fun panelHint(state: UpdateState, current: String): String = when (state) {
-    UpdateState.Idle -> "Узнайте, есть ли новая версия"
-    UpdateState.Checking -> "Ищу новую версию…"
-    is UpdateState.UpToDate -> "Последняя версия · проверено в ${clock(state.checkedAt)}"
-    is UpdateState.Available -> "Сейчас у вас $current · ${formatBytes(state.info.apk.size)}"
-    is UpdateState.Downloading -> "Можно пользоваться приложением, пока идёт загрузка"
+    UpdateState.Idle -> stringResource(R.string.settings_update_idle_hint)
+    UpdateState.Checking -> stringResource(R.string.settings_update_checking)
+    is UpdateState.UpToDate -> stringResource(R.string.settings_update_latest_at, clock(state.checkedAt))
+    is UpdateState.Available ->
+        stringResource(R.string.settings_update_current_size, current, formatBytes(state.info.apk.size))
+    is UpdateState.Downloading -> stringResource(R.string.settings_update_downloading_hint)
     is UpdateState.Ready -> readyHint(state)
-    is UpdateState.Failed -> state.message
+    is UpdateState.Failed -> stringResource(state.message)
 }
 
+@Composable
 private fun bannerHint(state: UpdateState): String = when (state) {
-    is UpdateState.Available -> "Скачать ${formatBytes(state.info.apk.size)} и установить"
-    is UpdateState.Downloading -> "Скачиваю…"
+    is UpdateState.Available -> stringResource(R.string.settings_update_download_size, formatBytes(state.info.apk.size))
+    is UpdateState.Downloading -> stringResource(R.string.settings_update_downloading)
     is UpdateState.Ready -> readyHint(state)
     else -> ""
 }
 
-private fun readyHint(state: UpdateState.Ready): String =
-    if (state.needsPermission) "Разрешите Volta устанавливать приложения и нажмите «Установить»"
-    else "Осталось подтвердить установку"
+@Composable
+private fun readyHint(state: UpdateState.Ready): String = stringResource(
+    if (state.needsPermission) R.string.settings_update_need_permission else R.string.settings_update_confirm
+)
 
 private fun clock(at: Long): String = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(at))

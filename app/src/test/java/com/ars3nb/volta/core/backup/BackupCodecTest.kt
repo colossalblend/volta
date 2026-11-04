@@ -1,5 +1,11 @@
 package com.ars3nb.volta.core.backup
 
+import android.app.Application
+import android.content.res.Configuration
+import android.content.res.Resources
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.ars3nb.volta.R
+import com.ars3nb.volta.core.locale.AppLanguage
 import com.ars3nb.volta.core.routing.RoutingEngine
 import com.ars3nb.volta.data.model.ProtocolType
 import com.ars3nb.volta.data.model.RouteOutbound
@@ -10,12 +16,16 @@ import com.ars3nb.volta.data.model.ServerRole
 import com.ars3nb.volta.data.model.SubscriptionEntity
 import java.time.LocalDate
 import java.time.ZoneOffset
+import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 
 class BackupCodecTest {
 
@@ -198,16 +208,16 @@ class BackupCodecTest {
 
     @Test
     fun foreignOrNewerFilesAreRefusedWithAPlainReason() {
-        fun refused(text: String): String = try {
+        fun refused(text: String): Int = try {
             BackupCodec.decode(text)
             fail("accepted: $text")
-            ""
+            0
         } catch (e: BackupCodec.BackupException) {
-            e.message.orEmpty()
+            e.reason
         }
-        assertTrue(refused("not json at all").contains("не файл Volta"))
-        assertTrue(refused("""{"subscriptions": []}""").contains("не файл Volta"))
-        assertTrue(refused("""{"format": "volta-backup", "version": 99}""").contains("новой версией"))
+        assertEquals(R.string.settings_backup_error_damaged, refused("not json at all"))
+        assertEquals(R.string.settings_backup_error_not_volta, refused("""{"subscriptions": []}"""))
+        assertEquals(R.string.settings_backup_error_newer, refused("""{"format": "volta-backup", "version": 99}"""))
         // A byte-order mark from a text editor is fine.
         assertTrue(BackupCodec.decode("﻿{\"format\": \"volta-backup\", \"version\": 1}").isEmpty)
     }
@@ -232,14 +242,7 @@ class BackupCodecTest {
     }
 
     @Test
-    fun theDialogSaysWhatIsInTheFile() {
-        val back = BackupCodec.decode(BackupCodec.encode(snapshot(), seal), unseal)
-        val text = BackupCodec.describe(back, ZoneOffset.UTC)
-        assertTrue(text, text.startsWith("Файл сохранён 26 октября 2026."))
-        assertTrue(text.contains("подписки: 2"))
-        assertTrue(text.contains("свои серверы: 1"))
-        assertTrue(text.contains("наборы правил: 1"))
-        assertTrue(text.contains("настройки"))
+    fun theFileIsNamedAfterTheDay() {
         assertEquals("volta-2026-11-04.json", BackupCodec.fileName(LocalDate.of(2026, 11, 4)))
     }
 
@@ -253,16 +256,72 @@ class BackupCodecTest {
     }
 }
 
-class RestoreReportTest {
+/** What the restore dialog and the message after it say, from the app's resources. */
+@RunWith(AndroidJUnit4::class)
+@Config(sdk = [35], application = Application::class)
+class BackupTextsTest {
+
+    private val contents = BackupCodec.Contents(
+        createdAt = 1_793_000_000_000,
+        subscriptions = listOf(
+            BackupCodec.RestoredSubscription(SubscriptionEntity(name = "Мой VPN", url = "https://a.example/s"), null),
+            BackupCodec.RestoredSubscription(SubscriptionEntity(name = "Секретная", url = "https://b.example/s"), null)
+        ),
+        servers = listOf(ServerEntity(remark = "Мой сервер", address = "203.0.113.5", port = 443)),
+        routing = listOf(RoutingProfileEntity(name = "Мои правила")),
+        activeRouting = null,
+        settings = mapOf("design_theme" to "OCEAN"),
+        skipped = 0
+    )
+
+    private val restored = RestoreReport(subscriptionsAdded = 2, subscriptionsNotLoaded = 1, serversAdded = 1, settingsRestored = 5)
+
+    private fun res(tag: String): Resources {
+        val app = RuntimeEnvironment.getApplication()
+        val config = Configuration(app.resources.configuration).apply { setLocale(Locale.forLanguageTag(tag)) }
+        return app.createConfigurationContext(config).resources
+    }
+
+    @Test
+    fun theDialogSaysWhatIsInTheFile() {
+        assertEquals(
+            "Файл сохранён 26 октября 2026.\n\n" +
+                "В нём:\n• подписки: 2\n• свои серверы: 1\n• наборы правил: 1\n• настройки\n\n" +
+                "То, что уже есть в Volta, не задвоится. Настройки станут такими, как в файле. " +
+                "Серверы подписок загрузятся заново, нужен интернет.",
+            BackupCodec.describe(contents, res("ru"), ZoneOffset.UTC)
+        )
+        val en = BackupCodec.describe(contents, res("en"), ZoneOffset.UTC)
+        assertTrue(en, en.startsWith("The file was saved on October 26, 2026."))
+        assertTrue(en, en.contains("• 2 subscriptions\n• 1 own server\n• 1 rule set\n"))
+    }
 
     @Test
     fun theMessageNamesWhatCameBackAndWhatDidNot() {
+        val ru = res("ru")
         assertEquals(
             "Готово. Восстановлено — подписки: 2, свои серверы: 1, настройки. " +
                 "Серверы не загрузились у подписок: 1. Обновите их позже на вкладке «Подписки»",
-            RestoreReport(subscriptionsAdded = 2, subscriptionsNotLoaded = 1, serversAdded = 1, settingsRestored = 5).message()
+            restored.message(ru)
         )
-        assertEquals("Всё из файла уже есть в Volta", RestoreReport(subscriptionsAlreadyThere = 3).message())
-        assertEquals("Нечего восстанавливать. Не прочитано записей: 2", RestoreReport(skipped = 2).message())
+        assertEquals("Всё из файла уже есть в Volta", RestoreReport(subscriptionsAlreadyThere = 3).message(ru))
+        assertEquals("Нечего восстанавливать. Не прочитано записей: 2", RestoreReport(skipped = 2).message(ru))
+        assertTrue(restored.message(res("en")), restored.message(res("en")).startsWith("Done. Restored: 2 subscriptions"))
+    }
+
+    /** The date pattern and the counts work in every language, not only in the two above. */
+    @Test
+    fun everyLanguageCanSayIt() {
+        for (lang in AppLanguage.SUPPORTED) {
+            val r = res(lang.tag)
+            val text = BackupCodec.describe(contents, r, ZoneOffset.UTC)
+            // Date line, gap, "it has", four items, gap, what will happen.
+            assertEquals("${lang.tag}: $text", 9, text.lines().size)
+            assertFalse("${lang.tag}: $text", text.contains('%'))
+            for (report in listOf(restored, RestoreReport(skipped = 21), RestoreReport())) {
+                val message = report.message(r)
+                assertTrue("${lang.tag}: $message", message.isNotBlank() && !message.contains('%'))
+            }
+        }
     }
 }

@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import androidx.annotation.DrawableRes
+import androidx.annotation.StringRes
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -36,6 +37,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ars3nb.volta.R
@@ -46,15 +48,15 @@ import com.ars3nb.volta.R
  */
 enum class AppIcon(
     val alias: String,
-    val title: String,
+    @param:StringRes val title: Int,
     @param:DrawableRes val background: Int,
     @param:DrawableRes val foreground: Int
 ) {
-    FOLD("IconFold", "Сгиб", R.drawable.ic_launcher_background, R.drawable.ic_launcher_foreground),
-    SPARK("IconSpark", "Искра", R.drawable.ic_launcher_spark_background, R.drawable.ic_launcher_spark_foreground),
-    ORBIT("IconOrbit", "Орбита", R.drawable.ic_launcher_orbit_background, R.drawable.ic_launcher_orbit_foreground),
-    TUNNEL("IconTunnel", "Туннель", R.drawable.ic_launcher_tunnel_background, R.drawable.ic_launcher_tunnel_foreground),
-    PIXEL("IconPixel", "Пиксель", R.drawable.ic_launcher_pixel_background, R.drawable.ic_launcher_pixel_foreground);
+    FOLD("IconFold", R.string.settings_icon_fold, R.drawable.ic_launcher_background, R.drawable.ic_launcher_foreground),
+    SPARK("IconSpark", R.string.settings_icon_spark, R.drawable.ic_launcher_spark_background, R.drawable.ic_launcher_spark_foreground),
+    ORBIT("IconOrbit", R.string.settings_icon_orbit, R.drawable.ic_launcher_orbit_background, R.drawable.ic_launcher_orbit_foreground),
+    TUNNEL("IconTunnel", R.string.settings_icon_tunnel, R.drawable.ic_launcher_tunnel_background, R.drawable.ic_launcher_tunnel_foreground),
+    PIXEL("IconPixel", R.string.settings_icon_pixel, R.drawable.ic_launcher_pixel_background, R.drawable.ic_launcher_pixel_foreground);
 
     private fun component(context: Context) = ComponentName(context.packageName, "com.ars3nb.volta.$alias")
 
@@ -109,8 +111,7 @@ fun AppIconPicker(modifier: Modifier = Modifier) {
             }
         }
         Text(
-            "Лаунчеру нужно несколько секунд, чтобы сменить иконку. Если она пропала с " +
-                "рабочего стола, перетащите её заново из списка приложений.",
+            stringResource(R.string.settings_icon_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 10.dp)
@@ -120,6 +121,7 @@ fun AppIconPicker(modifier: Modifier = Modifier) {
 
 @Composable
 private fun IconChoice(icon: AppIcon, selected: Boolean, onClick: () -> Unit) {
+    val title = stringResource(icon.title)
     val ring by animateDpAsState(if (selected) 2.dp else 0.dp, label = "ring")
     val pop by animateFloatAsState(
         targetValue = if (selected) 1f else 0.9f,
@@ -142,10 +144,10 @@ private fun IconChoice(icon: AppIcon, selected: Boolean, onClick: () -> Unit) {
             // Adaptive layers are 108dp with the visible part in the middle 72dp.
             val layer = Modifier.requiredSize(54.dp * 108f / 72f)
             Image(painterResource(icon.background), contentDescription = null, modifier = layer)
-            Image(painterResource(icon.foreground), contentDescription = icon.title, modifier = layer)
+            Image(painterResource(icon.foreground), contentDescription = title, modifier = layer)
         }
         Text(
-            icon.title,
+            title,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
             color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,

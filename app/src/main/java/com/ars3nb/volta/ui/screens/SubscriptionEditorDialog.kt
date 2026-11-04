@@ -36,7 +36,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.ars3nb.volta.R
 import com.ars3nb.volta.data.model.SubscriptionEntity
 import com.ars3nb.volta.ui.components.Hint
 import com.ars3nb.volta.ui.components.SheetAction
@@ -104,10 +106,10 @@ fun SubscriptionEditorDialog(
                 Spacer(Modifier.height(20.dp))
 
                 if (deleting) {
-                    Text("Удалить подписку?", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.settings_subs_delete_question), style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "Уйдут её серверы и её правила. Остальные подписки останутся как есть.",
+                        stringResource(R.string.settings_subs_delete_text),
                         style = MaterialTheme.typography.bodyMedium,
                         color = scheme.onSurfaceVariant
                     )
@@ -119,18 +121,18 @@ fun SubscriptionEditorDialog(
                             contentColor = scheme.onError
                         ),
                         modifier = Modifier.fillMaxWidth().height(52.dp)
-                    ) { Text("Удалить") }
+                    ) { Text(stringResource(R.string.settings_subs_delete)) }
                     Spacer(Modifier.height(8.dp))
                     FilledTonalButton(
                         onClick = { confirmDelete = false },
                         modifier = Modifier.fillMaxWidth().height(52.dp)
-                    ) { Text("Оставить") }
+                    ) { Text(stringResource(R.string.settings_subs_keep)) }
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         VoltaField(
                             value = name,
                             onValueChange = { name = it },
-                            label = "Название",
+                            label = stringResource(R.string.settings_subs_name),
                             singleLine = true,
                             container = scheme.surfaceVariant
                         )
@@ -140,7 +142,7 @@ fun SubscriptionEditorDialog(
                             VoltaField(
                                 value = url,
                                 onValueChange = { url = it },
-                                label = "Ссылка подписки",
+                                label = stringResource(R.string.settings_subs_url),
                                 minLines = 2,
                                 maxLines = 4,
                                 container = scheme.surfaceVariant
@@ -153,17 +155,17 @@ fun SubscriptionEditorDialog(
                         // A hidden subscription never hands its address back to the screen.
                         onClick = { onSave(name, if (subscription.urlHidden) "" else url) },
                         modifier = Modifier.fillMaxWidth().height(52.dp)
-                    ) { Text("Сохранить") }
+                    ) { Text(stringResource(R.string.settings_subs_save)) }
                     Spacer(Modifier.height(10.dp))
                     SheetAction(
                         icon = Icons.Rounded.Refresh,
-                        title = "Обновить сейчас",
-                        subtitle = "Забрать свежий список серверов и правил",
+                        title = stringResource(R.string.settings_subs_refresh),
+                        subtitle = stringResource(R.string.settings_subs_refresh_text),
                         onClick = onRefresh
                     )
                     SheetAction(
                         icon = Icons.Rounded.Delete,
-                        title = "Удалить подписку",
+                        title = stringResource(R.string.settings_subs_delete_action),
                         onClick = { confirmDelete = true },
                         danger = true
                     )
@@ -190,8 +192,8 @@ private fun HiddenLinkNote() {
             )
             Spacer(Modifier.width(12.dp))
             Column {
-                Text("Ссылка скрыта", style = MaterialTheme.typography.titleSmall)
-                Hint("VPN-сервис закрыл адрес подписки. Она обновляется как обычно, а изменить можно только название.")
+                Text(stringResource(R.string.settings_subs_hidden_title), style = MaterialTheme.typography.titleSmall)
+                Hint(stringResource(R.string.settings_subs_hidden_text))
             }
         }
     }

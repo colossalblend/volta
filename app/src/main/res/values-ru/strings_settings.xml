@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Settings screen -->
+    <string name="settings_title">Настройки</string>
+    <string name="settings_simple_title">Простой режим</string>
+    <string name="settings_simple_text">Одна большая кнопка «Включить / Выключить», сервер выбирается сам. Удобно для родителей и всех, кому не нужны настройки.</string>
+    <string name="settings_section_connection">Подключение</string>
+    <string name="settings_follow_network_title">Следить за сменой сети</string>
+    <string name="settings_follow_network_text">При переходе между Wi-Fi и мобильным интернетом сервер проверяется и меняется сам.</string>
+    <string name="settings_recheck_title">Улучшать выбор сервера</string>
+    <string name="settings_recheck_text">Раз в 15 минут при включённом экране сравнивает серверы и переходит на заметно более быстрый. Неотвечающий сервер заменяется всегда.</string>
+    <string name="settings_failover_title">Менять сервер при обрыве</string>
+    <string name="settings_failover_text">Если сервер перестал отвечать, Volta перейдёт на другой.</string>
+    <string name="settings_autoconnect_title">Подключаться при запуске</string>
+    <string name="settings_autoconnect_text">Включать VPN сразу после старта системы.</string>
+
+    <!-- Android's own kill switch. The quoted names are Android's own settings (Always-on VPN,
+         Block connections without VPN), as Android calls them in that language. -->
+    <string name="settings_killswitch_title">Не пускать интернет без VPN</string>
+    <string name="settings_killswitch_unknown">Android может держать Volta всегда включённой и закрыть интернет, пока VPN не подключён. Нажмите, затем шестерёнку рядом с Volta: «Постоянная VPN» и «Блокировать соединения без VPN».</string>
+    <string name="settings_killswitch_on">Включено: Volta всегда включена, а без VPN интернет закрыт. Выключите VPN — интернет пропадёт, так и задумано.</string>
+    <string name="settings_killswitch_partial">Volta включается сама, но пока VPN подключается, приложения выходят в интернет напрямую. Включите «Блокировать соединения без VPN» в шестерёнке рядом с Volta.</string>
+    <string name="settings_killswitch_off">Выключено. Нажмите, затем шестерёнку рядом с Volta: «Постоянная VPN» и «Блокировать соединения без VPN».</string>
+    <string name="settings_no_vpn_settings">На этом устройстве нет настроек VPN</string>
+
+    <!-- Quick Settings tiles -->
+    <string name="settings_section_tiles">Плитки в шторке</string>
+    <string name="settings_tiles_hint">Нажатие на плитку включает VPN в её режиме, повторное — выключает.</string>
+    <string name="settings_tile_add">добавить</string>
+
+    <!-- Subscriptions and checks -->
+    <string name="settings_section_checks">Подписки и проверки</string>
+    <string name="settings_refresh_on_launch_title">Обновлять подписки при запуске</string>
+    <string name="settings_refresh_on_launch_text">Серверы и правила обновляются при открытии приложения.</string>
+    <string name="settings_ping_on_start_title">Проверять сеть при запуске</string>
+    <string name="settings_ping_on_start_text">Сразу видно, какая сейчас сеть: Home или LTE.</string>
+    <string name="settings_ping_type_title">Как проверять серверы</string>
+    <string name="settings_ping_real">Через сервер</string>
+    <string name="settings_ping_real_hint">Проверяет настоящую скорость через сервер. Рекомендуем.</string>
+    <string name="settings_ping_http_hint">Для серверов, которые плохо отвечают на быструю проверку.</string>
+    <string name="settings_ping_tcp_hint">Быстрее, но может показать сервер живым, когда он не работает.</string>
+    <string name="settings_ping_icmp_hint">Самая простая проверка. У многих мобильных операторов не работает.</string>
+
+    <!-- Tunnel and battery -->
+    <string name="settings_section_tunnel">Туннель и батарея</string>
+    <string name="settings_local_dns_title">Открывать сайты через VPN</string>
+    <string name="settings_local_dns_text">Адреса сайтов тоже узнаются через VPN, так меньше блокировок.</string>
+    <string name="settings_battery_title">Беречь батарею</string>
+    <string name="settings_battery_text">Короткие проверки и меньше фоновой работы.</string>
+
+    <!-- Appearance. The theme names "Volta" and "Material" are names and stay in code. -->
+    <string name="settings_section_look">Оформление</string>
+    <string name="settings_theme">Тема</string>
+    <string name="settings_theme_system">Система</string>
+    <string name="settings_theme_light">Светлая</string>
+    <string name="settings_theme_ocean">Океан</string>
+    <string name="settings_theme_ember">Уголь</string>
+    <string name="settings_app_icon">Иконка приложения</string>
+
+    <!-- Device -->
+    <string name="settings_section_device">Устройство</string>
+    <string name="settings_hwid_title">Привязка к устройству</string>
+    <string name="settings_hwid_text">Включите, если VPN-сервис ограничивает число устройств на одну подписку.</string>
+    <string name="settings_hwid_code">Код этого устройства</string>
+    <string name="settings_hwid_copied">Код скопирован</string>
+    <string name="settings_hwid_copy">Скопировать код</string>
+
+    <!-- Sections further down, and «About» -->
+    <string name="settings_section_move">Перенос на новый телефон</string>
+    <string name="settings_section_about">О приложении</string>
+    <string name="settings_update_store_note">Обновления приходят через Google Play</string>
+    <string name="settings_update_auto_title">Проверка обновлений</string>
+    <string name="settings_update_auto_on">При запуске и раз в несколько часов. О новой версии придёт уведомление</string>
+    <string name="settings_update_auto_off">Выключена. Проверить можно кнопкой «Проверить»</string>
+    <string name="settings_update_beta_title">Бета-версии</string>
+    <string name="settings_update_beta_text">Получать пробные сборки раньше всех. В них могут быть ошибки</string>
+    <string name="settings_help_title">Помощь и инструкции</string>
+    <string name="settings_help_text">Как добавить подписку, выбрать режим и настроить приложения</string>
+    <string name="settings_no_browser">Нет браузера. Инструкции на сайте %1$s</string>
+
+    <!-- Launcher icons -->
+    <string name="settings_icon_fold">Сгиб</string>
+    <string name="settings_icon_spark">Искра</string>
+    <string name="settings_icon_orbit">Орбита</string>
+    <string name="settings_icon_tunnel">Туннель</string>
+    <string name="settings_icon_pixel">Пиксель</string>
+    <string name="settings_icon_hint">Лаунчеру нужно несколько секунд, чтобы сменить иконку. Если она пропала с рабочего стола, перетащите её заново из списка приложений.</string>
+
+    <!-- Updates: the row in Settings, the banner on the home screen and the notification -->
+    <string name="settings_update_available">Вышла версия %1$s</string>
+    <string name="settings_update_action_update">Обновить</string>
+    <string name="settings_update_action_install">Установить</string>
+    <string name="settings_update_action_retry">Ещё раз</string>
+    <string name="settings_update_action_check">Проверить</string>
+    <string name="settings_update_percent">%1$d%%</string>
+    <string name="settings_update_downloading_version">Скачиваю версию %1$s</string>
+    <string name="settings_update_downloaded">Версия %1$s скачана</string>
+    <string name="settings_update_failed">Не получилось</string>
+    <string name="settings_update_idle_hint">Узнайте, есть ли новая версия</string>
+    <string name="settings_update_checking">Ищу новую версию…</string>
+    <string name="settings_update_latest_at">Последняя версия · проверено в %1$s</string>
+    <string name="settings_update_current_size">Сейчас у вас %1$s · %2$s</string>
+    <string name="settings_update_downloading_hint">Можно пользоваться приложением, пока идёт загрузка</string>
+    <string name="settings_update_download_size">Скачать %1$s и установить</string>
+    <string name="settings_update_downloading">Скачиваю…</string>
+    <string name="settings_update_need_permission">Разрешите Volta устанавливать приложения и нажмите «Установить»</string>
+    <string name="settings_update_confirm">Осталось подтвердить установку</string>
+    <string name="settings_update_error_check">Не получилось проверить обновления. Проверьте интернет или включите VPN.</string>
+    <string name="settings_update_error_corrupt">Файл скачался с ошибкой. Попробуйте ещё раз.</string>
+    <string name="settings_update_error_download">Не удалось скачать обновление. Попробуйте ещё раз.</string>
+    <string name="settings_update_error_installer">Не удалось открыть установщик Android.</string>
+    <string name="settings_update_channel">Обновления</string>
+    <string name="settings_update_channel_desc">Новые версии Volta</string>
+    <string name="settings_update_notify_title">Доступно обновление Volta</string>
+    <string name="settings_update_notify_text">Версия %1$s. Нажмите, чтобы установить.</string>
+
+    <!-- Moving to a new phone: saving to a file and restoring from it -->
+    <string name="settings_backup_save_title">Сохранить в файл</string>
+    <string name="settings_backup_save_text">Подписки, свои серверы, правила и настройки</string>
+    <string name="settings_backup_restore_title">Восстановить из файла</string>
+    <string name="settings_backup_restore_text">Откройте файл, сохранённый в Volta на другом телефоне</string>
+    <string name="settings_backup_working">Минутку…</string>
+    <string name="settings_backup_warning">В файле ваши подписки: храните его у себя и не пересылайте посторонним.</string>
+    <string name="settings_backup_restore_question">Восстановить из файла?</string>
+    <string name="settings_backup_restore_action">Восстановить</string>
+    <string name="settings_backup_cancel">Отмена</string>
+    <string name="settings_backup_error_damaged">Это не файл Volta или он повреждён</string>
+    <string name="settings_backup_error_not_volta">Это не файл Volta. Выберите файл, сохранённый в Volta</string>
+    <string name="settings_backup_error_newer">Файл сохранён более новой версией Volta. Обновите приложение</string>
+    <string name="settings_backup_error_too_big">Файл слишком большой для файла Volta</string>
+
+    <!-- The restore dialog. settings_backup_date_format is a java.time DateTimeFormatter pattern
+         for the day the file was saved (d day, M/MMMM month, yyyy year, text in 'quotes'). -->
+    <string name="settings_backup_date_format">d MMMM yyyy</string>
+    <string name="settings_backup_saved_on">Файл сохранён %1$s.</string>
+    <string name="settings_backup_contains">В нём:</string>
+    <plurals name="settings_backup_count_subscriptions">
+        <item quantity="one">подписки: %d</item>
+        <item quantity="few">подписки: %d</item>
+        <item quantity="many">подписки: %d</item>
+        <item quantity="other">подписки: %d</item>
+    </plurals>
+    <plurals name="settings_backup_count_servers">
+        <item quantity="one">свои серверы: %d</item>
+        <item quantity="few">свои серверы: %d</item>
+        <item quantity="many">свои серверы: %d</item>
+        <item quantity="other">свои серверы: %d</item>
+    </plurals>
+    <plurals name="settings_backup_count_rules">
+        <item quantity="one">наборы правил: %d</item>
+        <item quantity="few">наборы правил: %d</item>
+        <item quantity="many">наборы правил: %d</item>
+        <item quantity="other">наборы правил: %d</item>
+    </plurals>
+    <string name="settings_backup_item_settings">настройки</string>
+    <string name="settings_backup_no_duplicates">То, что уже есть в Volta, не задвоится.</string>
+    <string name="settings_backup_settings_replaced">Настройки станут такими, как в файле.</string>
+    <string name="settings_backup_servers_reload">Серверы подписок загрузятся заново, нужен интернет.</string>
+
+    <!-- The message after a restore. Separators join the parts of it, as each language does. -->
+    <string name="settings_restore_done">Готово. Восстановлено — %1$s</string>
+    <string name="settings_restore_all_there">Всё из файла уже есть в Volta</string>
+    <string name="settings_restore_nothing">Нечего восстанавливать</string>
+    <plurals name="settings_restore_not_loaded">
+        <item quantity="one">Серверы не загрузились у подписок: %d. Обновите их позже на вкладке «Подписки»</item>
+        <item quantity="few">Серверы не загрузились у подписок: %d. Обновите их позже на вкладке «Подписки»</item>
+        <item quantity="many">Серверы не загрузились у подписок: %d. Обновите их позже на вкладке «Подписки»</item>
+        <item quantity="other">Серверы не загрузились у подписок: %d. Обновите их позже на вкладке «Подписки»</item>
+    </plurals>
+    <plurals name="settings_restore_skipped">
+        <item quantity="one">Не прочитано записей: %d</item>
+        <item quantity="few">Не прочитано записей: %d</item>
+        <item quantity="many">Не прочитано записей: %d</item>
+        <item quantity="other">Не прочитано записей: %d</item>
+    </plurals>
+    <string name="settings_list_separator">", "</string>
+    <string name="settings_sentence_separator">". "</string>
+
+    <!-- Adding: the one field for links, keys and files -->
+    <string name="settings_import_back">Назад</string>
+    <string name="settings_import_title">Добавить</string>
+    <string name="settings_import_subtitle">Подписку, сервер или ключ. Вставьте как есть, Volta разберётся сама.</string>
+    <string name="settings_import_placeholder">Вставьте сюда ссылку на подписку, ссылку на сервер (%1$s) или ключ vpn://</string>
+    <string name="settings_import_paste">Вставить из буфера</string>
+    <string name="settings_import_clipboard_empty">В буфере обмена пусто</string>
+    <string name="settings_import_clear">Очистить</string>
+    <string name="settings_import_name_label">Название, если хотите своё</string>
+    <string name="settings_import_open_file">Открыть файл настроек</string>
+    <string name="settings_import_open_file_text">Файл, который прислал VPN-сервис</string>
+    <string name="settings_import_no_file_picker">На этом устройстве нельзя выбрать файл. Откройте файл на телефоне и вставьте его текст в поле выше</string>
+    <string name="settings_import_formats_title">Что сюда можно вставить</string>
+
+    <!-- What the field holds, said back under it -->
+    <string name="settings_import_empty">Пока пусто</string>
+    <string name="settings_import_empty_hint">Вставьте ссылку или ключ</string>
+    <string name="settings_import_hidden_sub">Подписка со скрытой ссылкой</string>
+    <string name="settings_import_hidden_sub_hint">Адрес не будет виден в приложении</string>
+    <string name="settings_import_sub">Подписка</string>
+    <string name="settings_import_sub_hint">Серверы и правила будут обновляться сами</string>
+    <string name="settings_import_encrypted">Зашифрованная подписка</string>
+    <string name="settings_import_encrypted_hint">Volta откроет её сама, адрес останется скрытым</string>
+    <string name="settings_import_server">Сервер</string>
+    <string name="settings_import_server_hint">Добавится в общий список серверов</string>
+    <plurals name="settings_import_servers">
+        <item quantity="one">Серверов: %d</item>
+        <item quantity="few">Серверов: %d</item>
+        <item quantity="many">Серверов: %d</item>
+        <item quantity="other">Серверов: %d</item>
+    </plurals>
+    <string name="settings_import_servers_hint">Все добавятся в общий список</string>
+    <string name="settings_import_amnezia">Ключ AmneziaVPN</string>
+    <string name="settings_import_amnezia_hint">Серверы из ключа добавятся в список</string>
+    <string name="settings_import_conf">Файл настроек сервера</string>
+    <string name="settings_import_conf_hint">Станет одним сервером в списке</string>
+    <string name="settings_import_json">Настройки серверов</string>
+    <string name="settings_import_json_hint">Серверы добавятся в общий список</string>
+    <string name="settings_import_control">Ссылка управления</string>
+    <string name="settings_import_control_hint">Не добавляется, а включает или выключает VPN</string>
+    <string name="settings_import_unknown">Не похоже на ссылку</string>
+    <string name="settings_import_unknown_hint">Проверьте, что скопировали её целиком</string>
+
+    <!-- The button, named after what it will do -->
+    <string name="settings_import_add_sub">Добавить подписку</string>
+    <string name="settings_import_add_server">Добавить сервер</string>
+    <string name="settings_import_add_servers">Добавить серверы</string>
+    <string name="settings_import_import">Импортировать</string>
+    <string name="settings_import_run">Выполнить</string>
+
+    <!-- What can be pasted -->
+    <string name="settings_import_format_sub">Ссылка от VPN-сервиса, обычная или зашифрованная. Серверы в ней обновляются сами</string>
+    <string name="settings_import_format_server">Ссылка на один сервер, которую прислал сервис</string>
+    <string name="settings_import_format_amnezia">Длинный ключ, который начинается с vpn://</string>
+    <string name="settings_import_format_openflux_title">Ссылка OpenFlux</string>
+    <string name="settings_import_format_openflux">Ссылка, которая начинается с openflux://</string>
+    <string name="settings_import_format_volta_title">Ссылка Volta</string>
+    <string name="settings_import_format_volta">Ссылка volta://, которую даёт VPN-сервис: обычная или зашифрованная</string>
+    <string name="settings_import_format_file_title">Файл настроек</string>
+    <string name="settings_import_format_file">Файл, который прислал сервис: его можно открыть кнопкой выше</string>
+
+    <!-- Subscriptions tab and the sheet of one subscription -->
+    <string name="settings_subs_title">Подписки</string>
+    <string name="settings_subs_refresh_all">Обновить все подписки</string>
+    <string name="settings_subs_empty_title">Подписок пока нет</string>
+    <string name="settings_subs_empty_text">Добавьте одну или несколько: Volta объединит их серверы в общий список и сама разложит по группам Home и LTE.</string>
+    <string name="settings_subs_lead">Нажмите на подписку, чтобы переименовать или удалить её.</string>
+    <string name="settings_subs_delete_question">Удалить подписку?</string>
+    <string name="settings_subs_delete_text">Уйдут её серверы и её правила. Остальные подписки останутся как есть.</string>
+    <string name="settings_subs_delete">Удалить</string>
+    <string name="settings_subs_keep">Оставить</string>
+    <string name="settings_subs_name">Название</string>
+    <string name="settings_subs_url">Ссылка подписки</string>
+    <string name="settings_subs_save">Сохранить</string>
+    <string name="settings_subs_refresh">Обновить сейчас</string>
+    <string name="settings_subs_refresh_text">Забрать свежий список серверов и правил</string>
+    <string name="settings_subs_delete_action">Удалить подписку</string>
+    <string name="settings_subs_hidden_title">Ссылка скрыта</string>
+    <string name="settings_subs_hidden_text">VPN-сервис закрыл адрес подписки. Она обновляется как обычно, а изменить можно только название.</string>
+
+    <!-- Links that can't be used (volta://, volta://crypt): why, said to the user -->
+    <string name="settings_link_decrypt_failed">Не удалось расшифровать ссылку</string>
+    <string name="settings_link_double_encrypted">Ссылка зашифрована дважды</string>
+    <string name="settings_link_no_subscription">В зашифрованной ссылке нет подписки</string>
+    <string name="settings_link_no_address_encrypted">В зашифрованной ссылке нет адреса подписки</string>
+    <string name="settings_link_no_address">В ссылке нет адреса подписки</string>
+    <string name="settings_link_crypt_empty">Зашифрованная ссылка пустая</string>
+    <string name="settings_link_crypt_damaged">Зашифрованная ссылка повреждена</string>
+    <string name="settings_link_crypt_truncated">Зашифрованная ссылка обрезана</string>
+    <string name="settings_link_crypt_newer">Ссылка зашифрована для более новой версии Volta — обновите приложение</string>
+    <string name="settings_link_crypt_unknown_key">Ссылка зашифрована ключом, которого нет в этой версии Volta</string>
+    <string name="settings_link_crypt_failed">Не удалось расшифровать ссылку: она повреждена или не для Volta</string>
+    <string name="settings_link_damaged">Ссылка повреждена</string>
+</resources>

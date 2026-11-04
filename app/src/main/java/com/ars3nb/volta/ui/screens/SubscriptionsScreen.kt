@@ -29,9 +29,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.routing.RoutingResolver
 import com.ars3nb.volta.data.model.ServerRole
 import com.ars3nb.volta.data.model.SubscriptionEntity
@@ -70,19 +72,19 @@ fun SubscriptionsScreen(
         topBar = {
             TopAppBar(
                 colors = barColors(),
-                title = { Text("Подписки", fontWeight = FontWeight.SemiBold) },
+                title = { Text(stringResource(R.string.settings_subs_title), fontWeight = FontWeight.SemiBold) },
                 actions = {
                     if (state.subscriptions.isNotEmpty()) {
                         IconButton(onClick = vm::refreshAllSubscriptions, enabled = !state.busy) {
                             if (state.busy) {
                                 CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                             } else {
-                                Icon(Icons.Rounded.Refresh, "Обновить все подписки")
+                                Icon(Icons.Rounded.Refresh, stringResource(R.string.settings_subs_refresh_all))
                             }
                         }
                     }
                     IconButton(onClick = onOpenImport) {
-                        Icon(Icons.Rounded.Add, "Добавить подписку")
+                        Icon(Icons.Rounded.Add, stringResource(R.string.settings_import_add_sub))
                     }
                 }
             )
@@ -97,21 +99,20 @@ fun SubscriptionsScreen(
                 item {
                     EmptyState(
                         icon = Icons.Rounded.CloudDownload,
-                        title = "Подписок пока нет",
-                        subtitle = "Добавьте одну или несколько: Volta объединит их серверы в " +
-                            "общий список и сама разложит по группам Home и LTE.",
+                        title = stringResource(R.string.settings_subs_empty_title),
+                        subtitle = stringResource(R.string.settings_subs_empty_text),
                         action = {
                             Button(
                                 onClick = onOpenImport,
                                 modifier = Modifier.padding(top = 8.dp).height(48.dp)
-                            ) { Text("Добавить подписку") }
+                            ) { Text(stringResource(R.string.settings_import_add_sub)) }
                         }
                     )
                 }
             } else {
                 item(key = "lead") {
                     Hint(
-                        "Нажмите на подписку, чтобы переименовать или удалить её.",
+                        stringResource(R.string.settings_subs_lead),
                         Modifier.fillMaxWidth().padding(bottom = 2.dp)
                     )
                 }

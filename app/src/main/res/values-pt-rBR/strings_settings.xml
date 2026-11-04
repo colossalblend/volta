@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Settings screen -->
+    <string name="settings_title">Configurações</string>
+    <string name="settings_simple_title">Modo simples</string>
+    <string name="settings_simple_text">Um único botão grande “Ligar / Desligar”, e o servidor é escolhido sozinho. Prático para os pais e para quem não precisa de configurações.</string>
+    <string name="settings_section_connection">Conexão</string>
+    <string name="settings_follow_network_title">Acompanhar a troca de rede</string>
+    <string name="settings_follow_network_text">Ao alternar entre Wi-Fi e dados móveis, o servidor é verificado e trocado sozinho.</string>
+    <string name="settings_recheck_title">Melhorar a escolha do servidor</string>
+    <string name="settings_recheck_text">A cada 15 minutos, com a tela ligada, compara os servidores e muda para um visivelmente mais rápido. Um servidor que não responde é sempre trocado.</string>
+    <string name="settings_failover_title">Trocar de servidor se cair</string>
+    <string name="settings_failover_text">Se o servidor parar de responder, o Volta muda para outro.</string>
+    <string name="settings_autoconnect_title">Conectar ao iniciar</string>
+    <string name="settings_autoconnect_text">Ligar a VPN logo depois que o sistema iniciar.</string>
+
+    <!-- Android's own kill switch. The quoted names are Android's own settings (Always-on VPN,
+         Block connections without VPN), as Android calls them in that language. -->
+    <string name="settings_killswitch_title">Bloquear a internet sem VPN</string>
+    <string name="settings_killswitch_unknown">O Android pode manter o Volta sempre ligado e bloquear a internet enquanto a VPN não estiver conectada. Toque aqui e depois na engrenagem ao lado do Volta: “VPN sempre ativa” e “Bloquear conexões sem VPN”.</string>
+    <string name="settings_killswitch_on">Ativado: o Volta fica sempre ligado e, sem VPN, a internet fica bloqueada. Desligue a VPN e a internet some — é de propósito.</string>
+    <string name="settings_killswitch_partial">O Volta liga sozinho, mas enquanto a VPN conecta, os apps acessam a internet diretamente. Ative “Bloquear conexões sem VPN” na engrenagem ao lado do Volta.</string>
+    <string name="settings_killswitch_off">Desativado. Toque aqui e depois na engrenagem ao lado do Volta: “VPN sempre ativa” e “Bloquear conexões sem VPN”.</string>
+    <string name="settings_no_vpn_settings">Este dispositivo não tem configurações de VPN</string>
+
+    <!-- Quick Settings tiles -->
+    <string name="settings_section_tiles">Blocos das configurações rápidas</string>
+    <string name="settings_tiles_hint">Tocar em um bloco liga a VPN no modo dele; tocar de novo desliga.</string>
+    <string name="settings_tile_add">adicionar</string>
+
+    <!-- Subscriptions and checks -->
+    <string name="settings_section_checks">Assinaturas e verificações</string>
+    <string name="settings_refresh_on_launch_title">Atualizar assinaturas ao abrir</string>
+    <string name="settings_refresh_on_launch_text">Os servidores e as regras são atualizados ao abrir o app.</string>
+    <string name="settings_ping_on_start_title">Verificar a rede ao abrir</string>
+    <string name="settings_ping_on_start_text">Dá para ver na hora qual é a rede: Home ou LTE.</string>
+    <string name="settings_ping_type_title">Como verificar os servidores</string>
+    <string name="settings_ping_real">Pelo servidor</string>
+    <string name="settings_ping_real_hint">Verifica a velocidade real pelo servidor. Recomendado.</string>
+    <string name="settings_ping_http_hint">Para servidores que respondem mal à verificação rápida.</string>
+    <string name="settings_ping_tcp_hint">Mais rápido, mas pode mostrar um servidor como ativo quando ele não funciona.</string>
+    <string name="settings_ping_icmp_hint">A verificação mais simples. Não funciona em muitas operadoras móveis.</string>
+
+    <!-- Tunnel and battery -->
+    <string name="settings_section_tunnel">Túnel e bateria</string>
+    <string name="settings_local_dns_title">Abrir sites pela VPN</string>
+    <string name="settings_local_dns_text">Os endereços dos sites também são resolvidos pela VPN, assim há menos bloqueios.</string>
+    <string name="settings_battery_title">Economizar bateria</string>
+    <string name="settings_battery_text">Verificações mais curtas e menos trabalho em segundo plano.</string>
+
+    <!-- Appearance. The theme names "Volta" and "Material" are names and stay in code. -->
+    <string name="settings_section_look">Aparência</string>
+    <string name="settings_theme">Tema</string>
+    <string name="settings_theme_system">Sistema</string>
+    <string name="settings_theme_light">Claro</string>
+    <string name="settings_theme_ocean">Oceano</string>
+    <string name="settings_theme_ember">Brasa</string>
+    <string name="settings_app_icon">Ícone do app</string>
+
+    <!-- Device -->
+    <string name="settings_section_device">Dispositivo</string>
+    <string name="settings_hwid_title">Vincular ao dispositivo</string>
+    <string name="settings_hwid_text">Ative se o seu serviço de VPN limita o número de dispositivos por assinatura.</string>
+    <string name="settings_hwid_code">Código deste dispositivo</string>
+    <string name="settings_hwid_copied">Código copiado</string>
+    <string name="settings_hwid_copy">Copiar código</string>
+
+    <!-- Sections further down, and «About» -->
+    <string name="settings_section_move">Mudar para um celular novo</string>
+    <string name="settings_section_about">Sobre o app</string>
+    <string name="settings_update_store_note">As atualizações chegam pelo Google Play</string>
+    <string name="settings_update_auto_title">Verificar atualizações</string>
+    <string name="settings_update_auto_on">Ao abrir e a cada poucas horas. Uma notificação avisa sobre a versão nova</string>
+    <string name="settings_update_auto_off">Desativada. Dá para verificar pelo botão “Verificar”</string>
+    <string name="settings_update_beta_title">Versões beta</string>
+    <string name="settings_update_beta_text">Receber versões de teste antes de todo mundo. Elas podem ter erros</string>
+    <string name="settings_help_title">Ajuda e instruções</string>
+    <string name="settings_help_text">Como adicionar uma assinatura, escolher um modo e configurar os apps</string>
+    <string name="settings_no_browser">Não há navegador. As instruções estão em %1$s</string>
+
+    <!-- Launcher icons -->
+    <string name="settings_icon_fold">Dobra</string>
+    <string name="settings_icon_spark">Faísca</string>
+    <string name="settings_icon_orbit">Órbita</string>
+    <string name="settings_icon_tunnel">Túnel</string>
+    <string name="settings_icon_pixel">Pixel</string>
+    <string name="settings_icon_hint">O launcher leva alguns segundos para trocar o ícone. Se ele sumir da tela inicial, arraste-o de novo da lista de apps.</string>
+
+    <!-- Updates: the row in Settings, the banner on the home screen and the notification -->
+    <string name="settings_update_available">Saiu a versão %1$s</string>
+    <string name="settings_update_action_update">Atualizar</string>
+    <string name="settings_update_action_install">Instalar</string>
+    <string name="settings_update_action_retry">Tentar de novo</string>
+    <string name="settings_update_action_check">Verificar</string>
+    <string name="settings_update_percent">%1$d%%</string>
+    <string name="settings_update_downloading_version">Baixando a versão %1$s</string>
+    <string name="settings_update_downloaded">Versão %1$s baixada</string>
+    <string name="settings_update_failed">Não deu certo</string>
+    <string name="settings_update_idle_hint">Veja se há uma versão nova</string>
+    <string name="settings_update_checking">Procurando uma versão nova…</string>
+    <string name="settings_update_latest_at">Versão mais recente · verificado às %1$s</string>
+    <string name="settings_update_current_size">Você está na %1$s · %2$s</string>
+    <string name="settings_update_downloading_hint">Dá para usar o app enquanto baixa</string>
+    <string name="settings_update_download_size">Baixar %1$s e instalar</string>
+    <string name="settings_update_downloading">Baixando…</string>
+    <string name="settings_update_need_permission">Permita que o Volta instale apps e toque em “Instalar”</string>
+    <string name="settings_update_confirm">Só falta confirmar a instalação</string>
+    <string name="settings_update_error_check">Não foi possível verificar atualizações. Verifique a internet ou ligue a VPN.</string>
+    <string name="settings_update_error_corrupt">O arquivo baixou com erro. Tente de novo.</string>
+    <string name="settings_update_error_download">Não foi possível baixar a atualização. Tente de novo.</string>
+    <string name="settings_update_error_installer">Não foi possível abrir o instalador do Android.</string>
+    <string name="settings_update_channel">Atualizações</string>
+    <string name="settings_update_channel_desc">Novas versões do Volta</string>
+    <string name="settings_update_notify_title">Atualização do Volta disponível</string>
+    <string name="settings_update_notify_text">Versão %1$s. Toque para instalar.</string>
+
+    <!-- Moving to a new phone: saving to a file and restoring from it -->
+    <string name="settings_backup_save_title">Salvar em arquivo</string>
+    <string name="settings_backup_save_text">Assinaturas, seus próprios servidores, regras e configurações</string>
+    <string name="settings_backup_restore_title">Restaurar de um arquivo</string>
+    <string name="settings_backup_restore_text">Abra um arquivo salvo no Volta em outro celular</string>
+    <string name="settings_backup_working">Um momento…</string>
+    <string name="settings_backup_warning">O arquivo contém suas assinaturas: guarde-o com você e não o envie a estranhos.</string>
+    <string name="settings_backup_restore_question">Restaurar do arquivo?</string>
+    <string name="settings_backup_restore_action">Restaurar</string>
+    <string name="settings_backup_cancel">Cancelar</string>
+    <string name="settings_backup_error_damaged">Este não é um arquivo do Volta ou está danificado</string>
+    <string name="settings_backup_error_not_volta">Este não é um arquivo do Volta. Escolha um arquivo salvo no Volta</string>
+    <string name="settings_backup_error_newer">O arquivo foi salvo por uma versão mais nova do Volta. Atualize o app</string>
+    <string name="settings_backup_error_too_big">O arquivo é grande demais para ser do Volta</string>
+
+    <!-- The restore dialog. settings_backup_date_format is a java.time DateTimeFormatter pattern
+         for the day the file was saved (d day, M/MMMM month, yyyy year, text in 'quotes'). -->
+    <string name="settings_backup_date_format">d \'de\' MMMM \'de\' yyyy</string>
+    <string name="settings_backup_saved_on">O arquivo foi salvo em %1$s.</string>
+    <string name="settings_backup_contains">Ele contém:</string>
+    <plurals name="settings_backup_count_subscriptions">
+        <item quantity="one">%d assinatura</item>
+        <item quantity="many">%d assinaturas</item>
+        <item quantity="other">%d assinaturas</item>
+    </plurals>
+    <plurals name="settings_backup_count_servers">
+        <item quantity="one">%d servidor próprio</item>
+        <item quantity="many">%d servidores próprios</item>
+        <item quantity="other">%d servidores próprios</item>
+    </plurals>
+    <plurals name="settings_backup_count_rules">
+        <item quantity="one">%d conjunto de regras</item>
+        <item quantity="many">%d conjuntos de regras</item>
+        <item quantity="other">%d conjuntos de regras</item>
+    </plurals>
+    <string name="settings_backup_item_settings">configurações</string>
+    <string name="settings_backup_no_duplicates">O que já está no Volta não será duplicado.</string>
+    <string name="settings_backup_settings_replaced">As configurações ficarão como no arquivo.</string>
+    <string name="settings_backup_servers_reload">Os servidores das assinaturas serão carregados de novo; é preciso internet.</string>
+
+    <!-- The message after a restore. Separators join the parts of it, as each language does. -->
+    <string name="settings_restore_done">Pronto. Restaurado: %1$s</string>
+    <string name="settings_restore_all_there">Tudo do arquivo já está no Volta</string>
+    <string name="settings_restore_nothing">Nada para restaurar</string>
+    <plurals name="settings_restore_not_loaded">
+        <item quantity="one">Os servidores de %d assinatura não carregaram. Atualize-a depois na aba “Assinaturas”</item>
+        <item quantity="many">Os servidores de %d assinaturas não carregaram. Atualize-as depois na aba “Assinaturas”</item>
+        <item quantity="other">Os servidores de %d assinaturas não carregaram. Atualize-as depois na aba “Assinaturas”</item>
+    </plurals>
+    <plurals name="settings_restore_skipped">
+        <item quantity="one">%d registro não pôde ser lido</item>
+        <item quantity="many">%d registros não puderam ser lidos</item>
+        <item quantity="other">%d registros não puderam ser lidos</item>
+    </plurals>
+    <string name="settings_list_separator">", "</string>
+    <string name="settings_sentence_separator">". "</string>
+
+    <!-- Adding: the one field for links, keys and files -->
+    <string name="settings_import_back">Voltar</string>
+    <string name="settings_import_title">Adicionar</string>
+    <string name="settings_import_subtitle">Uma assinatura, um servidor ou uma chave. Cole do jeito que está, o Volta entende sozinho.</string>
+    <string name="settings_import_placeholder">Cole aqui um link de assinatura, um link de servidor (%1$s) ou uma chave vpn://</string>
+    <string name="settings_import_paste">Colar da área de transferência</string>
+    <string name="settings_import_clipboard_empty">A área de transferência está vazia</string>
+    <string name="settings_import_clear">Limpar</string>
+    <string name="settings_import_name_label">Nome, se quiser um próprio</string>
+    <string name="settings_import_open_file">Abrir um arquivo de configuração</string>
+    <string name="settings_import_open_file_text">Um arquivo que o seu serviço de VPN enviou</string>
+    <string name="settings_import_no_file_picker">Não dá para escolher um arquivo neste dispositivo. Abra o arquivo no celular e cole o texto dele no campo acima</string>
+    <string name="settings_import_formats_title">O que dá para colar aqui</string>
+
+    <!-- What the field holds, said back under it -->
+    <string name="settings_import_empty">Ainda vazio</string>
+    <string name="settings_import_empty_hint">Cole um link ou uma chave</string>
+    <string name="settings_import_hidden_sub">Assinatura com link oculto</string>
+    <string name="settings_import_hidden_sub_hint">O endereço não aparece no app</string>
+    <string name="settings_import_sub">Assinatura</string>
+    <string name="settings_import_sub_hint">Os servidores e as regras vão se atualizar sozinhos</string>
+    <string name="settings_import_encrypted">Assinatura criptografada</string>
+    <string name="settings_import_encrypted_hint">O Volta abre sozinho, e o endereço continua oculto</string>
+    <string name="settings_import_server">Servidor</string>
+    <string name="settings_import_server_hint">Será adicionado à lista geral de servidores</string>
+    <plurals name="settings_import_servers">
+        <item quantity="one">%d servidor</item>
+        <item quantity="many">%d servidores</item>
+        <item quantity="other">%d servidores</item>
+    </plurals>
+    <string name="settings_import_servers_hint">Todos serão adicionados à lista geral</string>
+    <string name="settings_import_amnezia">Chave do AmneziaVPN</string>
+    <string name="settings_import_amnezia_hint">Os servidores da chave serão adicionados à lista</string>
+    <string name="settings_import_conf">Arquivo de configuração do servidor</string>
+    <string name="settings_import_conf_hint">Vira um servidor na lista</string>
+    <string name="settings_import_json">Configuração de servidores</string>
+    <string name="settings_import_json_hint">Os servidores serão adicionados à lista geral</string>
+    <string name="settings_import_control">Link de controle</string>
+    <string name="settings_import_control_hint">Não é adicionado: liga ou desliga a VPN</string>
+    <string name="settings_import_unknown">Não parece um link</string>
+    <string name="settings_import_unknown_hint">Confira se você copiou tudo</string>
+
+    <!-- The button, named after what it will do -->
+    <string name="settings_import_add_sub">Adicionar assinatura</string>
+    <string name="settings_import_add_server">Adicionar servidor</string>
+    <string name="settings_import_add_servers">Adicionar servidores</string>
+    <string name="settings_import_import">Importar</string>
+    <string name="settings_import_run">Executar</string>
+
+    <!-- What can be pasted -->
+    <string name="settings_import_format_sub">Um link do seu serviço de VPN, comum ou criptografado. Os servidores dele se atualizam sozinhos</string>
+    <string name="settings_import_format_server">Um link para um servidor que o serviço enviou</string>
+    <string name="settings_import_format_amnezia">Uma chave longa que começa com vpn://</string>
+    <string name="settings_import_format_openflux_title">Link do OpenFlux</string>
+    <string name="settings_import_format_openflux">Um link que começa com openflux://</string>
+    <string name="settings_import_format_volta_title">Link do Volta</string>
+    <string name="settings_import_format_volta">Um link volta:// do seu serviço de VPN: comum ou criptografado</string>
+    <string name="settings_import_format_file_title">Arquivo de configuração</string>
+    <string name="settings_import_format_file">Um arquivo que o serviço enviou: dá para abrir com o botão acima</string>
+
+    <!-- Subscriptions tab and the sheet of one subscription -->
+    <string name="settings_subs_title">Assinaturas</string>
+    <string name="settings_subs_refresh_all">Atualizar todas as assinaturas</string>
+    <string name="settings_subs_empty_title">Nenhuma assinatura ainda</string>
+    <string name="settings_subs_empty_text">Adicione uma ou mais: o Volta junta os servidores delas em uma lista só e os separa sozinho nos grupos Home e LTE.</string>
+    <string name="settings_subs_lead">Toque em uma assinatura para renomear ou excluir.</string>
+    <string name="settings_subs_delete_question">Excluir a assinatura?</string>
+    <string name="settings_subs_delete_text">Os servidores e as regras dela vão junto. As outras assinaturas ficam como estão.</string>
+    <string name="settings_subs_delete">Excluir</string>
+    <string name="settings_subs_keep">Manter</string>
+    <string name="settings_subs_name">Nome</string>
+    <string name="settings_subs_url">Link da assinatura</string>
+    <string name="settings_subs_save">Salvar</string>
+    <string name="settings_subs_refresh">Atualizar agora</string>
+    <string name="settings_subs_refresh_text">Buscar a lista atualizada de servidores e regras</string>
+    <string name="settings_subs_delete_action">Excluir assinatura</string>
+    <string name="settings_subs_hidden_title">Link oculto</string>
+    <string name="settings_subs_hidden_text">O serviço de VPN ocultou o endereço da assinatura. Ela se atualiza normalmente, e só dá para mudar o nome.</string>
+
+    <!-- Links that can't be used (volta://, volta://crypt): why, said to the user -->
+    <string name="settings_link_decrypt_failed">Não foi possível descriptografar o link</string>
+    <string name="settings_link_double_encrypted">O link está criptografado duas vezes</string>
+    <string name="settings_link_no_subscription">Não há assinatura no link criptografado</string>
+    <string name="settings_link_no_address_encrypted">Não há endereço de assinatura no link criptografado</string>
+    <string name="settings_link_no_address">Não há endereço de assinatura no link</string>
+    <string name="settings_link_crypt_empty">O link criptografado está vazio</string>
+    <string name="settings_link_crypt_damaged">O link criptografado está danificado</string>
+    <string name="settings_link_crypt_truncated">O link criptografado está cortado</string>
+    <string name="settings_link_crypt_newer">O link foi criptografado para uma versão mais nova do Volta — atualize o app</string>
+    <string name="settings_link_crypt_unknown_key">O link foi criptografado com uma chave que esta versão do Volta não tem</string>
+    <string name="settings_link_crypt_failed">Não foi possível descriptografar o link: ele está danificado ou não é para o Volta</string>
+    <string name="settings_link_damaged">O link está danificado</string>
+</resources>

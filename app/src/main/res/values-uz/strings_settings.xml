@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Settings screen -->
+    <string name="settings_title">Sozlamalar</string>
+    <string name="settings_simple_title">Oddiy rejim</string>
+    <string name="settings_simple_text">Bitta katta “Yoqish / Oʻchirish” tugmasi, server oʻzi tanlanadi. Ota-onalar va sozlamalar kerak boʻlmagan hamma uchun qulay.</string>
+    <string name="settings_section_connection">Ulanish</string>
+    <string name="settings_follow_network_title">Tarmoq almashishini kuzatish</string>
+    <string name="settings_follow_network_text">Wi-Fi va mobil internet oʻrtasida oʻtganda server oʻzi tekshiriladi va almashtiriladi.</string>
+    <string name="settings_recheck_title">Server tanlovini yaxshilash</string>
+    <string name="settings_recheck_text">Ekran yoniq boʻlganda har 15 daqiqada serverlarni solishtiradi va sezilarli darajada tezrogʻiga oʻtadi. Javob bermayotgan server har doim almashtiriladi.</string>
+    <string name="settings_failover_title">Uzilishda serverni almashtirish</string>
+    <string name="settings_failover_text">Server javob bermay qolsa, Volta boshqasiga oʻtadi.</string>
+    <string name="settings_autoconnect_title">Ishga tushganda ulanish</string>
+    <string name="settings_autoconnect_text">Tizim ishga tushishi bilan VPN yoqish.</string>
+
+    <!-- Android's own kill switch. The quoted names are Android's own settings (Always-on VPN,
+         Block connections without VPN), as Android calls them in that language. -->
+    <string name="settings_killswitch_title">VPNsiz internetga yoʻl qoʻymaslik</string>
+    <string name="settings_killswitch_unknown">Android Voltani doim yoqilgan holda ushlab, VPN ulanmaguncha internetni yopib qoʻyishi mumkin. Bosing, soʻng Volta yonidagi tishli gʻildirakni: “Doimiy VPN” va “VPNsiz ulanishlarni bloklash”.</string>
+    <string name="settings_killswitch_on">Yoqilgan: Volta doim yoniq, VPNsiz esa internet yopiq. VPNni oʻchirsangiz, internet yoʻqoladi — shunday moʻljallangan.</string>
+    <string name="settings_killswitch_partial">Volta oʻzi yoqiladi, lekin VPN ulanayotganda ilovalar internetga toʻgʻridan-toʻgʻri chiqadi. Volta yonidagi tishli gʻildirakda “VPNsiz ulanishlarni bloklash”ni yoqing.</string>
+    <string name="settings_killswitch_off">Oʻchirilgan. Bosing, soʻng Volta yonidagi tishli gʻildirakni: “Doimiy VPN” va “VPNsiz ulanishlarni bloklash”.</string>
+    <string name="settings_no_vpn_settings">Bu qurilmada VPN sozlamalari yoʻq</string>
+
+    <!-- Quick Settings tiles -->
+    <string name="settings_section_tiles">Tezkor sozlamalar plitkalari</string>
+    <string name="settings_tiles_hint">Plitkani bossangiz, VPN uning rejimida yoqiladi, yana bossangiz — oʻchadi.</string>
+    <string name="settings_tile_add">qoʻshish</string>
+
+    <!-- Subscriptions and checks -->
+    <string name="settings_section_checks">Obunalar va tekshiruvlar</string>
+    <string name="settings_refresh_on_launch_title">Ishga tushganda obunalarni yangilash</string>
+    <string name="settings_refresh_on_launch_text">Ilova ochilganda serverlar va qoidalar yangilanadi.</string>
+    <string name="settings_ping_on_start_title">Ishga tushganda tarmoqni tekshirish</string>
+    <string name="settings_ping_on_start_text">Hozir qaysi tarmoq ekani darhol koʻrinadi: Home yoki LTE.</string>
+    <string name="settings_ping_type_title">Serverlarni qanday tekshirish</string>
+    <string name="settings_ping_real">Server orqali</string>
+    <string name="settings_ping_real_hint">Server orqali haqiqiy tezlikni tekshiradi. Tavsiya etamiz.</string>
+    <string name="settings_ping_http_hint">Tezkor tekshiruvga yomon javob beradigan serverlar uchun.</string>
+    <string name="settings_ping_tcp_hint">Tezroq, lekin ishlamayotgan serverni ham tirik deb koʻrsatishi mumkin.</string>
+    <string name="settings_ping_icmp_hint">Eng oddiy tekshiruv. Koʻp mobil operatorlarda ishlamaydi.</string>
+
+    <!-- Tunnel and battery -->
+    <string name="settings_section_tunnel">Tunnel va batareya</string>
+    <string name="settings_local_dns_title">Saytlarni VPN orqali ochish</string>
+    <string name="settings_local_dns_text">Sayt manzillari ham VPN orqali aniqlanadi, shunda bloklashlar kamroq boʻladi.</string>
+    <string name="settings_battery_title">Batareyani tejash</string>
+    <string name="settings_battery_text">Qisqa tekshiruvlar va kamroq fon ishi.</string>
+
+    <!-- Appearance. The theme names "Volta" and "Material" are names and stay in code. -->
+    <string name="settings_section_look">Koʻrinish</string>
+    <string name="settings_theme">Mavzu</string>
+    <string name="settings_theme_system">Tizim</string>
+    <string name="settings_theme_light">Yorugʻ</string>
+    <string name="settings_theme_ocean">Okean</string>
+    <string name="settings_theme_ember">Koʻmir</string>
+    <string name="settings_app_icon">Ilova belgisi</string>
+
+    <!-- Device -->
+    <string name="settings_section_device">Qurilma</string>
+    <string name="settings_hwid_title">Qurilmaga bogʻlash</string>
+    <string name="settings_hwid_text">VPN-xizmat bitta obunaga qurilmalar sonini cheklasa, yoqing.</string>
+    <string name="settings_hwid_code">Ushbu qurilma kodi</string>
+    <string name="settings_hwid_copied">Kod nusxalandi</string>
+    <string name="settings_hwid_copy">Kodni nusxalash</string>
+
+    <!-- Sections further down, and «About» -->
+    <string name="settings_section_move">Yangi telefonga koʻchirish</string>
+    <string name="settings_section_about">Ilova haqida</string>
+    <string name="settings_update_store_note">Yangilanishlar Google Play orqali keladi</string>
+    <string name="settings_update_auto_title">Yangilanishlarni tekshirish</string>
+    <string name="settings_update_auto_on">Ishga tushganda va har bir necha soatda. Yangi versiya haqida bildirishnoma keladi</string>
+    <string name="settings_update_auto_off">Oʻchirilgan. “Tekshirish” tugmasi bilan tekshirish mumkin</string>
+    <string name="settings_update_beta_title">Beta versiyalar</string>
+    <string name="settings_update_beta_text">Sinov yigʻmalarini hammadan oldin olish. Ularda xatolar boʻlishi mumkin</string>
+    <string name="settings_help_title">Yordam va qoʻllanmalar</string>
+    <string name="settings_help_text">Obunani qanday qoʻshish, rejim tanlash va ilovalarni sozlash</string>
+    <string name="settings_no_browser">Brauzer yoʻq. Qoʻllanmalar %1$s saytida</string>
+
+    <!-- Launcher icons -->
+    <string name="settings_icon_fold">Buklam</string>
+    <string name="settings_icon_spark">Uchqun</string>
+    <string name="settings_icon_orbit">Orbita</string>
+    <string name="settings_icon_tunnel">Tunnel</string>
+    <string name="settings_icon_pixel">Piksel</string>
+    <string name="settings_icon_hint">Launcherga belgini almashtirish uchun bir necha soniya kerak. Agar u bosh ekrandan yoʻqolsa, ilovalar roʻyxatidan qaytadan sudrab chiqaring.</string>
+
+    <!-- Updates: the row in Settings, the banner on the home screen and the notification -->
+    <string name="settings_update_available">%1$s versiyasi chiqdi</string>
+    <string name="settings_update_action_update">Yangilash</string>
+    <string name="settings_update_action_install">Oʻrnatish</string>
+    <string name="settings_update_action_retry">Yana urinish</string>
+    <string name="settings_update_action_check">Tekshirish</string>
+    <string name="settings_update_percent">%1$d%%</string>
+    <string name="settings_update_downloading_version">%1$s versiyasi yuklab olinmoqda</string>
+    <string name="settings_update_downloaded">%1$s versiyasi yuklab olindi</string>
+    <string name="settings_update_failed">Boʻlmadi</string>
+    <string name="settings_update_idle_hint">Yangi versiya bor-yoʻqligini bilib oling</string>
+    <string name="settings_update_checking">Yangi versiya qidirilmoqda…</string>
+    <string name="settings_update_latest_at">Eng soʻnggi versiya · tekshirildi: %1$s</string>
+    <string name="settings_update_current_size">Hozir sizda %1$s · %2$s</string>
+    <string name="settings_update_downloading_hint">Yuklab olinayotganda ilovadan foydalanaverishingiz mumkin</string>
+    <string name="settings_update_download_size">%1$s yuklab olib oʻrnatish</string>
+    <string name="settings_update_downloading">Yuklab olinmoqda…</string>
+    <string name="settings_update_need_permission">Voltaga ilovalarni oʻrnatishga ruxsat bering va “Oʻrnatish”ni bosing</string>
+    <string name="settings_update_confirm">Faqat oʻrnatishni tasdiqlash qoldi</string>
+    <string name="settings_update_error_check">Yangilanishlarni tekshirib boʻlmadi. Internetni tekshiring yoki VPN yoqing.</string>
+    <string name="settings_update_error_corrupt">Fayl xato bilan yuklandi. Qaytadan urinib koʻring.</string>
+    <string name="settings_update_error_download">Yangilanishni yuklab boʻlmadi. Qaytadan urinib koʻring.</string>
+    <string name="settings_update_error_installer">Android oʻrnatuvchisini ochib boʻlmadi.</string>
+    <string name="settings_update_channel">Yangilanishlar</string>
+    <string name="settings_update_channel_desc">Voltaning yangi versiyalari</string>
+    <string name="settings_update_notify_title">Volta yangilanishi mavjud</string>
+    <string name="settings_update_notify_text">%1$s versiyasi. Oʻrnatish uchun bosing.</string>
+
+    <!-- Moving to a new phone: saving to a file and restoring from it -->
+    <string name="settings_backup_save_title">Faylga saqlash</string>
+    <string name="settings_backup_save_text">Obunalar, oʻz serverlaringiz, qoidalar va sozlamalar</string>
+    <string name="settings_backup_restore_title">Fayldan tiklash</string>
+    <string name="settings_backup_restore_text">Boshqa telefondagi Voltada saqlangan faylni oching</string>
+    <string name="settings_backup_working">Bir daqiqa…</string>
+    <string name="settings_backup_warning">Faylda obunalaringiz bor: uni oʻzingizda saqlang va begonalarga yubormang.</string>
+    <string name="settings_backup_restore_question">Fayldan tiklansinmi?</string>
+    <string name="settings_backup_restore_action">Tiklash</string>
+    <string name="settings_backup_cancel">Bekor qilish</string>
+    <string name="settings_backup_error_damaged">Bu Volta fayli emas yoki u buzilgan</string>
+    <string name="settings_backup_error_not_volta">Bu Volta fayli emas. Voltada saqlangan faylni tanlang</string>
+    <string name="settings_backup_error_newer">Fayl Voltaning yangiroq versiyasida saqlangan. Ilovani yangilang</string>
+    <string name="settings_backup_error_too_big">Fayl Volta fayli uchun juda katta</string>
+
+    <!-- The restore dialog. settings_backup_date_format is a java.time DateTimeFormatter pattern
+         for the day the file was saved (d day, M/MMMM month, yyyy year, text in 'quotes'). -->
+    <string name="settings_backup_date_format">yyyy-\'yil\' d-MMMM</string>
+    <string name="settings_backup_saved_on">Fayl %1$s kuni saqlangan.</string>
+    <string name="settings_backup_contains">Unda:</string>
+    <plurals name="settings_backup_count_subscriptions">
+        <item quantity="one">obunalar: %d</item>
+        <item quantity="other">obunalar: %d</item>
+    </plurals>
+    <plurals name="settings_backup_count_servers">
+        <item quantity="one">oʻz serverlaringiz: %d</item>
+        <item quantity="other">oʻz serverlaringiz: %d</item>
+    </plurals>
+    <plurals name="settings_backup_count_rules">
+        <item quantity="one">qoidalar toʻplamlari: %d</item>
+        <item quantity="other">qoidalar toʻplamlari: %d</item>
+    </plurals>
+    <string name="settings_backup_item_settings">sozlamalar</string>
+    <string name="settings_backup_no_duplicates">Voltada bor narsalar takrorlanmaydi.</string>
+    <string name="settings_backup_settings_replaced">Sozlamalar fayldagidek boʻladi.</string>
+    <string name="settings_backup_servers_reload">Obuna serverlari qaytadan yuklanadi, internet kerak.</string>
+
+    <!-- The message after a restore. Separators join the parts of it, as each language does. -->
+    <string name="settings_restore_done">Tayyor. Tiklandi — %1$s</string>
+    <string name="settings_restore_all_there">Fayldagi hamma narsa Voltada allaqachon bor</string>
+    <string name="settings_restore_nothing">Tiklanadigan hech narsa yoʻq</string>
+    <plurals name="settings_restore_not_loaded">
+        <item quantity="one">Serverlari yuklanmagan obunalar: %d. Ularni keyinroq “Obunalar” boʻlimida yangilang</item>
+        <item quantity="other">Serverlari yuklanmagan obunalar: %d. Ularni keyinroq “Obunalar” boʻlimida yangilang</item>
+    </plurals>
+    <plurals name="settings_restore_skipped">
+        <item quantity="one">Oʻqilmagan yozuvlar: %d</item>
+        <item quantity="other">Oʻqilmagan yozuvlar: %d</item>
+    </plurals>
+    <string name="settings_list_separator">", "</string>
+    <string name="settings_sentence_separator">". "</string>
+
+    <!-- Adding: the one field for links, keys and files -->
+    <string name="settings_import_back">Orqaga</string>
+    <string name="settings_import_title">Qoʻshish</string>
+    <string name="settings_import_subtitle">Obuna, server yoki kalit. Qanday boʻlsa shunday qoʻying, Volta oʻzi tushunib oladi.</string>
+    <string name="settings_import_placeholder">Bu yerga obuna havolasini, server havolasini (%1$s) yoki vpn:// kalitini qoʻying</string>
+    <string name="settings_import_paste">Buferdan qoʻyish</string>
+    <string name="settings_import_clipboard_empty">Almashish buferi boʻsh</string>
+    <string name="settings_import_clear">Tozalash</string>
+    <string name="settings_import_name_label">Nomi, agar oʻzingiznikini xohlasangiz</string>
+    <string name="settings_import_open_file">Sozlamalar faylini ochish</string>
+    <string name="settings_import_open_file_text">VPN-xizmat yuborgan fayl</string>
+    <string name="settings_import_no_file_picker">Bu qurilmada fayl tanlab boʻlmaydi. Faylni telefonda oching va matnini yuqoridagi maydonga qoʻying</string>
+    <string name="settings_import_formats_title">Bu yerga nima qoʻyish mumkin</string>
+
+    <!-- What the field holds, said back under it -->
+    <string name="settings_import_empty">Hozircha boʻsh</string>
+    <string name="settings_import_empty_hint">Havola yoki kalitni qoʻying</string>
+    <string name="settings_import_hidden_sub">Havolasi yashirin obuna</string>
+    <string name="settings_import_hidden_sub_hint">Manzil ilovada koʻrinmaydi</string>
+    <string name="settings_import_sub">Obuna</string>
+    <string name="settings_import_sub_hint">Serverlar va qoidalar oʻzi yangilanib turadi</string>
+    <string name="settings_import_encrypted">Shifrlangan obuna</string>
+    <string name="settings_import_encrypted_hint">Volta uni oʻzi ochadi, manzil yashirin qoladi</string>
+    <string name="settings_import_server">Server</string>
+    <string name="settings_import_server_hint">Umumiy serverlar roʻyxatiga qoʻshiladi</string>
+    <plurals name="settings_import_servers">
+        <item quantity="one">Serverlar: %d</item>
+        <item quantity="other">Serverlar: %d</item>
+    </plurals>
+    <string name="settings_import_servers_hint">Hammasi umumiy roʻyxatga qoʻshiladi</string>
+    <string name="settings_import_amnezia">AmneziaVPN kaliti</string>
+    <string name="settings_import_amnezia_hint">Kalitdagi serverlar roʻyxatga qoʻshiladi</string>
+    <string name="settings_import_conf">Server sozlamalari fayli</string>
+    <string name="settings_import_conf_hint">Roʻyxatda bitta server boʻladi</string>
+    <string name="settings_import_json">Serverlar sozlamalari</string>
+    <string name="settings_import_json_hint">Serverlar umumiy roʻyxatga qoʻshiladi</string>
+    <string name="settings_import_control">Boshqaruv havolasi</string>
+    <string name="settings_import_control_hint">Qoʻshilmaydi, balki VPNni yoqadi yoki oʻchiradi</string>
+    <string name="settings_import_unknown">Havolaga oʻxshamaydi</string>
+    <string name="settings_import_unknown_hint">Uni toʻliq nusxalaganingizni tekshiring</string>
+
+    <!-- The button, named after what it will do -->
+    <string name="settings_import_add_sub">Obuna qoʻshish</string>
+    <string name="settings_import_add_server">Server qoʻshish</string>
+    <string name="settings_import_add_servers">Serverlarni qoʻshish</string>
+    <string name="settings_import_import">Import qilish</string>
+    <string name="settings_import_run">Bajarish</string>
+
+    <!-- What can be pasted -->
+    <string name="settings_import_format_sub">VPN-xizmatdan kelgan havola, oddiy yoki shifrlangan. Undagi serverlar oʻzi yangilanadi</string>
+    <string name="settings_import_format_server">Xizmat yuborgan bitta serverga havola</string>
+    <string name="settings_import_format_amnezia">vpn:// bilan boshlanadigan uzun kalit</string>
+    <string name="settings_import_format_openflux_title">OpenFlux havolasi</string>
+    <string name="settings_import_format_openflux">openflux:// bilan boshlanadigan havola</string>
+    <string name="settings_import_format_volta_title">Volta havolasi</string>
+    <string name="settings_import_format_volta">VPN-xizmat beradigan volta:// havolasi: oddiy yoki shifrlangan</string>
+    <string name="settings_import_format_file_title">Sozlamalar fayli</string>
+    <string name="settings_import_format_file">Xizmat yuborgan fayl: uni yuqoridagi tugma bilan ochish mumkin</string>
+
+    <!-- Subscriptions tab and the sheet of one subscription -->
+    <string name="settings_subs_title">Obunalar</string>
+    <string name="settings_subs_refresh_all">Barcha obunalarni yangilash</string>
+    <string name="settings_subs_empty_title">Hozircha obunalar yoʻq</string>
+    <string name="settings_subs_empty_text">Bitta yoki bir nechtasini qoʻshing: Volta ularning serverlarini umumiy roʻyxatga birlashtiradi va oʻzi Home va LTE guruhlariga ajratadi.</string>
+    <string name="settings_subs_lead">Nomini oʻzgartirish yoki oʻchirish uchun obunani bosing.</string>
+    <string name="settings_subs_delete_question">Obuna oʻchirilsinmi?</string>
+    <string name="settings_subs_delete_text">Uning serverlari va qoidalari ham oʻchadi. Boshqa obunalar oʻzgarmaydi.</string>
+    <string name="settings_subs_delete">Oʻchirish</string>
+    <string name="settings_subs_keep">Qoldirish</string>
+    <string name="settings_subs_name">Nomi</string>
+    <string name="settings_subs_url">Obuna havolasi</string>
+    <string name="settings_subs_save">Saqlash</string>
+    <string name="settings_subs_refresh">Hozir yangilash</string>
+    <string name="settings_subs_refresh_text">Serverlar va qoidalarning yangi roʻyxatini olish</string>
+    <string name="settings_subs_delete_action">Obunani oʻchirish</string>
+    <string name="settings_subs_hidden_title">Havola yashirin</string>
+    <string name="settings_subs_hidden_text">VPN-xizmat obuna manzilini yashirgan. U odatdagidek yangilanadi, faqat nomini oʻzgartirish mumkin.</string>
+
+    <!-- Links that can't be used (volta://, volta://crypt): why, said to the user -->
+    <string name="settings_link_decrypt_failed">Havolani deshifrlab boʻlmadi</string>
+    <string name="settings_link_double_encrypted">Havola ikki marta shifrlangan</string>
+    <string name="settings_link_no_subscription">Shifrlangan havolada obuna yoʻq</string>
+    <string name="settings_link_no_address_encrypted">Shifrlangan havolada obuna manzili yoʻq</string>
+    <string name="settings_link_no_address">Havolada obuna manzili yoʻq</string>
+    <string name="settings_link_crypt_empty">Shifrlangan havola boʻsh</string>
+    <string name="settings_link_crypt_damaged">Shifrlangan havola buzilgan</string>
+    <string name="settings_link_crypt_truncated">Shifrlangan havola kesilib qolgan</string>
+    <string name="settings_link_crypt_newer">Havola Voltaning yangiroq versiyasi uchun shifrlangan — ilovani yangilang</string>
+    <string name="settings_link_crypt_unknown_key">Havola Voltaning bu versiyasida yoʻq kalit bilan shifrlangan</string>
+    <string name="settings_link_crypt_failed">Havolani deshifrlab boʻlmadi: u buzilgan yoki Volta uchun emas</string>
+    <string name="settings_link_damaged">Havola buzilgan</string>
+</resources>

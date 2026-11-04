@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Settings screen -->
+    <string name="settings_title">Налады</string>
+    <string name="settings_simple_title">Просты рэжым</string>
+    <string name="settings_simple_text">Адна вялікая кнопка «Уключыць / Выключыць», сервер выбіраецца сам. Зручна для бацькоў і ўсіх, каму не патрэбныя налады.</string>
+    <string name="settings_section_connection">Падключэнне</string>
+    <string name="settings_follow_network_title">Сачыць за зменай сеткі</string>
+    <string name="settings_follow_network_text">Пры пераходзе паміж Wi-Fi і мабільным інтэрнэтам сервер правяраецца і мяняецца сам.</string>
+    <string name="settings_recheck_title">Паляпшаць выбар сервера</string>
+    <string name="settings_recheck_text">Раз на 15 хвілін пры ўключаным экране параўноўвае серверы і пераходзіць на прыкметна больш хуткі. Сервер, які не адказвае, замяняецца заўсёды.</string>
+    <string name="settings_failover_title">Мяняць сервер пры абрыве</string>
+    <string name="settings_failover_text">Калі сервер перастаў адказваць, Volta пяройдзе на іншы.</string>
+    <string name="settings_autoconnect_title">Падключацца пры запуску</string>
+    <string name="settings_autoconnect_text">Уключаць VPN адразу пасля запуску сістэмы.</string>
+
+    <!-- Android's own kill switch. The quoted names are Android's own settings (Always-on VPN,
+         Block connections without VPN), as Android calls them in that language. -->
+    <string name="settings_killswitch_title">Не пускаць інтэрнэт без VPN</string>
+    <string name="settings_killswitch_unknown">Android можа трымаць Volta заўсёды ўключанай і закрываць інтэрнэт, пакуль VPN не падключаны. Націсніце, потым шасцярэнку побач з Volta: «Заўсёды ўключаны VPN» і «Блакіраваць злучэнні без VPN».</string>
+    <string name="settings_killswitch_on">Уключана: Volta заўсёды ўключаная, а без VPN інтэрнэт закрыты. Выключыце VPN — інтэрнэт знікне, так і задумана.</string>
+    <string name="settings_killswitch_partial">Volta уключаецца сама, але пакуль VPN падключаецца, праграмы выходзяць у інтэрнэт напрамую. Уключыце «Блакіраваць злучэнні без VPN» у шасцярэнцы побач з Volta.</string>
+    <string name="settings_killswitch_off">Выключана. Націсніце, потым шасцярэнку побач з Volta: «Заўсёды ўключаны VPN» і «Блакіраваць злучэнні без VPN».</string>
+    <string name="settings_no_vpn_settings">На гэтай прыладзе няма налад VPN</string>
+
+    <!-- Quick Settings tiles -->
+    <string name="settings_section_tiles">Пліткі ў шторцы</string>
+    <string name="settings_tiles_hint">Націск на плітку ўключае VPN у яе рэжыме, паўторны — выключае.</string>
+    <string name="settings_tile_add">дадаць</string>
+
+    <!-- Subscriptions and checks -->
+    <string name="settings_section_checks">Падпіскі і праверкі</string>
+    <string name="settings_refresh_on_launch_title">Абнаўляць падпіскі пры запуску</string>
+    <string name="settings_refresh_on_launch_text">Серверы і правілы абнаўляюцца пры адкрыцці праграмы.</string>
+    <string name="settings_ping_on_start_title">Правяраць сетку пры запуску</string>
+    <string name="settings_ping_on_start_text">Адразу відаць, якая цяпер сетка: Home ці LTE.</string>
+    <string name="settings_ping_type_title">Як правяраць серверы</string>
+    <string name="settings_ping_real">Праз сервер</string>
+    <string name="settings_ping_real_hint">Правярае сапраўдную хуткасць праз сервер. Рэкамендуем.</string>
+    <string name="settings_ping_http_hint">Для сервераў, якія дрэнна адказваюць на хуткую праверку.</string>
+    <string name="settings_ping_tcp_hint">Хутчэй, але можа паказаць сервер жывым, калі ён не працуе.</string>
+    <string name="settings_ping_icmp_hint">Самая простая праверка. У многіх мабільных аператараў не працуе.</string>
+
+    <!-- Tunnel and battery -->
+    <string name="settings_section_tunnel">Тунэль і батарэя</string>
+    <string name="settings_local_dns_title">Адкрываць сайты праз VPN</string>
+    <string name="settings_local_dns_text">Адрасы сайтаў таксама вызначаюцца праз VPN, так менш блакіровак.</string>
+    <string name="settings_battery_title">Берагчы батарэю</string>
+    <string name="settings_battery_text">Кароткія праверкі і менш фонавай працы.</string>
+
+    <!-- Appearance. The theme names "Volta" and "Material" are names and stay in code. -->
+    <string name="settings_section_look">Афармленне</string>
+    <string name="settings_theme">Тэма</string>
+    <string name="settings_theme_system">Сістэма</string>
+    <string name="settings_theme_light">Светлая</string>
+    <string name="settings_theme_ocean">Акіян</string>
+    <string name="settings_theme_ember">Вугаль</string>
+    <string name="settings_app_icon">Значок праграмы</string>
+
+    <!-- Device -->
+    <string name="settings_section_device">Прылада</string>
+    <string name="settings_hwid_title">Прывязка да прылады</string>
+    <string name="settings_hwid_text">Уключыце, калі VPN-сэрвіс абмяжоўвае колькасць прылад на адну падпіску.</string>
+    <string name="settings_hwid_code">Код гэтай прылады</string>
+    <string name="settings_hwid_copied">Код скапіяваны</string>
+    <string name="settings_hwid_copy">Скапіяваць код</string>
+
+    <!-- Sections further down, and «About» -->
+    <string name="settings_section_move">Перанос на новы тэлефон</string>
+    <string name="settings_section_about">Пра праграму</string>
+    <string name="settings_update_store_note">Абнаўленні прыходзяць праз Google Play</string>
+    <string name="settings_update_auto_title">Праверка абнаўленняў</string>
+    <string name="settings_update_auto_on">Пры запуску і раз на некалькі гадзін. Пра новую версію прыйдзе апавяшчэнне</string>
+    <string name="settings_update_auto_off">Выключана. Праверыць можна кнопкай «Праверыць»</string>
+    <string name="settings_update_beta_title">Бэта-версіі</string>
+    <string name="settings_update_beta_text">Атрымліваць пробныя зборкі раней за ўсіх. У іх могуць быць памылкі</string>
+    <string name="settings_help_title">Дапамога і інструкцыі</string>
+    <string name="settings_help_text">Як дадаць падпіску, выбраць рэжым і наладзіць праграмы</string>
+    <string name="settings_no_browser">Няма браўзера. Інструкцыі на сайце %1$s</string>
+
+    <!-- Launcher icons -->
+    <string name="settings_icon_fold">Згін</string>
+    <string name="settings_icon_spark">Іскра</string>
+    <string name="settings_icon_orbit">Арбіта</string>
+    <string name="settings_icon_tunnel">Тунэль</string>
+    <string name="settings_icon_pixel">Піксель</string>
+    <string name="settings_icon_hint">Лаўнчару трэба некалькі секунд, каб змяніць значок. Калі ён знік з працоўнага стала, перацягніце яго нанова са спіса праграм.</string>
+
+    <!-- Updates: the row in Settings, the banner on the home screen and the notification -->
+    <string name="settings_update_available">Выйшла версія %1$s</string>
+    <string name="settings_update_action_update">Абнавіць</string>
+    <string name="settings_update_action_install">Усталяваць</string>
+    <string name="settings_update_action_retry">Яшчэ раз</string>
+    <string name="settings_update_action_check">Праверыць</string>
+    <string name="settings_update_percent">%1$d%%</string>
+    <string name="settings_update_downloading_version">Спампоўваю версію %1$s</string>
+    <string name="settings_update_downloaded">Версія %1$s спампавана</string>
+    <string name="settings_update_failed">Не атрымалася</string>
+    <string name="settings_update_idle_hint">Даведайцеся, ці ёсць новая версія</string>
+    <string name="settings_update_checking">Шукаю новую версію…</string>
+    <string name="settings_update_latest_at">Апошняя версія · праверана а %1$s</string>
+    <string name="settings_update_current_size">Цяпер у вас %1$s · %2$s</string>
+    <string name="settings_update_downloading_hint">Можна карыстацца праграмай, пакуль ідзе спампоўванне</string>
+    <string name="settings_update_download_size">Спампаваць %1$s і ўсталяваць</string>
+    <string name="settings_update_downloading">Спампоўваю…</string>
+    <string name="settings_update_need_permission">Дазвольце Volta ўсталёўваць праграмы і націсніце «Усталяваць»</string>
+    <string name="settings_update_confirm">Засталося пацвердзіць усталёўку</string>
+    <string name="settings_update_error_check">Не атрымалася праверыць абнаўленні. Праверце інтэрнэт або ўключыце VPN.</string>
+    <string name="settings_update_error_corrupt">Файл спампаваўся з памылкай. Паспрабуйце яшчэ раз.</string>
+    <string name="settings_update_error_download">Не атрымалася спампаваць абнаўленне. Паспрабуйце яшчэ раз.</string>
+    <string name="settings_update_error_installer">Не атрымалася адкрыць усталёўшчык Android.</string>
+    <string name="settings_update_channel">Абнаўленні</string>
+    <string name="settings_update_channel_desc">Новыя версіі Volta</string>
+    <string name="settings_update_notify_title">Даступна абнаўленне Volta</string>
+    <string name="settings_update_notify_text">Версія %1$s. Націсніце, каб усталяваць.</string>
+
+    <!-- Moving to a new phone: saving to a file and restoring from it -->
+    <string name="settings_backup_save_title">Захаваць у файл</string>
+    <string name="settings_backup_save_text">Падпіскі, свае серверы, правілы і налады</string>
+    <string name="settings_backup_restore_title">Аднавіць з файла</string>
+    <string name="settings_backup_restore_text">Адкрыйце файл, захаваны ў Volta на іншым тэлефоне</string>
+    <string name="settings_backup_working">Хвілінку…</string>
+    <string name="settings_backup_warning">У файле вашы падпіскі: захоўвайце яго ў сябе і не перасылайце старонім.</string>
+    <string name="settings_backup_restore_question">Аднавіць з файла?</string>
+    <string name="settings_backup_restore_action">Аднавіць</string>
+    <string name="settings_backup_cancel">Скасаваць</string>
+    <string name="settings_backup_error_damaged">Гэта не файл Volta, або ён пашкоджаны</string>
+    <string name="settings_backup_error_not_volta">Гэта не файл Volta. Выберыце файл, захаваны ў Volta</string>
+    <string name="settings_backup_error_newer">Файл захаваны навейшай версіяй Volta. Абнавіце праграму</string>
+    <string name="settings_backup_error_too_big">Файл занадта вялікі для файла Volta</string>
+
+    <!-- The restore dialog. settings_backup_date_format is a java.time DateTimeFormatter pattern
+         for the day the file was saved (d day, M/MMMM month, yyyy year, text in 'quotes'). -->
+    <string name="settings_backup_date_format">d MMMM yyyy</string>
+    <string name="settings_backup_saved_on">Файл захаваны %1$s.</string>
+    <string name="settings_backup_contains">У ім:</string>
+    <plurals name="settings_backup_count_subscriptions">
+        <item quantity="one">падпіскі: %d</item>
+        <item quantity="few">падпіскі: %d</item>
+        <item quantity="many">падпіскі: %d</item>
+        <item quantity="other">падпіскі: %d</item>
+    </plurals>
+    <plurals name="settings_backup_count_servers">
+        <item quantity="one">свае серверы: %d</item>
+        <item quantity="few">свае серверы: %d</item>
+        <item quantity="many">свае серверы: %d</item>
+        <item quantity="other">свае серверы: %d</item>
+    </plurals>
+    <plurals name="settings_backup_count_rules">
+        <item quantity="one">наборы правіл: %d</item>
+        <item quantity="few">наборы правіл: %d</item>
+        <item quantity="many">наборы правіл: %d</item>
+        <item quantity="other">наборы правіл: %d</item>
+    </plurals>
+    <string name="settings_backup_item_settings">налады</string>
+    <string name="settings_backup_no_duplicates">Тое, што ўжо ёсць у Volta, не задвоіцца.</string>
+    <string name="settings_backup_settings_replaced">Налады стануць такімі, як у файле.</string>
+    <string name="settings_backup_servers_reload">Серверы падпісак загрузяцца нанова, патрэбны інтэрнэт.</string>
+
+    <!-- The message after a restore. Separators join the parts of it, as each language does. -->
+    <string name="settings_restore_done">Гатова. Адноўлена — %1$s</string>
+    <string name="settings_restore_all_there">Усё з файла ўжо ёсць у Volta</string>
+    <string name="settings_restore_nothing">Няма чаго аднаўляць</string>
+    <plurals name="settings_restore_not_loaded">
+        <item quantity="one">Серверы не загрузіліся ў падпісак: %d. Абнавіце іх пазней на ўкладцы «Падпіскі»</item>
+        <item quantity="few">Серверы не загрузіліся ў падпісак: %d. Абнавіце іх пазней на ўкладцы «Падпіскі»</item>
+        <item quantity="many">Серверы не загрузіліся ў падпісак: %d. Абнавіце іх пазней на ўкладцы «Падпіскі»</item>
+        <item quantity="other">Серверы не загрузіліся ў падпісак: %d. Абнавіце іх пазней на ўкладцы «Падпіскі»</item>
+    </plurals>
+    <plurals name="settings_restore_skipped">
+        <item quantity="one">Не прачытана запісаў: %d</item>
+        <item quantity="few">Не прачытана запісаў: %d</item>
+        <item quantity="many">Не прачытана запісаў: %d</item>
+        <item quantity="other">Не прачытана запісаў: %d</item>
+    </plurals>
+    <string name="settings_list_separator">", "</string>
+    <string name="settings_sentence_separator">". "</string>
+
+    <!-- Adding: the one field for links, keys and files -->
+    <string name="settings_import_back">Назад</string>
+    <string name="settings_import_title">Дадаць</string>
+    <string name="settings_import_subtitle">Падпіску, сервер або ключ. Устаўце як ёсць, Volta разбярэцца сама.</string>
+    <string name="settings_import_placeholder">Устаўце сюды спасылку на падпіску, спасылку на сервер (%1$s) або ключ vpn://</string>
+    <string name="settings_import_paste">Уставіць з буфера</string>
+    <string name="settings_import_clipboard_empty">Буфер абмену пусты</string>
+    <string name="settings_import_clear">Ачысціць</string>
+    <string name="settings_import_name_label">Назва, калі хочаце сваю</string>
+    <string name="settings_import_open_file">Адкрыць файл налад</string>
+    <string name="settings_import_open_file_text">Файл, які даслаў VPN-сэрвіс</string>
+    <string name="settings_import_no_file_picker">На гэтай прыладзе нельга выбраць файл. Адкрыйце файл на тэлефоне і ўстаўце яго тэкст у поле вышэй</string>
+    <string name="settings_import_formats_title">Што сюды можна ўставіць</string>
+
+    <!-- What the field holds, said back under it -->
+    <string name="settings_import_empty">Пакуль пуста</string>
+    <string name="settings_import_empty_hint">Устаўце спасылку або ключ</string>
+    <string name="settings_import_hidden_sub">Падпіска са схаванай спасылкай</string>
+    <string name="settings_import_hidden_sub_hint">Адрас не будзе бачны ў праграме</string>
+    <string name="settings_import_sub">Падпіска</string>
+    <string name="settings_import_sub_hint">Серверы і правілы будуць абнаўляцца самі</string>
+    <string name="settings_import_encrypted">Зашыфраваная падпіска</string>
+    <string name="settings_import_encrypted_hint">Volta адкрые яе сама, адрас застанецца схаваным</string>
+    <string name="settings_import_server">Сервер</string>
+    <string name="settings_import_server_hint">Дадасца ў агульны спіс сервераў</string>
+    <plurals name="settings_import_servers">
+        <item quantity="one">Сервераў: %d</item>
+        <item quantity="few">Сервераў: %d</item>
+        <item quantity="many">Сервераў: %d</item>
+        <item quantity="other">Сервераў: %d</item>
+    </plurals>
+    <string name="settings_import_servers_hint">Усе дададуцца ў агульны спіс</string>
+    <string name="settings_import_amnezia">Ключ AmneziaVPN</string>
+    <string name="settings_import_amnezia_hint">Серверы з ключа дададуцца ў спіс</string>
+    <string name="settings_import_conf">Файл налад сервера</string>
+    <string name="settings_import_conf_hint">Стане адным серверам у спісе</string>
+    <string name="settings_import_json">Налады сервераў</string>
+    <string name="settings_import_json_hint">Серверы дададуцца ў агульны спіс</string>
+    <string name="settings_import_control">Спасылка кіравання</string>
+    <string name="settings_import_control_hint">Не дадаецца, а ўключае ці выключае VPN</string>
+    <string name="settings_import_unknown">Не падобна на спасылку</string>
+    <string name="settings_import_unknown_hint">Праверце, што скапіявалі яе цалкам</string>
+
+    <!-- The button, named after what it will do -->
+    <string name="settings_import_add_sub">Дадаць падпіску</string>
+    <string name="settings_import_add_server">Дадаць сервер</string>
+    <string name="settings_import_add_servers">Дадаць серверы</string>
+    <string name="settings_import_import">Імпартаваць</string>
+    <string name="settings_import_run">Выканаць</string>
+
+    <!-- What can be pasted -->
+    <string name="settings_import_format_sub">Спасылка ад VPN-сэрвісу, звычайная ці зашыфраваная. Серверы ў ёй абнаўляюцца самі</string>
+    <string name="settings_import_format_server">Спасылка на адзін сервер, якую даслаў сэрвіс</string>
+    <string name="settings_import_format_amnezia">Доўгі ключ, які пачынаецца з vpn://</string>
+    <string name="settings_import_format_openflux_title">Спасылка OpenFlux</string>
+    <string name="settings_import_format_openflux">Спасылка, якая пачынаецца з openflux://</string>
+    <string name="settings_import_format_volta_title">Спасылка Volta</string>
+    <string name="settings_import_format_volta">Спасылка volta://, якую дае VPN-сэрвіс: звычайная ці зашыфраваная</string>
+    <string name="settings_import_format_file_title">Файл налад</string>
+    <string name="settings_import_format_file">Файл, які даслаў сэрвіс: яго можна адкрыць кнопкай вышэй</string>
+
+    <!-- Subscriptions tab and the sheet of one subscription -->
+    <string name="settings_subs_title">Падпіскі</string>
+    <string name="settings_subs_refresh_all">Абнавіць усе падпіскі</string>
+    <string name="settings_subs_empty_title">Падпісак пакуль няма</string>
+    <string name="settings_subs_empty_text">Дадайце адну ці некалькі: Volta аб’яднае іх серверы ў агульны спіс і сама раскладзе па групах Home і LTE.</string>
+    <string name="settings_subs_lead">Націсніце на падпіску, каб перайменаваць або выдаліць яе.</string>
+    <string name="settings_subs_delete_question">Выдаліць падпіску?</string>
+    <string name="settings_subs_delete_text">Знікнуць яе серверы і яе правілы. Астатнія падпіскі застануцца як ёсць.</string>
+    <string name="settings_subs_delete">Выдаліць</string>
+    <string name="settings_subs_keep">Пакінуць</string>
+    <string name="settings_subs_name">Назва</string>
+    <string name="settings_subs_url">Спасылка падпіскі</string>
+    <string name="settings_subs_save">Захаваць</string>
+    <string name="settings_subs_refresh">Абнавіць зараз</string>
+    <string name="settings_subs_refresh_text">Атрымаць свежы спіс сервераў і правіл</string>
+    <string name="settings_subs_delete_action">Выдаліць падпіску</string>
+    <string name="settings_subs_hidden_title">Спасылка схаваная</string>
+    <string name="settings_subs_hidden_text">VPN-сэрвіс закрыў адрас падпіскі. Яна абнаўляецца як звычайна, а змяніць можна толькі назву.</string>
+
+    <!-- Links that can't be used (volta://, volta://crypt): why, said to the user -->
+    <string name="settings_link_decrypt_failed">Не атрымалася расшыфраваць спасылку</string>
+    <string name="settings_link_double_encrypted">Спасылка зашыфравана двойчы</string>
+    <string name="settings_link_no_subscription">У зашыфраванай спасылцы няма падпіскі</string>
+    <string name="settings_link_no_address_encrypted">У зашыфраванай спасылцы няма адраса падпіскі</string>
+    <string name="settings_link_no_address">У спасылцы няма адраса падпіскі</string>
+    <string name="settings_link_crypt_empty">Зашыфраваная спасылка пустая</string>
+    <string name="settings_link_crypt_damaged">Зашыфраваная спасылка пашкоджаная</string>
+    <string name="settings_link_crypt_truncated">Зашыфраваная спасылка абрэзаная</string>
+    <string name="settings_link_crypt_newer">Спасылка зашыфравана для навейшай версіі Volta — абнавіце праграму</string>
+    <string name="settings_link_crypt_unknown_key">Спасылка зашыфравана ключом, якога няма ў гэтай версіі Volta</string>
+    <string name="settings_link_crypt_failed">Не атрымалася расшыфраваць спасылку: яна пашкоджаная або не для Volta</string>
+    <string name="settings_link_damaged">Спасылка пашкоджаная</string>
+</resources>

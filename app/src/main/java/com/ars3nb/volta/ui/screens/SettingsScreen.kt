@@ -64,6 +64,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -75,7 +76,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.annotation.StringRes
 import com.ars3nb.volta.BuildConfig
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.vpn.VoltaVpnService
 import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.PingType
@@ -132,9 +135,11 @@ fun SettingsScreen(vm: VoltaViewModel) {
     // A TV has no shade for tiles and shows a banner instead of the app icon.
     val tv = LocalTv.current
     val rows = remember(tv) { Tv.settingsRows(tv, Build.VERSION.SDK_INT) }
+    val noVpnSettings = stringResource(R.string.settings_no_vpn_settings)
+    val noBrowser = stringResource(R.string.settings_no_browser, HELP_URL.removePrefix("https://"))
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Настройки", fontWeight = FontWeight.SemiBold) }, colors = barColors()) }
+        topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title), fontWeight = FontWeight.SemiBold) }, colors = barColors()) }
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
@@ -146,59 +151,57 @@ fun SettingsScreen(vm: VoltaViewModel) {
                     SwitchRow(
                         icon = Icons.Rounded.TouchApp,
                         tint = primary,
-                        title = "Простой режим",
-                        subtitle = "Одна большая кнопка «Включить / Выключить», сервер выбирается сам. " +
-                            "Удобно для родителей и всех, кому не нужны настройки.",
+                        title = stringResource(R.string.settings_simple_title),
+                        subtitle = stringResource(R.string.settings_simple_text),
                         checked = simpleMode == true,
                         onChecked = vm::setSimpleMode
                     )
                 }
             }
 
-            item { SectionHeader("Подключение") }
+            item { SectionHeader(stringResource(R.string.settings_section_connection)) }
             item {
                 VoltaCard(contentPadding = 10) {
                     SwitchRow(
                         icon = Icons.Rounded.SyncAlt,
                         tint = palette.home,
-                        title = "Следить за сменой сети",
-                        subtitle = "При переходе между Wi-Fi и мобильным интернетом сервер проверяется и меняется сам.",
+                        title = stringResource(R.string.settings_follow_network_title),
+                        subtitle = stringResource(R.string.settings_follow_network_text),
                         checked = followNetwork,
                         onChecked = vm::setFollowNetwork
                     )
                     SwitchRow(
                         icon = Icons.Rounded.Insights,
                         tint = palette.good,
-                        title = "Улучшать выбор сервера",
-                        subtitle = "Раз в 15 минут при включённом экране сравнивает серверы и переходит " +
-                            "на заметно более быстрый. Неотвечающий сервер заменяется всегда.",
+                        title = stringResource(R.string.settings_recheck_title),
+                        subtitle = stringResource(R.string.settings_recheck_text),
                         checked = autoRecheck,
                         onChecked = vm::setAutoRecheck
                     )
                     SwitchRow(
                         icon = Icons.Rounded.Autorenew,
                         tint = palette.good,
-                        title = "Менять сервер при обрыве",
-                        subtitle = "Если сервер перестал отвечать, Volta перейдёт на другой.",
+                        title = stringResource(R.string.settings_failover_title),
+                        subtitle = stringResource(R.string.settings_failover_text),
                         checked = autoFailover,
                         onChecked = vm::setAutoFailover
                     )
                     SwitchRow(
                         icon = Icons.Rounded.PowerSettingsNew,
                         tint = primary,
-                        title = "Подключаться при запуске",
-                        subtitle = "Включать VPN сразу после старта системы.",
+                        title = stringResource(R.string.settings_autoconnect_title),
+                        subtitle = stringResource(R.string.settings_autoconnect_text),
                         checked = autoConnect,
                         onChecked = vm::setAutoConnect
                     )
                     LinkRow(
                         icon = Icons.Rounded.VpnLock,
                         tint = if (alwaysOn?.lockdown == true) palette.good else primary,
-                        title = "Не пускать интернет без VPN",
-                        subtitle = killSwitchHint(alwaysOn),
+                        title = stringResource(R.string.settings_killswitch_title),
+                        subtitle = stringResource(killSwitchHint(alwaysOn)),
                         onClick = {
                             if (!Tv.tryStart(context, Intent(Settings.ACTION_VPN_SETTINGS))) {
-                                vm.showMessage("На этом устройстве нет настроек VPN")
+                                vm.showMessage(noVpnSettings)
                             }
                         }
                     )
@@ -206,10 +209,10 @@ fun SettingsScreen(vm: VoltaViewModel) {
             }
 
             if (rows.tiles != TileRows.NONE) {
-                item { SectionHeader("Плитки в шторке") }
+                item { SectionHeader(stringResource(R.string.settings_section_tiles)) }
                 item {
                     VoltaCard {
-                        Hint("Нажатие на плитку включает VPN в её режиме, повторное — выключает.")
+                        Hint(stringResource(R.string.settings_tiles_hint))
                         Spacer(Modifier.height(12.dp))
                         if (rows.tiles == TileRows.ADD_BUTTONS) {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -229,27 +232,27 @@ fun SettingsScreen(vm: VoltaViewModel) {
                 }
             }
 
-            item { SectionHeader("Подписки и проверки") }
+            item { SectionHeader(stringResource(R.string.settings_section_checks)) }
             item {
                 VoltaCard(contentPadding = 10) {
                     SwitchRow(
                         icon = Icons.Rounded.CloudSync,
                         tint = primary,
-                        title = "Обновлять подписки при запуске",
-                        subtitle = "Серверы и правила обновляются при открытии приложения.",
+                        title = stringResource(R.string.settings_refresh_on_launch_title),
+                        subtitle = stringResource(R.string.settings_refresh_on_launch_text),
                         checked = refreshOnLaunch,
                         onChecked = vm::setRefreshOnLaunch
                     )
                     SwitchRow(
                         icon = Icons.Rounded.Public,
                         tint = palette.home,
-                        title = "Проверять сеть при запуске",
-                        subtitle = "Сразу видно, какая сейчас сеть: Home или LTE.",
+                        title = stringResource(R.string.settings_ping_on_start_title),
+                        subtitle = stringResource(R.string.settings_ping_on_start_text),
                         checked = pingOnStart,
                         onChecked = vm::setPingOnStart
                     )
                     Column(Modifier.padding(start = 48.dp, top = 6.dp, bottom = 8.dp, end = 4.dp)) {
-                        Text("Как проверять серверы", style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.settings_ping_type_title), style = MaterialTheme.typography.titleSmall)
                         Spacer(Modifier.height(8.dp))
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -265,37 +268,37 @@ fun SettingsScreen(vm: VoltaViewModel) {
                             }
                         }
                         Spacer(Modifier.height(6.dp))
-                        Hint(pingHint(pingType))
+                        Hint(stringResource(pingHint(pingType)))
                     }
                 }
             }
 
-            item { SectionHeader("Туннель и батарея") }
+            item { SectionHeader(stringResource(R.string.settings_section_tunnel)) }
             item {
                 VoltaCard(contentPadding = 10) {
                     SwitchRow(
                         icon = Icons.Rounded.Dns,
                         tint = primary,
-                        title = "Открывать сайты через VPN",
-                        subtitle = "Адреса сайтов тоже узнаются через VPN, так меньше блокировок.",
+                        title = stringResource(R.string.settings_local_dns_title),
+                        subtitle = stringResource(R.string.settings_local_dns_text),
                         checked = localDns,
                         onChecked = vm::setLocalDns
                     )
                     SwitchRow(
                         icon = Icons.Rounded.BatterySaver,
                         tint = palette.good,
-                        title = "Беречь батарею",
-                        subtitle = "Короткие проверки и меньше фоновой работы.",
+                        title = stringResource(R.string.settings_battery_title),
+                        subtitle = stringResource(R.string.settings_battery_text),
                         checked = batterySaver,
                         onChecked = vm::setBatterySaver
                     )
                 }
             }
 
-            item { SectionHeader("Оформление") }
+            item { SectionHeader(stringResource(R.string.settings_section_look)) }
             item {
                 VoltaCard {
-                    Text("Тема", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.settings_theme), style = MaterialTheme.typography.titleSmall)
                     Spacer(Modifier.height(12.dp))
                     Row(
                         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -307,7 +310,7 @@ fun SettingsScreen(vm: VoltaViewModel) {
                     }
                     if (rows.appIcon) {
                         Spacer(Modifier.height(18.dp))
-                        Text("Иконка приложения", style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.settings_app_icon), style = MaterialTheme.typography.titleSmall)
                         Spacer(Modifier.height(12.dp))
                         AppIconPicker()
                     }
@@ -319,14 +322,14 @@ fun SettingsScreen(vm: VoltaViewModel) {
                 }
             }
 
-            item { SectionHeader("Устройство") }
+            item { SectionHeader(stringResource(R.string.settings_section_device)) }
             item {
                 VoltaCard(contentPadding = 10) {
                     SwitchRow(
                         icon = Icons.Rounded.Fingerprint,
                         tint = primary,
-                        title = "Привязка к устройству",
-                        subtitle = "Включите, если VPN-сервис ограничивает число устройств на одну подписку.",
+                        title = stringResource(R.string.settings_hwid_title),
+                        subtitle = stringResource(R.string.settings_hwid_text),
                         checked = sendHwid,
                         onChecked = vm::setSendHwid
                     )
@@ -334,24 +337,25 @@ fun SettingsScreen(vm: VoltaViewModel) {
                         Modifier.fillMaxWidth().padding(start = 48.dp, top = 2.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val copied = stringResource(R.string.settings_hwid_copied)
                         Column(Modifier.weight(1f)) {
-                            Text("Код этого устройства", style = MaterialTheme.typography.labelMedium)
+                            Text(stringResource(R.string.settings_hwid_code), style = MaterialTheme.typography.labelMedium)
                             Hint(vm.hwidFull())
                         }
                         IconButton(onClick = {
                             clipboard.setText(AnnotatedString(vm.hwidFull()))
-                            vm.showMessage("Код скопирован")
+                            vm.showMessage(copied)
                         }) {
-                            Icon(Icons.Rounded.ContentCopy, "Скопировать код")
+                            Icon(Icons.Rounded.ContentCopy, stringResource(R.string.settings_hwid_copy))
                         }
                     }
                 }
             }
 
-            item { SectionHeader("Перенос на новый телефон") }
+            item { SectionHeader(stringResource(R.string.settings_section_move)) }
             item { BackupCard(vm) }
 
-            item { SectionHeader("О приложении") }
+            item { SectionHeader(stringResource(R.string.settings_section_about)) }
             item {
                 VoltaCard(contentPadding = 10) {
                     UpdatePanel(
@@ -359,18 +363,18 @@ fun SettingsScreen(vm: VoltaViewModel) {
                         currentVersion = BuildConfig.VERSION_NAME,
                         onCheck = vm::checkForUpdate,
                         onInstall = vm::installUpdate,
-                        storeNote = if (vm.updaterBuilt) null else "Обновления приходят через Google Play"
+                        storeNote = if (vm.updaterBuilt) null else stringResource(R.string.settings_update_store_note)
                     )
                     // The Google Play build has no updater of its own: nothing to switch.
                     if (vm.updaterBuilt) {
                         SwitchRow(
                             icon = Icons.Rounded.Autorenew,
                             tint = primary,
-                            title = "Проверка обновлений",
+                            title = stringResource(R.string.settings_update_auto_title),
                             subtitle = if (updateAutoCheck) {
-                                "При запуске и раз в несколько часов. О новой версии придёт уведомление"
+                                stringResource(R.string.settings_update_auto_on)
                             } else {
-                                "Выключена. Проверить можно кнопкой «Проверить»"
+                                stringResource(R.string.settings_update_auto_off)
                             },
                             checked = updateAutoCheck,
                             onChecked = vm::setUpdateAutoCheck
@@ -378,8 +382,8 @@ fun SettingsScreen(vm: VoltaViewModel) {
                         SwitchRow(
                             icon = Icons.Rounded.Science,
                             tint = palette.lte,
-                            title = "Бета-версии",
-                            subtitle = "Получать пробные сборки раньше всех. В них могут быть ошибки",
+                            title = stringResource(R.string.settings_update_beta_title),
+                            subtitle = stringResource(R.string.settings_update_beta_text),
                             checked = updateBeta,
                             onChecked = vm::setUpdateBeta
                         )
@@ -387,11 +391,11 @@ fun SettingsScreen(vm: VoltaViewModel) {
                     LinkRow(
                         icon = Icons.AutoMirrored.Rounded.MenuBook,
                         tint = primary,
-                        title = "Помощь и инструкции",
-                        subtitle = "Как добавить подписку, выбрать режим и настроить приложения",
+                        title = stringResource(R.string.settings_help_title),
+                        subtitle = stringResource(R.string.settings_help_text),
                         onClick = {
                             if (!Tv.tryStart(context, Intent(Intent.ACTION_VIEW, android.net.Uri.parse(HELP_URL)))) {
-                                vm.showMessage("Нет браузера. Инструкции на сайте ${HELP_URL.removePrefix("https://")}")
+                                vm.showMessage(noBrowser)
                             }
                         }
                     )
@@ -438,7 +442,7 @@ private fun TilePad(mode: ConnectMode, modifier: Modifier = Modifier, onClick: (
                     maxFontSize = MaterialTheme.typography.titleSmall.fontSize
                 )
             )
-            Text("добавить", style = MaterialTheme.typography.labelMedium, color = scheme.primary)
+            Text(stringResource(R.string.settings_tile_add), style = MaterialTheme.typography.labelMedium, color = scheme.primary)
         }
     }
 }
@@ -511,38 +515,38 @@ private fun ThemeCoin(theme: DesignTheme, selected: Boolean, onClick: () -> Unit
  * Android's own kill switch: Always-on VPN with «Блокировать соединения без VPN». Volta
  * can't switch it on itself, only say whether it is on and open the screen where it is.
  */
-private fun killSwitchHint(state: VoltaVpnService.AlwaysOn?): String = when {
-    state == null ->
-        "Android может держать Volta всегда включённой и закрыть интернет, пока VPN не подключён. " +
-            "Нажмите, затем шестерёнку рядом с Volta: «Постоянная VPN» и «Блокировать соединения без VPN»."
-    state.on && state.lockdown ->
-        "Включено: Volta всегда включена, а без VPN интернет закрыт. Выключите VPN — интернет пропадёт, так и задумано."
-    state.on ->
-        "Volta включается сама, но пока VPN подключается, приложения выходят в интернет напрямую. " +
-            "Включите «Блокировать соединения без VPN» в шестерёнке рядом с Volta."
-    else ->
-        "Выключено. Нажмите, затем шестерёнку рядом с Volta: «Постоянная VPN» и «Блокировать соединения без VPN»."
+@StringRes
+private fun killSwitchHint(state: VoltaVpnService.AlwaysOn?): Int = when {
+    state == null -> R.string.settings_killswitch_unknown
+    state.on && state.lockdown -> R.string.settings_killswitch_on
+    state.on -> R.string.settings_killswitch_partial
+    else -> R.string.settings_killswitch_off
 }
 
+/** The other check types are protocol names, the same in every language. */
+@Composable
 private fun pingLabel(t: PingType) = when (t) {
-    PingType.REAL_DELAY -> "Через сервер"
+    PingType.REAL_DELAY -> stringResource(R.string.settings_ping_real)
     PingType.HTTP_GET -> "HTTP GET"
     PingType.TCP -> "TCP"
     PingType.ICMP -> "ICMP"
 }
 
-private fun pingHint(t: PingType) = when (t) {
-    PingType.REAL_DELAY -> "Проверяет настоящую скорость через сервер. Рекомендуем."
-    PingType.HTTP_GET -> "Для серверов, которые плохо отвечают на быструю проверку."
-    PingType.TCP -> "Быстрее, но может показать сервер живым, когда он не работает."
-    PingType.ICMP -> "Самая простая проверка. У многих мобильных операторов не работает."
+@StringRes
+private fun pingHint(t: PingType): Int = when (t) {
+    PingType.REAL_DELAY -> R.string.settings_ping_real_hint
+    PingType.HTTP_GET -> R.string.settings_ping_http_hint
+    PingType.TCP -> R.string.settings_ping_tcp_hint
+    PingType.ICMP -> R.string.settings_ping_icmp_hint
 }
 
+/** "Volta" and "Material" are names, the same in every language. */
+@Composable
 private fun themeLabel(t: DesignTheme) = when (t) {
-    DesignTheme.SYSTEM -> "Система"
+    DesignTheme.SYSTEM -> stringResource(R.string.settings_theme_system)
     DesignTheme.VOLTA -> "Volta"
-    DesignTheme.LIGHT -> "Светлая"
-    DesignTheme.OCEAN -> "Океан"
-    DesignTheme.EMBER -> "Уголь"
+    DesignTheme.LIGHT -> stringResource(R.string.settings_theme_light)
+    DesignTheme.OCEAN -> stringResource(R.string.settings_theme_ocean)
+    DesignTheme.EMBER -> stringResource(R.string.settings_theme_ember)
     DesignTheme.DYNAMIC -> "Material"
 }

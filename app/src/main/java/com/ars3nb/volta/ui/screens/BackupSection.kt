@@ -25,8 +25,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.backup.BackupCodec
 import com.ars3nb.volta.ui.VoltaViewModel
 import com.ars3nb.volta.ui.components.Hint
@@ -58,15 +61,15 @@ internal fun BackupCard(vm: VoltaViewModel) {
         LinkRow(
             icon = Icons.Rounded.SaveAlt,
             tint = primary,
-            title = "Сохранить в файл",
-            subtitle = "Подписки, свои серверы, правила и настройки",
+            title = stringResource(R.string.settings_backup_save_title),
+            subtitle = stringResource(R.string.settings_backup_save_text),
             onClick = { if (!working) save.launch(vm.backupFileName()) }
         )
         LinkRow(
             icon = Icons.Rounded.Restore,
             tint = VoltaTheme.palette.good,
-            title = "Восстановить из файла",
-            subtitle = "Откройте файл, сохранённый в Volta на другом телефоне",
+            title = stringResource(R.string.settings_backup_restore_title),
+            subtitle = stringResource(R.string.settings_backup_restore_text),
             onClick = { if (!working) open.launch(arrayOf("*/*")) }
         )
         AnimatedVisibility(
@@ -82,22 +85,27 @@ internal fun BackupCard(vm: VoltaViewModel) {
             ) {
                 CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                 Spacer(Modifier.width(10.dp))
-                Hint("Минутку…")
+                Hint(stringResource(R.string.settings_backup_working))
             }
         }
         Hint(
-            "В файле ваши подписки: храните его у себя и не пересылайте посторонним.",
+            stringResource(R.string.settings_backup_warning),
             Modifier.padding(start = 48.dp, top = 2.dp, bottom = 6.dp, end = 4.dp)
         )
     }
 
     offer?.let { contents ->
+        val resources = LocalResources.current
         AlertDialog(
             onDismissRequest = vm::dismissRestore,
-            title = { Text("Восстановить из файла?") },
-            text = { Text(BackupCodec.describe(contents)) },
-            confirmButton = { TextButton(onClick = vm::confirmRestore) { Text("Восстановить") } },
-            dismissButton = { TextButton(onClick = vm::dismissRestore) { Text("Отмена") } }
+            title = { Text(stringResource(R.string.settings_backup_restore_question)) },
+            text = { Text(BackupCodec.describe(contents, resources)) },
+            confirmButton = {
+                TextButton(onClick = vm::confirmRestore) { Text(stringResource(R.string.settings_backup_restore_action)) }
+            },
+            dismissButton = {
+                TextButton(onClick = vm::dismissRestore) { Text(stringResource(R.string.settings_backup_cancel)) }
+            }
         )
     }
 }

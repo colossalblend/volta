@@ -1,5 +1,8 @@
 package com.ars3nb.volta.core.backup
 
+import android.content.res.Resources
+import androidx.annotation.StringRes
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.link.SubCrypto
 import com.ars3nb.volta.core.routing.RoutingEngine
 import com.ars3nb.volta.data.model.ProtocolType
@@ -16,6 +19,9 @@ import com.google.gson.JsonParser
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.DecimalStyle
+import java.util.Locale
 
 /**
  * The backup file: everything worth taking to a new phone, as one JSON file the user
@@ -43,7 +49,8 @@ object BackupCodec {
     /** Bigger than any real backup, small enough to read into memory. */
     const val MAX_BYTES = 4 * 1024 * 1024
 
-    class BackupException(message: String) : Exception(message)
+    /** A file Volta won't take; [reason] says why, in the user's language. */
+    class BackupException(@param:StringRes val reason: Int) : Exception("not a usable backup file")
 
     /** What the app hands over to be written. */
     data class Snapshot(
@@ -173,13 +180,13 @@ object BackupCodec {
             .getOrNull()
             ?.takeIf { it.isJsonObject }
             ?.asJsonObject
-            ?: throw BackupException("Это не файл Volta или он повреждён")
+            ?: throw BackupException(R.string.settings_backup_error_damaged)
         if (root.stringOrNull("format") != FORMAT) {
-            throw BackupException("Это не файл Volta. Выберите файл, сохранённый в Volta")
+            throw BackupException(R.string.settings_backup_error_not_volta)
         }
         val version = runCatching { root.get("version")?.asInt }.getOrNull() ?: 0
         if (version > VERSION) {
-            throw BackupException("Файл сохранён более новой версией Volta. Обновите приложение")
+            throw BackupException(R.string.settings_backup_error_newer)
         }
 
         var skipped = 0
@@ -285,20 +292,31 @@ object BackupCodec {
 
     // ---------------------------------------------------------------- showing
 
-    /** The question the restore dialog asks, in plain words. */
-    fun describe(contents: Contents, zone: ZoneId = ZoneId.systemDefault()): String = buildString {
+    /** The question the restore dialog asks, in plain words, in the language of [res]. */
+    fun describe(contents: Contents, res: Resources, zone: ZoneId = ZoneId.systemDefault()): String = buildString {
         if (contents.createdAt > 0) {
             val date = Instant.ofEpochMilli(contents.createdAt).atZone(zone).toLocalDate()
-            append("Файл сохранён ${date.dayOfMonth} ${MONTHS_OF[date.monthValue - 1]} ${date.year}.\n\n")
+            val locale = res.configuration.locales.get(0) ?: Locale.getDefault()
+            val shown = DateTimeFormatter.ofPattern(res.getString(R.string.settings_backup_date_format), locale)
+                .withDecimalStyle(DecimalStyle.of(locale))
+                .format(date)
+            append(res.getString(R.string.settings_backup_saved_on, shown)).append("\n\n")
         }
-        append("В нём:\n")
-        if (contents.subscriptions.isNotEmpty()) append("• подписки: ${contents.subscriptions.size}\n")
-        if (contents.servers.isNotEmpty()) append("• свои серверы: ${contents.servers.size}\n")
-        if (contents.routing.isNotEmpty()) append("• наборы правил: ${contents.routing.size}\n")
-        if (contents.settings.isNotEmpty()) append("• настройки\n")
-        append("\nТо, что уже есть в Volta, не задвоится. ")
-        if (contents.settings.isNotEmpty()) append("Настройки станут такими, как в файле. ")
-        if (contents.subscriptions.isNotEmpty()) append("Серверы подписок загрузятся заново, нужен интернет.")
+        append(res.getString(R.string.settings_backup_contains)).append('\n')
+        fun item(text: String) = append("• ").append(text).append('\n')
+        fun count(id: Int, n: Int) = item(res.getQuantityString(id, n, n))
+        if (contents.subscriptions.isNotEmpty()) count(R.plurals.settings_backup_count_subscriptions, contents.subscriptions.size)
+        if (contents.servers.isNotEmpty()) count(R.plurals.settings_backup_count_servers, contents.servers.size)
+        if (contents.routing.isNotEmpty()) count(R.plurals.settings_backup_count_rules, contents.routing.size)
+        if (contents.settings.isNotEmpty()) item(res.getString(R.string.settings_backup_item_settings))
+        append('\n')
+        append(
+            listOfNotNull(
+                res.getString(R.string.settings_backup_no_duplicates),
+                res.getString(R.string.settings_backup_settings_replaced).takeIf { contents.settings.isNotEmpty() },
+                res.getString(R.string.settings_backup_servers_reload).takeIf { contents.subscriptions.isNotEmpty() }
+            ).joinToString(" ")
+        )
     }.trim()
 
     /** The same server, whatever it is called: one already there is not added twice. */
@@ -306,11 +324,6 @@ object BackupCodec {
         server.protocol.name, server.address.lowercase(), server.port.toString(), server.uuid,
         server.path, server.rawLink, server.rawJson
     ).joinToString("\u0001")
-
-    private val MONTHS_OF = listOf(
-        "января", "февраля", "марта", "апреля", "мая", "июня",
-        "июля", "августа", "сентября", "октября", "ноября", "декабря"
-    )
 
     // ---------------------------------------------------------------- helpers
 

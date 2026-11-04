@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Settings screen -->
+    <string name="settings_title">الإعدادات</string>
+    <string name="settings_simple_title">الوضع البسيط</string>
+    <string name="settings_simple_text">زر كبير واحد «تشغيل / إيقاف»، ويُختار الخادم تلقائيًا. مناسب للآباء ولكل من لا يحتاج إلى الإعدادات.</string>
+    <string name="settings_section_connection">الاتصال</string>
+    <string name="settings_follow_network_title">متابعة تغيّر الشبكة</string>
+    <string name="settings_follow_network_text">عند التبديل بين Wi-Fi وبيانات الجوال، يُفحص الخادم ويُغيَّر تلقائيًا.</string>
+    <string name="settings_recheck_title">تحسين اختيار الخادم</string>
+    <string name="settings_recheck_text">كل 15 دقيقة والشاشة مضاءة، يقارن الخوادم وينتقل إلى خادم أسرع بشكل ملحوظ. أما الخادم الذي لا يستجيب فيُستبدل دائمًا.</string>
+    <string name="settings_failover_title">تبديل الخادم عند الانقطاع</string>
+    <string name="settings_failover_text">إذا توقف الخادم عن الاستجابة، ينتقل Volta إلى خادم آخر.</string>
+    <string name="settings_autoconnect_title">الاتصال عند بدء التشغيل</string>
+    <string name="settings_autoconnect_text">تشغيل VPN فور بدء تشغيل الجهاز.</string>
+
+    <!-- Android's own kill switch. The quoted names are Android's own settings (Always-on VPN,
+         Block connections without VPN), as Android calls them in that language. -->
+    <string name="settings_killswitch_title">منع الإنترنت بدون VPN</string>
+    <string name="settings_killswitch_unknown">يمكن لنظام Android إبقاء Volta قيد التشغيل دائمًا وحظر الإنترنت إلى أن يتصل VPN. اضغط هنا، ثم على رمز الترس بجانب Volta: «شبكة VPN دائمة التشغيل» و«حظر الاتصالات بدون VPN».</string>
+    <string name="settings_killswitch_on">مفعّل: يعمل Volta دائمًا، ومن دون VPN يكون الإنترنت محظورًا. إذا أوقفت VPN سينقطع الإنترنت، وهذا مقصود.</string>
+    <string name="settings_killswitch_partial">يعمل Volta تلقائيًا، لكن أثناء اتصال VPN تتصل التطبيقات بالإنترنت مباشرة. فعّل «حظر الاتصالات بدون VPN» من رمز الترس بجانب Volta.</string>
+    <string name="settings_killswitch_off">غير مفعّل. اضغط هنا، ثم على رمز الترس بجانب Volta: «شبكة VPN دائمة التشغيل» و«حظر الاتصالات بدون VPN».</string>
+    <string name="settings_no_vpn_settings">لا توجد إعدادات VPN على هذا الجهاز</string>
+
+    <!-- Quick Settings tiles -->
+    <string name="settings_section_tiles">مربعات الإعدادات السريعة</string>
+    <string name="settings_tiles_hint">الضغط على المربع يشغّل VPN بوضعه، والضغط مرة أخرى يوقفه.</string>
+    <string name="settings_tile_add">إضافة</string>
+
+    <!-- Subscriptions and checks -->
+    <string name="settings_section_checks">الاشتراكات والفحوصات</string>
+    <string name="settings_refresh_on_launch_title">تحديث الاشتراكات عند الفتح</string>
+    <string name="settings_refresh_on_launch_text">تُحدَّث الخوادم والقواعد عند فتح التطبيق.</string>
+    <string name="settings_ping_on_start_title">فحص الشبكة عند الفتح</string>
+    <string name="settings_ping_on_start_text">يظهر فورًا نوع الشبكة الحالية: Home أو LTE.</string>
+    <string name="settings_ping_type_title">طريقة فحص الخوادم</string>
+    <string name="settings_ping_real">عبر الخادم</string>
+    <string name="settings_ping_real_hint">يفحص السرعة الفعلية عبر الخادم. موصى به.</string>
+    <string name="settings_ping_http_hint">للخوادم التي لا تستجيب جيدًا للفحص السريع.</string>
+    <string name="settings_ping_tcp_hint">أسرع، لكنه قد يُظهر الخادم سليمًا وهو لا يعمل.</string>
+    <string name="settings_ping_icmp_hint">أبسط فحص. لا يعمل لدى كثير من مشغّلي شبكات الجوال.</string>
+
+    <!-- Tunnel and battery -->
+    <string name="settings_section_tunnel">النفق والبطارية</string>
+    <string name="settings_local_dns_title">فتح المواقع عبر VPN</string>
+    <string name="settings_local_dns_text">تُعرف عناوين المواقع أيضًا عبر VPN، فيقلّ الحجب.</string>
+    <string name="settings_battery_title">توفير البطارية</string>
+    <string name="settings_battery_text">فحوصات أقصر وعمل أقل في الخلفية.</string>
+
+    <!-- Appearance. The theme names "Volta" and "Material" are names and stay in code. -->
+    <string name="settings_section_look">المظهر</string>
+    <string name="settings_theme">السمة</string>
+    <string name="settings_theme_system">النظام</string>
+    <string name="settings_theme_light">فاتح</string>
+    <string name="settings_theme_ocean">محيط</string>
+    <string name="settings_theme_ember">جمر</string>
+    <string name="settings_app_icon">أيقونة التطبيق</string>
+
+    <!-- Device -->
+    <string name="settings_section_device">الجهاز</string>
+    <string name="settings_hwid_title">الربط بالجهاز</string>
+    <string name="settings_hwid_text">فعّله إذا كانت خدمة VPN تحدّ من عدد الأجهزة لكل اشتراك.</string>
+    <string name="settings_hwid_code">رمز هذا الجهاز</string>
+    <string name="settings_hwid_copied">تم نسخ الرمز</string>
+    <string name="settings_hwid_copy">نسخ الرمز</string>
+
+    <!-- Sections further down, and «About» -->
+    <string name="settings_section_move">النقل إلى هاتف جديد</string>
+    <string name="settings_section_about">حول التطبيق</string>
+    <string name="settings_update_store_note">تصل التحديثات عبر Google Play</string>
+    <string name="settings_update_auto_title">التحقق من التحديثات</string>
+    <string name="settings_update_auto_on">عند الفتح وكل بضع ساعات. سيصلك إشعار عند صدور إصدار جديد</string>
+    <string name="settings_update_auto_off">متوقف. يمكنك التحقق بزر «تحقق»</string>
+    <string name="settings_update_beta_title">الإصدارات التجريبية</string>
+    <string name="settings_update_beta_text">احصل على النسخ التجريبية قبل الجميع. قد تحتوي على أخطاء</string>
+    <string name="settings_help_title">المساعدة والإرشادات</string>
+    <string name="settings_help_text">كيف تضيف اشتراكًا وتختار وضعًا وتضبط التطبيقات</string>
+    <string name="settings_no_browser">لا يوجد متصفح. الإرشادات على الموقع %1$s</string>
+
+    <!-- Launcher icons -->
+    <string name="settings_icon_fold">طيّة</string>
+    <string name="settings_icon_spark">شرارة</string>
+    <string name="settings_icon_orbit">مدار</string>
+    <string name="settings_icon_tunnel">نفق</string>
+    <string name="settings_icon_pixel">بكسل</string>
+    <string name="settings_icon_hint">يحتاج المشغّل إلى بضع ثوانٍ لتغيير الأيقونة. إذا اختفت من الشاشة الرئيسية، فاسحبها من جديد من قائمة التطبيقات.</string>
+
+    <!-- Updates: the row in Settings, the banner on the home screen and the notification -->
+    <string name="settings_update_available">صدر الإصدار %1$s</string>
+    <string name="settings_update_action_update">تحديث</string>
+    <string name="settings_update_action_install">تثبيت</string>
+    <string name="settings_update_action_retry">إعادة المحاولة</string>
+    <string name="settings_update_action_check">تحقق</string>
+    <string name="settings_update_percent">%1$d٪</string>
+    <string name="settings_update_downloading_version">جارٍ تنزيل الإصدار %1$s</string>
+    <string name="settings_update_downloaded">تم تنزيل الإصدار %1$s</string>
+    <string name="settings_update_failed">لم ينجح ذلك</string>
+    <string name="settings_update_idle_hint">اعرف إن كان هناك إصدار جديد</string>
+    <string name="settings_update_checking">جارٍ البحث عن إصدار جديد…</string>
+    <string name="settings_update_latest_at">أحدث إصدار · تم التحقق الساعة %1$s</string>
+    <string name="settings_update_current_size">لديك الآن %1$s · %2$s</string>
+    <string name="settings_update_downloading_hint">يمكنك استخدام التطبيق أثناء التنزيل</string>
+    <string name="settings_update_download_size">تنزيل %1$s وتثبيته</string>
+    <string name="settings_update_downloading">جارٍ التنزيل…</string>
+    <string name="settings_update_need_permission">اسمح لـ Volta بتثبيت التطبيقات ثم اضغط «تثبيت»</string>
+    <string name="settings_update_confirm">بقي تأكيد التثبيت فقط</string>
+    <string name="settings_update_error_check">تعذّر التحقق من التحديثات. تحقّق من الإنترنت أو شغّل VPN.</string>
+    <string name="settings_update_error_corrupt">نُزّل الملف وفيه خطأ. حاول مرة أخرى.</string>
+    <string name="settings_update_error_download">تعذّر تنزيل التحديث. حاول مرة أخرى.</string>
+    <string name="settings_update_error_installer">تعذّر فتح أداة التثبيت في Android.</string>
+    <string name="settings_update_channel">التحديثات</string>
+    <string name="settings_update_channel_desc">إصدارات Volta الجديدة</string>
+    <string name="settings_update_notify_title">يتوفر تحديث لـ Volta</string>
+    <string name="settings_update_notify_text">الإصدار %1$s. اضغط للتثبيت.</string>
+
+    <!-- Moving to a new phone: saving to a file and restoring from it -->
+    <string name="settings_backup_save_title">حفظ في ملف</string>
+    <string name="settings_backup_save_text">الاشتراكات وخوادمك الخاصة والقواعد والإعدادات</string>
+    <string name="settings_backup_restore_title">استعادة من ملف</string>
+    <string name="settings_backup_restore_text">افتح ملفًا محفوظًا من Volta على هاتف آخر</string>
+    <string name="settings_backup_working">لحظة…</string>
+    <string name="settings_backup_warning">يحتوي الملف على اشتراكاتك: احتفظ به لنفسك ولا ترسله للغرباء.</string>
+    <string name="settings_backup_restore_question">هل تريد الاستعادة من الملف؟</string>
+    <string name="settings_backup_restore_action">استعادة</string>
+    <string name="settings_backup_cancel">إلغاء</string>
+    <string name="settings_backup_error_damaged">هذا ليس ملف Volta أو أنه تالف</string>
+    <string name="settings_backup_error_not_volta">هذا ليس ملف Volta. اختر ملفًا محفوظًا من Volta</string>
+    <string name="settings_backup_error_newer">حُفظ الملف بإصدار أحدث من Volta. حدّث التطبيق</string>
+    <string name="settings_backup_error_too_big">الملف أكبر من أن يكون ملف Volta</string>
+
+    <!-- The restore dialog. settings_backup_date_format is a java.time DateTimeFormatter pattern
+         for the day the file was saved (d day, M/MMMM month, yyyy year, text in 'quotes'). -->
+    <string name="settings_backup_date_format">d MMMM yyyy</string>
+    <string name="settings_backup_saved_on">حُفظ الملف في %1$s.</string>
+    <string name="settings_backup_contains">يحتوي على:</string>
+    <plurals name="settings_backup_count_subscriptions">
+        <item quantity="zero">الاشتراكات: %d</item>
+        <item quantity="one">الاشتراكات: %d</item>
+        <item quantity="two">الاشتراكات: %d</item>
+        <item quantity="few">الاشتراكات: %d</item>
+        <item quantity="many">الاشتراكات: %d</item>
+        <item quantity="other">الاشتراكات: %d</item>
+    </plurals>
+    <plurals name="settings_backup_count_servers">
+        <item quantity="zero">خوادمك الخاصة: %d</item>
+        <item quantity="one">خوادمك الخاصة: %d</item>
+        <item quantity="two">خوادمك الخاصة: %d</item>
+        <item quantity="few">خوادمك الخاصة: %d</item>
+        <item quantity="many">خوادمك الخاصة: %d</item>
+        <item quantity="other">خوادمك الخاصة: %d</item>
+    </plurals>
+    <plurals name="settings_backup_count_rules">
+        <item quantity="zero">مجموعات القواعد: %d</item>
+        <item quantity="one">مجموعات القواعد: %d</item>
+        <item quantity="two">مجموعات القواعد: %d</item>
+        <item quantity="few">مجموعات القواعد: %d</item>
+        <item quantity="many">مجموعات القواعد: %d</item>
+        <item quantity="other">مجموعات القواعد: %d</item>
+    </plurals>
+    <string name="settings_backup_item_settings">الإعدادات</string>
+    <string name="settings_backup_no_duplicates">ما هو موجود في Volta لن يتكرر.</string>
+    <string name="settings_backup_settings_replaced">ستصبح الإعدادات كما في الملف.</string>
+    <string name="settings_backup_servers_reload">ستُحمَّل خوادم الاشتراكات من جديد، ويلزم اتصال بالإنترنت.</string>
+
+    <!-- The message after a restore. Separators join the parts of it, as each language does. -->
+    <string name="settings_restore_done">تم. ما استُعيد: %1$s</string>
+    <string name="settings_restore_all_there">كل ما في الملف موجود بالفعل في Volta</string>
+    <string name="settings_restore_nothing">لا يوجد ما يُستعاد</string>
+    <plurals name="settings_restore_not_loaded">
+        <item quantity="zero">اشتراكات لم تُحمَّل خوادمها: %d. حدّثها لاحقًا من تبويب «الاشتراكات»</item>
+        <item quantity="one">اشتراكات لم تُحمَّل خوادمها: %d. حدّثها لاحقًا من تبويب «الاشتراكات»</item>
+        <item quantity="two">اشتراكات لم تُحمَّل خوادمها: %d. حدّثها لاحقًا من تبويب «الاشتراكات»</item>
+        <item quantity="few">اشتراكات لم تُحمَّل خوادمها: %d. حدّثها لاحقًا من تبويب «الاشتراكات»</item>
+        <item quantity="many">اشتراكات لم تُحمَّل خوادمها: %d. حدّثها لاحقًا من تبويب «الاشتراكات»</item>
+        <item quantity="other">اشتراكات لم تُحمَّل خوادمها: %d. حدّثها لاحقًا من تبويب «الاشتراكات»</item>
+    </plurals>
+    <plurals name="settings_restore_skipped">
+        <item quantity="zero">سجلات تعذّرت قراءتها: %d</item>
+        <item quantity="one">سجلات تعذّرت قراءتها: %d</item>
+        <item quantity="two">سجلات تعذّرت قراءتها: %d</item>
+        <item quantity="few">سجلات تعذّرت قراءتها: %d</item>
+        <item quantity="many">سجلات تعذّرت قراءتها: %d</item>
+        <item quantity="other">سجلات تعذّرت قراءتها: %d</item>
+    </plurals>
+    <string name="settings_list_separator">"، "</string>
+    <string name="settings_sentence_separator">". "</string>
+
+    <!-- Adding: the one field for links, keys and files -->
+    <string name="settings_import_back">رجوع</string>
+    <string name="settings_import_title">إضافة</string>
+    <string name="settings_import_subtitle">اشتراك أو خادم أو مفتاح. الصقه كما هو، وسيتعرّف عليه Volta بنفسه.</string>
+    <string name="settings_import_placeholder">الصق هنا رابط الاشتراك أو رابط الخادم (%1$s) أو مفتاح vpn://</string>
+    <string name="settings_import_paste">لصق من الحافظة</string>
+    <string name="settings_import_clipboard_empty">الحافظة فارغة</string>
+    <string name="settings_import_clear">مسح</string>
+    <string name="settings_import_name_label">الاسم، إن أردت اسمًا خاصًا بك</string>
+    <string name="settings_import_open_file">فتح ملف إعدادات</string>
+    <string name="settings_import_open_file_text">ملف أرسلته لك خدمة VPN</string>
+    <string name="settings_import_no_file_picker">لا يمكن اختيار ملف على هذا الجهاز. افتح الملف على هاتفك والصق نصه في الحقل أعلاه</string>
+    <string name="settings_import_formats_title">ما الذي يمكن لصقه هنا</string>
+
+    <!-- What the field holds, said back under it -->
+    <string name="settings_import_empty">فارغ حاليًا</string>
+    <string name="settings_import_empty_hint">الصق رابطًا أو مفتاحًا</string>
+    <string name="settings_import_hidden_sub">اشتراك برابط مخفي</string>
+    <string name="settings_import_hidden_sub_hint">لن يظهر العنوان في التطبيق</string>
+    <string name="settings_import_sub">اشتراك</string>
+    <string name="settings_import_sub_hint">ستُحدَّث الخوادم والقواعد تلقائيًا</string>
+    <string name="settings_import_encrypted">اشتراك مشفّر</string>
+    <string name="settings_import_encrypted_hint">سيفتحه Volta بنفسه، وسيبقى العنوان مخفيًا</string>
+    <string name="settings_import_server">خادم</string>
+    <string name="settings_import_server_hint">سيُضاف إلى قائمة الخوادم العامة</string>
+    <plurals name="settings_import_servers">
+        <item quantity="zero">الخوادم: %d</item>
+        <item quantity="one">الخوادم: %d</item>
+        <item quantity="two">الخوادم: %d</item>
+        <item quantity="few">الخوادم: %d</item>
+        <item quantity="many">الخوادم: %d</item>
+        <item quantity="other">الخوادم: %d</item>
+    </plurals>
+    <string name="settings_import_servers_hint">ستُضاف كلها إلى القائمة العامة</string>
+    <string name="settings_import_amnezia">مفتاح AmneziaVPN</string>
+    <string name="settings_import_amnezia_hint">ستُضاف خوادم المفتاح إلى القائمة</string>
+    <string name="settings_import_conf">ملف إعدادات خادم</string>
+    <string name="settings_import_conf_hint">سيصبح خادمًا واحدًا في القائمة</string>
+    <string name="settings_import_json">إعدادات الخوادم</string>
+    <string name="settings_import_json_hint">ستُضاف الخوادم إلى القائمة العامة</string>
+    <string name="settings_import_control">رابط تحكّم</string>
+    <string name="settings_import_control_hint">لا يُضاف، بل يشغّل VPN أو يوقفه</string>
+    <string name="settings_import_unknown">لا يبدو رابطًا</string>
+    <string name="settings_import_unknown_hint">تأكد من أنك نسخته كاملًا</string>
+
+    <!-- The button, named after what it will do -->
+    <string name="settings_import_add_sub">إضافة اشتراك</string>
+    <string name="settings_import_add_server">إضافة خادم</string>
+    <string name="settings_import_add_servers">إضافة الخوادم</string>
+    <string name="settings_import_import">استيراد</string>
+    <string name="settings_import_run">تنفيذ</string>
+
+    <!-- What can be pasted -->
+    <string name="settings_import_format_sub">رابط من خدمة VPN، عادي أو مشفّر. تُحدَّث خوادمه تلقائيًا</string>
+    <string name="settings_import_format_server">رابط لخادم واحد أرسلته الخدمة</string>
+    <string name="settings_import_format_amnezia">مفتاح طويل يبدأ بـ vpn://</string>
+    <string name="settings_import_format_openflux_title">رابط OpenFlux</string>
+    <string name="settings_import_format_openflux">رابط يبدأ بـ openflux://</string>
+    <string name="settings_import_format_volta_title">رابط Volta</string>
+    <string name="settings_import_format_volta">رابط volta:// تقدّمه خدمة VPN: عادي أو مشفّر</string>
+    <string name="settings_import_format_file_title">ملف الإعدادات</string>
+    <string name="settings_import_format_file">ملف أرسلته الخدمة: يمكنك فتحه بالزر أعلاه</string>
+
+    <!-- Subscriptions tab and the sheet of one subscription -->
+    <string name="settings_subs_title">الاشتراكات</string>
+    <string name="settings_subs_refresh_all">تحديث كل الاشتراكات</string>
+    <string name="settings_subs_empty_title">لا توجد اشتراكات بعد</string>
+    <string name="settings_subs_empty_text">أضف اشتراكًا أو أكثر: سيجمع Volta خوادمها في قائمة واحدة ويوزّعها بنفسه على مجموعتي Home وLTE.</string>
+    <string name="settings_subs_lead">اضغط على الاشتراك لإعادة تسميته أو حذفه.</string>
+    <string name="settings_subs_delete_question">هل تريد حذف الاشتراك؟</string>
+    <string name="settings_subs_delete_text">ستُحذف خوادمه وقواعده أيضًا. وتبقى الاشتراكات الأخرى كما هي.</string>
+    <string name="settings_subs_delete">حذف</string>
+    <string name="settings_subs_keep">إبقاء</string>
+    <string name="settings_subs_name">الاسم</string>
+    <string name="settings_subs_url">رابط الاشتراك</string>
+    <string name="settings_subs_save">حفظ</string>
+    <string name="settings_subs_refresh">تحديث الآن</string>
+    <string name="settings_subs_refresh_text">جلب قائمة جديدة بالخوادم والقواعد</string>
+    <string name="settings_subs_delete_action">حذف الاشتراك</string>
+    <string name="settings_subs_hidden_title">الرابط مخفي</string>
+    <string name="settings_subs_hidden_text">أخفت خدمة VPN عنوان الاشتراك. يُحدَّث كالمعتاد، ويمكن تغيير اسمه فقط.</string>
+
+    <!-- Links that can't be used (volta://, volta://crypt): why, said to the user -->
+    <string name="settings_link_decrypt_failed">تعذّر فك تشفير الرابط</string>
+    <string name="settings_link_double_encrypted">الرابط مشفّر مرتين</string>
+    <string name="settings_link_no_subscription">لا يوجد اشتراك في الرابط المشفّر</string>
+    <string name="settings_link_no_address_encrypted">لا يوجد عنوان اشتراك في الرابط المشفّر</string>
+    <string name="settings_link_no_address">لا يوجد عنوان اشتراك في الرابط</string>
+    <string name="settings_link_crypt_empty">الرابط المشفّر فارغ</string>
+    <string name="settings_link_crypt_damaged">الرابط المشفّر تالف</string>
+    <string name="settings_link_crypt_truncated">الرابط المشفّر مقطوع</string>
+    <string name="settings_link_crypt_newer">الرابط مشفّر لإصدار أحدث من Volta، حدّث التطبيق</string>
+    <string name="settings_link_crypt_unknown_key">الرابط مشفّر بمفتاح غير موجود في هذا الإصدار من Volta</string>
+    <string name="settings_link_crypt_failed">تعذّر فك تشفير الرابط: إما أنه تالف أو ليس مخصصًا لـ Volta</string>
+    <string name="settings_link_damaged">الرابط تالف</string>
+</resources>

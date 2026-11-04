@@ -1,5 +1,7 @@
 package com.ars3nb.volta.core.link
 
+import androidx.annotation.StringRes
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.openflux.OpenFluxLink
 import com.ars3nb.volta.core.server.ServerMarkup
 import com.ars3nb.volta.data.model.ConnectMode
@@ -56,7 +58,8 @@ object VoltaLinks {
     data class Connect(val mode: ConnectMode? = null) : Action
     data object Disconnect : Action
     data object Toggle : Action
-    data class Invalid(val message: String) : Action
+    /** A link Volta can't use; [message] says why, as a string resource. */
+    data class Invalid(@param:StringRes val message: Int) : Action
 
     private val IMPORT_HOSTS = setOf("import", "add", "sub", "subscribe", "subscription", "install-config")
     private val CRYPT_HOSTS = setOf("crypt", "crypt1", "encrypted")
@@ -105,15 +108,15 @@ object VoltaLinks {
         val plain = try {
             decrypt(link.payload).trim()
         } catch (e: SubCrypto.CryptException) {
-            return Invalid(e.message ?: "Не удалось расшифровать ссылку")
+            return Invalid(e.reason)
         } catch (e: Exception) {
-            return Invalid("Не удалось расшифровать ссылку")
+            return Invalid(R.string.settings_link_decrypt_failed)
         }
         val inner: AddSubscription = when {
             plain.startsWith(SCHEME, ignoreCase = true) -> when (val a = parse(plain)) {
                 is AddSubscription -> a
-                is AddEncrypted -> return Invalid("Ссылка зашифрована дважды")
-                else -> return Invalid("В зашифрованной ссылке нет подписки")
+                is AddEncrypted -> return Invalid(R.string.settings_link_double_encrypted)
+                else -> return Invalid(R.string.settings_link_no_subscription)
             }
 
             plain.startsWith("{") -> runCatching {
@@ -127,11 +130,11 @@ object VoltaLinks {
                     visible = s(*VISIBLE_KEYS.toTypedArray()).takeIf { it.isNotBlank() }?.let(::parseBool),
                     serverTypes = ServerMarkup.normalize(s(*TYPE_KEYS.toTypedArray()))
                 )
-            }.getOrElse { return Invalid("В зашифрованной ссылке нет подписки") }
+            }.getOrElse { return Invalid(R.string.settings_link_no_subscription) }
 
             else -> AddSubscription(url = withScheme(plain))
         }
-        if (!isHttp(inner.url)) return Invalid("В зашифрованной ссылке нет адреса подписки")
+        if (!isHttp(inner.url)) return Invalid(R.string.settings_link_no_address_encrypted)
         return inner.copy(
             name = inner.name.ifBlank { link.name },
             visible = inner.visible == true,
@@ -187,7 +190,7 @@ object VoltaLinks {
 
     private fun queryImport(params: List<Pair<String, String>>): Action {
         val value = URL_KEYS.firstNotNullOfOrNull { k -> params.value(k).takeIf { it.isNotBlank() } }?.trim()
-            ?: return Invalid("В ссылке нет адреса подписки")
+            ?: return Invalid(R.string.settings_link_no_address)
         if (!isHttp(value)) return ImportContent(value)
         return AddSubscription(
             url = value,
@@ -210,7 +213,7 @@ object VoltaLinks {
             params = query(after)
             payload = params.value("data", "payload", "d")
         }
-        if (payload.isBlank()) return Invalid("Зашифрованная ссылка пустая")
+        if (payload.isBlank()) return Invalid(R.string.settings_link_crypt_empty)
         return AddEncrypted(
             payload = payload.trim(),
             name = params.value("name", "title").trim(),

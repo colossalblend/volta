@@ -8,6 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
 import com.ars3nb.volta.BuildConfig
@@ -60,7 +61,8 @@ sealed interface UpdateState {
 
     /** Downloaded and checked; Android's installer has it or Volta may not install yet. */
     data class Ready(val info: UpdateInfo, val needsPermission: Boolean = false) : UpdateState
-    data class Failed(val message: String, val info: UpdateInfo? = null) : UpdateState
+    /** [message]: what went wrong, said to the user. */
+    data class Failed(@param:StringRes val message: Int, val info: UpdateInfo? = null) : UpdateState
 }
 
 /**
@@ -174,7 +176,7 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
                     else -> UpdateState.Available(found)
                 }
             } catch (e: IOException) {
-                UpdateState.Failed("Не получилось проверить обновления. Проверьте интернет или включите VPN.")
+                UpdateState.Failed(R.string.settings_update_error_check)
             }
         }
         prefs.setUpdateLastCheck(now)
@@ -216,8 +218,8 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
             }
 
             else -> _state.value = UpdateState.Failed(
-                if (error is ChecksumException) "Файл скачался с ошибкой. Попробуйте ещё раз."
-                else "Не удалось скачать обновление. Попробуйте ещё раз.",
+                if (error is ChecksumException) R.string.settings_update_error_corrupt
+                else R.string.settings_update_error_download,
                 info
             )
         }
@@ -248,7 +250,7 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
             )
         }.onFailure {
-            _state.value = UpdateState.Failed("Не удалось открыть установщик Android.", info)
+            _state.value = UpdateState.Failed(R.string.settings_update_error_installer, info)
         }
     }
 
@@ -370,8 +372,11 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
     private fun notifyAvailable(info: UpdateInfo) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "Обновления", NotificationManager.IMPORTANCE_DEFAULT)
-                .apply { description = "Новые версии Volta" }
+            NotificationChannel(
+                CHANNEL_ID,
+                context.getString(R.string.settings_update_channel),
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply { description = context.getString(R.string.settings_update_channel_desc) }
         )
         val open = PendingIntent.getActivity(
             context, 20,
@@ -380,8 +385,8 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_update)
-            .setContentTitle("Доступно обновление Volta")
-            .setContentText("Версия ${info.versionName}. Нажмите, чтобы установить.")
+            .setContentTitle(context.getString(R.string.settings_update_notify_title))
+            .setContentText(context.getString(R.string.settings_update_notify_text, info.versionName))
             .setContentIntent(open)
             .setAutoCancel(true)
             .build()

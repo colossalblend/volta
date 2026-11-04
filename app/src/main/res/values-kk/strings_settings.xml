@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Settings screen -->
+    <string name="settings_title">Баптаулар</string>
+    <string name="settings_simple_title">Қарапайым режим</string>
+    <string name="settings_simple_text">Бір үлкен «Қосу / Өшіру» түймесі, сервер өзі таңдалады. Ата-аналарға және баптаулар қажет емес кез келген адамға ыңғайлы.</string>
+    <string name="settings_section_connection">Қосылу</string>
+    <string name="settings_follow_network_title">Желінің ауысуын бақылау</string>
+    <string name="settings_follow_network_text">Wi-Fi мен мобильді интернет арасында ауысқанда сервер өзі тексеріліп, ауыстырылады.</string>
+    <string name="settings_recheck_title">Сервер таңдауын жақсарту</string>
+    <string name="settings_recheck_text">Экран қосулы кезде әр 15 минут сайын серверлерді салыстырып, айтарлықтай жылдамырағына ауысады. Жауап бермейтін сервер әрқашан ауыстырылады.</string>
+    <string name="settings_failover_title">Үзіліс кезінде серверді ауыстыру</string>
+    <string name="settings_failover_text">Сервер жауап беруді тоқтатса, Volta басқасына ауысады.</string>
+    <string name="settings_autoconnect_title">Іске қосылғанда қосылу</string>
+    <string name="settings_autoconnect_text">Жүйе іске қосылған бойда VPN қосу.</string>
+
+    <!-- Android's own kill switch. The quoted names are Android's own settings (Always-on VPN,
+         Block connections without VPN), as Android calls them in that language. -->
+    <string name="settings_killswitch_title">VPN-сіз интернетке жібермеу</string>
+    <string name="settings_killswitch_unknown">Android Volta-ны үнемі қосулы ұстап, VPN қосылғанша интернетті жаба алады. Басыңыз, содан кейін Volta жанындағы тісті дөңгелекті: «Үнемі қосулы VPN» және «VPN-сіз байланыстарды бөгеу».</string>
+    <string name="settings_killswitch_on">Қосулы: Volta үнемі қосулы, ал VPN-сіз интернет жабық. VPN-ді өшірсеңіз, интернет жоғалады — солай ойластырылған.</string>
+    <string name="settings_killswitch_partial">Volta өзі қосылады, бірақ VPN қосылып жатқанда қолданбалар интернетке тікелей шығады. Volta жанындағы тісті дөңгелекте «VPN-сіз байланыстарды бөгеу» параметрін қосыңыз.</string>
+    <string name="settings_killswitch_off">Өшірулі. Басыңыз, содан кейін Volta жанындағы тісті дөңгелекті: «Үнемі қосулы VPN» және «VPN-сіз байланыстарды бөгеу».</string>
+    <string name="settings_no_vpn_settings">Бұл құрылғыда VPN баптаулары жоқ</string>
+
+    <!-- Quick Settings tiles -->
+    <string name="settings_section_tiles">Перделегі плиткалар</string>
+    <string name="settings_tiles_hint">Плитканы басқанда VPN оның режимінде қосылады, қайта басқанда өшеді.</string>
+    <string name="settings_tile_add">қосу</string>
+
+    <!-- Subscriptions and checks -->
+    <string name="settings_section_checks">Жазылымдар мен тексерулер</string>
+    <string name="settings_refresh_on_launch_title">Іске қосқанда жазылымдарды жаңарту</string>
+    <string name="settings_refresh_on_launch_text">Қолданбаны ашқанда серверлер мен ережелер жаңартылады.</string>
+    <string name="settings_ping_on_start_title">Іске қосқанда желіні тексеру</string>
+    <string name="settings_ping_on_start_text">Қазір қай желі екені бірден көрінеді: Home не LTE.</string>
+    <string name="settings_ping_type_title">Серверлерді қалай тексеру</string>
+    <string name="settings_ping_real">Сервер арқылы</string>
+    <string name="settings_ping_real_hint">Сервер арқылы нақты жылдамдықты тексереді. Ұсынамыз.</string>
+    <string name="settings_ping_http_hint">Жылдам тексеруге нашар жауап беретін серверлер үшін.</string>
+    <string name="settings_ping_tcp_hint">Жылдамырақ, бірақ жұмыс істемейтін серверді жұмыс істеп тұр деп көрсетуі мүмкін.</string>
+    <string name="settings_ping_icmp_hint">Ең қарапайым тексеру. Көптеген мобильді операторларда жұмыс істемейді.</string>
+
+    <!-- Tunnel and battery -->
+    <string name="settings_section_tunnel">Туннель және батарея</string>
+    <string name="settings_local_dns_title">Сайттарды VPN арқылы ашу</string>
+    <string name="settings_local_dns_text">Сайт мекенжайлары да VPN арқылы анықталады, осылайша бұғаттау азаяды.</string>
+    <string name="settings_battery_title">Батареяны үнемдеу</string>
+    <string name="settings_battery_text">Қысқа тексерулер және фондық жұмыс азырақ.</string>
+
+    <!-- Appearance. The theme names "Volta" and "Material" are names and stay in code. -->
+    <string name="settings_section_look">Безендіру</string>
+    <string name="settings_theme">Тақырып</string>
+    <string name="settings_theme_system">Жүйе</string>
+    <string name="settings_theme_light">Ашық</string>
+    <string name="settings_theme_ocean">Мұхит</string>
+    <string name="settings_theme_ember">Көмір</string>
+    <string name="settings_app_icon">Қолданба белгішесі</string>
+
+    <!-- Device -->
+    <string name="settings_section_device">Құрылғы</string>
+    <string name="settings_hwid_title">Құрылғыға байлау</string>
+    <string name="settings_hwid_text">VPN-сервис бір жазылымға құрылғылар санын шектесе, қосыңыз.</string>
+    <string name="settings_hwid_code">Осы құрылғының коды</string>
+    <string name="settings_hwid_copied">Код көшірілді</string>
+    <string name="settings_hwid_copy">Кодты көшіру</string>
+
+    <!-- Sections further down, and «About» -->
+    <string name="settings_section_move">Жаңа телефонға көшіру</string>
+    <string name="settings_section_about">Қолданба туралы</string>
+    <string name="settings_update_store_note">Жаңартулар Google Play арқылы келеді</string>
+    <string name="settings_update_auto_title">Жаңартуларды тексеру</string>
+    <string name="settings_update_auto_on">Іске қосқанда және бірнеше сағат сайын. Жаңа нұсқа туралы хабарландыру келеді</string>
+    <string name="settings_update_auto_off">Өшірулі. «Тексеру» түймесімен тексеруге болады</string>
+    <string name="settings_update_beta_title">Бета нұсқалар</string>
+    <string name="settings_update_beta_text">Сынақ құрастыруларын бәрінен бұрын алу. Оларда қателер болуы мүмкін</string>
+    <string name="settings_help_title">Анықтама және нұсқаулықтар</string>
+    <string name="settings_help_text">Жазылымды қосу, режимді таңдау және қолданбаларды баптау жолы</string>
+    <string name="settings_no_browser">Браузер жоқ. Нұсқаулықтар %1$s сайтында</string>
+
+    <!-- Launcher icons -->
+    <string name="settings_icon_fold">Бүгіс</string>
+    <string name="settings_icon_spark">Ұшқын</string>
+    <string name="settings_icon_orbit">Орбита</string>
+    <string name="settings_icon_tunnel">Туннель</string>
+    <string name="settings_icon_pixel">Пиксель</string>
+    <string name="settings_icon_hint">Лаунчерге белгішені ауыстыру үшін бірнеше секунд керек. Егер ол негізгі экраннан жоғалса, қолданбалар тізімінен қайта сүйреп шығарыңыз.</string>
+
+    <!-- Updates: the row in Settings, the banner on the home screen and the notification -->
+    <string name="settings_update_available">%1$s нұсқасы шықты</string>
+    <string name="settings_update_action_update">Жаңарту</string>
+    <string name="settings_update_action_install">Орнату</string>
+    <string name="settings_update_action_retry">Қайталау</string>
+    <string name="settings_update_action_check">Тексеру</string>
+    <string name="settings_update_percent">%1$d%%</string>
+    <string name="settings_update_downloading_version">%1$s нұсқасы жүктелуде</string>
+    <string name="settings_update_downloaded">%1$s нұсқасы жүктелді</string>
+    <string name="settings_update_failed">Болмады</string>
+    <string name="settings_update_idle_hint">Жаңа нұсқа бар-жоғын біліңіз</string>
+    <string name="settings_update_checking">Жаңа нұсқа ізделуде…</string>
+    <string name="settings_update_latest_at">Соңғы нұсқа · тексерілді: %1$s</string>
+    <string name="settings_update_current_size">Қазір сізде %1$s · %2$s</string>
+    <string name="settings_update_downloading_hint">Жүктеліп жатқанда қолданбаны пайдалана беруге болады</string>
+    <string name="settings_update_download_size">%1$s жүктеп, орнату</string>
+    <string name="settings_update_downloading">Жүктелуде…</string>
+    <string name="settings_update_need_permission">Volta-ға қолданбаларды орнатуға рұқсат беріп, «Орнату» түймесін басыңыз</string>
+    <string name="settings_update_confirm">Орнатуды растау ғана қалды</string>
+    <string name="settings_update_error_check">Жаңартуларды тексеру мүмкін болмады. Интернетті тексеріңіз немесе VPN қосыңыз.</string>
+    <string name="settings_update_error_corrupt">Файл қатемен жүктелді. Қайталап көріңіз.</string>
+    <string name="settings_update_error_download">Жаңартуды жүктеу мүмкін болмады. Қайталап көріңіз.</string>
+    <string name="settings_update_error_installer">Android орнатқышын ашу мүмкін болмады.</string>
+    <string name="settings_update_channel">Жаңартулар</string>
+    <string name="settings_update_channel_desc">Volta-ның жаңа нұсқалары</string>
+    <string name="settings_update_notify_title">Volta жаңартуы қолжетімді</string>
+    <string name="settings_update_notify_text">%1$s нұсқасы. Орнату үшін басыңыз.</string>
+
+    <!-- Moving to a new phone: saving to a file and restoring from it -->
+    <string name="settings_backup_save_title">Файлға сақтау</string>
+    <string name="settings_backup_save_text">Жазылымдар, өз серверлеріңіз, ережелер және баптаулар</string>
+    <string name="settings_backup_restore_title">Файлдан қалпына келтіру</string>
+    <string name="settings_backup_restore_text">Басқа телефондағы Volta-да сақталған файлды ашыңыз</string>
+    <string name="settings_backup_working">Сәл күте тұрыңыз…</string>
+    <string name="settings_backup_warning">Файлда сіздің жазылымдарыңыз бар: оны өзіңізде сақтаңыз және бөгде адамдарға жібермеңіз.</string>
+    <string name="settings_backup_restore_question">Файлдан қалпына келтіру керек пе?</string>
+    <string name="settings_backup_restore_action">Қалпына келтіру</string>
+    <string name="settings_backup_cancel">Бас тарту</string>
+    <string name="settings_backup_error_damaged">Бұл Volta файлы емес немесе ол бүлінген</string>
+    <string name="settings_backup_error_not_volta">Бұл Volta файлы емес. Volta-да сақталған файлды таңдаңыз</string>
+    <string name="settings_backup_error_newer">Файл Volta-ның жаңарақ нұсқасында сақталған. Қолданбаны жаңартыңыз</string>
+    <string name="settings_backup_error_too_big">Файл Volta файлы үшін тым үлкен</string>
+
+    <!-- The restore dialog. settings_backup_date_format is a java.time DateTimeFormatter pattern
+         for the day the file was saved (d day, M/MMMM month, yyyy year, text in 'quotes'). -->
+    <string name="settings_backup_date_format">yyyy \'ж\'. d MMMM</string>
+    <string name="settings_backup_saved_on">Файл %1$s күні сақталған.</string>
+    <string name="settings_backup_contains">Ішінде:</string>
+    <plurals name="settings_backup_count_subscriptions">
+        <item quantity="one">жазылымдар: %d</item>
+        <item quantity="other">жазылымдар: %d</item>
+    </plurals>
+    <plurals name="settings_backup_count_servers">
+        <item quantity="one">өз серверлеріңіз: %d</item>
+        <item quantity="other">өз серверлеріңіз: %d</item>
+    </plurals>
+    <plurals name="settings_backup_count_rules">
+        <item quantity="one">ережелер жинақтары: %d</item>
+        <item quantity="other">ережелер жинақтары: %d</item>
+    </plurals>
+    <string name="settings_backup_item_settings">баптаулар</string>
+    <string name="settings_backup_no_duplicates">Volta-да бұрыннан бар нәрсе қайталанбайды.</string>
+    <string name="settings_backup_settings_replaced">Баптаулар файлдағыдай болады.</string>
+    <string name="settings_backup_servers_reload">Жазылым серверлері қайта жүктеледі, интернет қажет.</string>
+
+    <!-- The message after a restore. Separators join the parts of it, as each language does. -->
+    <string name="settings_restore_done">Дайын. Қалпына келтірілді — %1$s</string>
+    <string name="settings_restore_all_there">Файлдағының бәрі Volta-да бар</string>
+    <string name="settings_restore_nothing">Қалпына келтіретін ештеңе жоқ</string>
+    <plurals name="settings_restore_not_loaded">
+        <item quantity="one">Серверлері жүктелмеген жазылымдар: %d. Оларды кейін «Жазылымдар» қойындысында жаңартыңыз</item>
+        <item quantity="other">Серверлері жүктелмеген жазылымдар: %d. Оларды кейін «Жазылымдар» қойындысында жаңартыңыз</item>
+    </plurals>
+    <plurals name="settings_restore_skipped">
+        <item quantity="one">Оқылмаған жазбалар: %d</item>
+        <item quantity="other">Оқылмаған жазбалар: %d</item>
+    </plurals>
+    <string name="settings_list_separator">", "</string>
+    <string name="settings_sentence_separator">". "</string>
+
+    <!-- Adding: the one field for links, keys and files -->
+    <string name="settings_import_back">Артқа</string>
+    <string name="settings_import_title">Қосу</string>
+    <string name="settings_import_subtitle">Жазылым, сервер немесе кілт. Қалай болса солай қойыңыз, Volta өзі анықтайды.</string>
+    <string name="settings_import_placeholder">Мұнда жазылым сілтемесін, сервер сілтемесін (%1$s) немесе vpn:// кілтін қойыңыз</string>
+    <string name="settings_import_paste">Буферден қою</string>
+    <string name="settings_import_clipboard_empty">Алмасу буфері бос</string>
+    <string name="settings_import_clear">Тазалау</string>
+    <string name="settings_import_name_label">Атауы, өзіңіздікін қаласаңыз</string>
+    <string name="settings_import_open_file">Баптаулар файлын ашу</string>
+    <string name="settings_import_open_file_text">VPN-сервис жіберген файл</string>
+    <string name="settings_import_no_file_picker">Бұл құрылғыда файл таңдау мүмкін емес. Файлды телефонда ашып, мәтінін жоғарыдағы өріске қойыңыз</string>
+    <string name="settings_import_formats_title">Мұнда не қоюға болады</string>
+
+    <!-- What the field holds, said back under it -->
+    <string name="settings_import_empty">Әзірге бос</string>
+    <string name="settings_import_empty_hint">Сілтеме немесе кілт қойыңыз</string>
+    <string name="settings_import_hidden_sub">Сілтемесі жасырын жазылым</string>
+    <string name="settings_import_hidden_sub_hint">Мекенжай қолданбада көрінбейді</string>
+    <string name="settings_import_sub">Жазылым</string>
+    <string name="settings_import_sub_hint">Серверлер мен ережелер өздігінен жаңарып отырады</string>
+    <string name="settings_import_encrypted">Шифрланған жазылым</string>
+    <string name="settings_import_encrypted_hint">Volta оны өзі ашады, мекенжай жасырын қалады</string>
+    <string name="settings_import_server">Сервер</string>
+    <string name="settings_import_server_hint">Серверлердің жалпы тізіміне қосылады</string>
+    <plurals name="settings_import_servers">
+        <item quantity="one">Серверлер: %d</item>
+        <item quantity="other">Серверлер: %d</item>
+    </plurals>
+    <string name="settings_import_servers_hint">Барлығы жалпы тізімге қосылады</string>
+    <string name="settings_import_amnezia">AmneziaVPN кілті</string>
+    <string name="settings_import_amnezia_hint">Кілттегі серверлер тізімге қосылады</string>
+    <string name="settings_import_conf">Сервер баптауларының файлы</string>
+    <string name="settings_import_conf_hint">Тізімде бір сервер болады</string>
+    <string name="settings_import_json">Серверлер баптаулары</string>
+    <string name="settings_import_json_hint">Серверлер жалпы тізімге қосылады</string>
+    <string name="settings_import_control">Басқару сілтемесі</string>
+    <string name="settings_import_control_hint">Қосылмайды, VPN-ді қосады не өшіреді</string>
+    <string name="settings_import_unknown">Сілтемеге ұқсамайды</string>
+    <string name="settings_import_unknown_hint">Оны толық көшіргеніңізді тексеріңіз</string>
+
+    <!-- The button, named after what it will do -->
+    <string name="settings_import_add_sub">Жазылым қосу</string>
+    <string name="settings_import_add_server">Сервер қосу</string>
+    <string name="settings_import_add_servers">Серверлерді қосу</string>
+    <string name="settings_import_import">Импорттау</string>
+    <string name="settings_import_run">Орындау</string>
+
+    <!-- What can be pasted -->
+    <string name="settings_import_format_sub">VPN-сервистен келген сілтеме, қарапайым не шифрланған. Ондағы серверлер өздігінен жаңарады</string>
+    <string name="settings_import_format_server">Сервис жіберген бір серверге сілтеме</string>
+    <string name="settings_import_format_amnezia">vpn:// деп басталатын ұзын кілт</string>
+    <string name="settings_import_format_openflux_title">OpenFlux сілтемесі</string>
+    <string name="settings_import_format_openflux">openflux:// деп басталатын сілтеме</string>
+    <string name="settings_import_format_volta_title">Volta сілтемесі</string>
+    <string name="settings_import_format_volta">VPN-сервис беретін volta:// сілтемесі: қарапайым не шифрланған</string>
+    <string name="settings_import_format_file_title">Баптаулар файлы</string>
+    <string name="settings_import_format_file">Сервис жіберген файл: оны жоғарыдағы түймемен ашуға болады</string>
+
+    <!-- Subscriptions tab and the sheet of one subscription -->
+    <string name="settings_subs_title">Жазылымдар</string>
+    <string name="settings_subs_refresh_all">Барлық жазылымды жаңарту</string>
+    <string name="settings_subs_empty_title">Әзірге жазылым жоқ</string>
+    <string name="settings_subs_empty_text">Бір немесе бірнешеуін қосыңыз: Volta олардың серверлерін ортақ тізімге біріктіріп, Home және LTE топтарына өзі бөледі.</string>
+    <string name="settings_subs_lead">Атын өзгерту немесе жою үшін жазылымды басыңыз.</string>
+    <string name="settings_subs_delete_question">Жазылымды жою керек пе?</string>
+    <string name="settings_subs_delete_text">Оның серверлері мен ережелері де жойылады. Басқа жазылымдар өзгеріссіз қалады.</string>
+    <string name="settings_subs_delete">Жою</string>
+    <string name="settings_subs_keep">Қалдыру</string>
+    <string name="settings_subs_name">Атауы</string>
+    <string name="settings_subs_url">Жазылым сілтемесі</string>
+    <string name="settings_subs_save">Сақтау</string>
+    <string name="settings_subs_refresh">Қазір жаңарту</string>
+    <string name="settings_subs_refresh_text">Серверлер мен ережелердің жаңа тізімін алу</string>
+    <string name="settings_subs_delete_action">Жазылымды жою</string>
+    <string name="settings_subs_hidden_title">Сілтеме жасырын</string>
+    <string name="settings_subs_hidden_text">VPN-сервис жазылым мекенжайын жасырды. Ол әдеттегідей жаңарады, тек атауын өзгертуге болады.</string>
+
+    <!-- Links that can't be used (volta://, volta://crypt): why, said to the user -->
+    <string name="settings_link_decrypt_failed">Сілтеменің шифрын ашу мүмкін болмады</string>
+    <string name="settings_link_double_encrypted">Сілтеме екі рет шифрланған</string>
+    <string name="settings_link_no_subscription">Шифрланған сілтемеде жазылым жоқ</string>
+    <string name="settings_link_no_address_encrypted">Шифрланған сілтемеде жазылым мекенжайы жоқ</string>
+    <string name="settings_link_no_address">Сілтемеде жазылым мекенжайы жоқ</string>
+    <string name="settings_link_crypt_empty">Шифрланған сілтеме бос</string>
+    <string name="settings_link_crypt_damaged">Шифрланған сілтеме бүлінген</string>
+    <string name="settings_link_crypt_truncated">Шифрланған сілтеме қиылып қалған</string>
+    <string name="settings_link_crypt_newer">Сілтеме Volta-ның жаңарақ нұсқасы үшін шифрланған — қолданбаны жаңартыңыз</string>
+    <string name="settings_link_crypt_unknown_key">Сілтеме Volta-ның осы нұсқасында жоқ кілтпен шифрланған</string>
+    <string name="settings_link_crypt_failed">Сілтеменің шифрын ашу мүмкін болмады: ол бүлінген немесе Volta үшін емес</string>
+    <string name="settings_link_damaged">Сілтеме бүлінген</string>
+</resources>

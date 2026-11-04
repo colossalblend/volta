@@ -1,5 +1,7 @@
 package com.ars3nb.volta.core.link
 
+import androidx.annotation.StringRes
+import com.ars3nb.volta.R
 import java.math.BigInteger
 import java.security.KeyFactory
 import java.security.KeyPairGenerator
@@ -59,21 +61,22 @@ object SubCrypto {
     const val PUBLIC_KEY_B64 =
         "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEUWxsXxcqdWIU7N6R2yqKdHwBzCgpx9jOwsb8pNV29/W96Nm6I+WD5nq5e4/7l7tsSaOK8zGtnCw1DTw17uAeNg=="
 
-    class CryptException(message: String) : Exception(message)
+    /** [reason]: what is wrong with the link, said to the user (a string resource). */
+    class CryptException(@param:StringRes val reason: Int) : Exception("cannot open the encrypted link")
 
-    /** Opens a payload; throws [CryptException] with a user-facing message on failure. */
+    /** Opens a payload; throws [CryptException] with a user-facing reason on failure. */
     fun decrypt(payload: String, keys: Map<Int, PrivateKey> = appKeys): String {
         val bytes = decodeBase64Url(payload)
-            ?: throw CryptException("Зашифрованная ссылка повреждена")
+            ?: throw CryptException(R.string.settings_link_crypt_damaged)
         if (bytes.size < HEADER_LEN + NONCE_LEN + TAG_BITS / 8 + 1) {
-            throw CryptException("Зашифрованная ссылка обрезана")
+            throw CryptException(R.string.settings_link_crypt_truncated)
         }
         if (bytes[0] != VERSION) {
-            throw CryptException("Ссылка зашифрована для более новой версии Volta — обновите приложение")
+            throw CryptException(R.string.settings_link_crypt_newer)
         }
         val keyId = bytes[1].toInt() and 0xFF
         val key = keys[keyId] as? ECPrivateKey
-            ?: throw CryptException("Ссылка зашифрована ключом, которого нет в этой версии Volta")
+            ?: throw CryptException(R.string.settings_link_crypt_unknown_key)
         val epkBytes = bytes.copyOfRange(2, HEADER_LEN)
         val nonce = bytes.copyOfRange(HEADER_LEN, HEADER_LEN + NONCE_LEN)
         val body = bytes.copyOfRange(HEADER_LEN + NONCE_LEN, bytes.size)
@@ -87,7 +90,7 @@ object SubCrypto {
         } catch (e: CryptException) {
             throw e
         } catch (e: Exception) {
-            throw CryptException("Не удалось расшифровать ссылку: она повреждена или не для Volta")
+            throw CryptException(R.string.settings_link_crypt_failed)
         }
     }
 
@@ -177,7 +180,7 @@ object SubCrypto {
     }
 
     private fun decodePoint(bytes: ByteArray, curveOf: ECPrivateKey): PublicKey {
-        if (bytes.size != EPK_LEN || bytes[0] != 0x04.toByte()) throw CryptException("Ссылка повреждена")
+        if (bytes.size != EPK_LEN || bytes[0] != 0x04.toByte()) throw CryptException(R.string.settings_link_damaged)
         val x = BigInteger(1, bytes.copyOfRange(1, 33))
         val y = BigInteger(1, bytes.copyOfRange(33, 65))
         return KeyFactory.getInstance("EC").generatePublic(ECPublicKeySpec(ECPoint(x, y), curveOf.params))

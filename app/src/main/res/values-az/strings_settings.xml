@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Settings screen -->
+    <string name="settings_title">Ayarlar</string>
+    <string name="settings_simple_title">Sadə rejim</string>
+    <string name="settings_simple_text">Bir böyük “Qoş / Söndür” düyməsi, server özü seçilir. Valideynlər və ayarlara ehtiyacı olmayan hər kəs üçün rahatdır.</string>
+    <string name="settings_section_connection">Qoşulma</string>
+    <string name="settings_follow_network_title">Şəbəkə dəyişməsini izlə</string>
+    <string name="settings_follow_network_text">Wi-Fi ilə mobil internet arasında keçid edəndə server özü yoxlanılır və dəyişdirilir.</string>
+    <string name="settings_recheck_title">Server seçimini yaxşılaşdır</string>
+    <string name="settings_recheck_text">Ekran açıq olanda hər 15 dəqiqədən bir serverləri müqayisə edir və nəzərəçarpacaq dərəcədə daha sürətlisinə keçir. Cavab verməyən server həmişə dəyişdirilir.</string>
+    <string name="settings_failover_title">Qırılma olanda serveri dəyiş</string>
+    <string name="settings_failover_text">Server cavab verməyi dayandırsa, Volta başqasına keçəcək.</string>
+    <string name="settings_autoconnect_title">İşə düşəndə qoşul</string>
+    <string name="settings_autoconnect_text">Sistem işə düşən kimi VPN-i qoş.</string>
+
+    <!-- Android's own kill switch. The quoted names are Android's own settings (Always-on VPN,
+         Block connections without VPN), as Android calls them in that language. -->
+    <string name="settings_killswitch_title">VPN olmadan internetə buraxma</string>
+    <string name="settings_killswitch_unknown">Android Volta-nı həmişə aktiv saxlaya və VPN qoşulana qədər interneti bağlaya bilər. Toxunun, sonra Volta-nın yanındakı dişli çarxa: “Həmişə aktiv VPN” və “VPN olmadan bağlantıları blok edin”.</string>
+    <string name="settings_killswitch_on">Aktivdir: Volta həmişə aktivdir, VPN olmadan isə internet bağlıdır. VPN-i söndürsəniz, internet itəcək — belə də nəzərdə tutulub.</string>
+    <string name="settings_killswitch_partial">Volta özü qoşulur, amma VPN qoşularkən tətbiqlər internetə birbaşa çıxır. Volta-nın yanındakı dişli çarxda “VPN olmadan bağlantıları blok edin” seçimini aktiv edin.</string>
+    <string name="settings_killswitch_off">Deaktivdir. Toxunun, sonra Volta-nın yanındakı dişli çarxa: “Həmişə aktiv VPN” və “VPN olmadan bağlantıları blok edin”.</string>
+    <string name="settings_no_vpn_settings">Bu cihazda VPN ayarları yoxdur</string>
+
+    <!-- Quick Settings tiles -->
+    <string name="settings_section_tiles">Sürətli ayarlar plitələri</string>
+    <string name="settings_tiles_hint">Plitəyə toxunduqda VPN onun rejimində qoşulur, təkrar toxunduqda sönür.</string>
+    <string name="settings_tile_add">əlavə et</string>
+
+    <!-- Subscriptions and checks -->
+    <string name="settings_section_checks">Abunələr və yoxlamalar</string>
+    <string name="settings_refresh_on_launch_title">Açılışda abunələri yenilə</string>
+    <string name="settings_refresh_on_launch_text">Tətbiq açılanda serverlər və qaydalar yenilənir.</string>
+    <string name="settings_ping_on_start_title">Açılışda şəbəkəni yoxla</string>
+    <string name="settings_ping_on_start_text">Hazırda hansı şəbəkə olduğu dərhal görünür: Home, yoxsa LTE.</string>
+    <string name="settings_ping_type_title">Serverləri necə yoxlamalı</string>
+    <string name="settings_ping_real">Server vasitəsilə</string>
+    <string name="settings_ping_real_hint">Server vasitəsilə real sürəti yoxlayır. Tövsiyə edirik.</string>
+    <string name="settings_ping_http_hint">Sürətli yoxlamaya pis cavab verən serverlər üçün.</string>
+    <string name="settings_ping_tcp_hint">Daha sürətlidir, amma işləməyən serveri canlı göstərə bilər.</string>
+    <string name="settings_ping_icmp_hint">Ən sadə yoxlama. Bir çox mobil operatorda işləmir.</string>
+
+    <!-- Tunnel and battery -->
+    <string name="settings_section_tunnel">Tunel və batareya</string>
+    <string name="settings_local_dns_title">Saytları VPN ilə aç</string>
+    <string name="settings_local_dns_text">Sayt ünvanları da VPN ilə müəyyən edilir, belə bloklanma az olur.</string>
+    <string name="settings_battery_title">Batareyaya qənaət</string>
+    <string name="settings_battery_text">Qısa yoxlamalar və daha az fon işi.</string>
+
+    <!-- Appearance. The theme names "Volta" and "Material" are names and stay in code. -->
+    <string name="settings_section_look">Görünüş</string>
+    <string name="settings_theme">Mövzu</string>
+    <string name="settings_theme_system">Sistem</string>
+    <string name="settings_theme_light">Açıq</string>
+    <string name="settings_theme_ocean">Okean</string>
+    <string name="settings_theme_ember">Kömür</string>
+    <string name="settings_app_icon">Tətbiq ikonu</string>
+
+    <!-- Device -->
+    <string name="settings_section_device">Cihaz</string>
+    <string name="settings_hwid_title">Cihaza bağlama</string>
+    <string name="settings_hwid_text">VPN xidməti bir abunəyə düşən cihaz sayını məhdudlaşdırırsa, aktiv edin.</string>
+    <string name="settings_hwid_code">Bu cihazın kodu</string>
+    <string name="settings_hwid_copied">Kod kopyalandı</string>
+    <string name="settings_hwid_copy">Kodu kopyala</string>
+
+    <!-- Sections further down, and «About» -->
+    <string name="settings_section_move">Yeni telefona köçürmə</string>
+    <string name="settings_section_about">Tətbiq haqqında</string>
+    <string name="settings_update_store_note">Yeniləmələr Google Play vasitəsilə gəlir</string>
+    <string name="settings_update_auto_title">Yeniləmələri yoxlama</string>
+    <string name="settings_update_auto_on">Açılışda və bir neçə saatdan bir. Yeni versiya barədə bildiriş gələcək</string>
+    <string name="settings_update_auto_off">Deaktivdir. “Yoxla” düyməsi ilə yoxlamaq olar</string>
+    <string name="settings_update_beta_title">Beta versiyalar</string>
+    <string name="settings_update_beta_text">Sınaq yığmalarını hamıdan əvvəl alın. Onlarda xətalar ola bilər</string>
+    <string name="settings_help_title">Kömək və təlimatlar</string>
+    <string name="settings_help_text">Abunəni necə əlavə etmək, rejim seçmək və tətbiqləri tənzimləmək</string>
+    <string name="settings_no_browser">Brauzer yoxdur. Təlimatlar %1$s saytındadır</string>
+
+    <!-- Launcher icons -->
+    <string name="settings_icon_fold">Qat</string>
+    <string name="settings_icon_spark">Qığılcım</string>
+    <string name="settings_icon_orbit">Orbit</string>
+    <string name="settings_icon_tunnel">Tunel</string>
+    <string name="settings_icon_pixel">Piksel</string>
+    <string name="settings_icon_hint">Başladıcının ikonu dəyişməsi üçün bir neçə saniyə lazımdır. Əgər ikon əsas ekrandan itibsə, onu tətbiqlər siyahısından yenidən sürükləyin.</string>
+
+    <!-- Updates: the row in Settings, the banner on the home screen and the notification -->
+    <string name="settings_update_available">%1$s versiyası çıxıb</string>
+    <string name="settings_update_action_update">Yenilə</string>
+    <string name="settings_update_action_install">Quraşdır</string>
+    <string name="settings_update_action_retry">Yenidən</string>
+    <string name="settings_update_action_check">Yoxla</string>
+    <string name="settings_update_percent">%1$d%%</string>
+    <string name="settings_update_downloading_version">%1$s versiyası endirilir</string>
+    <string name="settings_update_downloaded">%1$s versiyası endirildi</string>
+    <string name="settings_update_failed">Alınmadı</string>
+    <string name="settings_update_idle_hint">Yeni versiyanın olub-olmadığını öyrənin</string>
+    <string name="settings_update_checking">Yeni versiya axtarılır…</string>
+    <string name="settings_update_latest_at">Son versiya · yoxlanılıb: %1$s</string>
+    <string name="settings_update_current_size">Hazırda sizdə %1$s · %2$s</string>
+    <string name="settings_update_downloading_hint">Endirmə gedərkən tətbiqdən istifadə edə bilərsiniz</string>
+    <string name="settings_update_download_size">%1$s endirib quraşdırın</string>
+    <string name="settings_update_downloading">Endirilir…</string>
+    <string name="settings_update_need_permission">Volta-ya tətbiq quraşdırmağa icazə verin və “Quraşdır” düyməsinə toxunun</string>
+    <string name="settings_update_confirm">Yalnız quraşdırmanı təsdiqləmək qalıb</string>
+    <string name="settings_update_error_check">Yeniləmələri yoxlamaq alınmadı. İnterneti yoxlayın və ya VPN-i qoşun.</string>
+    <string name="settings_update_error_corrupt">Fayl xəta ilə endirildi. Yenidən cəhd edin.</string>
+    <string name="settings_update_error_download">Yeniləməni endirmək alınmadı. Yenidən cəhd edin.</string>
+    <string name="settings_update_error_installer">Android quraşdırıcısını açmaq alınmadı.</string>
+    <string name="settings_update_channel">Yeniləmələr</string>
+    <string name="settings_update_channel_desc">Volta-nın yeni versiyaları</string>
+    <string name="settings_update_notify_title">Volta yeniləməsi var</string>
+    <string name="settings_update_notify_text">%1$s versiyası. Quraşdırmaq üçün toxunun.</string>
+
+    <!-- Moving to a new phone: saving to a file and restoring from it -->
+    <string name="settings_backup_save_title">Fayla saxla</string>
+    <string name="settings_backup_save_text">Abunələr, öz serverləriniz, qaydalar və ayarlar</string>
+    <string name="settings_backup_restore_title">Fayldan bərpa et</string>
+    <string name="settings_backup_restore_text">Başqa telefonda Volta-da saxlanılmış faylı açın</string>
+    <string name="settings_backup_working">Bir dəqiqə…</string>
+    <string name="settings_backup_warning">Faylda abunələriniz var: onu özünüzdə saxlayın və yad adamlara göndərməyin.</string>
+    <string name="settings_backup_restore_question">Fayldan bərpa edilsin?</string>
+    <string name="settings_backup_restore_action">Bərpa et</string>
+    <string name="settings_backup_cancel">Ləğv et</string>
+    <string name="settings_backup_error_damaged">Bu Volta faylı deyil və ya zədələnib</string>
+    <string name="settings_backup_error_not_volta">Bu Volta faylı deyil. Volta-da saxlanılmış faylı seçin</string>
+    <string name="settings_backup_error_newer">Fayl Volta-nın daha yeni versiyası ilə saxlanılıb. Tətbiqi yeniləyin</string>
+    <string name="settings_backup_error_too_big">Fayl Volta faylı üçün çox böyükdür</string>
+
+    <!-- The restore dialog. settings_backup_date_format is a java.time DateTimeFormatter pattern
+         for the day the file was saved (d day, M/MMMM month, yyyy year, text in 'quotes'). -->
+    <string name="settings_backup_date_format">d MMMM yyyy</string>
+    <string name="settings_backup_saved_on">Fayl %1$s tarixində saxlanılıb.</string>
+    <string name="settings_backup_contains">İçində:</string>
+    <plurals name="settings_backup_count_subscriptions">
+        <item quantity="one">abunələr: %d</item>
+        <item quantity="other">abunələr: %d</item>
+    </plurals>
+    <plurals name="settings_backup_count_servers">
+        <item quantity="one">öz serverləriniz: %d</item>
+        <item quantity="other">öz serverləriniz: %d</item>
+    </plurals>
+    <plurals name="settings_backup_count_rules">
+        <item quantity="one">qayda dəstləri: %d</item>
+        <item quantity="other">qayda dəstləri: %d</item>
+    </plurals>
+    <string name="settings_backup_item_settings">ayarlar</string>
+    <string name="settings_backup_no_duplicates">Volta-da artıq olanlar təkrarlanmayacaq.</string>
+    <string name="settings_backup_settings_replaced">Ayarlar fayldakı kimi olacaq.</string>
+    <string name="settings_backup_servers_reload">Abunə serverləri yenidən yüklənəcək, internet lazımdır.</string>
+
+    <!-- The message after a restore. Separators join the parts of it, as each language does. -->
+    <string name="settings_restore_done">Hazırdır. Bərpa edildi — %1$s</string>
+    <string name="settings_restore_all_there">Fayldakı hər şey artıq Volta-dadır</string>
+    <string name="settings_restore_nothing">Bərpa ediləsi heç nə yoxdur</string>
+    <plurals name="settings_restore_not_loaded">
+        <item quantity="one">Serverləri yüklənməyən abunələr: %d. Onları sonra “Abunələr” bölməsində yeniləyin</item>
+        <item quantity="other">Serverləri yüklənməyən abunələr: %d. Onları sonra “Abunələr” bölməsində yeniləyin</item>
+    </plurals>
+    <plurals name="settings_restore_skipped">
+        <item quantity="one">Oxunmayan qeydlər: %d</item>
+        <item quantity="other">Oxunmayan qeydlər: %d</item>
+    </plurals>
+    <string name="settings_list_separator">", "</string>
+    <string name="settings_sentence_separator">". "</string>
+
+    <!-- Adding: the one field for links, keys and files -->
+    <string name="settings_import_back">Geri</string>
+    <string name="settings_import_title">Əlavə et</string>
+    <string name="settings_import_subtitle">Abunə, server və ya açar. Olduğu kimi yapışdırın, Volta özü anlayacaq.</string>
+    <string name="settings_import_placeholder">Buraya abunə keçidini, server keçidini (%1$s) və ya vpn:// açarını yapışdırın</string>
+    <string name="settings_import_paste">Buferdən yapışdır</string>
+    <string name="settings_import_clipboard_empty">Mübadilə buferi boşdur</string>
+    <string name="settings_import_clear">Təmizlə</string>
+    <string name="settings_import_name_label">Ad, öz adınızı istəyirsinizsə</string>
+    <string name="settings_import_open_file">Ayarlar faylını aç</string>
+    <string name="settings_import_open_file_text">VPN xidmətinin göndərdiyi fayl</string>
+    <string name="settings_import_no_file_picker">Bu cihazda fayl seçmək olmur. Faylı telefonda açın və mətnini yuxarıdakı sahəyə yapışdırın</string>
+    <string name="settings_import_formats_title">Buraya nə yapışdırmaq olar</string>
+
+    <!-- What the field holds, said back under it -->
+    <string name="settings_import_empty">Hələ boşdur</string>
+    <string name="settings_import_empty_hint">Keçid və ya açar yapışdırın</string>
+    <string name="settings_import_hidden_sub">Keçidi gizli abunə</string>
+    <string name="settings_import_hidden_sub_hint">Ünvan tətbiqdə görünməyəcək</string>
+    <string name="settings_import_sub">Abunə</string>
+    <string name="settings_import_sub_hint">Serverlər və qaydalar özü yenilənəcək</string>
+    <string name="settings_import_encrypted">Şifrələnmiş abunə</string>
+    <string name="settings_import_encrypted_hint">Volta onu özü açacaq, ünvan gizli qalacaq</string>
+    <string name="settings_import_server">Server</string>
+    <string name="settings_import_server_hint">Ümumi server siyahısına əlavə olunacaq</string>
+    <plurals name="settings_import_servers">
+        <item quantity="one">Serverlər: %d</item>
+        <item quantity="other">Serverlər: %d</item>
+    </plurals>
+    <string name="settings_import_servers_hint">Hamısı ümumi siyahıya əlavə olunacaq</string>
+    <string name="settings_import_amnezia">AmneziaVPN açarı</string>
+    <string name="settings_import_amnezia_hint">Açardakı serverlər siyahıya əlavə olunacaq</string>
+    <string name="settings_import_conf">Server ayarları faylı</string>
+    <string name="settings_import_conf_hint">Siyahıda bir server olacaq</string>
+    <string name="settings_import_json">Server ayarları</string>
+    <string name="settings_import_json_hint">Serverlər ümumi siyahıya əlavə olunacaq</string>
+    <string name="settings_import_control">İdarəetmə keçidi</string>
+    <string name="settings_import_control_hint">Əlavə olunmur, VPN-i qoşur və ya söndürür</string>
+    <string name="settings_import_unknown">Keçidə oxşamır</string>
+    <string name="settings_import_unknown_hint">Onu tam kopyaladığınızı yoxlayın</string>
+
+    <!-- The button, named after what it will do -->
+    <string name="settings_import_add_sub">Abunə əlavə et</string>
+    <string name="settings_import_add_server">Server əlavə et</string>
+    <string name="settings_import_add_servers">Serverləri əlavə et</string>
+    <string name="settings_import_import">İdxal et</string>
+    <string name="settings_import_run">İcra et</string>
+
+    <!-- What can be pasted -->
+    <string name="settings_import_format_sub">VPN xidmətindən gələn keçid, adi və ya şifrələnmiş. İçindəki serverlər özü yenilənir</string>
+    <string name="settings_import_format_server">Xidmətin göndərdiyi bir serverə keçid</string>
+    <string name="settings_import_format_amnezia">vpn:// ilə başlayan uzun açar</string>
+    <string name="settings_import_format_openflux_title">OpenFlux keçidi</string>
+    <string name="settings_import_format_openflux">openflux:// ilə başlayan keçid</string>
+    <string name="settings_import_format_volta_title">Volta keçidi</string>
+    <string name="settings_import_format_volta">VPN xidmətinin verdiyi volta:// keçidi: adi və ya şifrələnmiş</string>
+    <string name="settings_import_format_file_title">Ayarlar faylı</string>
+    <string name="settings_import_format_file">Xidmətin göndərdiyi fayl: onu yuxarıdakı düymə ilə açmaq olar</string>
+
+    <!-- Subscriptions tab and the sheet of one subscription -->
+    <string name="settings_subs_title">Abunələr</string>
+    <string name="settings_subs_refresh_all">Bütün abunələri yenilə</string>
+    <string name="settings_subs_empty_title">Hələ abunə yoxdur</string>
+    <string name="settings_subs_empty_text">Bir və ya bir neçəsini əlavə edin: Volta onların serverlərini ümumi siyahıda birləşdirəcək və özü Home və LTE qruplarına bölüşdürəcək.</string>
+    <string name="settings_subs_lead">Adını dəyişmək və ya silmək üçün abunəyə toxunun.</string>
+    <string name="settings_subs_delete_question">Abunə silinsin?</string>
+    <string name="settings_subs_delete_text">Onun serverləri və qaydaları da silinəcək. Digər abunələr olduğu kimi qalacaq.</string>
+    <string name="settings_subs_delete">Sil</string>
+    <string name="settings_subs_keep">Saxla</string>
+    <string name="settings_subs_name">Ad</string>
+    <string name="settings_subs_url">Abunə keçidi</string>
+    <string name="settings_subs_save">Yadda saxla</string>
+    <string name="settings_subs_refresh">İndi yenilə</string>
+    <string name="settings_subs_refresh_text">Serverlərin və qaydaların təzə siyahısını al</string>
+    <string name="settings_subs_delete_action">Abunəni sil</string>
+    <string name="settings_subs_hidden_title">Keçid gizlidir</string>
+    <string name="settings_subs_hidden_text">VPN xidməti abunə ünvanını gizlədib. O, həmişəki kimi yenilənir, yalnız adını dəyişmək olar.</string>
+
+    <!-- Links that can't be used (volta://, volta://crypt): why, said to the user -->
+    <string name="settings_link_decrypt_failed">Keçidin şifrəsini açmaq alınmadı</string>
+    <string name="settings_link_double_encrypted">Keçid iki dəfə şifrələnib</string>
+    <string name="settings_link_no_subscription">Şifrələnmiş keçiddə abunə yoxdur</string>
+    <string name="settings_link_no_address_encrypted">Şifrələnmiş keçiddə abunə ünvanı yoxdur</string>
+    <string name="settings_link_no_address">Keçiddə abunə ünvanı yoxdur</string>
+    <string name="settings_link_crypt_empty">Şifrələnmiş keçid boşdur</string>
+    <string name="settings_link_crypt_damaged">Şifrələnmiş keçid zədələnib</string>
+    <string name="settings_link_crypt_truncated">Şifrələnmiş keçid kəsilib</string>
+    <string name="settings_link_crypt_newer">Keçid Volta-nın daha yeni versiyası üçün şifrələnib — tətbiqi yeniləyin</string>
+    <string name="settings_link_crypt_unknown_key">Keçid Volta-nın bu versiyasında olmayan açarla şifrələnib</string>
+    <string name="settings_link_crypt_failed">Keçidin şifrəsini açmaq alınmadı: o zədələnib və ya Volta üçün deyil</string>
+    <string name="settings_link_damaged">Keçid zədələnib</string>
+</resources>

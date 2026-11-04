@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Settings screen -->
+    <string name="settings_title">设置</string>
+    <string name="settings_simple_title">简易模式</string>
+    <string name="settings_simple_text">只有一个大大的“开启 / 关闭”按钮，服务器自动选择。适合父母和所有不需要调设置的人。</string>
+    <string name="settings_section_connection">连接</string>
+    <string name="settings_follow_network_title">跟随网络切换</string>
+    <string name="settings_follow_network_text">在 Wi-Fi 和移动数据之间切换时，会自动检查并更换服务器。</string>
+    <string name="settings_recheck_title">优化服务器选择</string>
+    <string name="settings_recheck_text">屏幕亮着时每 15 分钟比较一次服务器，并切换到明显更快的那个。不响应的服务器总会被替换。</string>
+    <string name="settings_failover_title">断线时更换服务器</string>
+    <string name="settings_failover_text">如果服务器不再响应，Volta 会切换到另一个。</string>
+    <string name="settings_autoconnect_title">开机时连接</string>
+    <string name="settings_autoconnect_text">系统启动后立即开启 VPN。</string>
+
+    <!-- Android's own kill switch. The quoted names are Android's own settings (Always-on VPN,
+         Block connections without VPN), as Android calls them in that language. -->
+    <string name="settings_killswitch_title">没有 VPN 时禁止上网</string>
+    <string name="settings_killswitch_unknown">Android 可以让 Volta 始终保持开启，并在 VPN 连接前阻止上网。点按此处，然后点 Volta 旁的齿轮：“始终开启的 VPN”和“屏蔽未使用 VPN 的所有连接”。</string>
+    <string name="settings_killswitch_on">已开启：Volta 始终开启，没有 VPN 就无法上网。关闭 VPN 后网络会断开，这是有意为之。</string>
+    <string name="settings_killswitch_partial">Volta 会自动开启，但在 VPN 连接期间，应用会直接上网。请在 Volta 旁的齿轮里开启“屏蔽未使用 VPN 的所有连接”。</string>
+    <string name="settings_killswitch_off">未开启。点按此处，然后点 Volta 旁的齿轮：“始终开启的 VPN”和“屏蔽未使用 VPN 的所有连接”。</string>
+    <string name="settings_no_vpn_settings">此设备没有 VPN 设置</string>
+
+    <!-- Quick Settings tiles -->
+    <string name="settings_section_tiles">快捷设置图块</string>
+    <string name="settings_tiles_hint">点按图块会以对应模式开启 VPN，再点一次即关闭。</string>
+    <string name="settings_tile_add">添加</string>
+
+    <!-- Subscriptions and checks -->
+    <string name="settings_section_checks">订阅与检测</string>
+    <string name="settings_refresh_on_launch_title">启动时更新订阅</string>
+    <string name="settings_refresh_on_launch_text">打开应用时更新服务器和规则。</string>
+    <string name="settings_ping_on_start_title">启动时检测网络</string>
+    <string name="settings_ping_on_start_text">一眼看出当前是哪种网络：Home 还是 LTE。</string>
+    <string name="settings_ping_type_title">服务器检测方式</string>
+    <string name="settings_ping_real">经由服务器</string>
+    <string name="settings_ping_real_hint">通过服务器检测真实速度。推荐。</string>
+    <string name="settings_ping_http_hint">适用于对快速检测响应不佳的服务器。</string>
+    <string name="settings_ping_tcp_hint">更快，但可能把不能用的服务器显示为可用。</string>
+    <string name="settings_ping_icmp_hint">最简单的检测。在很多移动运营商的网络下无法使用。</string>
+
+    <!-- Tunnel and battery -->
+    <string name="settings_section_tunnel">隧道与电池</string>
+    <string name="settings_local_dns_title">通过 VPN 打开网站</string>
+    <string name="settings_local_dns_text">网站地址也通过 VPN 解析，这样被屏蔽的情况更少。</string>
+    <string name="settings_battery_title">省电</string>
+    <string name="settings_battery_text">检测更短，后台活动更少。</string>
+
+    <!-- Appearance. The theme names "Volta" and "Material" are names and stay in code. -->
+    <string name="settings_section_look">外观</string>
+    <string name="settings_theme">主题</string>
+    <string name="settings_theme_system">系统</string>
+    <string name="settings_theme_light">浅色</string>
+    <string name="settings_theme_ocean">海洋</string>
+    <string name="settings_theme_ember">炭火</string>
+    <string name="settings_app_icon">应用图标</string>
+
+    <!-- Device -->
+    <string name="settings_section_device">设备</string>
+    <string name="settings_hwid_title">绑定设备</string>
+    <string name="settings_hwid_text">如果你的 VPN 服务商限制每个订阅的设备数量，请开启。</string>
+    <string name="settings_hwid_code">本设备代码</string>
+    <string name="settings_hwid_copied">代码已复制</string>
+    <string name="settings_hwid_copy">复制代码</string>
+
+    <!-- Sections further down, and «About» -->
+    <string name="settings_section_move">迁移到新手机</string>
+    <string name="settings_section_about">关于</string>
+    <string name="settings_update_store_note">通过 Google Play 获取更新</string>
+    <string name="settings_update_auto_title">检查更新</string>
+    <string name="settings_update_auto_on">启动时及每隔几小时检查一次。有新版本时会收到通知</string>
+    <string name="settings_update_auto_off">已关闭。可以点“检查”按钮手动检查</string>
+    <string name="settings_update_beta_title">测试版</string>
+    <string name="settings_update_beta_text">抢先获取测试版本。其中可能有错误</string>
+    <string name="settings_help_title">帮助与说明</string>
+    <string name="settings_help_text">如何添加订阅、选择模式和设置应用</string>
+    <string name="settings_no_browser">没有浏览器。说明见网站 %1$s</string>
+
+    <!-- Launcher icons -->
+    <string name="settings_icon_fold">折页</string>
+    <string name="settings_icon_spark">火花</string>
+    <string name="settings_icon_orbit">轨道</string>
+    <string name="settings_icon_tunnel">隧道</string>
+    <string name="settings_icon_pixel">像素</string>
+    <string name="settings_icon_hint">启动器需要几秒钟来更换图标。如果图标从桌面消失了，请从应用列表中重新拖出来。</string>
+
+    <!-- Updates: the row in Settings, the banner on the home screen and the notification -->
+    <string name="settings_update_available">%1$s 版已发布</string>
+    <string name="settings_update_action_update">更新</string>
+    <string name="settings_update_action_install">安装</string>
+    <string name="settings_update_action_retry">重试</string>
+    <string name="settings_update_action_check">检查</string>
+    <string name="settings_update_percent">%1$d%%</string>
+    <string name="settings_update_downloading_version">正在下载 %1$s 版</string>
+    <string name="settings_update_downloaded">%1$s 版已下载</string>
+    <string name="settings_update_failed">未能完成</string>
+    <string name="settings_update_idle_hint">看看有没有新版本</string>
+    <string name="settings_update_checking">正在查找新版本…</string>
+    <string name="settings_update_latest_at">最新版本 · 检查于 %1$s</string>
+    <string name="settings_update_current_size">当前版本 %1$s · %2$s</string>
+    <string name="settings_update_downloading_hint">下载期间可以继续使用应用</string>
+    <string name="settings_update_download_size">下载 %1$s 并安装</string>
+    <string name="settings_update_downloading">正在下载…</string>
+    <string name="settings_update_need_permission">允许 Volta 安装应用，然后点“安装”</string>
+    <string name="settings_update_confirm">只需确认安装</string>
+    <string name="settings_update_error_check">无法检查更新。请检查网络或开启 VPN。</string>
+    <string name="settings_update_error_corrupt">文件下载出错。请重试。</string>
+    <string name="settings_update_error_download">无法下载更新。请重试。</string>
+    <string name="settings_update_error_installer">无法打开 Android 安装程序。</string>
+    <string name="settings_update_channel">更新</string>
+    <string name="settings_update_channel_desc">Volta 新版本</string>
+    <string name="settings_update_notify_title">Volta 有可用更新</string>
+    <string name="settings_update_notify_text">%1$s 版。点按即可安装。</string>
+
+    <!-- Moving to a new phone: saving to a file and restoring from it -->
+    <string name="settings_backup_save_title">保存到文件</string>
+    <string name="settings_backup_save_text">订阅、自己添加的服务器、规则和设置</string>
+    <string name="settings_backup_restore_title">从文件恢复</string>
+    <string name="settings_backup_restore_text">打开在另一部手机的 Volta 中保存的文件</string>
+    <string name="settings_backup_working">请稍候…</string>
+    <string name="settings_backup_warning">文件中包含你的订阅：请自己保管，不要发给他人。</string>
+    <string name="settings_backup_restore_question">要从文件恢复吗？</string>
+    <string name="settings_backup_restore_action">恢复</string>
+    <string name="settings_backup_cancel">取消</string>
+    <string name="settings_backup_error_damaged">这不是 Volta 文件，或文件已损坏</string>
+    <string name="settings_backup_error_not_volta">这不是 Volta 文件。请选择在 Volta 中保存的文件</string>
+    <string name="settings_backup_error_newer">该文件由更新版本的 Volta 保存。请更新应用</string>
+    <string name="settings_backup_error_too_big">文件太大，不像是 Volta 文件</string>
+
+    <!-- The restore dialog. settings_backup_date_format is a java.time DateTimeFormatter pattern
+         for the day the file was saved (d day, M/MMMM month, yyyy year, text in 'quotes'). -->
+    <string name="settings_backup_date_format">yyyy\'年\'M\'月\'d\'日\'</string>
+    <string name="settings_backup_saved_on">文件保存于%1$s。</string>
+    <string name="settings_backup_contains">其中包括：</string>
+    <plurals name="settings_backup_count_subscriptions">
+        <item quantity="other">%d 个订阅</item>
+    </plurals>
+    <plurals name="settings_backup_count_servers">
+        <item quantity="other">%d 个自己添加的服务器</item>
+    </plurals>
+    <plurals name="settings_backup_count_rules">
+        <item quantity="other">%d 个规则集</item>
+    </plurals>
+    <string name="settings_backup_item_settings">设置</string>
+    <string name="settings_backup_no_duplicates">Volta 中已有的内容不会重复添加。</string>
+    <string name="settings_backup_settings_replaced">设置将改为与文件中一致。</string>
+    <string name="settings_backup_servers_reload">订阅的服务器会重新加载，需要联网。</string>
+
+    <!-- The message after a restore. Separators join the parts of it, as each language does. -->
+    <string name="settings_restore_done">完成。已恢复：%1$s</string>
+    <string name="settings_restore_all_there">文件中的内容 Volta 里都已经有了</string>
+    <string name="settings_restore_nothing">没有可恢复的内容</string>
+    <plurals name="settings_restore_not_loaded">
+        <item quantity="other">%d 个订阅的服务器未能加载。请稍后在“订阅”标签页中更新</item>
+    </plurals>
+    <plurals name="settings_restore_skipped">
+        <item quantity="other">%d 条记录无法读取</item>
+    </plurals>
+    <string name="settings_list_separator">、</string>
+    <string name="settings_sentence_separator">。</string>
+
+    <!-- Adding: the one field for links, keys and files -->
+    <string name="settings_import_back">返回</string>
+    <string name="settings_import_title">添加</string>
+    <string name="settings_import_subtitle">订阅、服务器或密钥。原样粘贴即可，Volta 会自动识别。</string>
+    <string name="settings_import_placeholder">在此粘贴订阅链接、服务器链接（%1$s）或 vpn:// 密钥</string>
+    <string name="settings_import_paste">从剪贴板粘贴</string>
+    <string name="settings_import_clipboard_empty">剪贴板是空的</string>
+    <string name="settings_import_clear">清除</string>
+    <string name="settings_import_name_label">名称（可自定义）</string>
+    <string name="settings_import_open_file">打开配置文件</string>
+    <string name="settings_import_open_file_text">VPN 服务商发给你的文件</string>
+    <string name="settings_import_no_file_picker">此设备无法选择文件。请在手机上打开文件，把其中的文本粘贴到上面的输入框</string>
+    <string name="settings_import_formats_title">可以粘贴哪些内容</string>
+
+    <!-- What the field holds, said back under it -->
+    <string name="settings_import_empty">还没有内容</string>
+    <string name="settings_import_empty_hint">粘贴链接或密钥</string>
+    <string name="settings_import_hidden_sub">链接隐藏的订阅</string>
+    <string name="settings_import_hidden_sub_hint">地址不会在应用中显示</string>
+    <string name="settings_import_sub">订阅</string>
+    <string name="settings_import_sub_hint">服务器和规则会自动更新</string>
+    <string name="settings_import_encrypted">加密订阅</string>
+    <string name="settings_import_encrypted_hint">Volta 会自行打开，地址保持隐藏</string>
+    <string name="settings_import_server">服务器</string>
+    <string name="settings_import_server_hint">将加入服务器总列表</string>
+    <plurals name="settings_import_servers">
+        <item quantity="other">%d 个服务器</item>
+    </plurals>
+    <string name="settings_import_servers_hint">全部加入总列表</string>
+    <string name="settings_import_amnezia">AmneziaVPN 密钥</string>
+    <string name="settings_import_amnezia_hint">密钥中的服务器将加入列表</string>
+    <string name="settings_import_conf">服务器配置文件</string>
+    <string name="settings_import_conf_hint">将成为列表中的一个服务器</string>
+    <string name="settings_import_json">服务器配置</string>
+    <string name="settings_import_json_hint">服务器将加入总列表</string>
+    <string name="settings_import_control">控制链接</string>
+    <string name="settings_import_control_hint">不会被添加，而是开启或关闭 VPN</string>
+    <string name="settings_import_unknown">看起来不像链接</string>
+    <string name="settings_import_unknown_hint">请确认已完整复制</string>
+
+    <!-- The button, named after what it will do -->
+    <string name="settings_import_add_sub">添加订阅</string>
+    <string name="settings_import_add_server">添加服务器</string>
+    <string name="settings_import_add_servers">添加这些服务器</string>
+    <string name="settings_import_import">导入</string>
+    <string name="settings_import_run">执行</string>
+
+    <!-- What can be pasted -->
+    <string name="settings_import_format_sub">VPN 服务商提供的链接，普通或加密均可。其中的服务器会自动更新</string>
+    <string name="settings_import_format_server">服务商发来的单个服务器链接</string>
+    <string name="settings_import_format_amnezia">以 vpn:// 开头的长密钥</string>
+    <string name="settings_import_format_openflux_title">OpenFlux 链接</string>
+    <string name="settings_import_format_openflux">以 openflux:// 开头的链接</string>
+    <string name="settings_import_format_volta_title">Volta 链接</string>
+    <string name="settings_import_format_volta">VPN 服务商提供的 volta:// 链接：普通或加密</string>
+    <string name="settings_import_format_file_title">配置文件</string>
+    <string name="settings_import_format_file">服务商发来的文件：可以用上面的按钮打开</string>
+
+    <!-- Subscriptions tab and the sheet of one subscription -->
+    <string name="settings_subs_title">订阅</string>
+    <string name="settings_subs_refresh_all">更新全部订阅</string>
+    <string name="settings_subs_empty_title">还没有订阅</string>
+    <string name="settings_subs_empty_text">添加一个或多个：Volta 会把它们的服务器合并成一个列表，并自动分到 Home 和 LTE 组。</string>
+    <string name="settings_subs_lead">点按订阅可重命名或删除。</string>
+    <string name="settings_subs_delete_question">删除订阅？</string>
+    <string name="settings_subs_delete_text">它的服务器和规则也会被删除。其他订阅保持不变。</string>
+    <string name="settings_subs_delete">删除</string>
+    <string name="settings_subs_keep">保留</string>
+    <string name="settings_subs_name">名称</string>
+    <string name="settings_subs_url">订阅链接</string>
+    <string name="settings_subs_save">保存</string>
+    <string name="settings_subs_refresh">立即更新</string>
+    <string name="settings_subs_refresh_text">获取最新的服务器和规则列表</string>
+    <string name="settings_subs_delete_action">删除订阅</string>
+    <string name="settings_subs_hidden_title">链接已隐藏</string>
+    <string name="settings_subs_hidden_text">VPN 服务商隐藏了订阅地址。订阅照常更新，只能修改名称。</string>
+
+    <!-- Links that can't be used (volta://, volta://crypt): why, said to the user -->
+    <string name="settings_link_decrypt_failed">无法解密链接</string>
+    <string name="settings_link_double_encrypted">链接被加密了两次</string>
+    <string name="settings_link_no_subscription">加密链接中没有订阅</string>
+    <string name="settings_link_no_address_encrypted">加密链接中没有订阅地址</string>
+    <string name="settings_link_no_address">链接中没有订阅地址</string>
+    <string name="settings_link_crypt_empty">加密链接是空的</string>
+    <string name="settings_link_crypt_damaged">加密链接已损坏</string>
+    <string name="settings_link_crypt_truncated">加密链接不完整</string>
+    <string name="settings_link_crypt_newer">该链接是为更新版本的 Volta 加密的，请更新应用</string>
+    <string name="settings_link_crypt_unknown_key">该链接使用了此版本 Volta 中没有的密钥加密</string>
+    <string name="settings_link_crypt_failed">无法解密链接：链接已损坏，或不是给 Volta 用的</string>
+    <string name="settings_link_damaged">链接已损坏</string>
+</resources>

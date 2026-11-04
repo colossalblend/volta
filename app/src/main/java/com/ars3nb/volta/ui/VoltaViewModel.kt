@@ -688,7 +688,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
                 when (opened) {
                     is VoltaLinks.AddSubscription -> addFromLink(named(opened), onComplete)
                     is VoltaLinks.Invalid -> {
-                        _message.value = opened.message
+                        _message.value = getApplication<Application>().getString(opened.message)
                         onComplete(false)
                     }
                     else -> onComplete(false)
@@ -717,7 +717,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
                 onComplete(true)
             }
             is VoltaLinks.Invalid -> {
-                _message.value = action.message
+                _message.value = getApplication<Application>().getString(action.message)
                 onComplete(false)
             }
         }
@@ -984,7 +984,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
                             if (n < 0) break
                             out.write(buffer, 0, n)
                             if (out.size() > BackupCodec.MAX_BYTES) {
-                                throw BackupCodec.BackupException("Файл слишком большой для файла Volta")
+                                throw BackupCodec.BackupException(com.ars3nb.volta.R.string.settings_backup_error_too_big)
                             }
                         }
                         out.toByteArray()
@@ -999,7 +999,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: BackupCodec.BackupException) {
-                _message.value = e.message
+                _message.value = getApplication<Application>().getString(e.reason)
             } catch (e: Exception) {
                 _message.value = "Не удалось открыть файл"
             }
@@ -1018,7 +1018,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
             _backupWorking.value = true
             try {
                 val report = backup.restore(contents)
-                _message.value = report.message()
+                _message.value = report.message(getApplication<Application>().resources)
                 // Rules and split tunnelling reach a running tunnel on its next start.
                 touchRouting()
             } catch (e: CancellationException) {

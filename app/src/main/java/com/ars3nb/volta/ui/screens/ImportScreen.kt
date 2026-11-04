@@ -61,8 +61,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.annotation.StringRes
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.link.ImportDetector
 import com.ars3nb.volta.core.link.ImportDetector.Kind
 import com.ars3nb.volta.ui.VoltaViewModel
@@ -89,6 +93,8 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val kind = remember(input) { ImportDetector.detect(input) }
+    val clipboardEmpty = stringResource(R.string.settings_import_clipboard_empty)
+    val noFilePicker = stringResource(R.string.settings_import_no_file_picker)
 
     // A .conf from AmneziaVPN, AmneziaWG or WireGuard. Its type varies by file manager,
     // so any file is offered; the parser decides.
@@ -129,14 +135,14 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
             modifier = Modifier.size(44.dp).focusRing(CircleShape)
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Назад")
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.settings_import_back))
             }
         }
         Spacer(Modifier.height(18.dp))
-        Text("Добавить", style = MaterialTheme.typography.headlineMedium)
+        Text(stringResource(R.string.settings_import_title), style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(4.dp))
         Text(
-            "Подписку, сервер или ключ. Вставьте как есть, Volta разберётся сама.",
+            stringResource(R.string.settings_import_subtitle),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -145,9 +151,7 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
         VoltaField(
             value = input,
             onValueChange = { input = it },
-            placeholder = "Вставьте сюда ссылку на подписку, ссылку на сервер " +
-                "(vless://, vmess://, trojan://, ss://, hysteria2://, openflux://) " +
-                "или ключ vpn://",
+            placeholder = stringResource(R.string.settings_import_placeholder, SERVER_SCHEMES),
             minLines = 4,
             maxLines = 9,
             container = MaterialTheme.colorScheme.surface,
@@ -160,18 +164,18 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FieldButton(
                 icon = Icons.Rounded.ContentPaste,
-                text = "Вставить из буфера",
+                text = stringResource(R.string.settings_import_paste),
                 filled = input.isEmpty(),
                 onClick = {
                     val text = clipboard.getText()?.text?.trim()
-                    if (text.isNullOrEmpty()) vm.showMessage("В буфере обмена пусто")
+                    if (text.isNullOrEmpty()) vm.showMessage(clipboardEmpty)
                     else input = text
                 }
             )
             if (input.isNotEmpty()) {
                 FieldButton(
                     icon = Icons.Rounded.Close,
-                    text = "Очистить",
+                    text = stringResource(R.string.settings_import_clear),
                     filled = false,
                     onClick = { input = "" }
                 )
@@ -189,7 +193,7 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
             VoltaField(
                 value = name,
                 onValueChange = { name = it },
-                label = "Название, если хотите своё",
+                label = stringResource(R.string.settings_import_name_label),
                 singleLine = true,
                 modifier = Modifier.padding(top = 14.dp)
             )
@@ -215,7 +219,7 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
                     targetState = kind.action,
                     transitionSpec = { fadeIn() togetherWith fadeOut() },
                     label = "importAction"
-                ) { Text(it, style = MaterialTheme.typography.titleSmall) }
+                ) { Text(stringResource(it), style = MaterialTheme.typography.titleSmall) }
             }
         }
 
@@ -224,18 +228,15 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
             LinkRow(
                 icon = Icons.Rounded.FileOpen,
                 tint = MaterialTheme.colorScheme.primary,
-                title = "Открыть файл настроек",
-                subtitle = "Файл, который прислал VPN-сервис",
+                title = stringResource(R.string.settings_import_open_file),
+                subtitle = stringResource(R.string.settings_import_open_file_text),
                 onClick = {
                     if (!state.busy) {
                         // Many TVs have no file picker at all.
                         try {
                             openFile.launch(arrayOf("*/*"))
                         } catch (e: ActivityNotFoundException) {
-                            vm.showMessage(
-                                "На этом устройстве нельзя выбрать файл. " +
-                                    "Откройте файл на телефоне и вставьте его текст в поле выше"
-                            )
+                            vm.showMessage(noFilePicker)
                         }
                     }
                 }
@@ -243,14 +244,14 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
         }
 
         Spacer(Modifier.height(24.dp))
-        SectionHeader("Что сюда можно вставить")
+        SectionHeader(stringResource(R.string.settings_import_formats_title))
         Spacer(Modifier.height(6.dp))
         VoltaCard {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 FORMATS.forEach { (title, body) ->
                     Column {
-                        Text(title, style = MaterialTheme.typography.titleSmall)
-                        Hint(body)
+                        Text(stringResource(title), style = MaterialTheme.typography.titleSmall)
+                        Hint(stringResource(body))
                     }
                 }
             }
@@ -271,28 +272,53 @@ private fun DetectedLine(kind: Kind) {
         label = "detected"
     ) { k ->
         val (icon, tint, title, body) = when (k) {
-            Kind.Empty -> Look(Icons.Rounded.Link, scheme.onSurfaceVariant, "Пока пусто", "Вставьте ссылку или ключ")
+            Kind.Empty -> Look(
+                Icons.Rounded.Link, scheme.onSurfaceVariant,
+                stringResource(R.string.settings_import_empty), stringResource(R.string.settings_import_empty_hint)
+            )
             is Kind.Subscription -> if (k.hidden) {
-                Look(Icons.Rounded.Lock, scheme.primary, "Подписка со скрытой ссылкой", "Адрес не будет виден в приложении")
+                Look(
+                    Icons.Rounded.Lock, scheme.primary,
+                    stringResource(R.string.settings_import_hidden_sub), stringResource(R.string.settings_import_hidden_sub_hint)
+                )
             } else {
-                Look(Icons.Rounded.CloudSync, scheme.primary, "Подписка", "Серверы и правила будут обновляться сами")
+                Look(
+                    Icons.Rounded.CloudSync, scheme.primary,
+                    stringResource(R.string.settings_import_sub), stringResource(R.string.settings_import_sub_hint)
+                )
             }
             Kind.Encrypted -> Look(
                 Icons.Rounded.EnhancedEncryption, palette.good,
-                "Зашифрованная подписка", "Volta откроет её сама, адрес останется скрытым"
+                stringResource(R.string.settings_import_encrypted), stringResource(R.string.settings_import_encrypted_hint)
             )
-            is Kind.Server -> Look(Icons.Rounded.Storage, palette.home, "Сервер", "Добавится в общий список серверов")
-            is Kind.Servers -> Look(Icons.Rounded.Storage, palette.home, "Серверов: ${k.count}", "Все добавятся в общий список")
-            Kind.AmneziaKey -> Look(Icons.Rounded.Key, palette.home, "Ключ AmneziaVPN", "Серверы из ключа добавятся в список")
-            Kind.Conf -> Look(Icons.Rounded.Description, palette.home, "Файл настроек сервера", "Станет одним сервером в списке")
-            Kind.Json -> Look(Icons.Rounded.DataObject, palette.home, "Настройки серверов", "Серверы добавятся в общий список")
+            is Kind.Server -> Look(
+                Icons.Rounded.Storage, palette.home,
+                stringResource(R.string.settings_import_server), stringResource(R.string.settings_import_server_hint)
+            )
+            is Kind.Servers -> Look(
+                Icons.Rounded.Storage, palette.home,
+                pluralStringResource(R.plurals.settings_import_servers, k.count, k.count),
+                stringResource(R.string.settings_import_servers_hint)
+            )
+            Kind.AmneziaKey -> Look(
+                Icons.Rounded.Key, palette.home,
+                stringResource(R.string.settings_import_amnezia), stringResource(R.string.settings_import_amnezia_hint)
+            )
+            Kind.Conf -> Look(
+                Icons.Rounded.Description, palette.home,
+                stringResource(R.string.settings_import_conf), stringResource(R.string.settings_import_conf_hint)
+            )
+            Kind.Json -> Look(
+                Icons.Rounded.DataObject, palette.home,
+                stringResource(R.string.settings_import_json), stringResource(R.string.settings_import_json_hint)
+            )
             Kind.Control -> Look(
                 Icons.Rounded.PowerSettingsNew, scheme.primary,
-                "Ссылка управления", "Не добавляется, а включает или выключает VPN"
+                stringResource(R.string.settings_import_control), stringResource(R.string.settings_import_control_hint)
             )
             Kind.Unknown -> Look(
                 Icons.Rounded.QuestionMark, palette.poor,
-                "Не похоже на ссылку", "Проверьте, что скопировали её целиком"
+                stringResource(R.string.settings_import_unknown), stringResource(R.string.settings_import_unknown_hint)
             )
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -312,23 +338,28 @@ private val Kind.canSubmit: Boolean
     get() = this != Kind.Empty && this != Kind.Unknown
 
 /** The button says what it will do. */
-private val Kind.action: String
+@get:StringRes
+private val Kind.action: Int
     get() = when (this) {
-        is Kind.Subscription, Kind.Encrypted -> "Добавить подписку"
-        is Kind.Server -> "Добавить сервер"
-        is Kind.Servers -> "Добавить серверы"
-        Kind.AmneziaKey, Kind.Conf, Kind.Json -> "Импортировать"
-        Kind.Control -> "Выполнить"
-        Kind.Empty, Kind.Unknown -> "Добавить"
+        is Kind.Subscription, Kind.Encrypted -> R.string.settings_import_add_sub
+        is Kind.Server -> R.string.settings_import_add_server
+        is Kind.Servers -> R.string.settings_import_add_servers
+        Kind.AmneziaKey, Kind.Conf, Kind.Json -> R.string.settings_import_import
+        Kind.Control -> R.string.settings_import_run
+        Kind.Empty, Kind.Unknown -> R.string.settings_import_title
     }
 
+/** Server link schemes, shown as they are in every language. */
+private const val SERVER_SCHEMES = "vless://, vmess://, trojan://, ss://, hysteria2://, openflux://"
+
+/** What can be pasted: a title and a line about it. */
 private val FORMATS = listOf(
-    "Подписка" to "Ссылка от VPN-сервиса, обычная или зашифрованная. Серверы в ней обновляются сами",
-    "Сервер" to "Ссылка на один сервер, которую прислал сервис",
-    "Ключ AmneziaVPN" to "Длинный ключ, который начинается с vpn://",
-    "Ссылка OpenFlux" to "Ссылка, которая начинается с openflux://",
-    "Ссылка Volta" to "Ссылка volta://, которую даёт VPN-сервис: обычная или зашифрованная",
-    "Файл настроек" to "Файл, который прислал сервис: его можно открыть кнопкой выше"
+    R.string.settings_import_sub to R.string.settings_import_format_sub,
+    R.string.settings_import_server to R.string.settings_import_format_server,
+    R.string.settings_import_amnezia to R.string.settings_import_format_amnezia,
+    R.string.settings_import_format_openflux_title to R.string.settings_import_format_openflux,
+    R.string.settings_import_format_volta_title to R.string.settings_import_format_volta,
+    R.string.settings_import_format_file_title to R.string.settings_import_format_file
 )
 
 /** A pill under the field: filled copper for the main move, a copper wash otherwise. */
