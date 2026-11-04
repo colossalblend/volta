@@ -172,6 +172,62 @@ class AutoBalancerTest {
     }
 
     @Test
+    fun openFluxNodesAreInTheirGroupAndRaceAfterTheRest() {
+        val ofHome = server(1, ServerRole.NORMAL).copy(protocol = ProtocolType.OPENFLUX, network = "direct")
+        val ofLte = server(2, ServerRole.BYPASS_WHITELIST).copy(protocol = ProtocolType.OPENFLUX, network = "yandex")
+        val home = server(3, ServerRole.NORMAL, ewma = 300)
+        val lte = server(4, ServerRole.BYPASS_WHITELIST, ewma = 200)
+        val all = listOf(ofHome, ofLte, home, lte)
+
+        assertEquals(listOf(1L, 3L), AutoBalancer.poolFor(all, BalancerScope.NORMAL).map { it.id })
+        assertEquals(listOf(2L, 4L), AutoBalancer.poolFor(all, BalancerScope.BYPASS).map { it.id })
+        assertEquals(listOf(1L, 2L, 3L, 4L), AutoBalancer.poolFor(all, BalancerScope.ALL).map { it.id })
+        assertEquals(
+            listOf(2L, 4L),
+            AutoBalancer.filterByRegime(all, NetworkRegime.WHITELIST_ONLY).map { it.id }
+        )
+        // A white-listed network with only an OpenFlux node for LTE still has one to use.
+        assertEquals(
+            listOf(2L),
+            AutoBalancer.filterByRegime(listOf(ofHome, ofLte, home), NetworkRegime.WHITELIST_ONLY).map { it.id }
+        )
+
+        // The connect-time race: regular nodes (best known first), OpenFlux only after.
+        assertEquals(
+            listOf(listOf(4L, 3L), listOf(1L, 2L)),
+            AutoBalancer.raceTiers(all).map { tier -> tier.map { it.id } }
+        )
+        assertEquals(listOf(listOf(2L)), AutoBalancer.raceTiers(listOf(ofLte)).map { tier -> tier.map { it.id } })
+    }
+
+    @Test
+    fun aGuessNeverPushesOutANodeThatWorks() {
+        val holder = server(1, ewma = 400)
+        val openFlux = server(2).copy(protocol = ProtocolType.OPENFLUX, network = "yandex")
+        val other = server(3, ewma = 380)
+        val pool = listOf(holder, openFlux, other)
+        fun rank(s: ServerEntity, ms: Long, ok: Boolean = true) = AutoBalancer.Ranked(s, ms, ms, ok)
+
+        // The OpenFlux node only looks fast (its carrier is next door, its exit never
+        // timed): the node in use stays.
+        val ranked = listOf(rank(openFlux, 90), rank(other, 380), rank(holder, 400))
+        assertEquals(1L, AutoBalancer.select(ranked, holder, pool, guessed = setOf(2L))?.id)
+        // Once its exit has been timed, it competes like anyone.
+        assertEquals(2L, AutoBalancer.select(ranked, holder, pool)?.id)
+        // The node in use failed: the guess is better than nothing.
+        val failing = listOf(rank(openFlux, 90), rank(holder, -1, ok = false))
+        assertEquals(2L, AutoBalancer.select(failing, holder, pool, guessed = setOf(2L))?.id)
+        // No node to beat (connect time, a node that just died): the best that answered.
+        assertEquals(2L, AutoBalancer.select(ranked, null, pool, guessed = setOf(2L))?.id)
+        // A clearly faster measured node still takes over past the guess.
+        val faster = listOf(rank(openFlux, 90), rank(other, 150), rank(holder, 400))
+        assertEquals(3L, AutoBalancer.select(faster, holder, pool, guessed = setOf(2L))?.id)
+        // Nothing answered: keep the holder.
+        val silent = listOf(rank(openFlux, -1, ok = false), rank(holder, -1, ok = false))
+        assertEquals(1L, AutoBalancer.select(silent, holder, pool, guessed = setOf(2L))?.id)
+    }
+
+    @Test
     fun openNetworkUsesNormalNodesAndWhitelistUsesBypassNodes() {
         val pool = listOf(
             server(1, ServerRole.NORMAL),

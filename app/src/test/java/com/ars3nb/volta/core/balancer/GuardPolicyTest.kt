@@ -17,14 +17,31 @@ class GuardPolicyTest {
     @Test
     fun withoutLteServersEveryAutoModeRunsAsHome() {
         assertFalse(GuardPolicy.hasLte(listOf(node(ServerRole.NORMAL), node(ServerRole.AUTO))))
-        // An OpenFlux LTE node is picked by hand only; it doesn't make LTE modes work.
-        assertFalse(GuardPolicy.hasLte(listOf(node(ServerRole.BYPASS_WHITELIST, ProtocolType.OPENFLUX))))
+        // An OpenFlux LTE node counts like any other: auto modes pick it.
+        assertTrue(GuardPolicy.hasLte(listOf(node(ServerRole.BYPASS_WHITELIST, ProtocolType.OPENFLUX))))
+        assertFalse(GuardPolicy.hasLte(listOf(node(ServerRole.NORMAL, ProtocolType.OPENFLUX))))
         assertTrue(GuardPolicy.hasLte(listOf(node(ServerRole.BYPASS_WHITELIST))))
 
         assertEquals(ConnectMode.AUTO_HOME, GuardPolicy.effectiveMode(ConnectMode.AUTO_HOME_LTE, false))
         assertEquals(ConnectMode.AUTO_HOME, GuardPolicy.effectiveMode(ConnectMode.AUTO_LTE, false))
         assertEquals(ConnectMode.MANUAL, GuardPolicy.effectiveMode(ConnectMode.MANUAL, false))
         assertEquals(ConnectMode.AUTO_HOME_LTE, GuardPolicy.effectiveMode(ConnectMode.AUTO_HOME_LTE, true))
+    }
+
+    @Test
+    fun aDocumentCarrierIsNotSlowJustForBeingADocument() {
+        val docs = node(ServerRole.BYPASS_WHITELIST, ProtocolType.OPENFLUX).copy(network = "yandex+mailru")
+        val direct = node(ServerRole.NORMAL, ProtocolType.OPENFLUX).copy(network = "direct")
+        val mixed = node(ServerRole.NORMAL, ProtocolType.OPENFLUX).copy(network = "direct+vyandex")
+        assertEquals(GuardPolicy.SLOW_ABS_OPENFLUX_MS, GuardPolicy.slowBarMs(docs))
+        assertEquals(GuardPolicy.SLOW_ABS_OPENFLUX_MS, GuardPolicy.slowBarMs(mixed))
+        assertEquals(GuardPolicy.SLOW_ABS_MS, GuardPolicy.slowBarMs(direct))
+        assertEquals(GuardPolicy.SLOW_ABS_MS, GuardPolicy.slowBarMs(node(ServerRole.NORMAL)))
+
+        assertFalse(GuardPolicy.isSlow(1_400, 1_200, GuardPolicy.slowBarMs(docs)))  // its usual pace
+        assertTrue(GuardPolicy.isSlow(3_500, 1_200, GuardPolicy.slowBarMs(docs)))   // slow even for it
+        assertTrue(GuardPolicy.isSlow(1_400, 400, GuardPolicy.slowBarMs(docs)))     // 3.5× its usual
+        assertTrue(GuardPolicy.isSlow(1_400, 1_200, GuardPolicy.slowBarMs(direct)))
     }
 
     @Test

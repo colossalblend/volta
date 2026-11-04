@@ -339,7 +339,14 @@ data class PingResult(
     val latencyMs: Long,
     val success: Boolean,
     val message: String = "",
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    /**
+     * Not a round trip through the node but a judgement from outside: an OpenFlux
+     * server that isn't running, whose carriers were reached (see PingEngine). It says
+     * whether the node can work and roughly how fast; the node's smoothed figure is
+     * left to real round trips.
+     */
+    val estimate: Boolean = false
 )
 
 data class SiteProbeResult(

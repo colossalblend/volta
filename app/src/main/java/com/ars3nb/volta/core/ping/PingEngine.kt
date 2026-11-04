@@ -2,6 +2,8 @@ package com.ars3nb.volta.core.ping
 
 import android.content.Context
 import com.ars3nb.volta.core.helper.ProxyHelper
+import com.ars3nb.volta.core.openflux.OpenFluxLink
+import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.vpn.CertPins
 import com.ars3nb.volta.core.vpn.ConfigBuilder
 import com.ars3nb.volta.core.vpn.XrayCore
@@ -11,6 +13,7 @@ import com.ars3nb.volta.data.model.ProtocolType
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.SiteProbeResult
 import java.net.InetSocketAddress
+import java.net.Proxy
 import java.net.Socket
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CompletableDeferred
@@ -85,6 +88,20 @@ class PingEngine(
                 server.protocol == ProtocolType.AMNEZIAWG ||
                 server.network.lowercase() in setOf("hysteria", "kcp", "mkcp")
 
+        /**
+         * OpenFlux nodes have a check of their own (see [openFluxDelay]): through the
+         * helper when it runs on them, else a handshake with each of their carriers. It
+         * is as cheap as a TCP sweep, so they skip the sweep and are always judged.
+         */
+        fun judgedByCarriers(server: ServerEntity): Boolean = server.protocol == ProtocolType.OPENFLUX
+
+        /**
+         * A page through any exit costs at least this many round trips (connect, TLS,
+         * the request): an OpenFlux node judged from outside counts this many of its
+         * carrier's handshakes, so its figure stands next to real round trips of others.
+         */
+        const val OPENFLUX_ROUND_TRIPS = 3
+
         /** Nodes worth spending a real-delay measurement on: the TCP-reachable ones. */
         internal fun reachableIds(tcpResults: List<Pair<Long, PingResult>>): Set<Long> =
             tcpResults.asSequence()
@@ -106,9 +123,12 @@ class PingEngine(
 
     private val connectTimeoutMs = if (batterySaver) 2000 else 4000
     private val httpCallTimeoutMs = if (batterySaver) 3000L else 5000L
+    private val realDelayTimeoutMs = (if (batterySaver) 6 else 10) * 1000L
 
     suspend fun pingServer(server: ServerEntity, type: PingType = PingType.TCP): PingResult =
-        if (speaksUdp(server) && (type == PingType.TCP || type == PingType.HTTP_GET)) {
+        if (judgedByCarriers(server)) {
+            openFluxDelay(server, realDelayTimeoutMs).copy(type = type)
+        } else if (speaksUdp(server) && (type == PingType.TCP || type == PingType.HTTP_GET)) {
             realDelay(server).copy(type = type)
         } else when (type) {
             PingType.TCP -> tcpPing(server.address, server.port)
@@ -190,9 +210,13 @@ class PingEngine(
         val runners = candidates.map { server ->
             race.launch {
                 gate.withPermit {
-                    if (!winner.isCompleted && tcpPing(server.address, server.port).success) {
-                        winner.complete(server)
+                    if (winner.isCompleted) return@withPermit
+                    val answered = if (judgedByCarriers(server)) {
+                        openFluxDelay(server, deadlineMs).success
+                    } else {
+                        tcpPing(server.address, server.port).success
                     }
+                    if (answered) winner.complete(server)
                 }
             }
         }
@@ -210,17 +234,15 @@ class PingEngine(
     /** Actual latency through the node, measured by the core itself. */
     private suspend fun realDelay(
         server: ServerEntity,
-        timeoutMs: Long = (if (batterySaver) 6 else 10) * 1000L
+        timeoutMs: Long = realDelayTimeoutMs
     ): PingResult = withContext(Dispatchers.IO) {
         val type = PingType.REAL_DELAY
         val problem = ConfigBuilder.dialProblem(server)
         if (problem != null) {
             return@withContext PingResult(server.remark, type, -1, false, problem)
         }
-        if (server.protocol == ProtocolType.OPENFLUX) {
-            // OpenFlux only runs while connected through it; from outside, whether its
-            // carrier (the exit's port, or the document's host) answers is what shows.
-            return@withContext tcpPing(server.address, server.port).copy(type = type)
+        if (judgedByCarriers(server)) {
+            return@withContext openFluxDelay(server, timeoutMs)
         }
         ConfigBuilder.helperSpec(server)?.let { spec ->
             // The core can't speak it: the voltaproxy helper makes the round trip, in a
@@ -260,6 +282,69 @@ class PingEngine(
             success = ms > 0,
             message = if (ms > 0) "" else "Узел не ответил"
         )
+    }
+
+    /**
+     * An OpenFlux node. Its helper running on this very link (the tunnel is on it): a
+     * real round trip through the helper's proxy, which is through the exit, the truest
+     * figure there is. Otherwise nothing can go through it without starting a helper —
+     * seconds, sometimes a captcha, and an exit serves one client at a time, so a test
+     * client would knock the real one off. It is then judged from outside: all its
+     * carriers are knocked on at once (the exit's own port for direct, the service for
+     * a document) and the best one that answers, the one the core would use, gives the
+     * figure: [OPENFLUX_ROUND_TRIPS] of its handshakes, and never less than the node
+     * gave the last time traffic really went through it (its smoothed figure, which
+     * only real round trips move). Such a result is marked [PingResult.estimate].
+     */
+    private suspend fun openFluxDelay(server: ServerEntity, timeoutMs: Long): PingResult {
+        val type = PingType.REAL_DELAY
+        if (!OpenFluxRunner.available) {
+            return PingResult(server.remark, type, -1, false, "OpenFlux не входит в эту сборку Volta")
+        }
+        if (OpenFluxRunner.runs(server.rawLink)) {
+            // The node in use, known to work: as patient as the background check, so a
+            // carrier slower than a sweep's deadline (a document) isn't called dead.
+            val patience = maxOf(timeoutMs, GUARD_TIMEOUT_MS)
+            val measuring = detached.async { throughOpenFlux(patience) }
+            val ms = withTimeoutOrNull(patience) { measuring.await() } ?: -1L
+            return PingResult(server.remark, type, ms, ms > 0, if (ms > 0) "" else "Узел не ответил")
+        }
+        val endpoints = OpenFluxLink.parse(server.rawLink)?.endpoints.orEmpty()
+        if (endpoints.isEmpty()) {
+            return PingResult(server.remark, type, -1, false, "Ссылка OpenFlux не читается")
+        }
+        val knocks = coroutineScope {
+            endpoints.map { e -> async { e to tcpPing(e.host, e.port) } }.awaitAll()
+        }
+        // Best first already: the core sends traffic over the best carrier that works.
+        val (carrier, knock) = knocks.firstOrNull { it.second.success }
+            ?: return PingResult(server.remark, type, -1, false, "Каналы OpenFlux не отвечают", estimate = true)
+        val figure = maxOf(knock.latencyMs.coerceAtLeast(1) * OPENFLUX_ROUND_TRIPS, server.ewmaMs)
+        return PingResult(
+            target = server.remark,
+            type = type,
+            latencyMs = figure,
+            success = true,
+            message = OpenFluxLink.carrierName(carrier.type),
+            estimate = true
+        )
+    }
+
+    /** A page through the running OpenFlux helper's proxy: its exit's round trip, in ms. */
+    private fun throughOpenFlux(timeoutMs: Long): Long {
+        val client = httpClient.newBuilder()
+            .proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", OpenFluxRunner.PORT)))
+            .connectTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+            .readTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+            .callTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+            .build()
+        val start = System.nanoTime()
+        val ok = runCatching {
+            client.newCall(
+                Request.Builder().url(DELAY_TEST_URL).header("User-Agent", "Volta/1.0").get().build()
+            ).execute().use { it.code in 100..599 }
+        }.getOrDefault(false)
+        return if (ok) ((System.nanoTime() - start) / 1_000_000L).coerceAtLeast(1L) else -1L
     }
 
     /**
@@ -341,14 +426,19 @@ class PingEngine(
         finalists: Int = 4
     ): List<Pair<Long, PingResult>> = coroutineScope {
         if (servers.isEmpty()) return@coroutineScope emptyList()
-        val (udp, tcpBased) = servers.partition(::speaksUdp)
+        // OpenFlux nodes: their own check is a few handshakes, so every one is judged.
+        val (openFlux, others) = servers.partition(::judgedByCarriers)
+        val openFluxJudged = openFlux.map { server ->
+            async { server.id to openFluxDelay(server, QUICK_TIMEOUT_MS) }
+        }
+        val (udp, tcpBased) = others.partition(::speaksUdp)
         // UDP nodes have no TCP latency to rank by: the few with the best record so far.
         val udpPicks = udp.sortedBy { it.score }.take(UDP_FINALISTS)
         val tcp = pingServers(tcpBased, PingType.TCP, maxParallel = TCP_PARALLEL)
         if (type == PingType.TCP) {
             return@coroutineScope tcp + udpPicks.map { server ->
                 async { server.id to realDelay(server, QUICK_TIMEOUT_MS) }
-            }.awaitAll()
+            }.awaitAll() + openFluxJudged.awaitAll()
         }
 
         val dead = tcp.filter { !it.second.success }
@@ -365,7 +455,7 @@ class PingEngine(
                 }
             }
         }.awaitAll()
-        dead + measured
+        dead + measured + openFluxJudged.awaitAll()
     }
 
     /**
@@ -405,8 +495,11 @@ class PingEngine(
         if (servers.isEmpty()) return@coroutineScope emptyList()
 
         if (type == PingType.REAL_DELAY) {
-            val tcp = pingServers(servers.filterNot(::speaksUdp), PingType.TCP, maxParallel)
-            val reachable = reachableIds(tcp) + servers.filter(::speaksUdp).map { it.id }
+            // UDP nodes have no handshake to sweep with, OpenFlux ones a check of their own:
+            // both go straight to the real measurement.
+            val skipsSweep = { s: ServerEntity -> speaksUdp(s) || judgedByCarriers(s) }
+            val tcp = pingServers(servers.filterNot(skipsSweep), PingType.TCP, maxParallel)
+            val reachable = reachableIds(tcp) + servers.filter(skipsSweep).map { it.id }
             val unreachable = servers.filter { it.id !in reachable }.map { server ->
                 server.id to PingResult(
                     target = server.remark,

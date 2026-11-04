@@ -306,22 +306,38 @@ object ConfigParser {
     /**
      * An openflux:// link is kept whole: the OpenFlux core reads it when connecting.
      * Only its name, carriers and exit address are read here, to list it.
+     *
+     * One link is one server, however many carriers it has: they are roads to the same
+     * exit, which the core runs together and fails over between (see [OpenFluxLink]).
+     * A `#name` after the link, the way providers name every other share link, names
+     * the server (and may carry `[L]`/`[H]` markup); the core never sees it.
      */
     private fun parseOpenFlux(link: String, subscriptionId: Long?): ServerEntity? {
-        val parsed = OpenFluxLink.parse(link) ?: return null
+        val (bare, label) = OpenFluxLink.splitName(link)
+        val parsed = OpenFluxLink.parse(bare) ?: return null
         val (host, port) = parsed.endpoint
         val carriers = parsed.transports.sortedByDescending { it.priority }.map { it.type }.distinct()
         return ServerEntity(
             subscriptionId = subscriptionId,
-            remark = parsed.name.ifBlank { "OpenFlux · ${parsed.carriersLabel}" },
+            remark = decodeRemark(label).trim()
+                .ifBlank { parsed.name }
+                .ifBlank { "OpenFlux · ${parsed.carriersLabel}" },
             protocol = ProtocolType.OPENFLUX,
             address = host,
             port = port,
             network = carriers.joinToString("+"),
             security = if (parsed.encrypted) "aes-gcm" else "none",
-            rawLink = link.filterNot { it.isWhitespace() }
+            rawLink = bare.filterNot { it.isWhitespace() }
         )
     }
+
+    /**
+     * An OpenFlux configuration given as JSON, the share.Config the core puts inside a
+     * link (`{"name", "secret", "transports": [...]}`): turned into the link the core
+     * would make for it, so it connects exactly like a scanned one.
+     */
+    private fun parseOpenFluxConfig(obj: JsonObject, subscriptionId: Long?): ServerEntity? =
+        OpenFluxLink.encode(obj)?.let { parseOpenFlux(it, subscriptionId) }
 
     // ---------------------------------------------------------------- VLESS
 
@@ -713,6 +729,11 @@ object ConfigParser {
             runCatching { parseOutbound(root, subscriptionId) }.getOrNull()?.let { servers += it }
         }
 
+        // An OpenFlux configuration as JSON: one exit. An array of them is several.
+        if (servers.isEmpty() && OpenFluxLink.isShareConfig(root)) {
+            parseOpenFluxConfig(root, subscriptionId)?.let { servers += it }
+        }
+
         // A v2rayNG-style config names its server in "remarks"; the outbound tag is just
         // "proxy". Without this every server of a JSON subscription was called "proxy",
         // and the name check (Home/LTE/balancer) had nothing to go on.
@@ -805,6 +826,7 @@ object ConfigParser {
             obj.get(key)?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotBlank() }
         }
         val parsed = when {
+            OpenFluxLink.isShareConfig(obj) -> listOfNotNull(parseOpenFluxConfig(obj, subscriptionId))
             link != null -> linksIn(link, subscriptionId)
             obj.has("outbounds") -> parseXrayJson(obj.toString(), subscriptionId).servers
             obj.has("protocol") -> listOfNotNull(parseSingleOutboundJson(obj.toString(), subscriptionId))

@@ -289,11 +289,10 @@ class VoltaVpnService : VpnService() {
                         intent.getStringArrayExtra(EXTRA_PER_APP_PACKAGES)?.toSet().orEmpty()
                     // Only the exit changes: the VPN interface and its app list stay, and
                     // just the core is replaced. Apps see no drop and nothing leaks past
-                    // the tunnel in between. OpenFlux brings its own helper, so it can't;
-                    // the voltaproxy helper is swapped along with the core.
-                    // The DNS server is part of the interface too (ConfigBuilder.tunDnsServers).
-                    val coreOnly = openFluxLink.isBlank() && lastOpenFluxLink.isBlank() &&
-                        newMtu == lastMtu && newSocksPort == socksPort &&
+                    // the tunnel in between. The helpers (OpenFlux, voltaproxy) are
+                    // swapped along with the core. The DNS server is part of the
+                    // interface, so a change there rebuilds it (ConfigBuilder.tunDnsServers).
+                    val coreOnly = newMtu == lastMtu && newSocksPort == socksPort &&
                         newPerAppMode == perAppMode && newPackages == perAppPackages &&
                         ConfigBuilder.tunDnsServers(config) == ConfigBuilder.tunDnsServers(lastConfig.orEmpty())
                     Log.i(
@@ -342,11 +341,16 @@ class VoltaVpnService : VpnService() {
                 }
             }
 
-            ACTION_DISCONNECT -> scope.launch { connectionMutex.withLock { doDisconnect() } }
+            ACTION_DISCONNECT -> {
+                abandonStart()
+                scope.launch { connectionMutex.withLock { doDisconnect() } }
+            }
 
             ACTION_TOGGLE -> when (_state.value) {
-                VpnConnectionState.CONNECTED, VpnConnectionState.CONNECTING ->
+                VpnConnectionState.CONNECTED, VpnConnectionState.CONNECTING -> {
+                    abandonStart()
                     scope.launch { connectionMutex.withLock { doDisconnect() } }
+                }
 
                 VpnConnectionState.DISCONNECTING -> Unit
                 VpnConnectionState.DISCONNECTED, VpnConnectionState.ERROR -> {
@@ -389,6 +393,41 @@ class VoltaVpnService : VpnService() {
             START_NOT_STICKY
         }
     }
+
+    /**
+     * Bumped when the user turns the VPN off. A node that failed to start after that
+     * is not moved on from: the user is leaving anyway.
+     */
+    @Volatile
+    private var disconnectsAsked = 0
+
+    /**
+     * Turning off while an OpenFlux helper still waits for its exit (or for a captcha)
+     * must not wait those seconds or minutes for the connect to give up: the helper is
+     * let go at once, and the waiting connect ends without moving to another node.
+     */
+    private fun abandonStart() {
+        disconnectsAsked++
+        if (_state.value == VpnConnectionState.CONNECTING) {
+            // Stopping waits for the helper to exit: not on the main thread.
+            scope.launch { runCatching { OpenFluxRunner.stop() } }
+        }
+    }
+
+    /**
+     * The OpenFlux helper for the node, before the core hands it anything: it waits
+     * until a carrier reaches the exit, or a captcha is passed. Not reaching the exit is
+     * the node's failure ([NodeStartException]), and the tunnel moves to another node
+     * as it does for a node that stops answering.
+     */
+    private suspend fun startOpenFlux(link: String) {
+        OpenFluxRunner.start(this, link).onFailure { e ->
+            throw NodeStartException(e.message ?: "OpenFlux не подключился", e)
+        }
+    }
+
+    /** The node itself did not come up (its OpenFlux exit didn't answer). */
+    private class NodeStartException(message: String, cause: Throwable?) : Exception(message, cause)
 
     private fun startOnItsOwn(modeName: String? = null) {
         if (tunnelActive.get() || _state.value == VpnConnectionState.CONNECTING) {
@@ -465,6 +504,7 @@ class VoltaVpnService : VpnService() {
         _state.value = VpnConnectionState.CONNECTING
         _serverName.value = name
         _error.value = null
+        val asked = disconnectsAsked
 
         try {
             cleanup()
@@ -477,7 +517,7 @@ class VoltaVpnService : VpnService() {
                     VpnNotificationHelper.NOTIFICATION_ID,
                     buildNotification(name, connecting = true)
                 )
-                OpenFluxRunner.start(this, openFluxLink).getOrThrow()
+                startOpenFlux(openFluxLink)
             }
             // AmneziaWG / Hysteria v1: the helper's proxy must listen before the core.
             lastHelper?.let { ProxyHelper.start(it).getOrThrow() }
@@ -533,6 +573,11 @@ class VoltaVpnService : VpnService() {
             watchdogJob?.cancel()
             watchdogJob = scope.launch { watchdog() }
             startHealthCheck("Сервер не отвечает")
+        } catch (e: NodeStartException) {
+            // Turned off meanwhile: the disconnect queued behind this finishes the job.
+            if (disconnectsAsked != asked) return
+            Log.w(TAG, "node did not come up", e)
+            failOver(e.message ?: "Не удалось подключиться")
         } catch (e: Exception) {
             Log.e(TAG, "connect failed", e)
             fail(e.message ?: "Не удалось подключиться")
@@ -556,8 +601,28 @@ class VoltaVpnService : VpnService() {
         healthJob?.cancel()
         runCatching { xray?.stop() }
         xray = null
+        val asked = disconnectsAsked
         try {
-            // The new node may need the helper, a different one, or none.
+            // The new node may need an OpenFlux helper (another link replaces the one
+            // running: only one runs at a time), or none: then a running one stops. Its
+            // exit can take seconds to answer; the VPN interface stays up meanwhile, so
+            // apps wait instead of leaking past the tunnel.
+            val openFluxLink = lastOpenFluxLink
+            if (openFluxLink.isNotBlank()) {
+                if (!OpenFluxRunner.connectedOn(openFluxLink)) {
+                    _state.value = VpnConnectionState.CONNECTING
+                    _serverName.value = name
+                    _serverId.value = serverId
+                    startForeground(
+                        VpnNotificationHelper.NOTIFICATION_ID,
+                        buildNotification(name, connecting = true)
+                    )
+                }
+                startOpenFlux(openFluxLink)
+            } else {
+                OpenFluxRunner.stop()
+            }
+            // The same for the voltaproxy helper: needed, a different one, or none.
             val helper = lastHelper
             if (helper != null) ProxyHelper.start(helper).getOrThrow() else ProxyHelper.stop()
             val core = newCore().also { xray = it }
@@ -565,12 +630,17 @@ class VoltaVpnService : VpnService() {
             generation++
             _serverName.value = name
             _serverId.value = serverId
+            _state.value = VpnConnectionState.CONNECTED
             startForeground(
                 VpnNotificationHelper.NOTIFICATION_ID,
                 buildNotification(name, connecting = false)
             )
             watchdogJob = scope.launch { watchdog() }
             startHealthCheck("Сервер не отвечает")
+        } catch (e: NodeStartException) {
+            if (disconnectsAsked != asked) return
+            Log.w(TAG, "node did not come up, moving on", e)
+            failOver(e.message ?: "Не удалось подключиться")
         } catch (e: Exception) {
             // The new core refused to start: rebuild the whole tunnel on it, which
             // reports a real failure the usual way.
@@ -692,6 +762,14 @@ class VoltaVpnService : VpnService() {
     private suspend fun onTunnelBroken(reason: String, gen: Int) = connectionMutex.withLock {
         // Already moved to another node since the report was made.
         if (!tunnelActive.get() || gen != generation) return@withLock
+        failOver(reason)
+    }
+
+    /**
+     * Holding the connect lock: the next node the repository picks in place of the one
+     * in use (it stays in the group the mode asks for), or the error when there is none.
+     */
+    private suspend fun failOver(reason: String) {
         val provider = failoverProvider
         if (provider != null && failoverAttempts < MAX_FAILOVERS) {
             failoverAttempts++
@@ -717,7 +795,7 @@ class VoltaVpnService : VpnService() {
                 _serverName.value = plan.serverName
                 _serverId.value = plan.serverId
                 doConnect(plan.configJson, plan.serverName, plan.mtu)
-                return@withLock
+                return
             }
         }
         fail(reason)

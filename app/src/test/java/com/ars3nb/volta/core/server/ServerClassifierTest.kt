@@ -1,5 +1,10 @@
 package com.ars3nb.volta.core.server
 
+import com.ars3nb.volta.core.openflux.OpenFluxLinkTest.Companion.DIRECT
+import com.ars3nb.volta.core.openflux.OpenFluxLinkTest.Companion.DOCS_A
+import com.ars3nb.volta.core.openflux.OpenFluxLinkTest.Companion.DOCS_B
+import com.ars3nb.volta.core.openflux.OpenFluxLinkTest.Companion.NODE
+import com.ars3nb.volta.core.parser.ConfigParser
 import com.ars3nb.volta.data.model.ProtocolType
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.ServerRole
@@ -136,6 +141,68 @@ class ServerClassifierTest {
         isSelected = selected,
         latencyMs = latency
     )
+
+    // ------------------------------------------------------------------ OpenFlux
+
+    private fun openFlux(link: String, name: String = "") =
+        ConfigParser.parseShareLink(if (name.isBlank()) link else "$link#$name")!!
+
+    @Test
+    fun openFluxTakesProviderMarkupLikeAnyServer() {
+        // A [L]/[H] prefix, a name and server-type positions work as for every protocol.
+        assertEquals(ServerRole.BYPASS_WHITELIST, ServerClassifier.classify(openFlux(DIRECT, "[L] Нидерланды")).role)
+        assertEquals("Нидерланды", ServerClassifier.classify(openFlux(DIRECT, "[L] Нидерланды")).remark)
+        assertEquals(ServerRole.NORMAL, ServerClassifier.classify(openFlux(DOCS_A, "[H] Документы")).role)
+        assertEquals(ServerRole.BYPASS_WHITELIST, ServerClassifier.classify(openFlux(NODE, "Германия LTE")).role)
+        assertEquals(ServerRole.AUTO, ServerClassifier.classify(openFlux(NODE, "Автовыбор")).role)
+
+        val types = ServerMarkup.parseServerTypes("lte:1;home:2")
+        assertEquals(
+            listOf(ServerRole.BYPASS_WHITELIST, ServerRole.NORMAL),
+            listOf(openFlux(DIRECT), openFlux(DOCS_A)).mapIndexed { i, s ->
+                ServerClassifier.classify(s, types, i).role
+            }
+        )
+    }
+
+    @Test
+    fun unmarkedOpenFluxGoesWhereItsCarriersWork() {
+        // Only documents (they pass mobile white lists): LTE. A direct road to the exit,
+        // alone or as a backup: Home, like any VPN server.
+        assertEquals(ServerRole.BYPASS_WHITELIST, ServerClassifier.classify(openFlux(DOCS_A)).role)
+        assertEquals(ServerRole.NORMAL, ServerClassifier.classify(openFlux(DIRECT)).role)
+        assertEquals(ServerRole.NORMAL, ServerClassifier.classify(openFlux(NODE)).role)
+        assertEquals(ServerRole.BYPASS_WHITELIST, ServerClassifier.autoRole(openFlux(DOCS_B)))
+
+        // A provider that listed its LTE servers keeps the group as it made it.
+        val merged = ServerClassifier.mergeProviderUpdate(
+            emptyList(),
+            listOf(openFlux(DIRECT, "[L] Нидерланды"), openFlux(DOCS_A)),
+            1
+        )
+        assertEquals(listOf(ServerRole.BYPASS_WHITELIST, ServerRole.NORMAL), merged.map { it.role })
+    }
+
+    @Test
+    fun openFluxExitsKeepTheirStateAcrossRefreshes() {
+        val stored = openFlux(DOCS_A, "Москва").copy(
+            id = 7, subscriptionId = 1, isSelected = true, ewmaMs = 900, latencyMs = 950,
+            role = ServerRole.NORMAL, roleManual = true
+        )
+        // Same exit renamed, plus another exit over the same document service.
+        val merged = ServerClassifier.mergeProviderUpdate(
+            listOf(stored),
+            listOf(openFlux(DOCS_B, "Питер"), openFlux(DOCS_A, "Москва, новое имя")),
+            1
+        )
+        assertEquals(0L, merged[0].id)
+        assertFalse(merged[0].isSelected)
+        assertEquals(7L, merged[1].id)
+        assertTrue(merged[1].isSelected)
+        assertEquals(900L, merged[1].ewmaMs)
+        assertEquals(ServerRole.NORMAL, merged[1].role)
+        assertEquals("Москва, новое имя", merged[1].remark)
+    }
 
     @Test
     fun lteMarkedNodesGoToTheLteGroup() {

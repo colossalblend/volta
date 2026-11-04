@@ -116,20 +116,28 @@ class AutoBalancer(
         /**
          * Nodes a scope may pick from. Provider balancers (role AUTO) are in none of
          * them: Volta balances by itself, a balancer behind it only hides which exit
-         * is actually in use.
-         */
-        /**
-         * The servers auto modes choose from. OpenFlux servers are picked by hand only:
-         * they run in their own process, so the core cannot time them like the rest.
+         * is actually in use. Every protocol takes part, OpenFlux included: its helper
+         * is started (or swapped) by the tunnel like the core is.
          */
         fun poolFor(servers: List<ServerEntity>, scope: BalancerScope): List<ServerEntity> =
-            servers.filter { it.protocol != ProtocolType.OPENFLUX }.let { pool ->
-                when (scope) {
-                    BalancerScope.ALL -> pool.filter { it.role != ServerRole.AUTO }
-                    BalancerScope.NORMAL -> pool.filter { it.role == ServerRole.NORMAL }
-                    BalancerScope.BYPASS -> pool.filter { it.role == ServerRole.BYPASS_WHITELIST }
-                }
+            when (scope) {
+                BalancerScope.ALL -> servers.filter { it.role != ServerRole.AUTO }
+                BalancerScope.NORMAL -> servers.filter { it.role == ServerRole.NORMAL }
+                BalancerScope.BYPASS -> servers.filter { it.role == ServerRole.BYPASS_WHITELIST }
             }
+
+        /**
+         * The order of the connect-time race: regular nodes first, OpenFlux only when
+         * none of them answered. A race of handshakes finds the nearest node, and an
+         * OpenFlux node's handshake reaches its carrier (a big service next door), not
+         * its exit: it would win every race while saying nothing about the exit, and
+         * starting its helper costs seconds the race is meant to save.
+         */
+        fun raceTiers(pool: List<ServerEntity>): List<List<ServerEntity>> =
+            pool.partition { it.protocol != ProtocolType.OPENFLUX }
+                .toList()
+                .map { tier -> tier.sortedBy { it.score } }
+                .filter { it.isNotEmpty() }
 
         fun filterByRegime(
             servers: List<ServerEntity>,
@@ -140,6 +148,37 @@ class AutoBalancer(
                 NetworkRegime.OPEN -> poolFor(servers, BalancerScope.NORMAL).ifEmpty { all }
                 NetworkRegime.WHITELIST_ONLY -> poolFor(servers, BalancerScope.BYPASS).ifEmpty { all }
                 NetworkRegime.BLOCKED, NetworkRegime.UNKNOWN -> all
+            }
+        }
+
+        /**
+         * The node a run settles on, from this run's [ranked] figures. The node to beat
+         * ([holder]) stays unless a challenger [beats] it; one that failed is replaced by
+         * the best that answered; when nothing answered, the holder is kept rather than
+         * a jump made to a dead node.
+         *
+         * A [guessed] node (an OpenFlux node never used: its carrier answered, its exit
+         * was never timed) does not push out a holder that works: moving onto it costs a
+         * helper start for a figure nobody measured. It is picked when the holder fails,
+         * or when there is none.
+         */
+        fun select(
+            ranked: List<Ranked>,
+            holder: ServerEntity?,
+            pool: List<ServerEntity>,
+            guessed: Set<Long> = emptySet()
+        ): ServerEntity? {
+            val best = ranked.firstOrNull { it.ok }
+                ?: return holder ?: pool.minByOrNull { it.score }
+            val holderRank = holder?.let { h -> ranked.firstOrNull { it.server.id == h.id } }
+            if (holderRank == null || !holderRank.ok) return best.server
+            val challenger = ranked.firstOrNull {
+                it.ok && (it.server.id == holderRank.server.id || it.server.id !in guessed)
+            } ?: return holderRank.server
+            return when {
+                challenger.server.id == holderRank.server.id -> holderRank.server
+                beats(challenger, holderRank) -> challenger.server
+                else -> holderRank.server
             }
         }
 
@@ -277,7 +316,12 @@ class AutoBalancer(
                 ?: pool.filter { it.isHealthy && it.latencyMs > 0 }.minByOrNull { it.score }
             val pick = known ?: run {
                 onPhase(Phase.MEASURING)
-                pingEngine.firstToAnswer(pool.sortedBy { it.score })
+                var winner: ServerEntity? = null
+                for (tier in raceTiers(pool)) {
+                    winner = pingEngine.firstToAnswer(tier)
+                    if (winner != null) break
+                }
+                winner
             }
             if (pick != null) {
                 return Decision(
@@ -306,6 +350,9 @@ class AutoBalancer(
             val r = first[server.id]
             server.id to mutableListOf(if (r?.success == true && r.latencyMs >= 0) r.latencyMs else -1L)
         }
+        // Judged from outside rather than timed through (an OpenFlux node whose helper
+        // isn't running): good for this run's choice, not for the node's long average.
+        val estimated = first.filterValues { it.estimate }.keys.toMutableSet()
 
         // Stage two: the few fastest (and the holder) are measured again, so one lucky
         // sample cannot win and a jittery or lossy node loses to a steady one.
@@ -320,6 +367,7 @@ class AutoBalancer(
                 samples[id]?.addAll(
                     results.map { if (it.success && it.latencyMs >= 0) it.latencyMs else -1L }
                 )
+                if (results.any { it.estimate }) estimated += id
             }
         }
 
@@ -332,7 +380,11 @@ class AutoBalancer(
                 Ranked(
                     server = server,
                     latencyMs = if (ok) q.medianMs else -1,
-                    ewmaMs = if (ok) blendEwma(server.ewmaMs, figure) else server.ewmaMs,
+                    ewmaMs = if (ok && server.id !in estimated) {
+                        blendEwma(server.ewmaMs, figure)
+                    } else {
+                        server.ewmaMs
+                    },
                     ok = ok,
                     jitterMs = q.jitterMs,
                     samples = list.size,
@@ -342,16 +394,10 @@ class AutoBalancer(
             .sortedBy { it.score }
 
         val best = ranked.firstOrNull { it.ok }
-        val holderRank = holder?.let { h -> ranked.firstOrNull { it.server.id == h.id } }
-
-        val selected: ServerEntity? = when {
-            // Nothing answered — keep what we had rather than jump to a dead node.
-            best == null -> holder ?: pool.minByOrNull { it.score }
-            holderRank == null || !holderRank.ok -> best.server
-            best.server.id == holderRank.server.id -> holderRank.server
-            beats(best, holderRank) -> best.server
-            else -> holderRank.server
-        }
+        // Estimates with nothing real behind them: OpenFlux nodes never used, known only
+        // by their carrier's handshake.
+        val guessed = judged.filter { it.id in estimated && it.ewmaMs <= 0 }.map { it.id }.toSet()
+        val selected = select(ranked, holder, pool, guessed)
         val switched = selected != null && selected.id != current?.id
 
         return Decision(

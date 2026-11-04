@@ -90,15 +90,26 @@ object OpenFluxRunner {
     fun isRunning(): Boolean = process?.isAlive == true
 
     /**
+     * Whether the helper runs on [link] right now. Only one runs at a time (one port,
+     * and an exit serves one client): a page through [PORT] then goes through that very
+     * exit, which is how a running OpenFlux server is measured.
+     */
+    fun runs(link: String): Boolean = link.isNotBlank() && link == runningLink && isRunning()
+
+    /** The helper runs on [link] and its carriers reach the exit: [start] has nothing to do. */
+    fun connectedOn(link: String): Boolean = runs(link) && _status.value is Status.Connected
+
+    /** The helper runs on [link] and waits for a check to be passed in the browser. */
+    fun waitsForCheck(link: String): Boolean = runs(link) && _status.value is Status.Captcha
+
+    /**
      * Starts the helper for [link] and waits until its carriers reach the exit. A captcha
      * on the way stretches the wait while the user passes it. Already running for the
      * same link and connected: nothing to do.
      */
     suspend fun start(context: Context, link: String): Result<Unit> = withContext(Dispatchers.IO) {
         appContext = context.applicationContext
-        if (link == runningLink && isRunning() && _status.value is Status.Connected) {
-            return@withContext Result.success(Unit)
-        }
+        if (connectedOn(link)) return@withContext Result.success(Unit)
         stop()
         val exe = binary(context)
         if (!exe.canExecute()) {
