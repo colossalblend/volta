@@ -4,6 +4,7 @@ import android.content.Context
 import com.ars3nb.volta.core.HwidProvider
 import com.ars3nb.volta.core.balancer.AutoBalancer
 import com.ars3nb.volta.core.balancer.GuardPolicy
+import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.parser.ConfigParser
 import com.ars3nb.volta.core.server.ServerMarkup
 import com.ars3nb.volta.core.ping.IpChecker
@@ -196,7 +197,7 @@ class VoltaRepository(private val context: Context) {
                 )
                 group.forEach { server ->
                     if (server.roleManual || server.roleFromProvider) return@forEach
-                    val role = ServerClassifier.roleByName(server.remark, explicit)
+                    val role = ServerClassifier.autoRole(server, explicit)
                     if (role != server.role) serverDao.updateAutoRole(server.id, role)
                 }
             }
@@ -622,13 +623,21 @@ class VoltaRepository(private val context: Context) {
             results.count { it.second.success }
         }
 
-    /** Writes a measurement back: raw value, smoothed value and the failure streak. */
+    /**
+     * Writes a measurement back: raw value, smoothed value and the failure streak. An
+     * estimate (an OpenFlux node judged from outside) leaves the smoothed value to real
+     * round trips.
+     */
     private suspend fun persist(server: ServerEntity, result: PingResult) {
         val ok = result.success && result.latencyMs >= 0
         serverDao.updateHealth(
             id = server.id,
             latency = if (ok) result.latencyMs else -1,
-            ewma = if (ok) AutoBalancer.blendEwma(server.ewmaMs, result.latencyMs) else server.ewmaMs,
+            ewma = if (ok && !result.estimate) {
+                AutoBalancer.blendEwma(server.ewmaMs, result.latencyMs)
+            } else {
+                server.ewmaMs
+            },
             failStreak = if (ok) 0 else (server.failStreak + 1).coerceAtMost(9)
         )
     }
@@ -1229,6 +1238,11 @@ class VoltaRepository(private val context: Context) {
         if (com.ars3nb.volta.core.vpn.DeviceState.underlying(context) !=
             com.ars3nb.volta.core.vpn.DeviceState.Underlying.OK
         ) return@withContext
+        // An OpenFlux carrier waits for the user to pass a check: the node isn't dead,
+        // and moving off it would throw away the page the user is looking at.
+        if (live.protocol == ProtocolType.OPENFLUX && OpenFluxRunner.waitsForCheck(live.rawLink)) {
+            return@withContext
+        }
         val mode = effectiveMode()
         val battery = prefs.batterySaver.first()
         val probe = NetworkProbe(battery)
@@ -1266,9 +1280,16 @@ class VoltaRepository(private val context: Context) {
 
         val answer = PingEngine(context, batterySaver = battery).stillAnswers(live)
         if (answer.success) {
-            val usual = if (live.ewmaMs > 0) live.ewmaMs else live.latencyMs
+            // An OpenFlux node's stored figure may be a guess from outside; only what
+            // went through it counts as its usual.
+            val usual = when {
+                live.ewmaMs > 0 -> live.ewmaMs
+                live.protocol == ProtocolType.OPENFLUX -> -1L
+                else -> live.latencyMs
+            }
             persist(live, answer)
-            val slow = mode.scope != null && GuardPolicy.isSlow(answer.latencyMs, usual)
+            val slow = mode.scope != null &&
+                GuardPolicy.isSlow(answer.latencyMs, usual, GuardPolicy.slowBarMs(live))
             if (slow && now - lastSlowRecheck >= GuardPolicy.SLOW_RECHECK_EVERY_MS) {
                 // One slow ping is not a slow server: a site through the tunnel must agree.
                 if (GuardPolicy.tunnelConfirmsSlow(tunnelProbe())) {

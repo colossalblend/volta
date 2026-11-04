@@ -1,5 +1,7 @@
 package com.ars3nb.volta.core.server
 
+import com.ars3nb.volta.core.openflux.OpenFluxLink
+import com.ars3nb.volta.data.model.ProtocolType
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.ServerRole
 
@@ -43,12 +45,39 @@ object ServerClassifier {
         return if (guess != ServerRole.NORMAL && guess in explicit) ServerRole.NORMAL else guess
     }
 
+    /**
+     * The group of a server nobody marked: the name check, and for OpenFlux what its
+     * carriers say. An OpenFlux server whose carriers all ride Russian services
+     * (Yandex and Mail.ru documents, Cups, Avito…) and never dial the exit itself is
+     * what still works when a mobile network lets only white-listed sites through, so
+     * its name saying nothing puts it in LTE. One that dials its exit directly stays
+     * Home, like any VPN server. As with names, a group the provider marked explicitly
+     * stays as the provider made it.
+     */
+    fun autoRole(server: ServerEntity, explicit: Set<ServerRole> = emptySet()): ServerRole {
+        val byName = roleByName(server.remark, explicit)
+        if (byName != ServerRole.NORMAL || server.protocol != ProtocolType.OPENFLUX) return byName
+        return if (ridesServicesOnly(server) && ServerRole.BYPASS_WHITELIST !in explicit) {
+            ServerRole.BYPASS_WHITELIST
+        } else {
+            ServerRole.NORMAL
+        }
+    }
+
+    /** An OpenFlux server with only service carriers ([OpenFluxLink.SERVICE_CARRIERS]). */
+    fun ridesServicesOnly(server: ServerEntity): Boolean {
+        if (server.protocol != ProtocolType.OPENFLUX) return false
+        val carriers = server.network.split('+').map { it.trim() }.filter { it.isNotEmpty() }
+        return carriers.isNotEmpty() && carriers.all { it in OpenFluxLink.SERVICE_CARRIERS }
+    }
+
     fun classify(server: ServerEntity): ServerEntity = classify(server, ServerMarkup.TypeMap.EMPTY, -1)
 
     /**
      * One server's group, provider markup first (see [ServerMarkup]):
      * JSON group (already set, [ServerEntity.roleFromProvider]) → `[L]/[H]/[A]` prefix →
-     * `server-type` position ([position] is 0-based) → the name check.
+     * `server-type` position ([position] is 0-based) → the name check ([autoRole]).
+     * The same for every protocol, OpenFlux included.
      */
     fun classify(
         server: ServerEntity,
@@ -66,7 +95,11 @@ object ServerClassifier {
         return if (providerRole != null) {
             server.copy(remark = remark, role = providerRole, roleFromProvider = true, roleManual = false)
         } else {
-            server.copy(role = roleByName(remark, explicit), roleFromProvider = false, roleManual = false)
+            server.copy(
+                role = autoRole(server.copy(remark = remark), explicit),
+                roleFromProvider = false,
+                roleManual = false
+            )
         }
     }
 
@@ -90,7 +123,17 @@ object ServerClassifier {
      * made them collide, and the collision deleted every duplicate but one on each refresh.
      * Cosmetic churn (remark, SNI, fingerprint) is still ignored so measured health survives.
      */
-    fun stableKey(server: ServerEntity): String = listOf(
+    fun stableKey(server: ServerEntity): String {
+        if (server.protocol == ProtocolType.OPENFLUX) {
+            // Its address is often just the document service (docs.yandex.ru:443), the
+            // same for every exit: the link's carriers and context tell exits apart.
+            val identity = OpenFluxLink.parse(server.rawLink)?.identity ?: server.rawLink.trim()
+            return "${server.protocol.name}|$identity"
+        }
+        return xrayKey(server)
+    }
+
+    private fun xrayKey(server: ServerEntity): String = listOf(
         server.protocol.name,
         server.address.trim().lowercase(),
         server.port,

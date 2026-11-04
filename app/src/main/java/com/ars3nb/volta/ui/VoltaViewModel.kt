@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.ars3nb.volta.BuildConfig
 import com.ars3nb.volta.VoltaApp
 import com.ars3nb.volta.core.link.VoltaLinks
+import com.ars3nb.volta.core.link.ImportDetector
 import com.ars3nb.volta.core.openflux.OpenFluxLink
 import com.ars3nb.volta.core.parser.AmneziaConfigs
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
@@ -486,7 +487,12 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
             _busy.value = true
             try {
                 val result = repo.pingServer(id)
-                _message.value = if (result.success) {
+                _message.value = if (result.success && result.estimate) {
+                    // OpenFlux judged from outside: its carrier answered, the exit is
+                    // measured for real once traffic goes through it.
+                    "Отклик: около ${result.latencyMs} мс" +
+                        result.message.takeIf { it.isNotBlank() }?.let { " · канал: $it" }.orEmpty()
+                } else if (result.success) {
                     "Отклик: ${result.latencyMs} мс"
                 } else {
                     result.message.ifBlank { "Сервер не отвечает" }
@@ -743,6 +749,14 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
                     }
 
                     value.trimStart().startsWith("{") || value.trimStart().startsWith("[") -> {
+                        val n = repo.importJson(value)
+                        require(n > 0) { "Здесь нет серверов, которые Volta умеет открывать" }
+                        _message.value = "Импортировано серверов: $n"
+                    }
+
+                    // Several links pasted at once (a few OpenFlux exits, a server list, a
+                    // base64 body): every one of them, as the screen promised.
+                    ImportDetector.detect(value) is ImportDetector.Kind.Servers -> {
                         val n = repo.importJson(value)
                         require(n > 0) { "Здесь нет серверов, которые Volta умеет открывать" }
                         _message.value = "Импортировано серверов: $n"

@@ -17,10 +17,11 @@ object GuardPolicy {
     /**
      * LTE servers that auto modes can actually use. Without any, "Авто LTE" and
      * "Авто Home+LTE" have nothing to switch to, so they run as plain Home and the site
-     * probes (which only exist to choose between the groups) are skipped.
+     * probes (which only exist to choose between the groups) are skipped. OpenFlux
+     * servers count like any other: auto modes pick them too.
      */
     fun hasLte(servers: List<ServerEntity>): Boolean = servers.any {
-        it.role == ServerRole.BYPASS_WHITELIST && it.protocol != ProtocolType.OPENFLUX
+        it.role == ServerRole.BYPASS_WHITELIST
     }
 
     /** The mode that really runs: the chosen one, or Home when it needs LTE servers that aren't there. */
@@ -35,6 +36,13 @@ object GuardPolicy {
     /** Slower than this is slow whatever the node usually does. */
     const val SLOW_ABS_MS = 900L
 
+    /**
+     * The same bar for an OpenFlux server with a document or other service carrier:
+     * relaying through a document is slow by nature, so only this is slow in itself
+     * (being much slower than its own usual still counts, as for any node).
+     */
+    const val SLOW_ABS_OPENFLUX_MS = 3_000L
+
     /** …or this many times its own usual figure, */
     const val SLOW_RATIO = 2.5
 
@@ -47,10 +55,17 @@ object GuardPolicy {
     /** A slow-triggered comparison runs at most this often. */
     const val SLOW_RECHECK_EVERY_MS = 6 * 60_000L
 
-    fun isSlow(latencyMs: Long, usualMs: Long): Boolean {
+    fun isSlow(latencyMs: Long, usualMs: Long, absMs: Long = SLOW_ABS_MS): Boolean {
         if (latencyMs <= 0) return false
-        if (latencyMs >= SLOW_ABS_MS) return true
+        if (latencyMs >= absMs) return true
         return usualMs > 0 && latencyMs >= SLOW_MIN_MS && latencyMs >= usualMs * SLOW_RATIO
+    }
+
+    /** The absolute "slow" bar for [server] (see [SLOW_ABS_OPENFLUX_MS]). */
+    fun slowBarMs(server: ServerEntity): Long {
+        if (server.protocol != ProtocolType.OPENFLUX) return SLOW_ABS_MS
+        val carriers = server.network.split('+').map { it.trim() }
+        return if (carriers.any { it.isNotEmpty() && it != "direct" }) SLOW_ABS_OPENFLUX_MS else SLOW_ABS_MS
     }
 
     /** The tunnel itself is slow (or silent) when a site through it takes this long. */
