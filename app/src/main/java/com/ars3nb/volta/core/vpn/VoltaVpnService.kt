@@ -269,9 +269,11 @@ class VoltaVpnService : VpnService() {
                     // just the core is replaced. Apps see no drop and nothing leaks past
                     // the tunnel in between. OpenFlux brings its own helper, so it can't;
                     // the voltaproxy helper is swapped along with the core.
+                    // The DNS server is part of the interface too (ConfigBuilder.tunDnsServers).
                     val coreOnly = openFluxLink.isBlank() && lastOpenFluxLink.isBlank() &&
                         newMtu == lastMtu && newSocksPort == socksPort &&
-                        newPerAppMode == perAppMode && newPackages == perAppPackages
+                        newPerAppMode == perAppMode && newPackages == perAppPackages &&
+                        ConfigBuilder.tunDnsServers(config) == ConfigBuilder.tunDnsServers(lastConfig.orEmpty())
                     Log.i(
                         TAG,
                         if (coreOnly) "Swapping the core onto a new node" else "Reconnecting onto a new config"
@@ -469,9 +471,9 @@ class VoltaVpnService : VpnService() {
                 .setMtu(mtu.coerceIn(1280, 9000))
                 .addAddress("10.10.14.1", 30)
                 .addRoute("0.0.0.0", 0)
-                .addDnsServer("1.1.1.1")
-                .addDnsServer("8.8.8.8")
                 .setBlocking(false)
+            // When the core answers DNS: 10.10.14.2, the other address of this /30.
+            ConfigBuilder.tunDnsServers(config).forEach { builder.addDnsServer(it) }
 
             applyPerAppRules(builder)
 

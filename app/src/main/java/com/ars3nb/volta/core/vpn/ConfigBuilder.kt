@@ -39,6 +39,28 @@ object ConfigBuilder {
     const val EXIT_CHECK_PORT = 10807
     const val EXIT_CHECK_TAG = "exit-check"
 
+    /**
+     * The DNS server Android is given while the core answers lookups itself: the free
+     * address in the tunnel's own 10.10.14.0/30 (v2rayNG names the same one with its
+     * local DNS on; sing-box does the same with 172.19.0.2). Nothing listens there; the
+     * routing hands every lookup sent to it to the core's resolver (see
+     * [RoutingEngine.toXrayRouting]).
+     *
+     * A public resolver here (the 1.1.1.1 and 8.8.8.8 the tunnel used to name) quietly
+     * defeats the core's DNS: Android's Private DNS on «Automatic», the default, finds
+     * that those addresses speak DNS-over-TLS and switches to port 853, and Chrome's
+     * secure DNS upgrades them to DNS-over-HTTPS. Both then travel as ordinary encrypted
+     * traffic through the proxy and never reach the port-53 rule, so AdGuard never saw
+     * a single lookup. An address no one knows offers neither, and Android stays on
+     * plain lookups the core can answer.
+     */
+    const val TUN_DNS = "10.10.14.2"
+
+    /** Where lookups the core does not answer itself (MX, SRV, TXT…) are passed on. */
+    private const val PASS_THROUGH_DNS = "1.1.1.1"
+
+    private const val DNS_OUT_TAG = "dns-out"
+
     /** Raised when the installed core physically cannot dial a node. */
     class UnsupportedProtocolException(message: String) : IllegalStateException(message)
 
@@ -62,12 +84,15 @@ object ConfigBuilder {
          * bound another profile explicitly, that routing is used exactly as shipped.
          */
         preferServerRouting: Boolean = false,
-        /** AdGuard DNS for every lookup in the tunnel; switches the DNS module on. */
+        /**
+         * AdGuard DNS for every lookup in the tunnel (switches the DNS module on), plus
+         * the core's own ad list on every connection.
+         */
         adBlock: AdBlockMode = AdBlockMode.OFF,
         /** Drops BitTorrent traffic whatever the profile says. */
         blockTorrents: Boolean = false
     ): String {
-        // Ad blocking lives in DNS, so it needs the core to answer the lookups itself.
+        // AdGuard needs the core to answer the lookups itself.
         val dnsInCore = localDns || adBlock != AdBlockMode.OFF
         val root = JsonObject()
         root.add("log", JsonObject().apply {
@@ -126,7 +151,9 @@ object ConfigBuilder {
         } else {
             resolveRules(server, profile, providerRoutingJson)
         }.let { list -> if (geo == null) list else list.map(geo::rewrite) }
-            .let { list -> filterRules(blockTorrents) + list }
+            // After the rewrite: the filters always use the bundled geosite.dat, which is
+            // known to carry their lists; a subscription's own file may not.
+            .let { list -> filterRules(adBlock, blockTorrents) + list }
         val domainStrategy = if (useServerRouting) {
             serverRouting?.get("domainStrategy")?.takeIf { it.isJsonPrimitive }?.asString
         } else {
@@ -137,6 +164,7 @@ object ConfigBuilder {
             domainStrategy = domainStrategy?.ifBlank { null } ?: "IPIfNonMatch",
             proxyBalancerTag = if (useBalancer) BALANCER_TAG else null,
             dnsRuleEnabled = dnsInCore,
+            dnsAddress = TUN_DNS,
             exitInboundTag = EXIT_CHECK_TAG
         )
         if (useBalancer) {
@@ -194,6 +222,25 @@ object ConfigBuilder {
         e.message ?: "Сервер не поддерживается"
     }
 
+    /**
+     * True when [configJson] answers the phone's DNS lookups itself (it has the `dns-out`
+     * hand-over), so the tunnel may name [TUN_DNS] as its DNS server. A config without
+     * it must get a real resolver instead, or nothing would resolve at all.
+     */
+    fun answersAppDns(configJson: String): Boolean = configJson.contains(DNS_OUT_TAG) && runCatching {
+        JsonParser.parseString(configJson).asJsonObject
+            .getAsJsonArray("outbounds")
+            ?.any { el ->
+                el.isJsonObject &&
+                    el.asJsonObject.get("tag")?.takeIf { it.isJsonPrimitive }?.asString == DNS_OUT_TAG &&
+                    el.asJsonObject.get("protocol")?.takeIf { it.isJsonPrimitive }?.asString == "dns"
+            } == true
+    }.getOrDefault(false)
+
+    /** The DNS servers the VPN interface names to Android for [configJson]. */
+    fun tunDnsServers(configJson: String): List<String> =
+        if (answersAppDns(configJson)) listOf(TUN_DNS) else listOf("1.1.1.1", "8.8.8.8")
+
     // -------------------------------------------------------------- inbounds
 
     private fun buildInbounds(socksPort: Int, httpPort: Int, batterySaver: Boolean): JsonArray {
@@ -207,6 +254,12 @@ object ConfigBuilder {
                 addProperty("udp", true)
                 addProperty("auth", "noauth")
             })
+            // Everything from the phone arrives here (the TUN bridge speaks SOCKS), and the
+            // app-wide filters depend on this sniffing staying on, for TCP and UDP alike:
+            // it reads the site name out of HTTP, TLS and QUIC, so the ad list matches a
+            // connection made straight to an IP (an app with its own DNS), and it is the
+            // only way the core recognises BitTorrent (the `protocol` rule). The protocol
+            // is noted whatever destOverride says.
             add("sniffing", JsonObject().apply {
                 addProperty("enabled", true)
                 add("destOverride", jsonArray("http", "tls", "quic"))
@@ -254,9 +307,16 @@ object ConfigBuilder {
     }
 
     private fun dnsOutbound() = JsonObject().apply {
-        addProperty("tag", "dns-out")
+        addProperty("tag", DNS_OUT_TAG)
         addProperty("protocol", "dns")
-        add("settings", JsonObject().apply { addProperty("nonIPQuery", "skip") })
+        add("settings", JsonObject().apply {
+            // Address lookups are answered by the core's resolver; anything else is
+            // passed on as is. Passed on to a real resolver, not to where it was sent:
+            // that is now TUN_DNS, where nothing would ever answer.
+            addProperty("nonIPQuery", "skip")
+            addProperty("address", PASS_THROUGH_DNS)
+            addProperty("port", 53)
+        })
     }
 
     /**
@@ -856,19 +916,55 @@ object ConfigBuilder {
         }.getOrNull()
     }
 
-    /** App-wide filters, ahead of every profile rule so no profile can undo them. */
-    private fun filterRules(blockTorrents: Boolean): List<RoutingRuleDto> = buildList {
+    /**
+     * App-wide filters, ahead of every profile rule so no profile can undo them. All of
+     * them send to the `block` (blackhole) outbound, which every config has.
+     *
+     * Ads: AdGuard DNS alone is not enough. Whatever finds an address without asking
+     * the core (a browser's own secure DNS, Private DNS set to a named provider, an app
+     * with a built-in resolver, an address cached from before) went straight to the ad
+     * server. The same category list in the routing catches those connections by the
+     * site name sniffing reads out of them, so ads stay blocked either way; AdGuard's
+     * bigger list still applies to every lookup the core answers.
+     *
+     * Torrents: the core can only tell BitTorrent by sniffing, from the plain TCP
+     * handshake (the "BitTorrent protocol" greeting) and from µTP over UDP. A client that
+     * encrypts its peer connections (MSE/PE, offered by default in most clients) looks
+     * like random bytes over TCP and slips through, as do DHT and UDP tracker packets,
+     * which the core has no sniffer for. Trackers reached by name over HTTP(S) are
+     * caught by the public-tracker list, which takes away most ways to find peers.
+     * This is a strong hint, not a guarantee.
+     *
+     * The geosite names come from the bundled geosite.dat; CI runs every built config
+     * through `xray run -test` against that file, so a list it lacks fails the build.
+     */
+    private fun filterRules(adBlock: AdBlockMode, blockTorrents: Boolean): List<RoutingRuleDto> = buildList {
+        if (adBlock != AdBlockMode.OFF) {
+            add(filterRule("Реклама и трекеры", domains = listOf("geosite:category-ads-all")))
+        }
+        if (adBlock == AdBlockMode.FAMILY) {
+            // Family DNS hides adult sites only from lookups the core answers.
+            add(filterRule("Сайты для взрослых", domains = listOf("geosite:category-porn")))
+        }
         if (blockTorrents) {
-            add(
-                RoutingRuleDto(
-                    name = "Торренты",
-                    outbound = RouteOutbound.BLOCK,
-                    protocol = listOf("bittorrent"),
-                    source = "builtin"
-                )
-            )
+            add(filterRule("Торренты", protocol = listOf("bittorrent")))
+            add(filterRule("Торрент-трекеры", domains = listOf("geosite:category-public-tracker")))
         }
     }
+
+    private fun filterRule(
+        name: String,
+        domains: List<String> = emptyList(),
+        protocol: List<String> = emptyList()
+    ) = RoutingRuleDto(
+        name = name,
+        outbound = RouteOutbound.BLOCK,
+        domains = domains,
+        protocol = protocol,
+        source = "builtin",
+        // Rules are laid out by sortOrder; this keeps the filters first for certain.
+        sortOrder = Int.MIN_VALUE
+    )
 
     private fun buildDns(profile: RoutingProfileEntity?, adBlock: AdBlockMode): JsonObject {
         val dns = JsonObject()

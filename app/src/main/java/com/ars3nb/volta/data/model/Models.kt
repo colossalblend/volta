@@ -128,14 +128,18 @@ enum class RouteOutbound {
     PROXY, DIRECT, BLOCK
 }
 
-/** AdGuard DNS in the tunnel: ads and trackers answer with nothing. */
+/**
+ * Ad blocking, in two layers (see ConfigBuilder.filterRules): AdGuard DNS answers every
+ * lookup the core handles, so ads and trackers resolve to nothing, and the core's own
+ * ad list blocks connections to them by name, for apps that find addresses elsewhere.
+ */
 enum class AdBlockMode(val dohUrl: String) {
     OFF(""),
 
     /** Ads, trackers and phishing. */
     STANDARD("https://dns.adguard-dns.com/dns-query"),
 
-    /** The same plus adult sites and safe search. */
+    /** The same plus adult sites (also blocked by name) and safe search (DNS only). */
     FAMILY("https://family.adguard-dns.com/dns-query")
 }
 

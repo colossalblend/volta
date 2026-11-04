@@ -11,6 +11,7 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
@@ -49,13 +50,79 @@ class ConfigBuilderTest {
                 )
             )
         )
-        val rules = root(ConfigBuilder.build(vless(), profile, blockTorrents = true))
-            .getAsJsonObject("routing").getAsJsonArray("rules")
-            .map { it.asJsonObject }
-        val torrent = rules.indexOfFirst { it.toString().contains("bittorrent") }
+        val config = root(ConfigBuilder.build(vless(), profile, blockTorrents = true))
+        val rules = rules(config)
+        val torrent = rules.indexOfFirst {
+            it.getAsJsonArray("protocol")?.toString()?.contains("bittorrent") == true
+        }
+        val trackers = rules.indexOfFirst { it.domains().contains("geosite:category-public-tracker") }
         val direct = rules.indexOfFirst { it.get("port")?.asString == "0-65535" }
         assertTrue(torrent in 0 until direct)
+        assertTrue(trackers in 0 until direct)
         assertEquals("block", rules[torrent].get("outboundTag").asString)
+        assertEquals("block", rules[trackers].get("outboundTag").asString)
+        assertBlockOutbound(config)
+        // The core only recognises BitTorrent by sniffing the traffic of the phone.
+        assertSniffs(config)
+    }
+
+    @Test
+    fun adBlockAlsoBlocksTheAdListInTheRouting() {
+        // AdGuard only sees lookups the core answers; a browser with its own secure DNS
+        // goes around it, so the ad list must also stop the connections themselves.
+        val profile = RoutingProfileEntity(
+            name = "Everything direct",
+            rulesJson = RoutingEngine.serializeRules(
+                listOf(
+                    RoutingRuleDto(
+                        name = "All",
+                        outbound = RouteOutbound.DIRECT,
+                        domains = listOf("regexp:.*"),
+                        source = "user"
+                    )
+                )
+            )
+        )
+        AdBlockMode.entries.filter { it != AdBlockMode.OFF }.forEach { mode ->
+            val config = root(ConfigBuilder.build(vless(), profile, adBlock = mode))
+            val rules = rules(config)
+            val ads = rules.indexOfFirst { it.domains().contains("geosite:category-ads-all") }
+            val user = rules.indexOfFirst { it.domains().contains("regexp:.*") }
+            assertTrue("$mode", ads in 0 until user)
+            assertEquals("block", rules[ads].get("outboundTag").asString)
+            assertBlockOutbound(config)
+            assertSniffs(config)
+            // The DNS side stays as it was: AdGuard answers first.
+            assertEquals(
+                mode.dohUrl,
+                config.getAsJsonObject("dns").getAsJsonArray("servers")[0].asString
+            )
+        }
+    }
+
+    @Test
+    fun familyModeAlsoBlocksAdultSitesInTheRouting() {
+        val family = ConfigBuilder.build(vless(), null, adBlock = AdBlockMode.FAMILY)
+        val standard = ConfigBuilder.build(vless(), null, adBlock = AdBlockMode.STANDARD)
+        val adult = rules(root(family)).firstOrNull { it.domains().contains("geosite:category-porn") }
+        assertNotNull(adult)
+        assertEquals("block", adult!!.get("outboundTag").asString)
+        assertFalse(standard.contains("geosite:category-porn"))
+    }
+
+    @Test
+    fun filtersStayOnTheBundledListsWithASubscriptionsOwnGeodata() {
+        // A provider's geosite file need not carry the ad or tracker lists.
+        val text = ConfigBuilder.build(
+            vless(),
+            null,
+            adBlock = AdBlockMode.STANDARD,
+            blockTorrents = true,
+            geo = com.ars3nb.volta.core.routing.GeoNames("geoip_s1.dat", "geosite_s1.dat")
+        )
+        assertTrue(text.contains("\"geosite:category-ads-all\""))
+        assertTrue(text.contains("\"geosite:category-public-tracker\""))
+        assertFalse(text.contains("ext:geosite_s1.dat:category-ads-all"))
     }
 
     @Test
@@ -63,6 +130,57 @@ class ConfigBuilderTest {
         val text = ConfigBuilder.build(vless(), null)
         assertFalse(text.contains("bittorrent"))
         assertFalse(text.contains("adguard"))
+        assertFalse(text.contains("category-ads-all"))
+        assertFalse(text.contains("category-porn"))
+        assertFalse(text.contains("category-public-tracker"))
+    }
+
+    @Test
+    fun androidIsPointedAtTheCoreWheneverTheCoreAnswersDns() {
+        // A public resolver as the tunnel's DNS invites Android and Chrome to switch to
+        // encrypted DNS that goes around the core (and AdGuard) altogether.
+        listOf(
+            ConfigBuilder.build(vless(), null, localDns = true),
+            ConfigBuilder.build(vless(), null, localDns = false, adBlock = AdBlockMode.STANDARD)
+        ).forEach { json ->
+            assertTrue(ConfigBuilder.answersAppDns(json))
+            assertEquals(listOf(ConfigBuilder.TUN_DNS), ConfigBuilder.tunDnsServers(json))
+
+            val config = root(json)
+            val rules = rules(config)
+            // Lookups sent there, over UDP and TCP, reach the core's resolver...
+            assertEquals("dns-out", rules[0].get("outboundTag").asString)
+            val tcp = rules.indexOfFirst {
+                it.ips().contains(ConfigBuilder.TUN_DNS) && it.get("port")?.asString == "53"
+            }
+            assertTrue(tcp >= 0)
+            assertEquals("dns-out", rules[tcp].get("outboundTag").asString)
+            assertTrue(rules[tcp].toString().contains("tcp"))
+            // ...the rest (Android trying DNS-over-TLS there) is refused, and both come
+            // before local addresses are sent direct.
+            val refuse = rules.indexOfFirst {
+                it.ips() == listOf(ConfigBuilder.TUN_DNS) && it.get("port") == null
+            }
+            val local = rules.indexOfFirst { it.ips().contains("geoip:private") }
+            assertEquals("block", rules[refuse].get("outboundTag").asString)
+            assertTrue(tcp < refuse && refuse < local)
+
+            // Lookups the core does not answer go to a real resolver, not to TUN_DNS.
+            val dnsOut = config.getAsJsonArray("outbounds").map { it.asJsonObject }
+                .first { it.get("tag").asString == "dns-out" }
+            val forward = dnsOut.getAsJsonObject("settings").get("address").asString
+            assertNotEquals(ConfigBuilder.TUN_DNS, forward)
+        }
+    }
+
+    @Test
+    fun withoutTheCoresDnsAndroidKeepsARealResolver() {
+        val json = ConfigBuilder.build(vless(), null, localDns = false)
+        assertFalse(ConfigBuilder.answersAppDns(json))
+        assertFalse(ConfigBuilder.tunDnsServers(json).contains(ConfigBuilder.TUN_DNS))
+        assertTrue(ConfigBuilder.tunDnsServers(json).isNotEmpty())
+        assertFalse(json.contains(ConfigBuilder.TUN_DNS))
+        assertFalse(ConfigBuilder.answersAppDns("not json"))
     }
 
     @Test
@@ -431,6 +549,34 @@ class ConfigBuilderTest {
     )
 
     private fun root(json: String): JsonObject = JsonParser.parseString(json).asJsonObject
+
+    private fun rules(config: JsonObject): List<JsonObject> =
+        config.getAsJsonObject("routing").getAsJsonArray("rules").map { it.asJsonObject }
+
+    private fun JsonObject.domains(): List<String> =
+        getAsJsonArray("domain")?.map { it.asString }.orEmpty()
+
+    private fun JsonObject.ips(): List<String> =
+        getAsJsonArray("ip")?.map { it.asString }.orEmpty()
+
+    /** The filters' target: a blackhole tagged `block`. */
+    private fun assertBlockOutbound(config: JsonObject) {
+        val block = config.getAsJsonArray("outbounds").map { it.asJsonObject }
+            .firstOrNull { it.get("tag").asString == "block" }
+        assertNotNull(block)
+        assertEquals("blackhole", block!!.get("protocol").asString)
+    }
+
+    /** The inbound the phone's traffic arrives on sniffs it, so filters can match. */
+    private fun assertSniffs(config: JsonObject) {
+        val socks = config.getAsJsonArray("inbounds").map { it.asJsonObject }
+            .first { it.get("tag").asString == "socks" }
+        assertTrue(socks.getAsJsonObject("settings").get("udp").asBoolean)
+        val sniffing = socks.getAsJsonObject("sniffing")
+        assertTrue(sniffing.get("enabled").asBoolean)
+        val overrides = sniffing.getAsJsonArray("destOverride").map { it.asString }
+        assertTrue(overrides.containsAll(listOf("http", "tls", "quic")))
+    }
 
     private fun proxyOutbound(json: String): JsonObject =
         root(json).getAsJsonArray("outbounds")
