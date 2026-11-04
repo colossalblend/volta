@@ -95,7 +95,8 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
     private var download: Job? = null
 
     private val direct = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
+        // Short, so a blocked GitHub falls through to the tunnel quickly.
+        .connectTimeout(8, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .followRedirects(true)
         .build()
@@ -106,10 +107,6 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
             .proxy(Proxy(Proxy.Type.HTTP, InetSocketAddress("127.0.0.1", VoltaRepository.LOCAL_HTTP_PORT)))
             .build()
     }
-
-    /** GitHub was out of reach directly but answered through the tunnel. */
-    @Volatile
-    private var preferTunnel = false
 
     suspend fun setAutoCheck(enabled: Boolean) {
         prefs.setUpdateAutoCheck(enabled)
@@ -313,16 +310,17 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
         if (!part.renameTo(target)) throw IOException("could not keep the download")
     }
 
-    /** Direct first (Volta is outside its own tunnel); through the tunnel if that fails. */
+    /**
+     * Always directly first (Volta is outside its own tunnel), then — only if that failed
+     * and the VPN is on — once more through the tunnel, for networks where GitHub is
+     * blocked or only a whitelist gets through.
+     */
     private fun <T> route(call: (OkHttpClient) -> T): T {
-        val tunnelUp = VoltaVpnService.state.value == VpnConnectionState.CONNECTED
-        val first = if (preferTunnel && tunnelUp) tunnel else direct
         return try {
-            call(first)
+            call(direct)
         } catch (e: IOException) {
-            if (!tunnelUp) throw e
-            val second = if (first === direct) tunnel else direct
-            call(second).also { preferTunnel = second === tunnel }
+            if (VoltaVpnService.state.value != VpnConnectionState.CONNECTED) throw e
+            call(tunnel)
         }
     }
 

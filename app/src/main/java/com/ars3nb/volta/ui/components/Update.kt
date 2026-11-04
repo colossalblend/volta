@@ -237,7 +237,7 @@ private fun updateIcon(state: UpdateState): ImageVector = when (state) {
 }
 
 private fun panelTitle(state: UpdateState, current: String): String = when (state) {
-    is UpdateState.UpToDate -> "У вас последняя версия"
+    is UpdateState.UpToDate -> "Volta $current"
     is UpdateState.Available -> "Вышла версия ${state.info.versionName}"
     is UpdateState.Downloading -> "Скачиваю версию ${state.info.versionName}"
     is UpdateState.Ready -> "Версия ${state.info.versionName} скачана"
@@ -248,7 +248,7 @@ private fun panelTitle(state: UpdateState, current: String): String = when (stat
 private fun panelHint(state: UpdateState, current: String): String = when (state) {
     UpdateState.Idle -> "Узнайте, есть ли новая версия"
     UpdateState.Checking -> "Ищу новую версию…"
-    is UpdateState.UpToDate -> "Volta $current · проверено в ${clock(state.checkedAt)}"
+    is UpdateState.UpToDate -> "Последняя версия · проверено в ${clock(state.checkedAt)}"
     is UpdateState.Available -> "Сейчас у вас $current · ${formatBytes(state.info.apk.size)}"
     is UpdateState.Downloading -> "Можно пользоваться приложением, пока идёт загрузка"
     is UpdateState.Ready -> readyHint(state)
