@@ -19,6 +19,9 @@ import java.util.UUID
  */
 object HappRoutingParser {
 
+    /** Called for every domain of a provider's rules (thousands): nothing is built per call. */
+    private val DOMAIN_PREFIXES = listOf("geosite:", "domain:", "full:", "regexp:", "keyword:", "ext:")
+
     // Names Volta gives what it makes from a provider's lists. They are stored with the
     // rules, so they stay the same in every language; [RoutingNames] shows them translated.
     /** The set's name when the provider gives none. */
@@ -391,11 +394,10 @@ object HappRoutingParser {
     private fun normalizeDomain(d: String): String {
         val t = d.trim()
         if (t.isEmpty()) return t
-        val prefixes = listOf("geosite:", "domain:", "full:", "regexp:", "keyword:", "ext:")
-        if (prefixes.any { t.startsWith(it, ignoreCase = true) }) return t
+        if (DOMAIN_PREFIXES.any { t.startsWith(it, ignoreCase = true) }) return t
         if (t.startsWith("*")) return "domain:" + t.removePrefix("*").removePrefix(".")
         // Looks like an address, not a host name.
-        if (t.contains('/') || t.contains(':') || t.matches(Regex("^[0-9.]+$"))) return ""
+        if (t.contains('/') || t.contains(':') || t.all { it in '0'..'9' || it == '.' }) return ""
         return "domain:$t"
     }
 

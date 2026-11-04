@@ -247,8 +247,10 @@ object VoltaLinks {
         val s = v.trim()
         if (isHttp(s) || s.contains("://")) return s
         // "sub.example.com/abc": a host with a path, no scheme.
-        return if (Regex("^[\\w.-]+\\.[a-z]{2,}(?::\\d+)?(/.*)?$", RegexOption.IGNORE_CASE).matches(s)) "https://$s" else s
+        return if (BARE_HOST_PATH.matches(s)) "https://$s" else s
     }
+
+    private val BARE_HOST_PATH = Regex("^[\\w.-]+\\.[a-z]{2,}(?::\\d+)?(/.*)?$", RegexOption.IGNORE_CASE)
 
     private fun query(after: String): List<Pair<String, String>> {
         val q = after.substringAfter('?', "").substringBefore('#')

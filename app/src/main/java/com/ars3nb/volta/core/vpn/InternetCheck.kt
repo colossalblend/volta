@@ -18,12 +18,14 @@ import android.telephony.CellSignalStrengthWcdma
 import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 
 /**
@@ -195,7 +197,11 @@ object InternetCheck {
             if (registered) runCatching { cm?.unregisterNetworkCallback(callback) }
             runCatching { app.unregisterReceiver(airplane) }
         }
-    }.distinctUntilChanged()
+    }
+        // Each read is several binder calls (every network, the modem's signal): off the
+        // main thread, where the home screen collects this every 15 s and on every change.
+        .flowOn(Dispatchers.IO)
+        .distinctUntilChanged()
 
     private const val SETTLE_MS = 1_200L
     private const val POLL_MS = 15_000L

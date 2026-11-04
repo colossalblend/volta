@@ -109,8 +109,13 @@ fun ServersScreen(
 
     val subsById = remember(state.subscriptions) { state.subscriptions.associateBy { it.id } }
 
+    // "Ping all" writes every result as it lands, and each write is a new list. What a
+    // server can dial and which country it is in don't change with its numbers, so those
+    // are worked out again only when something else about the servers changed.
+    val shapes = remember(state.servers) { state.servers.map(::withoutMeasurements) }
+
     // canDial builds JSON, so cache the verdict for the whole list.
-    val supported = remember(state.servers) {
+    val supported = remember(shapes) {
         state.servers.associate { it.id to ConfigBuilder.canDial(it) }
     }
 
@@ -118,7 +123,7 @@ fun ServersScreen(
     // No LTE server anywhere: the LTE choices fold away, as on the home screen.
     val hasLte = remember(state.servers) { GuardPolicy.hasLte(state.servers) }
 
-    val countryOf = remember(state.servers) {
+    val countryOf = remember(shapes) {
         state.servers.associate { it.id to Countries.of(it.remark) }
     }
     // Shown, searched and sorted in the app's language.
@@ -510,6 +515,16 @@ private fun emptyStateAction(
         }
     }
 }
+
+/** [server] without what a measurement or a tap changes (equal before and after a ping). */
+internal fun withoutMeasurements(server: ServerEntity): ServerEntity = server.copy(
+    latencyMs = -1,
+    ewmaMs = -1,
+    failStreak = 0,
+    lastPingAt = 0,
+    isFavorite = false,
+    isSelected = false
+)
 
 /** The last measurement, falling back to the smoothed one; -1 when never measured. */
 private fun measuredMs(server: ServerEntity): Long =
