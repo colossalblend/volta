@@ -1,5 +1,6 @@
 package com.ars3nb.volta.ui.screens
 
+import android.content.ActivityNotFoundException
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -72,6 +73,7 @@ import com.ars3nb.volta.ui.components.SectionHeader
 import com.ars3nb.volta.ui.components.VoltaCard
 import com.ars3nb.volta.ui.components.VoltaField
 import com.ars3nb.volta.ui.theme.VoltaTheme
+import com.ars3nb.volta.ui.tv.focusRing
 
 /**
  * Adding anything: one field for whatever the VPN service gave — a subscription
@@ -124,7 +126,7 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
             onClick = onBack,
             shape = CircleShape,
             color = MaterialTheme.colorScheme.surface,
-            modifier = Modifier.size(44.dp)
+            modifier = Modifier.size(44.dp).focusRing(CircleShape)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Назад")
@@ -197,7 +199,10 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
         Button(
             onClick = ::submit,
             enabled = kind.canSubmit && !state.busy,
-            modifier = Modifier.fillMaxWidth().height(54.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(54.dp)
+                .focusRing(CircleShape, color = MaterialTheme.colorScheme.onBackground)
         ) {
             if (state.busy) {
                 CircularProgressIndicator(
@@ -221,7 +226,19 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
                 tint = MaterialTheme.colorScheme.primary,
                 title = "Открыть файл настроек",
                 subtitle = "Файл, который прислал VPN-сервис",
-                onClick = { if (!state.busy) openFile.launch(arrayOf("*/*")) }
+                onClick = {
+                    if (!state.busy) {
+                        // Many TVs have no file picker at all.
+                        try {
+                            openFile.launch(arrayOf("*/*"))
+                        } catch (e: ActivityNotFoundException) {
+                            vm.showMessage(
+                                "На этом устройстве нельзя выбрать файл. " +
+                                    "Откройте файл на телефоне и вставьте его текст в поле выше"
+                            )
+                        }
+                    }
+                }
             )
         }
 
@@ -322,7 +339,9 @@ private fun FieldButton(icon: ImageVector, text: String, filled: Boolean, onClic
     Surface(
         onClick = onClick,
         shape = CircleShape,
-        color = if (filled) scheme.primary else scheme.primary.copy(alpha = if (dark) 0.18f else 0.14f)
+        color = if (filled) scheme.primary else scheme.primary.copy(alpha = if (dark) 0.18f else 0.14f),
+        // On the filled copper pill a copper outline would not show.
+        modifier = Modifier.focusRing(CircleShape, color = if (filled) scheme.onBackground else Color.Unspecified)
     ) {
         Row(
             Modifier.padding(horizontal = 14.dp, vertical = 9.dp),

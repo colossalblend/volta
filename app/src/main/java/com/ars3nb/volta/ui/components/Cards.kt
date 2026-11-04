@@ -68,6 +68,7 @@ import com.ars3nb.volta.data.model.SiteCategory
 import com.ars3nb.volta.data.model.SiteProbeResult
 import com.ars3nb.volta.data.model.SubscriptionEntity
 import com.ars3nb.volta.ui.theme.VoltaTheme
+import com.ars3nb.volta.ui.tv.focusRing
 
 /**
  * One server. On its own it is a card with the country flag; inside a country card
@@ -108,6 +109,7 @@ fun ServerRow(
         border = if (selected && !inGroup) androidx.compose.foundation.BorderStroke(1.5.dp, scheme.primary) else null,
         modifier = modifier
             .fillMaxWidth()
+            .focusRing(shape)
             .clip(shape)
             .combinedClickable(
                 onClick = onClick,
@@ -253,6 +255,7 @@ fun CountryCard(
             Row(
                 Modifier
                     .fillMaxWidth()
+                    .focusRing(CardShape)
                     .clickable(onClick = onToggle)
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically

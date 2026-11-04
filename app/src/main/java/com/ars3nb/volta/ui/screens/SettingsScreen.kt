@@ -85,6 +85,7 @@ import com.ars3nb.volta.ui.components.Hint
 import com.ars3nb.volta.ui.components.IconBubble
 import com.ars3nb.volta.ui.components.LinkRow
 import com.ars3nb.volta.ui.components.SectionHeader
+import com.ars3nb.volta.ui.components.SmallShape
 import com.ars3nb.volta.ui.components.SwitchRow
 import com.ars3nb.volta.ui.components.LanguageRow
 import com.ars3nb.volta.ui.components.UpdatePanel
@@ -94,6 +95,10 @@ import com.ars3nb.volta.ui.components.barColors
 import com.ars3nb.volta.ui.theme.VoltaTheme
 import com.ars3nb.volta.ui.tile.GroupTileService
 import com.ars3nb.volta.ui.tile.TileInstaller
+import com.ars3nb.volta.ui.tv.LocalTv
+import com.ars3nb.volta.ui.tv.TileRows
+import com.ars3nb.volta.ui.tv.Tv
+import com.ars3nb.volta.ui.tv.focusRing
 
 /**
  * Settings, grouped by what they are about. Every on/off row carries a badge that lights
@@ -122,6 +127,9 @@ fun SettingsScreen(vm: VoltaViewModel) {
     val context = LocalContext.current
     val palette = VoltaTheme.palette
     val primary = MaterialTheme.colorScheme.primary
+    // A TV has no shade for tiles and shows a banner instead of the app icon.
+    val tv = LocalTv.current
+    val rows = remember(tv) { Tv.settingsRows(tv, Build.VERSION.SDK_INT) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Настройки", fontWeight = FontWeight.SemiBold) }, colors = barColors()) }
@@ -187,34 +195,34 @@ fun SettingsScreen(vm: VoltaViewModel) {
                         title = "Не пускать интернет без VPN",
                         subtitle = killSwitchHint(alwaysOn),
                         onClick = {
-                            runCatching {
-                                context.startActivity(
-                                    Intent(Settings.ACTION_VPN_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                )
+                            if (!Tv.tryStart(context, Intent(Settings.ACTION_VPN_SETTINGS))) {
+                                vm.showMessage("На этом устройстве нет настроек VPN")
                             }
                         }
                     )
                 }
             }
 
-            item { SectionHeader("Плитки в шторке") }
-            item {
-                VoltaCard {
-                    Hint("Нажатие на плитку включает VPN в её режиме, повторное — выключает.")
-                    Spacer(Modifier.height(12.dp))
-                    if (TileInstaller.supported) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(ConnectMode.AUTO_HOME_LTE, ConnectMode.AUTO_HOME, ConnectMode.AUTO_LTE)
-                                .forEach { mode ->
-                                    TilePad(mode, Modifier.weight(1f)) {
-                                        TileInstaller.request(context, mode) { text ->
-                                            Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+            if (rows.tiles != TileRows.NONE) {
+                item { SectionHeader("Плитки в шторке") }
+                item {
+                    VoltaCard {
+                        Hint("Нажатие на плитку включает VPN в её режиме, повторное — выключает.")
+                        Spacer(Modifier.height(12.dp))
+                        if (rows.tiles == TileRows.ADD_BUTTONS) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf(ConnectMode.AUTO_HOME_LTE, ConnectMode.AUTO_HOME, ConnectMode.AUTO_LTE)
+                                    .forEach { mode ->
+                                        TilePad(mode, Modifier.weight(1f)) {
+                                            TileInstaller.request(context, mode) { text ->
+                                                Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+                                            }
                                         }
                                     }
-                                }
+                            }
+                        } else {
+                            Hint(TileInstaller.MANUAL_HINT)
                         }
-                    } else {
-                        Hint(TileInstaller.MANUAL_HINT)
                     }
                 }
             }
@@ -295,10 +303,12 @@ fun SettingsScreen(vm: VoltaViewModel) {
                             ThemeCoin(t, selected = state.designTheme == t) { vm.setDesignTheme(t) }
                         }
                     }
-                    Spacer(Modifier.height(18.dp))
-                    Text("Иконка приложения", style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(12.dp))
-                    AppIconPicker()
+                    if (rows.appIcon) {
+                        Spacer(Modifier.height(18.dp))
+                        Text("Иконка приложения", style = MaterialTheme.typography.titleSmall)
+                        Spacer(Modifier.height(12.dp))
+                        AppIconPicker()
+                    }
                 }
             }
             item {
@@ -370,11 +380,8 @@ fun SettingsScreen(vm: VoltaViewModel) {
                         title = "Помощь и инструкции",
                         subtitle = "Как добавить подписку, выбрать режим и настроить приложения",
                         onClick = {
-                            runCatching {
-                                context.startActivity(
-                                    Intent(Intent.ACTION_VIEW, android.net.Uri.parse(HELP_URL))
-                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                )
+                            if (!Tv.tryStart(context, Intent(Intent.ACTION_VIEW, android.net.Uri.parse(HELP_URL)))) {
+                                vm.showMessage("Нет браузера. Инструкции на сайте ${HELP_URL.removePrefix("https://")}")
                             }
                         }
                     )
@@ -397,7 +404,7 @@ private fun TilePad(mode: ConnectMode, modifier: Modifier = Modifier, onClick: (
         onClick = onClick,
         shape = RoundedCornerShape(20.dp),
         color = scheme.surfaceVariant,
-        modifier = modifier
+        modifier = modifier.focusRing(RoundedCornerShape(20.dp))
     ) {
         Column(
             Modifier.padding(horizontal = 12.dp, vertical = 14.dp),
@@ -453,6 +460,7 @@ private fun ThemeCoin(theme: DesignTheme, selected: Boolean, onClick: () -> Unit
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .width(64.dp)
+            .focusRing(SmallShape)
             .semantics { this.selected = selected }
             .clickable(role = Role.RadioButton, onClick = onClick)
     ) {

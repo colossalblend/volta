@@ -8,8 +8,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -52,8 +55,10 @@ import com.ars3nb.volta.ui.components.ConnectionHeadline
 import com.ars3nb.volta.ui.components.PowerButton
 import com.ars3nb.volta.ui.navigation.Routes
 import com.ars3nb.volta.ui.navigation.VoltaBottomBar
+import com.ars3nb.volta.ui.navigation.VoltaRail
 import com.ars3nb.volta.ui.screens.HomeContent
 import com.ars3nb.volta.ui.theme.VoltaTheme
+import com.ars3nb.volta.ui.tv.ProvideTv
 import java.io.File
 import kotlin.math.sin
 import org.junit.Rule
@@ -116,6 +121,34 @@ class ScreenShotsTest {
 
     @Test
     fun homeManual() = home("home-manual", base(), mode = ConnectMode.MANUAL)
+
+    /** The home screen on a 1080p TV: the tabs as a rail, the screen at reading width. */
+    @Test
+    @Config(qualifiers = "w960dp-h540dp-land-television-xhdpi")
+    fun homeTv() {
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            VoltaTheme(design = DesignTheme.VOLTA) {
+                ProvideTv(true) {
+                    Row(
+                        Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.background)
+                            .padding(horizontal = 24.dp, vertical = 12.dp)
+                    ) {
+                        VoltaRail(Routes.HOME) {}
+                        Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
+                            Box(Modifier.widthIn(max = 720.dp).fillMaxSize()) {
+                                Home(connected(), ConnectPhase.IDLE, ConnectMode.AUTO_HOME_LTE)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        compose.mainClock.advanceTimeBy(2_500)
+        capture("tv-home")
+    }
 
     // ------------------------------------------------------------------ animations
 

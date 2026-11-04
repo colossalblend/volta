@@ -1,0 +1,237 @@
+#!/usr/bin/env python3
+"""Draws the Android TV banner (res/drawable/tv_banner.xml).
+
+The TV launcher shows a 320x180 px (xhdpi) banner instead of the round icon. This one
+is the app icon laid out wide: the graphite background with its copper glow, the folded
+"V" mark and the word "Volta" set in the app's own display face (Unbounded, the font in
+res/font), turned into outlines so the banner needs no font at run time.
+
+    python3 tools/tv_banner.py            # rewrites app/src/main/res/drawable/tv_banner.xml
+    python3 tools/tv_banner.py --svg x    # also writes an SVG preview to x
+
+Needs fontTools (pip install fonttools).
+"""
+import argparse
+import pathlib
+
+from fontTools.pens.svgPathPen import SVGPathPen
+from fontTools.pens.transformPen import TransformPen
+from fontTools.ttLib import TTFont
+from fontTools.varLib.instancer import instantiateVariableFont
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+FONT = ROOT / "app/src/main/res/font/unbounded.ttf"
+OUT = ROOT / "app/src/main/res/drawable/tv_banner.xml"
+
+W, H = 320, 180
+WORD = "Volta"
+WEIGHT = 600          # SemiBold, as the "Volta" title on the home screen
+CAP = 40              # cap height of the word, px
+MARK_H = 58           # height of the folded V, px
+GAP = 20              # between the mark and the word, px
+
+CREAM = "#FFF3EFE9"
+COPPER_DEEP = "#FFC96F32"
+COPPER_LIGHT = "#FFF2B183"
+
+
+def kerning(font, left, right):
+    """Pair adjustment from GPOS (formats 1 and 2), in font units."""
+    if "GPOS" not in font:
+        return 0
+    gpos = font["GPOS"].table
+    for lookup in gpos.LookupList.Lookup:
+        subtables = lookup.SubTable
+        if lookup.LookupType == 9:
+            subtables = [s.ExtSubTable for s in subtables]
+        elif lookup.LookupType != 2:
+            continue
+        for st in subtables:
+            if getattr(st, "LookupType", 2) != 2:
+                continue
+            cov = st.Coverage.glyphs
+            if left not in cov:
+                continue
+            if st.Format == 1:
+                pset = st.PairSet[cov.index(left)]
+                for rec in pset.PairValueRecord:
+                    if rec.SecondGlyph == right and rec.Value1 is not None:
+                        return getattr(rec.Value1, "XAdvance", 0) or 0
+            elif st.Format == 2:
+                c1 = st.ClassDef1.classDefs.get(left, 0)
+                c2 = st.ClassDef2.classDefs.get(right, 0)
+                rec = st.Class1Record[c1].Class2Record[c2]
+                if rec.Value1 is not None:
+                    value = getattr(rec.Value1, "XAdvance", 0) or 0
+                    if value:
+                        return value
+    return 0
+
+
+def word_paths():
+    font = TTFont(FONT)
+    font = instantiateVariableFont(font, {"wght": WEIGHT})
+    cmap = font.getBestCmap()
+    glyphs = font.getGlyphSet()
+    cap = font["OS/2"].sCapHeight or 700
+    scale = CAP / cap
+    names = [cmap[ord(ch)] for ch in WORD]
+
+    x = 0
+    placed = []
+    for i, name in enumerate(names):
+        placed.append((name, x))
+        x += font["hmtx"][name][0]
+        if i + 1 < len(names):
+            x += kerning(font, name, names[i + 1])
+    return glyphs, placed, scale
+
+
+def outline(glyphs, placed, scale, ox, baseline):
+    pen = SVGPathPen(glyphs, ntos=lambda v: ("%.2f" % v).rstrip("0").rstrip("."))
+    for name, x in placed:
+        # Font units, y up -> banner pixels, y down.
+        t = TransformPen(pen, (scale, 0, 0, -scale, ox + x * scale, baseline))
+        glyphs[name].draw(t)
+    return pen.getCommands()
+
+
+def ink_bounds(glyphs, placed, scale):
+    from fontTools.pens.boundsPen import BoundsPen
+    pen = BoundsPen(glyphs)
+    for name, x in placed:
+        glyphs[name].draw(TransformPen(pen, (scale, 0, 0, scale, x * scale, 0)))
+    return pen.bounds  # xMin, yMin, xMax, yMax in px, y up
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--svg", help="also write an SVG preview here")
+    args = ap.parse_args()
+
+    glyphs, placed, scale = word_paths()
+    x0, y0, x1, y1 = ink_bounds(glyphs, placed, scale)
+    word_w = x1 - x0
+
+    # The folded V from the launcher icon (viewport 108, arms from (37,37) and (71,37)
+    # meeting at (54,72), stroke 11), scaled to MARK_H with the round caps included.
+    k = MARK_H / (72 - 37 + 11)
+    mark_w = (71 - 37 + 11) * k
+    total = mark_w + GAP + word_w
+    left = (W - total) / 2
+    cy = H / 2
+
+    def mx(v):
+        return left + (v - 37 + 5.5) * k
+
+    def my(v):
+        return cy - MARK_H / 2 + (v - 37 + 5.5) * k
+
+    stroke = 11 * k
+    cream_arm = "M%.2f,%.2f L%.2f,%.2f" % (mx(37), my(37), mx(54), my(72))
+    copper_arm = "M%.2f,%.2f L%.2f,%.2f" % (mx(54), my(72), mx(71), my(37))
+
+    word_left = left + mark_w + GAP - x0
+    baseline = cy + CAP / 2
+    word = outline(glyphs, placed, scale, word_left, baseline)
+    wx0, wx1 = word_left + x0, word_left + x1
+
+    xml = f"""<?xml version="1.0" encoding="utf-8"?>
+<!-- Android TV banner, 320x180 px at xhdpi. Generated by tools/tv_banner.py: the icon's
+     graphite and copper glow, the folded V and "Volta" set in Unbounded as outlines. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="160dp"
+    android:height="90dp"
+    android:viewportWidth="{W}"
+    android:viewportHeight="{H}">
+    <path android:pathData="M0,0h{W}v{H}h-{W}z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0"
+                android:startY="0"
+                android:endX="{W}"
+                android:endY="{H}">
+                <item android:color="#FF2A2D33" android:offset="0" />
+                <item android:color="#FF0E0F12" android:offset="1" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path android:pathData="M0,0h{W}v{H}h-{W}z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="{W / 2:.0f}"
+                android:centerY="{H * 0.62:.0f}"
+                android:gradientRadius="{W * 0.5:.0f}">
+                <item android:color="#40E08A4C" android:offset="0" />
+                <item android:color="#00E08A4C" android:offset="1" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:pathData="{cream_arm}"
+        android:strokeColor="{CREAM}"
+        android:strokeWidth="{stroke:.2f}"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="{copper_arm}"
+        android:strokeWidth="{stroke:.2f}"
+        android:strokeLineCap="round">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="{mx(54):.2f}"
+                android:startY="{my(72):.2f}"
+                android:endX="{mx(71):.2f}"
+                android:endY="{my(37):.2f}">
+                <item android:color="{COPPER_DEEP}" android:offset="0" />
+                <item android:color="{COPPER_LIGHT}" android:offset="1" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path android:pathData="{word}">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="{wx0:.2f}"
+                android:startY="{baseline:.2f}"
+                android:endX="{wx1:.2f}"
+                android:endY="{baseline - CAP:.2f}">
+                <item android:color="{COPPER_DEEP}" android:offset="0" />
+                <item android:color="{COPPER_LIGHT}" android:offset="1" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>
+"""
+    OUT.write_text(xml)
+    print("wrote", OUT.relative_to(ROOT))
+
+    if args.svg:
+        def argb(c):
+            return "#" + c[3:]
+        svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">
+<defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="{W}" y2="{H}" gradientUnits="userSpaceOnUse">
+  <stop offset="0" stop-color="#2A2D33"/><stop offset="1" stop-color="#0E0F12"/></linearGradient>
+ <radialGradient id="glow" cx="{W / 2}" cy="{H * 0.62}" r="{W * 0.5}" gradientUnits="userSpaceOnUse">
+  <stop offset="0" stop-color="#E08A4C" stop-opacity="0.25"/><stop offset="1" stop-color="#E08A4C" stop-opacity="0"/></radialGradient>
+ <linearGradient id="arm" x1="{mx(54)}" y1="{my(72)}" x2="{mx(71)}" y2="{my(37)}" gradientUnits="userSpaceOnUse">
+  <stop offset="0" stop-color="{argb(COPPER_DEEP)}"/><stop offset="1" stop-color="{argb(COPPER_LIGHT)}"/></linearGradient>
+ <linearGradient id="word" x1="{wx0}" y1="{baseline}" x2="{wx1}" y2="{baseline - CAP}" gradientUnits="userSpaceOnUse">
+  <stop offset="0" stop-color="{argb(COPPER_DEEP)}"/><stop offset="1" stop-color="{argb(COPPER_LIGHT)}"/></linearGradient>
+</defs>
+<rect width="{W}" height="{H}" fill="url(#bg)"/><rect width="{W}" height="{H}" fill="url(#glow)"/>
+<path d="{cream_arm}" stroke="{argb(CREAM)}" stroke-width="{stroke}" stroke-linecap="round" fill="none"/>
+<path d="{copper_arm}" stroke="url(#arm)" stroke-width="{stroke}" stroke-linecap="round" fill="none"/>
+<path d="{word}" fill="url(#word)"/>
+</svg>
+"""
+        pathlib.Path(args.svg).write_text(svg)
+        print("wrote", args.svg)
+
+
+if __name__ == "__main__":
+    main()

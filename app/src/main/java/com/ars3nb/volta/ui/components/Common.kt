@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ars3nb.volta.ui.theme.VoltaTheme
+import com.ars3nb.volta.ui.tv.focusRing
 import java.util.Locale
 import kotlin.math.abs
 
@@ -68,7 +69,7 @@ fun VoltaCard(
     ) {
         Column(
             modifier = if (onClick != null) {
-                Modifier.clickable(onClick = onClick).padding(contentPadding.dp)
+                Modifier.focusRing(CardShape).clickable(onClick = onClick).padding(contentPadding.dp)
             } else {
                 Modifier.padding(contentPadding.dp)
             },
