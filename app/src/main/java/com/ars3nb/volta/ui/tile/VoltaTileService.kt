@@ -70,7 +70,8 @@ class VoltaTileService : TileService() {
             return
         }
         // Into the foreground service at once; it picks the node and connects there.
-        VoltaVpnService.autoConnect(this)
+        // Refused (Android didn't count the tap as the user's): the app finishes the job.
+        if (!VoltaVpnService.autoConnect(this)) openApp()
     }
 
     private fun openApp() {

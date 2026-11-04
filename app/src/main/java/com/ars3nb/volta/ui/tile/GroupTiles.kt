@@ -98,7 +98,11 @@ abstract class GroupTileService(private val mode: ConnectMode) : TileService() {
         if (!running) {
             // Straight into the foreground service while the tap still counts: the
             // pick runs there, so closing the shade can't get the start refused.
-            VoltaVpnService.autoConnect(this, mode.name)
+            if (!VoltaVpnService.autoConnect(this, mode.name)) {
+                // Refused: remember the group and let the app's button finish the job.
+                app.appScope.launch { repo.setConnectMode(mode) }
+                openApp()
+            }
             return
         }
         // The tile's own scope dies moments after the click; the app scope outlives it.

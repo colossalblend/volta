@@ -19,12 +19,16 @@ import com.ars3nb.volta.data.model.PerAppMode
 import com.ars3nb.volta.data.model.TrafficStats
 import com.ars3nb.volta.data.model.VpnConnectionState
 import com.ars3nb.volta.ui.notification.VpnNotificationHelper
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -128,11 +132,7 @@ class VoltaVpnService : VpnService() {
                 putExtra(EXTRA_HELPER_KIND, plan.helper?.kind)
                 putExtra(EXTRA_HELPER_CONFIG, plan.helper?.config)
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(i)
-            } else {
-                context.startService(i)
-            }
+            startInForeground(context, i)
         }
 
         /**
@@ -141,31 +141,50 @@ class VoltaVpnService : VpnService() {
          * seconds, and Android only lets a background app start a foreground service
          * right after the tap or broadcast, not once the measuring is done.
          */
-        fun autoConnect(context: Context, modeName: String? = null) {
+        /**
+         * False when Android refused the start: a background app may start a foreground
+         * service only right after a tap, a boot or a similar exemption (Android 12+).
+         */
+        fun autoConnect(context: Context, modeName: String? = null): Boolean = runCatching {
             val i = Intent(context, VoltaVpnService::class.java)
                 .setAction(ACTION_AUTO_CONNECT)
                 .putExtra(EXTRA_MODE, modeName)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(i)
-            } else {
-                context.startService(i)
-            }
-        }
+            startInForeground(context, i)
+        }.onFailure { Log.w(TAG, "automatic start refused", it) }.isSuccess
 
+        /**
+         * Never throws: with the service already gone (an error ended it) there is
+         * nothing to stop, and Android refuses a plain start from the background.
+         */
         fun disconnect(context: Context) {
-            context.startService(
-                Intent(context, VoltaVpnService::class.java).setAction(ACTION_DISCONNECT)
-            )
+            runCatching {
+                context.startService(
+                    Intent(context, VoltaVpnService::class.java).setAction(ACTION_DISCONNECT)
+                )
+            }.onFailure { Log.w(TAG, "disconnect not delivered", it) }
         }
 
-        fun toggle(context: Context) {
-            val i = Intent(context, VoltaVpnService::class.java).setAction(ACTION_TOGGLE)
+        fun toggle(context: Context): Boolean = runCatching {
+            startInForeground(context, Intent(context, VoltaVpnService::class.java).setAction(ACTION_TOGGLE))
+        }.onFailure { Log.w(TAG, "toggle refused", it) }.isSuccess
+
+        private fun startInForeground(context: Context, intent: Intent) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(i)
+                context.startForegroundService(intent)
             } else {
-                context.startService(i)
+                context.startService(intent)
             }
         }
+
+        /**
+         * One lock for every instance of the service. The helpers (OpenFlux, voltaproxy)
+         * and the TUN bridge exist once per process, so a stopped service's cleanup must
+         * be done before the next instance raises its tunnel, and never run into it.
+         */
+        private val connectionMutex = Mutex()
+
+        /** Outlives an instance: the cleanup after onDestroy runs here, off the main thread. */
+        private val cleanupScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
 
     /** Always-on VPN is set to Volta; [lockdown]: no internet at all without the VPN. */
@@ -192,18 +211,36 @@ class VoltaVpnService : VpnService() {
     private var xray: XrayCore? = null
     private var tun2Socks: Tun2Socks? = null
     private val tunnelActive = AtomicBoolean(false)
-    private val connectionMutex = Mutex()
+    private val pending = PendingJobs()
     private var watchdogJob: Job? = null
 
-    private var lastConfig: String? = null
-    private var lastOpenFluxLink: String = ""
-    private var lastHelper: ProxyHelper.Spec? = null
-    private var lastServerName: String = ""
-    private var lastServerId: Long = 0
-    private var lastMtu: Int = 1420
-    private var socksPort: Int = SOCKS_PORT_DEFAULT
-    private var perAppMode: PerAppMode = PerAppMode.OFF
-    private var perAppPackages: Set<String> = emptySet()
+    /**
+     * The tunnel asked for last: by the user (a connect intent) or by a failover. Set on
+     * the main thread when a request is accepted, so the next one is compared with it.
+     */
+    @Volatile
+    private var wanted: ConnectionPlan? = null
+
+    /** What the VPN interface that is up right now was built from; null while down. */
+    @Volatile
+    private var runningTun: TunSpec? = null
+
+    /**
+     * Bumped by every connect and disconnect the user asks for. A queued connect that is
+     * no longer the latest request is skipped: the newer one does the work, so tapping
+     * through five servers does not raise five tunnels one after another.
+     */
+    @Volatile
+    private var requestSeq = 0
+
+    /** The latest start id Android delivered; stopping with it never drops a newer start. */
+    @Volatile
+    private var lastStartId = 0
+
+    @Volatile
+    private var destroyed = false
+
+    @Volatile
     private var failoverAttempts = 0
     private var healthJob: Job? = null
     private var lastUnderlying: Network? = null
@@ -216,6 +253,10 @@ class VoltaVpnService : VpnService() {
     private var generation = 0
 
     private val connectivity by lazy { getSystemService(ConnectivityManager::class.java) }
+
+    /** The port the running core's SOCKS inbound listens on (the probes go through it). */
+    private val socksPort: Int get() = runningTun?.socksPort ?: wanted?.socksPort ?: SOCKS_PORT_DEFAULT
+    private val serverLabel: String get() = wanted?.serverName.orEmpty()
 
     /**
      * Follows the physical network under the tunnel (this app is excluded from its own
@@ -258,117 +299,57 @@ class VoltaVpnService : VpnService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        lastStartId = startId
         // Turning Always-on or its lockdown on in Android's settings starts the service.
         noteAlwaysOn()
         when (intent?.action) {
             ACTION_CONNECT -> {
-                val config = intent.getStringExtra(EXTRA_CONFIG).orEmpty()
-                val name = intent.getStringExtra(EXTRA_SERVER_NAME).orEmpty()
-                val openFluxLink = intent.getStringExtra(EXTRA_OPENFLUX_LINK).orEmpty()
-                val helper = helperOf(intent)
+                val plan = planOf(intent)
                 // Foreground must be entered synchronously or Android kills the start.
-                startForeground(
-                    VpnNotificationHelper.NOTIFICATION_ID,
-                    buildNotification(name, connecting = true)
-                )
-                // Every OpenFlux or voltaproxy server has the same config (the helper's
-                // port): the link tells them apart.
-                val sameConfig = config == lastConfig && openFluxLink == lastOpenFluxLink &&
-                    helper == lastHelper
-                if ((_state.value == VpnConnectionState.CONNECTING ||
-                        _state.value == VpnConnectionState.CONNECTED) && sameConfig
-                ) {
+                enterForeground(plan.serverName, connecting = true)
+                if (TunnelRequests.isRepeat(_state.value, plan, wanted)) {
                     Log.d(TAG, "Ignoring duplicate connect while state=${_state.value}")
-                } else if (_state.value == VpnConnectionState.CONNECTED && !sameConfig) {
-                    // Switching servers must actually move the traffic, not just relabel it.
-                    val newMtu = intent.getIntExtra(EXTRA_MTU, 1420)
-                    val newSocksPort = intent.getIntExtra(EXTRA_SOCKS_PORT, SOCKS_PORT_DEFAULT)
-                    val newPerAppMode = runCatching {
-                        PerAppMode.valueOf(intent.getStringExtra(EXTRA_PER_APP_MODE).orEmpty())
-                    }.getOrDefault(PerAppMode.OFF)
-                    val newPackages =
-                        intent.getStringArrayExtra(EXTRA_PER_APP_PACKAGES)?.toSet().orEmpty()
-                    // Only the exit changes: the VPN interface and its app list stay, and
-                    // just the core is replaced. Apps see no drop and nothing leaks past
-                    // the tunnel in between. The helpers (OpenFlux, voltaproxy) are
-                    // swapped along with the core. The DNS server is part of the
-                    // interface, so a change there rebuilds it (ConfigBuilder.tunDnsServers).
-                    val coreOnly = newMtu == lastMtu && newSocksPort == socksPort &&
-                        newPerAppMode == perAppMode && newPackages == perAppPackages &&
-                        ConfigBuilder.tunDnsServers(config) == ConfigBuilder.tunDnsServers(lastConfig.orEmpty())
-                    Log.i(
-                        TAG,
-                        if (coreOnly) "Swapping the core onto a new node" else "Reconnecting onto a new config"
-                    )
-                    lastConfig = config
-                    lastOpenFluxLink = openFluxLink
-                    lastHelper = helper
-                    lastServerName = name
-                    lastServerId = intent.getLongExtra(EXTRA_SERVER_ID, 0)
-                    lastMtu = newMtu
-                    socksPort = newSocksPort
-                    perAppMode = newPerAppMode
-                    perAppPackages = newPackages
-                    failoverAttempts = 0
-                    _error.value = null
-                    val serverId = lastServerId
-                    if (coreOnly) {
-                        scope.launch { connectionMutex.withLock { swapCore(config, name, serverId) } }
-                    } else {
-                        _state.value = VpnConnectionState.CONNECTING
-                        _serverName.value = name
-                        _serverId.value = serverId
-                        scope.launch { connectionMutex.withLock { doConnect(config, name, lastMtu) } }
-                    }
                 } else {
-                    lastConfig = config
-                    lastOpenFluxLink = openFluxLink
-                    lastHelper = helper
-                    lastServerName = name
-                    lastServerId = intent.getLongExtra(EXTRA_SERVER_ID, 0)
-                    lastMtu = intent.getIntExtra(EXTRA_MTU, 1420)
-                    socksPort = intent.getIntExtra(EXTRA_SOCKS_PORT, SOCKS_PORT_DEFAULT)
-                    perAppMode = runCatching {
-                        PerAppMode.valueOf(intent.getStringExtra(EXTRA_PER_APP_MODE).orEmpty())
-                    }.getOrDefault(PerAppMode.OFF)
-                    perAppPackages =
-                        intent.getStringArrayExtra(EXTRA_PER_APP_PACKAGES)?.toSet().orEmpty()
-                    failoverAttempts = 0
-                    _state.value = VpnConnectionState.CONNECTING
-                    _serverName.value = name
-                    _serverId.value = lastServerId
+                    wanted = plan
+                    val seq = ++requestSeq
                     _error.value = null
-                    scope.launch { connectionMutex.withLock { doConnect(config, name, lastMtu) } }
-                }
-            }
-
-            ACTION_DISCONNECT -> {
-                abandonStart()
-                scope.launch { connectionMutex.withLock { doDisconnect() } }
-            }
-
-            ACTION_TOGGLE -> when (_state.value) {
-                VpnConnectionState.CONNECTED, VpnConnectionState.CONNECTING -> {
-                    abandonStart()
-                    scope.launch { connectionMutex.withLock { doDisconnect() } }
-                }
-
-                VpnConnectionState.DISCONNECTING -> Unit
-                VpnConnectionState.DISCONNECTED, VpnConnectionState.ERROR -> {
-                    val cfg = lastConfig
-                    if (cfg == null) {
-                        // A fresh service knows no config; connect in the saved mode. Also
-                        // keeps the startForegroundService() promise, which stopSelf() broke.
-                        startOnItsOwn()
-                    } else {
-                        startForeground(
-                            VpnNotificationHelper.NOTIFICATION_ID,
-                            buildNotification(lastServerName, connecting = true)
-                        )
+                    if (_state.value != VpnConnectionState.CONNECTED) {
                         _state.value = VpnConnectionState.CONNECTING
-                        _error.value = null
-                        scope.launch {
-                            connectionMutex.withLock { doConnect(cfg, lastServerName, lastMtu) }
+                        _serverName.value = plan.serverName
+                        _serverId.value = plan.serverId
+                    }
+                    enqueue {
+                        // A newer connect or a disconnect came in meanwhile: theirs stands.
+                        if (seq != requestSeq) return@enqueue
+                        failoverAttempts = 0
+                        moveTo(plan)
+                    }
+                }
+            }
+
+            ACTION_DISCONNECT -> requestDisconnect()
+
+            ACTION_TOGGLE -> {
+                // Started with startForegroundService (the notification, a shortcut):
+                // the foreground promise is kept on every branch.
+                enterForeground(serverLabel, connecting = _state.value != VpnConnectionState.CONNECTED)
+                when (_state.value) {
+                    VpnConnectionState.CONNECTED, VpnConnectionState.CONNECTING -> requestDisconnect()
+                    VpnConnectionState.DISCONNECTING -> Unit
+                    VpnConnectionState.DISCONNECTED, VpnConnectionState.ERROR -> {
+                        val plan = wanted
+                        if (plan == null) {
+                            // A fresh service knows no config; connect in the saved mode.
+                            startOnItsOwn()
+                        } else {
+                            val seq = ++requestSeq
+                            _state.value = VpnConnectionState.CONNECTING
+                            _error.value = null
+                            enqueue {
+                                if (seq != requestSeq) return@enqueue
+                                failoverAttempts = 0
+                                doConnect(plan)
+                            }
                         }
                     }
                 }
@@ -379,12 +360,7 @@ class VoltaVpnService : VpnService() {
             // Always-on VPN (android.net.VpnService) or a sticky restart (null intent).
             SERVICE_INTERFACE, null -> startOnItsOwn()
 
-            else -> if (tunnelActive.get()) {
-                startForeground(
-                    VpnNotificationHelper.NOTIFICATION_ID,
-                    buildNotification(lastServerName, connecting = false)
-                )
-            }
+            else -> if (tunnelActive.get()) enterForeground(serverLabel, connecting = false)
         }
         // Sticky while a tunnel is wanted: if Android kills the process, it brings the
         // service back and startOnItsOwn() reconnects in the same mode.
@@ -395,12 +371,45 @@ class VoltaVpnService : VpnService() {
         }
     }
 
+    private fun planOf(intent: Intent): ConnectionPlan = ConnectionPlan(
+        serverId = intent.getLongExtra(EXTRA_SERVER_ID, 0),
+        serverName = intent.getStringExtra(EXTRA_SERVER_NAME).orEmpty(),
+        configJson = intent.getStringExtra(EXTRA_CONFIG).orEmpty(),
+        mtu = intent.getIntExtra(EXTRA_MTU, 1420),
+        socksPort = intent.getIntExtra(EXTRA_SOCKS_PORT, SOCKS_PORT_DEFAULT),
+        perAppMode = runCatching {
+            PerAppMode.valueOf(intent.getStringExtra(EXTRA_PER_APP_MODE).orEmpty())
+        }.getOrDefault(PerAppMode.OFF),
+        perAppPackages = intent.getStringArrayExtra(EXTRA_PER_APP_PACKAGES)?.toSet().orEmpty(),
+        openFluxLink = intent.getStringExtra(EXTRA_OPENFLUX_LINK).orEmpty(),
+        helper = helperOf(intent)
+    )
+
     /**
-     * Bumped when the user turns the VPN off. A node that failed to start after that
-     * is not moved on from: the user is leaving anyway.
+     * Runs [block] under the connect lock, after the jobs already waiting. Counted, so a
+     * job that would stop the service sees whether another one waits behind it.
      */
-    @Volatile
-    private var disconnectsAsked = 0
+    private fun enqueue(block: suspend () -> Unit) {
+        pending.enter()
+        scope.launch {
+            try {
+                connectionMutex.withLock { block() }
+            } finally {
+                pending.leave()
+            }
+        }
+    }
+
+    /**
+     * The user turns the VPN off. A connect asked for after this (a quick off-and-on) is
+     * a new request, never dropped as a repeat of the old one.
+     */
+    private fun requestDisconnect() {
+        abandonStart()
+        wanted = null
+        ++requestSeq
+        enqueue { doDisconnect() }
+    }
 
     /**
      * Turning off while an OpenFlux helper still waits for its exit (or for a captcha)
@@ -416,6 +425,13 @@ class VoltaVpnService : VpnService() {
     }
 
     /**
+     * Bumped when the user turns the VPN off. A node that failed to start after that
+     * is not moved on from: the user is leaving anyway.
+     */
+    @Volatile
+    private var disconnectsAsked = 0
+
+    /**
      * The OpenFlux helper for the node, before the core hands it anything: it waits
      * until a carrier reaches the exit, or a captcha is passed. Not reaching the exit is
      * the node's failure ([NodeStartException]), and the tunnel moves to another node
@@ -423,6 +439,7 @@ class VoltaVpnService : VpnService() {
      */
     private suspend fun startOpenFlux(link: String) {
         OpenFluxRunner.start(this, link).onFailure { e ->
+            if (e is CancellationException) throw e
             throw NodeStartException(e.message ?: getString(R.string.home_vpn_openflux_failed), e)
         }
     }
@@ -432,29 +449,30 @@ class VoltaVpnService : VpnService() {
 
     private fun startOnItsOwn(modeName: String? = null) {
         if (tunnelActive.get() || _state.value == VpnConnectionState.CONNECTING) {
-            startForeground(
-                VpnNotificationHelper.NOTIFICATION_ID,
-                buildNotification(lastServerName, connecting = !tunnelActive.get())
-            )
+            enterForeground(serverLabel, connecting = !tunnelActive.get())
             return
         }
-        startForeground(
-            VpnNotificationHelper.NOTIFICATION_ID,
-            buildNotification(lastServerName, connecting = true)
-        )
+        enterForeground(serverLabel, connecting = true)
         _state.value = VpnConnectionState.CONNECTING
         _error.value = null
-        // The provider's connect may carry the very config this instance last used;
+        // The provider's connect may carry the very plan this instance last used;
         // it must not be dropped as a duplicate of a connect that is not running.
-        lastConfig = null
+        wanted = null
         val provider = autoStartProvider
         scope.launch {
             if (provider == null) {
-                fail(getString(R.string.home_vpn_auto_start_failed))
+                enqueue { fail(getString(R.string.home_vpn_auto_start_failed)) }
                 return@launch
             }
             // The provider ends in connect(), which arrives here as ACTION_CONNECT.
-            runCatching { provider(modeName) }.onFailure { e ->
+            try {
+                provider(modeName)
+            } catch (e: CancellationException) {
+                // The service itself is going away.
+                if (!isActive) throw e
+                // The pick was stopped (a second tap on the disc): leave quietly.
+                if (wanted == null) enqueue { if (wanted == null) doDisconnect() }
+            } catch (e: Exception) {
                 Log.w(TAG, "automatic start failed", e)
                 val message = e.message ?: getString(R.string.home_connect_failed)
                 // Started from a tile or at boot, there is no screen to show the error on.
@@ -463,7 +481,8 @@ class VoltaVpnService : VpnService() {
                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                     Toast.makeText(app, "Volta: $message", Toast.LENGTH_LONG).show()
                 }
-                connectionMutex.withLock { fail(message) }
+                // Only if nothing else took over meanwhile (the user's own connect).
+                if (wanted == null) enqueue { if (wanted == null) fail(message) }
             }
         }
     }
@@ -473,6 +492,7 @@ class VoltaVpnService : VpnService() {
      * fine against a dead node. Check right away (Happ/Hiddify do the same) and move
      * on to the next node within seconds, not after the one-minute watchdog.
      */
+    @Synchronized
     private fun startHealthCheck(reason: String, initialDelayMs: Long = 2_500) {
         healthJob?.cancel()
         val gen = generation
@@ -485,25 +505,45 @@ class VoltaVpnService : VpnService() {
                 if (!hasUnderlyingNetwork()) return@launch
                 if (probeThroughTunnel()) {
                     failoverAttempts = 0
-                    val id = lastServerId
+                    val id = _serverId.value
                     healthyListener?.let { listener -> runCatching { listener(id) } }
                     return@launch
                 }
                 Log.w(TAG, "health check ${attempt + 1}/$HEALTH_ATTEMPTS failed")
                 delay(2_500)
             }
-            // Separate launch: recovery restarts the tunnel, which cancels this job.
-            if (tunnelActive.get()) scope.launch { onTunnelBroken(reason, gen) }
+            // Its own job: recovery restarts the tunnel, which cancels this one.
+            if (tunnelActive.get()) reportBroken(reason, gen)
         }
     }
 
-    private suspend fun doConnect(config: String, name: String, mtu: Int) {
-        if (config.isBlank()) {
+    /**
+     * Brings the tunnel to [plan]: when the VPN interface that is up fits it, only the
+     * core (and its helpers) is replaced; otherwise the whole tunnel is rebuilt. Decided
+     * here, under the lock, against what really runs.
+     */
+    private suspend fun moveTo(plan: ConnectionPlan) {
+        val next = TunnelRequests.tunOf(plan)
+        val coreUp = tunnelActive.get() && xray != null
+        if (TunnelRequests.canSwapCore(runningTun, coreUp, next)) {
+            Log.i(TAG, "Swapping the core onto a new node")
+            swapCore(plan)
+        } else {
+            if (coreUp) Log.i(TAG, "Reconnecting onto a new config")
+            doConnect(plan)
+        }
+    }
+
+    private suspend fun doConnect(plan: ConnectionPlan) {
+        val name = plan.serverName
+        if (plan.configJson.isBlank()) {
             fail(getString(R.string.home_server_none))
             return
         }
+        wanted = plan
         _state.value = VpnConnectionState.CONNECTING
         _serverName.value = name
+        _serverId.value = plan.serverId
         _error.value = null
         val asked = disconnectsAsked
 
@@ -512,33 +552,33 @@ class VoltaVpnService : VpnService() {
 
             // An OpenFlux server: its helper must carry traffic before the core hands
             // anything to it. Waits for the carriers to reach the exit, or a captcha.
-            val openFluxLink = lastOpenFluxLink
-            if (openFluxLink.isNotBlank()) {
-                startForeground(
-                    VpnNotificationHelper.NOTIFICATION_ID,
-                    buildNotification(name, connecting = true)
-                )
-                startOpenFlux(openFluxLink)
+            if (plan.openFluxLink.isNotBlank()) {
+                enterForeground(name, connecting = true)
+                startOpenFlux(plan.openFluxLink)
             }
+            currentCoroutineContext().ensureActive()
             // AmneziaWG / Hysteria v1: the helper's proxy must listen before the core.
-            lastHelper?.let { ProxyHelper.start(this, it).getOrThrow() }
+            plan.helper?.let { ProxyHelper.start(this, it).getOrThrow() }
+            currentCoroutineContext().ensureActive()
 
             // The core comes up first. Raising the TUN before it would black-hole every
             // packet on the device while geodata is unpacked and the core boots.
             val core = newCore().also { xray = it }
-            core.start(config, tunFd = 0).getOrThrow()
+            core.start(plan.configJson, tunFd = 0).getOrThrow()
+            currentCoroutineContext().ensureActive()
 
+            val tun = TunnelRequests.tunOf(plan)
             val useIpv6 = hasGlobalIpv6()
             val builder = Builder()
                 .setSession("Volta · $name")
-                .setMtu(mtu.coerceIn(1280, 9000))
+                .setMtu(tun.mtu)
                 .addAddress("10.10.14.1", 30)
                 .addRoute("0.0.0.0", 0)
                 .setBlocking(false)
             // When the core answers DNS: 10.10.14.2, the other address of this /30.
-            ConfigBuilder.tunDnsServers(config).forEach { builder.addDnsServer(it) }
+            tun.dns.forEach { builder.addDnsServer(it) }
 
-            applyPerAppRules(builder)
+            applyPerAppRules(builder, plan.perAppMode, plan.perAppPackages)
 
             // Claiming ::/0 on an IPv4-only network makes apps prefer a route that
             // cannot carry traffic, which reads as "VPN connected but nothing loads".
@@ -556,22 +596,23 @@ class VoltaVpnService : VpnService() {
             noteAlwaysOn()
 
             val bridge = tun2Socks ?: Tun2Socks(this).also { tun2Socks = it }
-            bridge.start(fd.fd, mtu, socksPort).getOrThrow()
+            bridge.start(fd.fd, tun.mtu, tun.socksPort).getOrThrow()
             check(bridge.isRunning()) { getString(R.string.home_vpn_not_started) }
 
             generation++
+            runningTun = tun
             tunnelActive.set(true)
             _state.value = VpnConnectionState.CONNECTED
             _connectedSince.value = System.currentTimeMillis()
             _traffic.value = TrafficStats()
-            startForeground(
-                VpnNotificationHelper.NOTIFICATION_ID,
-                buildNotification(name, connecting = false)
-            )
+            enterForeground(name, connecting = false)
 
             watchdogJob?.cancel()
             watchdogJob = scope.launch { watchdog() }
             startHealthCheck(getString(R.string.home_server_not_responding))
+        } catch (e: CancellationException) {
+            // The service is going away; its own cleanup takes what was started.
+            throw e
         } catch (e: NodeStartException) {
             // Turned off meanwhile: the disconnect queued behind this finishes the job.
             if (disconnectsAsked != asked) return
@@ -588,14 +629,9 @@ class VoltaVpnService : VpnService() {
      * and the TUN bridge stay up (the new core listens on the same local port), so the
      * switch costs the open connections a moment, not the whole tunnel.
      */
-    private suspend fun swapCore(config: String, name: String, serverId: Long) {
-        if (!tunnelActive.get() || xray == null) {
-            _state.value = VpnConnectionState.CONNECTING
-            _serverName.value = name
-            _serverId.value = serverId
-            doConnect(config, name, lastMtu)
-            return
-        }
+    private suspend fun swapCore(plan: ConnectionPlan) {
+        val name = plan.serverName
+        wanted = plan
         watchdogJob?.cancel()
         healthJob?.cancel()
         runCatching { xray?.stop() }
@@ -606,36 +642,34 @@ class VoltaVpnService : VpnService() {
             // running: only one runs at a time), or none: then a running one stops. Its
             // exit can take seconds to answer; the VPN interface stays up meanwhile, so
             // apps wait instead of leaking past the tunnel.
-            val openFluxLink = lastOpenFluxLink
+            val openFluxLink = plan.openFluxLink
             if (openFluxLink.isNotBlank()) {
                 if (!OpenFluxRunner.connectedOn(openFluxLink)) {
                     _state.value = VpnConnectionState.CONNECTING
                     _serverName.value = name
-                    _serverId.value = serverId
-                    startForeground(
-                        VpnNotificationHelper.NOTIFICATION_ID,
-                        buildNotification(name, connecting = true)
-                    )
+                    _serverId.value = plan.serverId
+                    enterForeground(name, connecting = true)
                 }
                 startOpenFlux(openFluxLink)
             } else {
                 OpenFluxRunner.stop()
             }
+            currentCoroutineContext().ensureActive()
             // The same for the voltaproxy helper: needed, a different one, or none.
-            val helper = lastHelper
+            val helper = plan.helper
             if (helper != null) ProxyHelper.start(this, helper).getOrThrow() else ProxyHelper.stop()
+            currentCoroutineContext().ensureActive()
             val core = newCore().also { xray = it }
-            core.start(config, tunFd = 0).getOrThrow()
+            core.start(plan.configJson, tunFd = 0).getOrThrow()
             generation++
             _serverName.value = name
-            _serverId.value = serverId
+            _serverId.value = plan.serverId
             _state.value = VpnConnectionState.CONNECTED
-            startForeground(
-                VpnNotificationHelper.NOTIFICATION_ID,
-                buildNotification(name, connecting = false)
-            )
+            enterForeground(name, connecting = false)
             watchdogJob = scope.launch { watchdog() }
             startHealthCheck(getString(R.string.home_server_not_responding))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: NodeStartException) {
             if (disconnectsAsked != asked) return
             Log.w(TAG, "node did not come up, moving on", e)
@@ -644,10 +678,7 @@ class VoltaVpnService : VpnService() {
             // The new core refused to start: rebuild the whole tunnel on it, which
             // reports a real failure the usual way.
             Log.w(TAG, "core swap failed, reconnecting", e)
-            _state.value = VpnConnectionState.CONNECTING
-            _serverName.value = name
-            _serverId.value = serverId
-            doConnect(config, name, lastMtu)
+            doConnect(plan)
         }
     }
 
@@ -670,6 +701,7 @@ class VoltaVpnService : VpnService() {
      */
     private suspend fun watchdog() {
         val gen = generation
+        val plan = wanted
         var uplinkTotal = 0L
         var downlinkTotal = 0L
         var lastProbe = System.currentTimeMillis()
@@ -680,16 +712,16 @@ class VoltaVpnService : VpnService() {
             delay(2_000)
             if (!tunnelActive.get()) break
 
-            val openFluxDown = lastOpenFluxLink.isNotBlank() && !OpenFluxRunner.isRunning()
-            val helperDown = lastHelper != null && !ProxyHelper.isRunning()
+            val openFluxDown = plan?.openFluxLink?.isNotBlank() == true && !OpenFluxRunner.isRunning()
+            val helperDown = plan?.helper != null && !ProxyHelper.isRunning()
             if (xray?.isRunning() != true || tun2Socks?.isRunning() != true || openFluxDown || helperDown) {
                 Log.w(
                     TAG,
                     "component died — core=${xray?.isRunning()} tun=${tun2Socks?.isRunning()} " +
                         "openflux=${!openFluxDown} helper=${!helperDown}"
                 )
-                // Launched separately: recovery restarts the tunnel, which cancels this job.
-                scope.launch { onTunnelBroken(getString(R.string.home_vpn_connection_dropped), gen) }
+                // Its own job: recovery restarts the tunnel, which cancels this one.
+                reportBroken(getString(R.string.home_vpn_connection_dropped), gen)
                 return
             }
 
@@ -707,10 +739,7 @@ class VoltaVpnService : VpnService() {
 
             if (++notificationTick >= 5) {
                 notificationTick = 0
-                startForeground(
-                    VpnNotificationHelper.NOTIFICATION_ID,
-                    buildNotification(lastServerName, connecting = false)
-                )
+                enterForeground(serverLabel, connecting = false)
             }
 
             val now = System.currentTimeMillis()
@@ -724,7 +753,7 @@ class VoltaVpnService : VpnService() {
                     probeFailures++
                     Log.w(TAG, "tunnel probe failed ($probeFailures)")
                     if (probeFailures >= 2) {
-                        scope.launch { onTunnelBroken(getString(R.string.home_vpn_server_stopped_answering), gen) }
+                        reportBroken(getString(R.string.home_vpn_server_stopped_answering), gen)
                         return
                     }
                 } else {
@@ -753,14 +782,13 @@ class VoltaVpnService : VpnService() {
 
     private fun onCoreStoppedItself() {
         if (!tunnelActive.get()) return
-        val gen = generation
-        scope.launch { onTunnelBroken(getString(R.string.home_vpn_core_stopped), gen) }
+        reportBroken(getString(R.string.home_vpn_core_stopped), generation)
     }
 
     /** Try the next best node before giving up, so a dead exit is not a dead app. */
-    private suspend fun onTunnelBroken(reason: String, gen: Int) = connectionMutex.withLock {
-        // Already moved to another node since the report was made.
-        if (!tunnelActive.get() || gen != generation) return@withLock
+    private fun reportBroken(reason: String, gen: Int) = enqueue {
+        // Already moved to another node, or turned off, since the report was made.
+        if (!tunnelActive.get() || gen != generation) return@enqueue
         failOver(reason)
     }
 
@@ -775,25 +803,18 @@ class VoltaVpnService : VpnService() {
             // Short backoff so a flapping network is not hammered with reconnects.
             delay(700L * failoverAttempts)
             _state.value = VpnConnectionState.CONNECTING
-            startForeground(
-                VpnNotificationHelper.NOTIFICATION_ID,
-                buildNotification(lastServerName, connecting = true)
-            )
-            val plan = runCatching { provider(lastServerId) }.getOrNull()
+            enterForeground(serverLabel, connecting = true)
+            val failedId = wanted?.serverId ?: _serverId.value
+            val plan = try {
+                provider(failedId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                null
+            }
             if (plan != null) {
                 Log.i(TAG, "failover #$failoverAttempts -> ${plan.serverName}")
-                lastConfig = plan.configJson
-                lastOpenFluxLink = plan.openFluxLink
-                lastHelper = plan.helper
-                lastServerName = plan.serverName
-                lastServerId = plan.serverId
-                lastMtu = plan.mtu
-                socksPort = plan.socksPort
-                perAppMode = plan.perAppMode
-                perAppPackages = plan.perAppPackages
-                _serverName.value = plan.serverName
-                _serverId.value = plan.serverId
-                doConnect(plan.configJson, plan.serverName, plan.mtu)
+                doConnect(plan)
                 return
             }
         }
@@ -804,26 +825,37 @@ class VoltaVpnService : VpnService() {
         _error.value = message
         _state.value = VpnConnectionState.ERROR
         cleanup()
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        stopUnlessMoreQueued()
     }
 
     private fun doDisconnect() {
         _state.value = VpnConnectionState.DISCONNECTING
         cleanup()
         _state.value = VpnConnectionState.DISCONNECTED
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        stopUnlessMoreQueued()
+    }
+
+    /**
+     * Ends the service, unless another request is already on its way: one queued here,
+     * or a start Android has not delivered yet (stopping with the latest start id
+     * refuses then). Either one carries on in this service.
+     */
+    private fun stopUnlessMoreQueued() {
+        if (!pending.alone()) return
+        if (stopSelfResult(lastStartId)) stopForeground(STOP_FOREGROUND_REMOVE)
     }
 
     private fun cleanup() {
         watchdogJob?.cancel()
         watchdogJob = null
-        healthJob?.cancel()
-        healthJob = null
+        synchronized(this) {
+            healthJob?.cancel()
+            healthJob = null
+        }
         // The bytes of the last half minute, before the counters are gone.
         TrafficRecorder.flush()
         tunnelActive.set(false)
+        runningTun = null
         _connectedSince.value = 0
         _traffic.value = TrafficStats()
         runCatching { tun2Socks?.stop() }
@@ -833,6 +865,20 @@ class VoltaVpnService : VpnService() {
         runCatching { ProxyHelper.stop() }
         runCatching { tunFd?.close() }
         tunFd = null
+    }
+
+    /**
+     * Into the foreground with the status notification. Never throws: Android 12+ may
+     * refuse a service it restarted itself (sticky) or one Always-on started; the tunnel
+     * still comes up then, since the system holds on to an established VPN.
+     */
+    private fun enterForeground(serverName: String, connecting: Boolean) {
+        if (destroyed) return
+        try {
+            startForeground(VpnNotificationHelper.NOTIFICATION_ID, buildNotification(serverName, connecting))
+        } catch (e: Exception) {
+            Log.w(TAG, "foreground refused", e)
+        }
     }
 
     private fun buildNotification(serverName: String, connecting: Boolean): Notification =
@@ -845,9 +891,22 @@ class VoltaVpnService : VpnService() {
         )
 
     override fun onDestroy() {
+        destroyed = true
         runCatching { connectivity?.unregisterNetworkCallback(underlyingCallback) }
-        cleanup()
         scope.cancel()
+        // Stopping the helpers and the bridge can take seconds (each waits for its
+        // process or thread to finish): never on the main thread, where it would freeze
+        // the app. Under the shared lock, after a connect that is still finishing, and
+        // before the next instance's first connect.
+        cleanupScope.launch {
+            connectionMutex.withLock {
+                // A connect that was past its last check when the scope went may have
+                // raised the tunnel after all: it is taken down, and said so.
+                val cameUp = tunnelActive.get()
+                cleanup()
+                if (cameUp) _state.value = VpnConnectionState.DISCONNECTED
+            }
+        }
         if (_state.value != VpnConnectionState.DISCONNECTED &&
             _state.value != VpnConnectionState.ERROR
         ) {
@@ -858,7 +917,7 @@ class VoltaVpnService : VpnService() {
 
     override fun onRevoke() {
         // Another VPN took over. Tear down under the same lock a connect would hold.
-        scope.launch { connectionMutex.withLock { doDisconnect() } }
+        requestDisconnect()
         super.onRevoke()
     }
 
@@ -870,7 +929,7 @@ class VoltaVpnService : VpnService() {
      * that means adding only the chosen packages — Android forbids mixing allowed and
      * disallowed lists, so the app is simply never in the allowed set.
      */
-    private fun applyPerAppRules(builder: Builder) {
+    private fun applyPerAppRules(builder: Builder, perAppMode: PerAppMode, perAppPackages: Set<String>) {
         val packages = perAppPackages.filter { it.isNotBlank() && it != packageName }
         when {
             perAppMode == PerAppMode.INCLUDE && packages.isNotEmpty() -> {

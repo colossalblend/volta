@@ -54,11 +54,15 @@ object VpnNotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val togglePi = PendingIntent.getService(
-            context, 2,
-            Intent(context, VoltaVpnService::class.java).setAction(VoltaVpnService.ACTION_TOGGLE),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        // "Connect" raises a foreground service: started as one, or Android 8+ refuses
+        // it while the app is in the background.
+        val toggleIntent = Intent(context, VoltaVpnService::class.java).setAction(VoltaVpnService.ACTION_TOGGLE)
+        val toggleFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        val togglePi = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            PendingIntent.getForegroundService(context, 2, toggleIntent, toggleFlags)
+        } else {
+            PendingIntent.getService(context, 2, toggleIntent, toggleFlags)
+        }
 
         val title = when {
             connecting -> context.getString(R.string.vpn_connecting)
