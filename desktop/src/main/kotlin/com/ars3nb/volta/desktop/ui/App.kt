@@ -135,7 +135,10 @@ fun VoltaDesktopApp(
                 hoverColor = scheme.onSurfaceVariant.copy(alpha = 0.45f)
             )
         ) {
-            Row(Modifier.fillMaxSize().background(scheme.background)) {
+            // The page colour as a Surface, so text without a colour of its own takes the
+            // page's ink (Scaffold does this on Android).
+            Surface(color = scheme.background, contentColor = scheme.onBackground, modifier = Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxSize()) {
                 NavRail(
                     current = view.page,
                     vpnState = state.vpnState,
@@ -187,6 +190,7 @@ fun VoltaDesktopApp(
                     }
                     SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(16.dp))
                 }
+            }
             }
         }
     }

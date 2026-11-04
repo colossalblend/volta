@@ -143,6 +143,17 @@ class VoltaController(
                 launch { refreshIp() }
             }
         }
+        // Like the Android worker: each subscription again once its own interval has passed.
+        scope.launch(Dispatchers.IO) {
+            while (isActive) {
+                delay(30 * 60_000L)
+                val now = System.currentTimeMillis()
+                store.value.subscriptions
+                    .filter { it.isEnabled && it.url.startsWith("http", ignoreCase = true) }
+                    .filter { now - it.lastUpdated > it.updateIntervalHours.coerceIn(1, 72) * 3_600_000L }
+                    .forEach { sub -> runCatching { refreshSubscriptionInternal(sub.id) } }
+            }
+        }
     }
 
     /** Before the process ends: the tunnel down and the user's proxy back. */
@@ -396,6 +407,15 @@ class VoltaController(
             runCatching { BalancerScope.valueOf(k) to v }.getOrNull()
         }.toMap()
         val balancer = AutoBalancer(engine(), NetworkProbe())
+        // Home+LTE asks the network first. The fast probe answers as soon as one Home
+        // site does, instead of sitting out the timeouts of the ones a network blocks.
+        val network = if (scope == BalancerScope.ALL) {
+            runtime.update { it.copy(phase = ConnectPhase.PROBING) }
+            NetworkProbe().runFast().also { outcome ->
+                store.update { it.copy(networkRegime = outcome.regime) }
+                runtime.update { it.copy(probes = outcome.probes) }
+            }
+        } else null
         val decision = balancer.choose(
             servers = all,
             scope = scope,
@@ -403,7 +423,8 @@ class VoltaController(
             pingType = settings.pingType,
             onPhase = { phase -> runtime.update { it.copy(phase = ConnectPhase.of(phase)) } },
             remembered = remembered,
-            quick = false
+            quick = false,
+            knownNetwork = network
         )
         applyDecision(decision)
         if (decision.regime == NetworkRegime.BLOCKED && decision.ranked.isEmpty()) error(s.errNoInternet)

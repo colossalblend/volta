@@ -228,6 +228,16 @@ object SelfTest {
             }
 
             if (testProxy) {
+                check("start with Windows") {
+                    val exe = com.ars3nb.volta.desktop.platform.Autostart.launcher() ?: error("jpackage.app-path not set")
+                    val autostart = com.ars3nb.volta.desktop.platform.Autostart
+                    val was = autostart.isEnabled()
+                    require(autostart.setEnabled(true) && autostart.isEnabled()) { "could not switch on" }
+                    val value = WinApi.regGetString(WinApi.Root.CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Run", "Volta")
+                    require(value != null && value.contains(exe.name) && value.contains("--autostart")) { "Run value $value" }
+                    require(autostart.setEnabled(was) && autostart.isEnabled() == was) { "could not switch back" }
+                    "Run → $value"
+                }
                 check("a crash while connected is repaired on the next start") {
                     val original = WindowsApi.read()
                     require(systemProxy.apply(Ports.pick(0))) { "apply refused" }
