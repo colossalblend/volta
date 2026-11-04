@@ -95,7 +95,10 @@ final class TunnelGuard {
         let proxyDown = observations[ConfigBuilder.proxyTag].map { !$0.alive } ?? false
         var internet = true
         if proxyDown && !GuardPolicy.trafficProvesAlive(downloaded) {
-            internet = regime == .open || regime == .whitelistOnly ? true : await NetworkProbe.run() != .blocked
+            if regime != .open && regime != .whitelistOnly {
+                let probed = await NetworkProbe.run()
+                internet = probed != .blocked
+            }
         }
         let input = GuardPolicy.Input(plan: plan, liveId: liveId, wantedGroup: wanted, observations: observations,
                                       downloadedSinceLastCheck: downloaded, internetWorks: internet, fullDue: fullDue,
