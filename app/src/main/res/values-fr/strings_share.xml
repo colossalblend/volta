@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Sharing over Bluetooth: sending a subscription or server link to a TV or a phone nearby,
-     receiving one, the 4-digit code both screens compare, and what can go wrong on the way
+     receiving one, the 6-digit code both screens compare, and what can go wrong on the way
      (core/share, ui/share/BleShareSheet.kt, docs/ble-share.md). "Bluetooth" and "Volta"
      stay as they are. -->
 <resources>
@@ -75,6 +75,7 @@
     <string name="share_error_connect">La connexion a été coupée. Rapprochez les appareils et réessayez.</string>
     <string name="share_error_not_volta">Cet appareil n\'attend pas de lien de Volta.</string>
     <string name="share_error_mismatch">Les codes étaient différents, le lien n\'a donc pas été envoyé : un autre appareil a peut-être répondu. Réessayez.</string>
+    <string name="share_error_commitment">La réponse de l\'autre appareil ne correspondait pas à ce qu\'il avait annoncé, rien n\'a donc été envoyé : quelqu\'un à proximité interfère peut-être. Réessayez.</string>
     <string name="share_error_damaged">Le lien est arrivé endommagé. Réessayez.</string>
     <string name="share_error_too_large">C\'est trop volumineux pour le Bluetooth.</string>
     <string name="share_error_rejected">L\'autre appareil n\'a pas pu ouvrir le lien. Réessayez.</string>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Sharing over Bluetooth: sending a subscription or server link to a TV or a phone nearby,
-     receiving one, the 4-digit code both screens compare, and what can go wrong on the way
+     receiving one, the 6-digit code both screens compare, and what can go wrong on the way
      (core/share, ui/share/BleShareSheet.kt, docs/ble-share.md). "Bluetooth" and "Volta"
      stay as they are. -->
 <resources>
@@ -75,6 +75,7 @@
     <string name="share_error_connect">Байланыс үзілді. Құрылғыларды жақындатып, қайталап көріңіз.</string>
     <string name="share_error_not_volta">Бұл құрылғы Volta-дан сілтеме күтіп тұрған жоқ.</string>
     <string name="share_error_mismatch">Кодтар әртүрлі, сондықтан сілтеме жіберілмеді: басқа құрылғы жауап берген болуы мүмкін. Қайталап көріңіз.</string>
+    <string name="share_error_commitment">Басқа құрылғының жауабы ол алдын ала жариялағанмен сәйкес келмеді, сондықтан ештеңе жіберілмеді: жақын маңда біреу кедергі жасауы мүмкін. Қайталап көріңіз.</string>
     <string name="share_error_damaged">Сілтеме бүлінген күйде келді. Қайталап көріңіз.</string>
     <string name="share_error_too_large">Bluetooth үшін бұл тым үлкен.</string>
     <string name="share_error_rejected">Басқа құрылғы сілтемені аша алмады. Қайталап көріңіз.</string>

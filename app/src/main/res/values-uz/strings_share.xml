@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Sharing over Bluetooth: sending a subscription or server link to a TV or a phone nearby,
-     receiving one, the 4-digit code both screens compare, and what can go wrong on the way
+     receiving one, the 6-digit code both screens compare, and what can go wrong on the way
      (core/share, ui/share/BleShareSheet.kt, docs/ble-share.md). "Bluetooth" and "Volta"
      stay as they are. -->
 <resources>
@@ -75,6 +75,7 @@
     <string name="share_error_connect">Aloqa uzildi. Qurilmalarni yaqinroq olib keling va qayta urinib koʻring.</string>
     <string name="share_error_not_volta">Bu qurilma Voltadan havola kutmayapti.</string>
     <string name="share_error_mismatch">Kodlar har xil, shuning uchun havola yuborilmadi: boshqa qurilma javob bergan boʻlishi mumkin. Qayta urinib koʻring.</string>
+    <string name="share_error_commitment">Boshqa qurilmaning javobi u oldindan eʼlon qilgan narsaga mos kelmadi, shuning uchun hech narsa yuborilmadi: yaqinda kimdir aralashayotgan boʻlishi mumkin. Qayta urinib koʻring.</string>
     <string name="share_error_damaged">Havola buzilgan holda keldi. Qayta urinib koʻring.</string>
     <string name="share_error_too_large">Bu Bluetooth uchun juda katta.</string>
     <string name="share_error_rejected">Boshqa qurilma havolani ocha olmadi. Qayta urinib koʻring.</string>

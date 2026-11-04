@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Sharing over Bluetooth: sending a subscription or server link to a TV or a phone nearby,
-     receiving one, the 4-digit code both screens compare, and what can go wrong on the way
+     receiving one, the 6-digit code both screens compare, and what can go wrong on the way
      (core/share, ui/share/BleShareSheet.kt, docs/ble-share.md). "Bluetooth" and "Volta"
      stay as they are. -->
 <resources>
@@ -75,6 +75,7 @@
     <string name="share_error_connect">连接已断开。请让设备靠近一些后重试。</string>
     <string name="share_error_not_volta">该设备没有在等待 Volta 发送的链接。</string>
     <string name="share_error_mismatch">代码不一致，因此未发送链接：可能是其他设备应答了。请重试。</string>
+    <string name="share_error_commitment">另一台设备的回应与它事先公布的内容不符，因此未发送任何内容：附近可能有人在干扰。请重试。</string>
     <string name="share_error_damaged">链接在传输中损坏。请重试。</string>
     <string name="share_error_too_large">内容太大，无法通过蓝牙发送。</string>
     <string name="share_error_rejected">对方设备无法打开链接。请重试。</string>

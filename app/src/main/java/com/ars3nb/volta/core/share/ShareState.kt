@@ -27,6 +27,8 @@ enum class ShareFailure {
     CONNECT,
     NOT_VOLTA,
     MISMATCH,
+    /** The responder's nonce did not match its commitment: someone may be in between. */
+    COMMITMENT,
     DAMAGED,
     TOO_LARGE,
     REJECTED,
@@ -50,14 +52,14 @@ sealed interface ShareState {
     ) : ShareState
 
     /**
-     * The receiver shows its code: waiting to be found ([peer] null), or connected to a
-     * sender in the fallback and waiting for it to confirm.
+     * The receiver waits: to be found ([code] null), or with the exchange done and the
+     * code on screen, for the user to confirm on the sender.
      */
-    data class Waiting(val code: String, val peer: SharePeer?) : ShareState
+    data class Waiting(val code: String?, val peer: SharePeer?) : ShareState
 
     data class Connecting(val peer: SharePeer) : ShareState
 
-    /** The sender compares the code with the receiver's screen. */
+    /** The sender compares the code with the receiver's screen; [code] is 6 digits. */
     data class Confirm(val peer: SharePeer, val code: String) : ShareState
 
     /** Frames on the way; [progress] 0..1. */

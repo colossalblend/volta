@@ -128,9 +128,10 @@ abstract class BleSession(context: Context) {
 
     protected open fun onFinished() = Unit
 
-    protected fun fail(reason: ShareFailure) {
+    /** Ends the session as failed; [flushMs] lets a last message (a status, a cancel) out. */
+    protected fun fail(reason: ShareFailure, flushMs: Long = 300) {
         if (current.terminal) return
-        finish(ShareState.Failed(reason), flushMs = 300)
+        finish(ShareState.Failed(reason), flushMs)
     }
 
     private fun stopRadio() {
@@ -432,45 +433,56 @@ abstract class BleSession(context: Context) {
         }
     }
 
-    private val notifyQueue = ArrayDeque<ByteArray>()
-    private var notifyTarget: BluetoothDevice? = null
-    private var notifyUuid: java.util.UUID? = null
-    private var notifyTotal = 0
-    private var notifyDone: (() -> Unit)? = null
+    /** One frame on its way: what, where, its place in its message, what follows it. */
+    private class Outgoing(
+        val bytes: ByteArray,
+        val index: Int,
+        val total: Int,
+        val done: (() -> Unit)?,
+        val device: BluetoothDevice? = null,
+        val uuid: java.util.UUID? = null,
+        val characteristic: BluetoothGattCharacteristic? = null
+    )
 
-    /** Sends [frames] as notifications one at a time, each after the last went out. */
+    private fun batch(
+        frames: List<ByteArray>,
+        done: () -> Unit,
+        device: BluetoothDevice? = null,
+        uuid: java.util.UUID? = null,
+        characteristic: BluetoothGattCharacteristic? = null
+    ) = frames.mapIndexed { i, f ->
+        Outgoing(f, i, frames.size, if (i == frames.lastIndex) done else null, device, uuid, characteristic)
+    }
+
+    private val notifyQueue = ArrayDeque<Outgoing>()
+
+    /**
+     * Sends [frames] as notifications one at a time, each after the last went out; after
+     * whatever is already on its way. [done] runs once the last one is out.
+     */
     protected fun notifyFrames(device: BluetoothDevice, uuid: java.util.UUID, frames: List<ByteArray>, done: () -> Unit) {
-        notifyQueue.clear()
-        notifyQueue.addAll(frames)
-        notifyTarget = device
-        notifyUuid = uuid
-        notifyTotal = frames.size
-        notifyDone = done
-        notifyNext(0)
+        val idle = notifyQueue.isEmpty()
+        notifyQueue.addAll(batch(frames, done, device = device, uuid = uuid))
+        if (idle) notifyNext(0)
     }
 
     private fun notifyNext(attempt: Int) {
-        val device = notifyTarget ?: return
-        val uuid = notifyUuid ?: return
-        val frame = notifyQueue.firstOrNull() ?: return
-        if (!notify(device, uuid, frame)) {
+        val head = notifyQueue.firstOrNull() ?: return
+        if (!notify(head.device ?: return, head.uuid ?: return, head.bytes)) {
             if (attempt < RETRIES) handler.postDelayed({ guard { notifyNext(attempt + 1) } }, RETRY_MS)
             else fail(ShareFailure.CONNECT)
         }
     }
 
     private fun notified(device: BluetoothDevice, status: Int) {
-        if (device.address != notifyTarget?.address || notifyQueue.isEmpty()) return
+        val head = notifyQueue.firstOrNull() ?: return
+        if (device.address != head.device?.address) return
         if (status != BluetoothGatt.GATT_SUCCESS) return fail(ShareFailure.CONNECT)
         notifyQueue.removeFirst()
-        onFrameProgress(notifyTotal - notifyQueue.size, notifyTotal)
-        if (notifyQueue.isEmpty()) {
-            val done = notifyDone
-            notifyDone = null
-            done?.invoke()
-        } else {
-            notifyNext(0)
-        }
+        onFrameProgress(head.index + 1, head.total)
+        // The next frame first: [done] may queue more, which must not start it twice.
+        if (notifyQueue.isNotEmpty()) notifyNext(0)
+        head.done?.invoke()
     }
 
     /** [sent] of [total] frames are out (as writes or notifications). */
@@ -629,25 +641,21 @@ abstract class BleSession(context: Context) {
         }
     }
 
-    private val writeQueue = ArrayDeque<ByteArray>()
-    private var writeChar: BluetoothGattCharacteristic? = null
-    private var writeTotal = 0
-    private var writeDone: (() -> Unit)? = null
+    private val writeQueue = ArrayDeque<Outgoing>()
 
-    /** Writes [frames] (with response) one after another; [done] after the last is acknowledged. */
+    /**
+     * Writes [frames] to [ch] (with response) one after another, after whatever is already
+     * on its way; [done] after the last is acknowledged.
+     */
     protected fun writeFrames(ch: BluetoothGattCharacteristic, frames: List<ByteArray>, done: () -> Unit) {
-        writeQueue.clear()
-        writeQueue.addAll(frames)
-        writeChar = ch
-        writeTotal = frames.size
-        writeDone = done
-        writeNext(0)
+        val idle = writeQueue.isEmpty()
+        writeQueue.addAll(batch(frames, done, characteristic = ch))
+        if (idle) writeNext(0)
     }
 
     private fun writeNext(attempt: Int) {
-        val ch = writeChar ?: return
-        val frame = writeQueue.firstOrNull() ?: return
-        if (!write(ch, frame)) {
+        val head = writeQueue.firstOrNull() ?: return
+        if (!write(head.characteristic ?: return, head.bytes)) {
             // Busy with the previous operation for a moment: try again shortly.
             if (attempt < RETRIES) handler.postDelayed({ guard { writeNext(attempt + 1) } }, RETRY_MS)
             else fail(ShareFailure.CONNECT)
@@ -655,17 +663,14 @@ abstract class BleSession(context: Context) {
     }
 
     private fun written(uuid: java.util.UUID, ok: Boolean) {
-        if (uuid != writeChar?.uuid || writeQueue.isEmpty()) return
+        val head = writeQueue.firstOrNull() ?: return
+        if (uuid != head.characteristic?.uuid) return
         if (!ok) return fail(ShareFailure.CONNECT)
         writeQueue.removeFirst()
-        onFrameProgress(writeTotal - writeQueue.size, writeTotal)
-        if (writeQueue.isEmpty()) {
-            val done = writeDone
-            writeDone = null
-            done?.invoke()
-        } else {
-            writeNext(0)
-        }
+        onFrameProgress(head.index + 1, head.total)
+        // The next frame first: [done] may queue more, which must not start it twice.
+        if (writeQueue.isNotEmpty()) writeNext(0)
+        head.done?.invoke()
     }
 
     protected companion object {

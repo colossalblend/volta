@@ -29,9 +29,28 @@ class ShareProtocolTest {
     @Test
     fun strayAdvertsAreIgnored() {
         assertNull(ShareProtocol.parseAdvert(null))
-        assertNull(ShareProtocol.parseAdvert(byteArrayOf(1, 'R'.code.toByte(), 1, 2)))
-        assertNull(ShareProtocol.parseAdvert(byteArrayOf(2, 'R'.code.toByte(), 1, 2, 3, 4)))
-        assertNull(ShareProtocol.parseAdvert(byteArrayOf(1, 'X'.code.toByte(), 1, 2, 3, 4)))
+        assertNull(ShareProtocol.parseAdvert(byteArrayOf(2, 'R'.code.toByte(), 1, 2)))
+        // Version 1 (never released, code from one key) is not this protocol.
+        assertNull(ShareProtocol.parseAdvert(byteArrayOf(1, 'R'.code.toByte(), 1, 2, 3, 4)))
+        assertNull(ShareProtocol.parseAdvert(byteArrayOf(3, 'R'.code.toByte(), 1, 2, 3, 4)))
+        assertNull(ShareProtocol.parseAdvert(byteArrayOf(2, 'X'.code.toByte(), 1, 2, 3, 4)))
+    }
+
+    @Test
+    fun theAdvertCarriesVersionTwo() {
+        assertEquals(2, ShareProtocol.VERSION.toInt())
+        assertEquals(2, ShareProtocol.advert(ShareProtocol.ROLE_SENDER, sid)[0].toInt())
+    }
+
+    @Test
+    fun messagesFitTheirFrames() {
+        val hello = ShareProtocol.message(ShareProtocol.MSG_HELLO, ByteArray(ShareHandshake.HELLO_LEN))
+        assertEquals(1 + 65 + 16, hello.size)
+        assertEquals(ShareProtocol.MSG_HELLO, hello[0])
+        // At the default MTU the hello takes a few frames; at 517 one.
+        assertEquals(6, ShareFraming.split(hello, 23).size)
+        assertEquals(1, ShareFraming.split(hello, 517).size)
+        assertEquals(97, ShareHandshake.PUBLISHED_LEN)
     }
 
     @Test
@@ -43,7 +62,7 @@ class ShareProtocolTest {
     @Test
     fun characteristicsShareTheServiceBase() {
         val base = ShareProtocol.SERVICE.toString().substring(8)
-        listOf(ShareProtocol.KEY, ShareProtocol.DATA, ShareProtocol.STATUS).forEach {
+        listOf(ShareProtocol.KEY, ShareProtocol.UPLINK, ShareProtocol.DOWNLINK).forEach {
             assertEquals(base, it.toString().substring(8))
         }
     }

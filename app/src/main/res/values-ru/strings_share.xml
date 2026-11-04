@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Sharing over Bluetooth: sending a subscription or server link to a TV or a phone nearby,
-     receiving one, the 4-digit code both screens compare, and what can go wrong on the way
+     receiving one, the 6-digit code both screens compare, and what can go wrong on the way
      (core/share, ui/share/BleShareSheet.kt, docs/ble-share.md). "Bluetooth" and "Volta"
      stay as they are. -->
 <resources>
@@ -75,6 +75,7 @@
     <string name="share_error_connect">Связь прервалась. Поднесите устройства ближе и попробуйте снова.</string>
     <string name="share_error_not_volta">Это устройство не ждёт ссылку от Volta.</string>
     <string name="share_error_mismatch">Коды разные, поэтому ссылка не отправлена: могло ответить другое устройство. Попробуйте ещё раз.</string>
+    <string name="share_error_commitment">Ответ другого устройства не сошёлся с тем, что оно объявило заранее, поэтому ничего не отправлено: кто-то рядом может вмешиваться. Попробуйте ещё раз.</string>
     <string name="share_error_damaged">Ссылка пришла повреждённой. Попробуйте ещё раз.</string>
     <string name="share_error_too_large">Это слишком много для Bluetooth.</string>
     <string name="share_error_rejected">Другое устройство не смогло открыть ссылку. Попробуйте ещё раз.</string>

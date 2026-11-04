@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Sharing over Bluetooth: sending a subscription or server link to a TV or a phone nearby,
-     receiving one, the 4-digit code both screens compare, and what can go wrong on the way
+     receiving one, the 6-digit code both screens compare, and what can go wrong on the way
      (core/share, ui/share/BleShareSheet.kt, docs/ble-share.md). "Bluetooth" and "Volta"
      stay as they are. -->
 <resources>
@@ -75,6 +75,7 @@
     <string name="share_error_connect">Əlaqə kəsildi. Cihazları yaxınlaşdırın və yenidən cəhd edin.</string>
     <string name="share_error_not_volta">Bu cihaz Volta-dan keçid gözləmir.</string>
     <string name="share_error_mismatch">Kodlar fərqli idi, ona görə keçid göndərilmədi: başqa cihaz cavab vermiş ola bilər. Yenidən cəhd edin.</string>
+    <string name="share_error_commitment">Digər cihazın cavabı onun əvvəlcədən elan etdiyi ilə uyğun gəlmədi, ona görə heç nə göndərilmədi: yaxında kimsə müdaxilə edə bilər. Yenidən cəhd edin.</string>
     <string name="share_error_damaged">Keçid zədələnmiş gəldi. Yenidən cəhd edin.</string>
     <string name="share_error_too_large">Bu, Bluetooth üçün çox böyükdür.</string>
     <string name="share_error_rejected">Digər cihaz keçidi aça bilmədi. Yenidən cəhd edin.</string>

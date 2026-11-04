@@ -91,6 +91,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ars3nb.volta.R
 import com.ars3nb.volta.core.link.ImportDetector.Kind
 import com.ars3nb.volta.core.share.ShareFailure
+import com.ars3nb.volta.core.share.ShareHandshake
 import com.ars3nb.volta.core.share.SharePayload
 import com.ars3nb.volta.core.share.SharePeer
 import com.ars3nb.volta.core.share.ShareState
@@ -295,6 +296,7 @@ private fun BleShareSheet(
                         }
                     )
                     is ShareState.Waiting -> CodeBody(
+                        // No code until a sender has done the exchange: it depends on both sides.
                         code = s.code,
                         title = stringResource(R.string.share_waiting_title),
                         text = if (s.peer == null) stringResource(R.string.share_waiting_text)
@@ -506,18 +508,20 @@ private fun SearchingBody(s: ShareState.Searching, onSelect: (SharePeer) -> Unit
 @Composable
 private fun Code(code: String) {
     Text(
-        code.toCharArray().joinToString(" "),
+        // Six digits in two groups of three ("123 456"), as Bluetooth pairing shows them.
+        ShareHandshake.grouped(code),
         style = MaterialTheme.typography.displayMedium.copy(fontFeatureSettings = TABULAR),
         fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.primary,
-        letterSpacing = 4.sp,
+        letterSpacing = 2.sp,
+        maxLines = 1,
         textAlign = TextAlign.Center,
         modifier = Modifier.fillMaxWidth()
     )
 }
 
 @Composable
-private fun CodeBody(code: String, title: String, text: String, hint: String, pulse: Boolean) {
+private fun CodeBody(code: String?, title: String, text: String, hint: String, pulse: Boolean) {
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         if (pulse) PulsingBluetooth()
         Text(title, style = MaterialTheme.typography.titleMedium)
@@ -528,14 +532,16 @@ private fun CodeBody(code: String, title: String, text: String, hint: String, pu
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
-        Spacer(Modifier.height(18.dp))
-        VoltaCard(Modifier, contentPadding = 18) {
-            Hint(stringResource(R.string.share_code_label), Modifier.fillMaxWidth())
-            Spacer(Modifier.height(4.dp))
-            Code(code)
+        if (code != null) {
+            Spacer(Modifier.height(18.dp))
+            VoltaCard(Modifier, contentPadding = 18) {
+                Hint(stringResource(R.string.share_code_label), Modifier.fillMaxWidth())
+                Spacer(Modifier.height(4.dp))
+                Code(code)
+            }
+            Spacer(Modifier.height(10.dp))
+            Hint(hint)
         }
-        Spacer(Modifier.height(10.dp))
-        Hint(hint)
     }
 }
 
@@ -653,7 +659,7 @@ private fun kindLook(kind: Kind, hidden: Boolean): Pair<ImageVector, String> = w
 @Composable
 private fun FailedBody(reason: ShareFailure, onRetry: () -> Unit, onClose: () -> Unit) {
     val title = when (reason) {
-        ShareFailure.MISMATCH -> R.string.share_mismatch_title
+        ShareFailure.MISMATCH, ShareFailure.COMMITMENT -> R.string.share_mismatch_title
         ShareFailure.EXPIRED -> R.string.share_expired_title
         else -> R.string.share_error_title
     }
@@ -665,6 +671,7 @@ private fun FailedBody(reason: ShareFailure, onRetry: () -> Unit, onClose: () ->
         ShareFailure.CONNECT -> R.string.share_error_connect
         ShareFailure.NOT_VOLTA -> R.string.share_error_not_volta
         ShareFailure.MISMATCH -> R.string.share_error_mismatch
+        ShareFailure.COMMITMENT -> R.string.share_error_commitment
         ShareFailure.DAMAGED -> R.string.share_error_damaged
         ShareFailure.TOO_LARGE -> R.string.share_error_too_large
         ShareFailure.REJECTED -> R.string.share_error_rejected
