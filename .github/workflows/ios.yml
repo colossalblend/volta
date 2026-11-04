@@ -186,6 +186,21 @@ jobs:
         timeout-minutes: 20
         run: bash ios/scripts/screenshots.sh "$RUNNER_TEMP/screens"
 
+      # On a branch the pictures also go to its pre-release, next to the IPA.
+      - name: Screenshots to the pre-release
+        if: env.VOLTA_STABLE != 'yes' && steps.release.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          shopt -s nullglob
+          PNGS=("$RUNNER_TEMP"/screens/*.png)
+          [ ${#PNGS[@]} -gt 0 ] || exit 0
+          ZIP="$RUNNER_TEMP/$VOLTA_STEM-ios-screens.zip"
+          (cd "$RUNNER_TEMP/screens" && zip -q "$ZIP" ./*.png)
+          gh release upload "$VOLTA_TAG" "$ZIP" --clobber
+
       - name: Upload screenshots
         if: always()
         continue-on-error: true

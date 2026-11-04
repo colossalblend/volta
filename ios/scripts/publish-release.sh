@@ -38,7 +38,7 @@ NOTES="$(mktemp)"
 
 if gh release view "$TAG" > /dev/null 2>&1; then
   ASSETS="$(gh release view "$TAG" --json assets -q '.assets[].name')"
-  OTHERS="$(grep -v -E -- '-ios(-unsigned)?\.ipa$' <<<"$ASSETS" || true)"
+  OTHERS="$(grep -v -E -- '-ios(-unsigned|-screens)?\.(ipa|zip)$' <<<"$ASSETS" || true)"
   if [ "$VOLTA_STABLE" != yes ] && [ -z "$OTHERS" ]; then
     # Nothing but earlier iOS builds: start the rolling pre-release over at this commit.
     gh release delete "$TAG" --cleanup-tag --yes
@@ -46,7 +46,7 @@ if gh release view "$TAG" > /dev/null 2>&1; then
     # Earlier iOS builds of other commits go; the Android files stay.
     while IFS= read -r name; do
       [ -n "$name" ] || continue
-      if [[ "$name" =~ -ios(-unsigned)?\.ipa$ ]] && [ ! -f "$OUT/$name" ]; then
+      if [[ "$name" =~ -ios(-unsigned)?\.ipa$|-ios-screens\.zip$ ]] && [ ! -f "$OUT/$name" ]; then
         gh release delete-asset "$TAG" "$name" --yes || true
       fi
     done <<<"$ASSETS"

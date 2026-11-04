@@ -16,7 +16,7 @@ if ! xcodebuild build \
   -project ios/Volta.xcodeproj -scheme Volta -configuration Debug \
   -destination 'generic/platform=iOS Simulator' -derivedDataPath "$DD" \
   -skipPackagePluginValidation -skipMacroValidation \
-  CODE_SIGNING_ALLOWED=NO ARCHS=arm64 ONLY_ACTIVE_ARCH=NO > "$OUT/build.log" 2>&1; then
+  CODE_SIGNING_ALLOWED=NO ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=NO > "$OUT/build.log" 2>&1; then
   grep -E "error:|Undefined|ld:" "$OUT/build.log" | head -40
   echo "::warning title=Screenshots::the simulator build failed (see build.log in the ios-screens artifact)"
   exit 1
