@@ -164,6 +164,37 @@ jobs:
           Write-Host "Exit code: $($p.ExitCode)"
           if ($p.ExitCode -ne 0) { Write-Host "::error title=Self-test failed::exit code $($p.ExitCode)"; exit 1 }
 
+      # The real thing once more: Volta.exe started as a user would, with its window and
+      # tray icon. It must still be running after a while (no crash at start), and a
+      # picture of the desktop goes with the screens.
+      - name: Start the app like a user
+        shell: pwsh
+        run: |
+          $env:APPDATA = Join-Path $env:RUNNER_TEMP "appdata"
+          New-Item -ItemType Directory -Force -Path $env:APPDATA | Out-Null
+          $shots = Join-Path $env:RUNNER_TEMP "screens"
+          New-Item -ItemType Directory -Force -Path $shots | Out-Null
+          $p = Start-Process -FilePath "desktop/build/compose/binaries/main/app/Volta/Volta.exe" -PassThru
+          Start-Sleep -Seconds 15
+          if ($p.HasExited) {
+            Write-Host "::error title=Volta.exe exited at start::exit code $($p.ExitCode)"
+            Get-ChildItem -Recurse (Join-Path $env:APPDATA "Volta") -ErrorAction SilentlyContinue | Select-Object FullName, Length
+            exit 1
+          }
+          try {
+            Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+            $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+            $bmp.Save((Join-Path $shots "desktop.png"))
+            Write-Host "Screen $($b.Width)x$($b.Height) saved"
+          } catch {
+            Write-Host "No screenshot: $_"
+          }
+          Get-ChildItem (Join-Path $env:APPDATA "Volta") -ErrorAction SilentlyContinue | Select-Object Name, Length
+          Stop-Process -Id $p.Id -Force
+
       - name: Collect files
         id: files
         env:
@@ -230,12 +261,17 @@ jobs:
           Сборка из коммита $SHA. Ядро: Xray \`${XRAY:-—}\`.
           EOF_NOTES
           if gh release view "$TAG" > /dev/null 2>&1; then
+            ASSETS=$(gh release view "$TAG" --json assets --jq '.assets[].name' | tr -d '\r')
             # Earlier Windows builds of this branch go; nothing else does.
-            OLD=$(gh release view "$TAG" --json assets --jq '.assets[].name' | tr -d '\r' \
-              | grep -E -- '-windows-x64(-setup\.exe|-portable\.zip)$' \
+            OLD=$(grep -E -- '-windows-x64(-setup\.exe|-portable\.zip)$' <<<"$ASSETS" \
               | grep -v -F -x -e "$STEM-windows-x64-setup.exe" -e "$STEM-windows-x64-portable.zip" || true)
             for old in $OLD; do gh release delete-asset "$TAG" "$old" --yes || true; done
             gh release upload "$TAG" "$OUT"/* --clobber
+            # A release only the Windows build fills is named after the latest build; one
+            # the Android build made keeps its own title and notes.
+            if [ "$VOLTA_STABLE" != yes ] && ! grep -q -E '\.(apk|aab)$|^update\.json$' <<<"$ASSETS"; then
+              gh release edit "$TAG" --title "Volta · $BRANCH · $SHORT (тестовая)" --notes-file "$NOTES" || true
+            fi
           elif [ "$VOLTA_STABLE" = yes ]; then
             gh release create "$TAG" "$OUT"/* --verify-tag --title "Volta $VERSION" --notes-file "$NOTES" \
               || gh release upload "$TAG" "$OUT"/* --clobber
@@ -243,6 +279,12 @@ jobs:
             gh release create "$TAG" "$OUT"/* --target "$SHA" --prerelease \
               --title "Volta · $BRANCH · $SHORT (тестовая)" --notes-file "$NOTES" \
               || gh release upload "$TAG" "$OUT"/* --clobber
+          fi
+          # The self-test's pictures of every screen ride along on test builds, so a design
+          # change can be looked at before anyone installs it.
+          if [ "$VOLTA_STABLE" != yes ] && [ -d "$VOLTA_TMP/screens" ]; then
+            (cd "$VOLTA_TMP" && 7z a -tzip windows-screens.zip screens self-test.log > /dev/null) \
+              && gh release upload "$TAG" "$VOLTA_TMP/windows-screens.zip" --clobber || true
           fi
           echo "### Windows: https://github.com/$GH_REPO/releases/tag/$TAG" >> "$GITHUB_STEP_SUMMARY"
           gh release view "$TAG" --json assets --jq '.assets[].name'
