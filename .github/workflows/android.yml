@@ -400,15 +400,27 @@ jobs:
             if gh release view "$TAG" > /dev/null 2>&1; then
               # The branch's pre-release is shared: the Windows build (windows.yml) and the
               # iOS build put their files here too. Only Android's own files are replaced
-              # (the APKs, the Play bundle, update.json, the screenshots); the tag moves to
-              # this commit, as when the release used to be made anew.
+              # (the APKs, the Play bundle, update.json, the screenshots), and the tag moves
+              # to this commit, as when the release used to be made anew.
               ASSETS=$(gh release view "$TAG" --json assets --jq '.assets[].name' | tr -d '\r')
-              OLD=$(grep -E '\.(apk|aab)$|^update\.json$|^screens\.zip$' <<<"$ASSETS" || true)
-              for old in $OLD; do gh release delete-asset "$TAG" "$old" --yes || true; done
-              gh api -X PATCH "repos/$GH_REPO/git/refs/tags/$TAG" -f sha="$SHA" -F force=true > /dev/null \
-                || echo "::warning title=Release tag::$TAG could not be moved to $SHORT"
-              gh release upload "$TAG" "$OUT"/* --clobber
-              gh release edit "$TAG" --prerelease --target "$SHA" --title "$TITLE" --notes-file "$NOTES"
+              OTHERS=$(grep -v -E '\.(apk|aab)$|^update\.json$|^screens\.zip$' <<<"$ASSETS" || true)
+              if gh api -X PATCH "repos/$GH_REPO/git/refs/tags/$TAG" -f sha="$SHA" -F force=true > /dev/null; then
+                OLD=$(grep -E '\.(apk|aab)$|^update\.json$|^screens\.zip$' <<<"$ASSETS" || true)
+                for old in $OLD; do gh release delete-asset "$TAG" "$old" --yes || true; done
+                gh release upload "$TAG" "$OUT"/* --clobber
+                gh release edit "$TAG" --prerelease --title "$TITLE" --notes-file "$NOTES"
+              else
+                # GitHub won't let the workflow's token move a tag onto a commit that
+                # changes workflows: the release is made anew there, as before, and the
+                # other platforms' files are carried over into it.
+                KEEP="$RUNNER_TEMP/keep"; mkdir -p "$KEEP"
+                for f in $OTHERS; do gh release download "$TAG" -p "$f" -D "$KEEP" --clobber; done
+                gh release delete "$TAG" --cleanup-tag --yes
+                gh release create "$TAG" "$OUT"/* $(find "$KEEP" -type f) --target "$SHA" --prerelease \
+                  --title "$TITLE" --notes-file "$NOTES" \
+                  || { gh release upload "$TAG" "$OUT"/* $(find "$KEEP" -type f) --clobber \
+                    && gh release edit "$TAG" --prerelease --title "$TITLE" --notes-file "$NOTES"; }
+              fi
             else
               gh release create "$TAG" "$OUT"/* --target "$SHA" --prerelease --title "$TITLE" --notes-file "$NOTES" \
                 || { gh release upload "$TAG" "$OUT"/* --clobber && gh release edit "$TAG" --prerelease --title "$TITLE" --notes-file "$NOTES"; }
