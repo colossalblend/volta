@@ -4,6 +4,9 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+/** This Gradle run builds an Android App Bundle (bundlePlayRelease and the like). */
+val buildingBundle = gradle.startParameter.taskNames.any { it.substringAfterLast(':').startsWith("bundle") }
+
 android {
     namespace = "com.ars3nb.volta"
     compileSdk {
@@ -90,9 +93,12 @@ android {
     // The Xray core is ~35 MB per CPU type and is stored uncompressed (see packaging),
     // so a universal APK weighs 150 MB. One APK per ABI keeps a phone download at ~40 MB;
     // the universal one stays for anyone unsure which to take.
+    // Not while building a bundle: AGP refuses a bundle with ABI splits on
+    // (issuetracker.google.com/402800800), and Google Play splits it per phone anyway.
+    // CI builds the bundle in a Gradle run of its own for that reason.
     splits {
         abi {
-            isEnable = true
+            isEnable = !buildingBundle
             reset()
             include("arm64-v8a", "armeabi-v7a", "x86_64")
             isUniversalApk = true

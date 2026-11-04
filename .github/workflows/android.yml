@@ -258,8 +258,12 @@ jobs:
           VOLTA_KEY_PASSWORD: ${{ secrets.VOLTA_KEY_PASSWORD }}
         run: |
           set -o pipefail
-          ./gradlew --no-configuration-cache --stacktrace "-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8" \
-            :app:assembleGithubDebug :app:assembleGithubRelease :app:bundlePlayRelease 2>&1 | tee -a "$RUNNER_TEMP/gradle.log"
+          GRADLE_ARGS=(--no-configuration-cache --stacktrace "-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8")
+          ./gradlew "${GRADLE_ARGS[@]}" \
+            :app:assembleGithubDebug :app:assembleGithubRelease 2>&1 | tee -a "$RUNNER_TEMP/gradle.log"
+          # The Play bundle in a run of its own: a bundle can't be built with ABI splits on,
+          # and the GitHub APKs above need them (see splits in app/build.gradle.kts).
+          ./gradlew "${GRADLE_ARGS[@]}" :app:bundlePlayRelease 2>&1 | tee -a "$RUNNER_TEMP/gradle.log"
 
       # Compiler and Gradle errors as one annotation, readable without the raw log.
       - name: Report build errors
