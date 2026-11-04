@@ -1,5 +1,8 @@
 package com.ars3nb.volta.core.routing
 
+import android.content.res.Resources
+import androidx.annotation.StringRes
+import com.ars3nb.volta.R
 import com.ars3nb.volta.data.model.RouteOutbound
 import com.ars3nb.volta.data.model.RoutingProfileEntity
 import com.ars3nb.volta.data.model.RoutingRuleDto
@@ -24,6 +27,19 @@ object RoutingEngine {
 
     private val gson = Gson()
     private val listType = object : TypeToken<List<RoutingRuleDto>>() {}.type
+
+    /** Pasted rules that are not rules at all; [reason] says why, for the screen. */
+    class RulesFormatException(@StringRes val reason: Int) : IllegalArgumentException()
+
+    // Names of the built-in sets and their rules. They are stored in the database and
+    // backups find the built-in sets by them, so they stay as they always were; the
+    // screen shows them through [RoutingNames].
+    const val BUILTIN_ALL_NAME = "Весь трафик через VPN"
+    const val BUILTIN_ALL_DESCRIPTION = "Обычный режим: наружу идёт всё, кроме локальной сети"
+    const val BUILTIN_LAN_RULE = "Локальная сеть напрямую"
+    const val BUILTIN_RU_NAME = "Российские сайты напрямую"
+    const val BUILTIN_RU_DESCRIPTION = "RU-домены и «белый список» мимо VPN, остальное через VPN"
+    const val BUILTIN_RU_RULE = "Россия и «белый список» напрямую"
 
     fun parseRules(json: String): List<RoutingRuleDto> {
         if (json.isBlank() || json == "[]") return emptyList()
@@ -64,11 +80,9 @@ object RoutingEngine {
 
             element.isJsonObject -> element.asJsonObject.get("rules")
             else -> null
-        } ?: throw IllegalArgumentException(
-            "JSON должен содержать массив правил или объект routing.rules"
-        )
+        } ?: throw RulesFormatException(R.string.routing_import_no_rules)
 
-        require(rulesElement.isJsonArray) { "Поле rules должно быть массивом" }
+        if (!rulesElement.isJsonArray) throw RulesFormatException(R.string.routing_import_rules_not_array)
         if (rulesElement.asJsonArray.size() == 0) return emptyList()
 
         val text = rulesElement.toString()
@@ -198,14 +212,14 @@ object RoutingEngine {
         val now = System.currentTimeMillis()
         return listOf(
             RoutingProfileEntity(
-                name = "Весь трафик через VPN",
-                description = "Обычный режим: наружу идёт всё, кроме локальной сети",
+                name = BUILTIN_ALL_NAME,
+                description = BUILTIN_ALL_DESCRIPTION,
                 isActive = true,
                 isBuiltIn = true,
                 rulesJson = serializeRules(
                     listOf(
                         RoutingRuleDto(
-                            name = "Локальная сеть напрямую",
+                            name = BUILTIN_LAN_RULE,
                             outbound = RouteOutbound.DIRECT,
                             ips = listOf("geoip:private"),
                             source = "builtin"
@@ -215,8 +229,8 @@ object RoutingEngine {
                 updatedAt = now
             ),
             RoutingProfileEntity(
-                name = "Российские сайты напрямую",
-                description = "RU-домены и «белый список» мимо VPN, остальное через VPN",
+                name = BUILTIN_RU_NAME,
+                description = BUILTIN_RU_DESCRIPTION,
                 isBuiltIn = true,
                 rulesJson = serializeRules(ruBypassRules()),
                 domainStrategy = "IPIfNonMatch",
@@ -228,7 +242,8 @@ object RoutingEngine {
     /**
      * Built-in sets earlier versions shipped. Ads and torrents are app-wide filters now
      * (AdGuard and the torrent switch), so these became duplicates and are removed on
-     * start; whoever used one gets the matching filter switched on instead.
+     * start; whoever used one gets the matching filter switched on instead. Matched
+     * against stored names, so never translated.
      */
     const val RETIRED_NO_ADS = "Без рекламы"
     const val RETIRED_STEALTH = "Максимальная маскировка"
@@ -251,7 +266,7 @@ object RoutingEngine {
             listOf("geosite:category-ru", "geosite:private")
         return listOf(
             RoutingRuleDto(
-                name = "Россия и «белый список» напрямую",
+                name = BUILTIN_RU_RULE,
                 outbound = RouteOutbound.DIRECT,
                 domains = domains,
                 ips = listOf("geoip:ru", "geoip:private"),
@@ -359,5 +374,77 @@ object RoutingEngine {
             el.isJsonPrimitive -> listOf(el.asString)
             else -> emptyList()
         }
+    }
+}
+
+/**
+ * Names Volta gives the sets and rules it makes itself, and how the screen shows them.
+ *
+ * The names are stored with the sets and rules, and things are found by them: a ready-made
+ * list counts as added when a rule bears its name, quick-added sites gather in the rule
+ * named for their direction, a backup finds the built-in sets by name. So the stored text
+ * never changes with the language (it stays the Russian it has always been) and only what
+ * the screen shows is translated. A name the user typed is shown as it is.
+ */
+object RoutingNames {
+
+    /** Rules the quick-add field fills, one per direction. */
+    const val MY_SITES_VPN = "Свои сайты через VPN"
+    const val MY_SITES_DIRECT = "Свои сайты напрямую"
+    const val BLOCKED_SITES = "Заблокированные сайты"
+
+    /** An empty rule the user is about to fill in. */
+    const val NEW_RULE = "Новое правило"
+
+    private val rules: Map<String, Int> by lazy {
+        mapOf(
+            MY_SITES_VPN to R.string.routing_rule_my_sites_vpn,
+            MY_SITES_DIRECT to R.string.routing_rule_my_sites_direct,
+            BLOCKED_SITES to R.string.routing_rule_blocked_sites,
+            NEW_RULE to R.string.routing_rule_new,
+            RoutingEngine.BUILTIN_LAN_RULE to R.string.routing_builtin_lan_rule,
+            RoutingEngine.BUILTIN_RU_RULE to R.string.routing_builtin_ru_rule,
+            HappRoutingParser.RULE_BLOCK to R.string.routing_sub_rule_block,
+            HappRoutingParser.RULE_PROXY to R.string.routing_sub_rule_vpn,
+            HappRoutingParser.RULE_DIRECT to R.string.routing_sub_rule_direct,
+            HappRoutingParser.RULE_LAN to R.string.routing_sub_rule_lan,
+            HappRoutingParser.RULE_REST_DIRECT to R.string.routing_sub_rule_rest_direct
+        ) + Presets.sites.mapNotNull { preset -> preset.label?.let { preset.title to it } }
+    }
+
+    /**
+     * What to show for a rule's stored [name]: the resource and whether " · IP" follows
+     * it (a subscription's list of addresses), or null for a name of the user's own.
+     */
+    fun rule(name: String): Pair<Int, Boolean>? {
+        rules[name]?.let { return it to false }
+        if (name.endsWith(HappRoutingParser.IP_SUFFIX)) {
+            rules[name.removeSuffix(HappRoutingParser.IP_SUFFIX)]?.let { return it to true }
+        }
+        return null
+    }
+
+    fun ruleName(name: String, res: Resources): String =
+        rule(name)?.let { (id, ip) -> res.getString(id) + if (ip) HappRoutingParser.IP_SUFFIX else "" } ?: name
+
+    @StringRes
+    fun profileName(profile: RoutingProfileEntity): Int? = when {
+        profile.isBuiltIn && profile.name == RoutingEngine.BUILTIN_ALL_NAME -> R.string.routing_builtin_all_name
+        profile.isBuiltIn && profile.name == RoutingEngine.BUILTIN_RU_NAME -> R.string.routing_builtin_ru_name
+        profile.sourceSubscriptionId != null && profile.name == HappRoutingParser.DEFAULT_NAME ->
+            R.string.routing_sub_rules_name
+        else -> null
+    }
+
+    /** The set's name as shown, for code outside Compose (the home screen, for one). */
+    fun profileName(profile: RoutingProfileEntity, res: Resources): String =
+        profileName(profile)?.let { res.getString(it) } ?: profile.name
+
+    @StringRes
+    fun profileDescription(profile: RoutingProfileEntity): Int? = when {
+        !profile.isBuiltIn -> null
+        profile.description == RoutingEngine.BUILTIN_ALL_DESCRIPTION -> R.string.routing_builtin_all_description
+        profile.description == RoutingEngine.BUILTIN_RU_DESCRIPTION -> R.string.routing_builtin_ru_description
+        else -> null
     }
 }

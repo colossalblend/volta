@@ -1,5 +1,6 @@
 package com.ars3nb.volta.core.vpn
 
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.routing.RoutingEngine
 import com.ars3nb.volta.data.model.AdBlockMode
 import com.ars3nb.volta.data.model.ProtocolType
@@ -444,7 +445,8 @@ class ConfigBuilderTest {
             ConfigBuilder.build(quic, null)
         }
         // Said in plain words: what the user should do, not the transport's name.
-        assertTrue(error.message!!.contains("новую ссылку"))
+        assertEquals(R.string.routing_dial_outdated, error.reason)
+        assertEquals(listOf("Test"), error.args.toList())
         assertFalse(ConfigBuilder.canDial(quic))
         assertNotNull(ConfigBuilder.dialProblem(quic))
     }

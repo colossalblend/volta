@@ -1,5 +1,8 @@
 package com.ars3nb.volta.core.apps
 
+import androidx.annotation.StringRes
+import com.ars3nb.volta.R
+
 /** Which way a ready-made set of apps is meant to go. */
 enum class AppRoute {
     /** Russian services that refuse a foreign address or ask for extra checks: past the VPN. */
@@ -19,7 +22,8 @@ enum class AppRoute {
  */
 data class AppPreset(
     val id: String,
-    val title: String,
+    /** The set's name on the screen. */
+    @StringRes val title: Int,
     val route: AppRoute,
     val packages: List<String>
 )
@@ -42,7 +46,7 @@ object AppPresets {
         // ---------------------------------------------------------------- past the VPN
         AppPreset(
             id = "banks",
-            title = "Банки",
+            title = R.string.routing_app_set_banks,
             route = AppRoute.DIRECT,
             packages = listOf(
                 "ru.sberbankmobile", "ru.sberbank_sbbol", "ru.sberbank.investor", // Сбер: Онлайн, Бизнес, Инвестиции
@@ -94,7 +98,7 @@ object AppPresets {
         ),
         AppPreset(
             id = "gov",
-            title = "Госуслуги",
+            title = R.string.routing_app_set_gov,
             route = AppRoute.DIRECT,
             packages = listOf(
                 "ru.rostel", // Госуслуги
@@ -121,7 +125,7 @@ object AppPresets {
         ),
         AppPreset(
             id = "shops",
-            title = "Маркетплейсы",
+            title = R.string.routing_app_set_shops,
             route = AppRoute.DIRECT,
             packages = listOf(
                 "ru.ozon.app.android", // Ozon
@@ -153,7 +157,7 @@ object AppPresets {
         ),
         AppPreset(
             id = "food",
-            title = "Еда и продукты",
+            title = R.string.routing_app_set_food,
             route = AppRoute.DIRECT,
             packages = listOf(
                 "ru.sbcs.store", // Самокат
@@ -189,7 +193,7 @@ object AppPresets {
         ),
         AppPreset(
             id = "yandex",
-            title = "Яндекс",
+            title = R.string.routing_app_set_yandex,
             route = AppRoute.DIRECT,
             packages = listOf(
                 "ru.yandex.searchplugin", "com.yandex.searchapp", "com.yandex.aliceapp", // Яндекс с Алисой, Алиса
@@ -214,7 +218,7 @@ object AppPresets {
         ),
         AppPreset(
             id = "vk",
-            title = "VK и MAX",
+            title = R.string.routing_app_set_vk,
             route = AppRoute.DIRECT,
             packages = listOf(
                 "com.vkontakte.android", // ВКонтакте
@@ -235,7 +239,7 @@ object AppPresets {
         ),
         AppPreset(
             id = "media",
-            title = "Кино и музыка",
+            title = R.string.routing_app_set_media,
             route = AppRoute.DIRECT,
             packages = listOf(
                 "ru.kinopoisk", "ru.kinopoisk.tv", // Кинопоиск
@@ -259,7 +263,7 @@ object AppPresets {
         ),
         AppPreset(
             id = "travel",
-            title = "Карты и поездки",
+            title = R.string.routing_app_set_travel,
             route = AppRoute.DIRECT,
             packages = listOf(
                 "ru.dublgis.dgismobile", "otello.dgis.ru", // 2ГИС, Отелло
@@ -286,7 +290,7 @@ object AppPresets {
         ),
         AppPreset(
             id = "health",
-            title = "Здоровье",
+            title = R.string.routing_app_set_health,
             route = AppRoute.DIRECT,
             packages = listOf(
                 "com.docdoc.docdoc", // СберЗдоровье
@@ -305,7 +309,7 @@ object AppPresets {
         ),
         AppPreset(
             id = "carriers",
-            title = "Операторы связи",
+            title = R.string.routing_app_set_carriers,
             route = AppRoute.DIRECT,
             packages = listOf(
                 "ru.mts.mymts", // Мой МТС
@@ -322,7 +326,7 @@ object AppPresets {
         // ---------------------------------------------------------- through the VPN
         AppPreset(
             id = "youtube",
-            title = "YouTube",
+            title = R.string.routing_app_set_youtube,
             route = AppRoute.VPN,
             packages = listOf(
                 "com.google.android.youtube", // YouTube
@@ -342,7 +346,7 @@ object AppPresets {
         ),
         AppPreset(
             id = "messengers",
-            title = "Мессенджеры",
+            title = R.string.routing_app_set_messengers,
             route = AppRoute.VPN,
             packages = listOf(
                 "org.telegram.messenger", "org.telegram.messenger.web", // Telegram из Google Play и с сайта
@@ -366,7 +370,7 @@ object AppPresets {
         ),
         AppPreset(
             id = "social",
-            title = "Соцсети",
+            title = R.string.routing_app_set_social,
             route = AppRoute.VPN,
             packages = listOf(
                 "com.instagram.android", "com.instagram.lite", // Instagram, Instagram Lite
@@ -388,7 +392,7 @@ object AppPresets {
         ),
         AppPreset(
             id = "ai",
-            title = "Нейросети",
+            title = R.string.routing_app_set_ai,
             route = AppRoute.VPN,
             packages = listOf(
                 "com.openai.chatgpt", "com.openai.sora", // ChatGPT, Sora
@@ -407,7 +411,7 @@ object AppPresets {
         ),
         AppPreset(
             id = "streaming",
-            title = "Видео и музыка",
+            title = R.string.routing_app_set_streaming,
             route = AppRoute.VPN,
             packages = listOf(
                 "com.netflix.mediaclient", "com.netflix.ninja", // Netflix, Netflix для Android TV
@@ -428,7 +432,7 @@ object AppPresets {
         ),
         AppPreset(
             id = "work",
-            title = "Работа и учёба",
+            title = R.string.routing_app_set_work,
             route = AppRoute.VPN,
             packages = listOf(
                 "com.linkedin.android", // LinkedIn
@@ -453,7 +457,7 @@ object AppPresets {
         ),
         AppPreset(
             id = "browsers",
-            title = "Браузеры",
+            title = R.string.routing_app_set_browsers,
             route = AppRoute.VPN,
             packages = listOf(
                 "com.android.chrome", "com.chrome.beta", // Chrome, Chrome Beta
