@@ -60,13 +60,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.annotation.StringRes
 import com.ars3nb.volta.R
 import com.ars3nb.volta.core.link.ImportDetector
+import com.ars3nb.volta.core.locale.UiText
 import com.ars3nb.volta.core.link.ImportDetector.Kind
 import com.ars3nb.volta.ui.VoltaViewModel
 import com.ars3nb.volta.ui.collectQuietState
@@ -91,21 +91,14 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
     var name by rememberSaveable { mutableStateOf("") }
     val state by vm.collectQuietState()
     val clipboard = LocalClipboardManager.current
-    val context = LocalContext.current
     val kind = remember(input) { ImportDetector.detect(input) }
-    val clipboardEmpty = stringResource(R.string.settings_import_clipboard_empty)
-    val noFilePicker = stringResource(R.string.settings_import_no_file_picker)
 
     // A .conf from AmneziaVPN, AmneziaWG or WireGuard. Its type varies by file manager,
     // so any file is offered; the parser decides.
     val openFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        val text = runCatching {
-            context.contentResolver.openInputStream(uri)?.use { stream ->
-                String(stream.readNBytesCompat(MAX_FILE_BYTES), Charsets.UTF_8)
-            }
-        }.getOrNull()
-        if (!text.isNullOrBlank()) vm.importLink(text.trim()) { ok -> if (ok) onBack() }
+        // Read in the view model, off the main thread: the file may sit on a cloud drive.
+        vm.importFile(uri) { ok -> if (ok) onBack() }
     }
 
     fun submit() {
@@ -168,7 +161,7 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
                 filled = input.isEmpty(),
                 onClick = {
                     val text = clipboard.getText()?.text?.trim()
-                    if (text.isNullOrEmpty()) vm.showMessage(clipboardEmpty)
+                    if (text.isNullOrEmpty()) vm.showMessage(UiText.of(R.string.settings_import_clipboard_empty))
                     else input = text
                 }
             )
@@ -236,7 +229,7 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
                         try {
                             openFile.launch(arrayOf("*/*"))
                         } catch (e: ActivityNotFoundException) {
-                            vm.showMessage(noFilePicker)
+                            vm.showMessage(UiText.of(R.string.settings_import_no_file_picker))
                         }
                     }
                 }
@@ -387,15 +380,3 @@ private fun FieldButton(icon: ImageVector, text: String, filled: Boolean, onClic
 }
 
 /** A config file is a few kilobytes; anything far bigger is not one. */
-private const val MAX_FILE_BYTES = 512 * 1024
-
-private fun java.io.InputStream.readNBytesCompat(limit: Int): ByteArray {
-    val out = java.io.ByteArrayOutputStream()
-    val buf = ByteArray(8192)
-    while (out.size() < limit) {
-        val n = read(buf, 0, minOf(buf.size, limit - out.size()))
-        if (n < 0) break
-        out.write(buf, 0, n)
-    }
-    return out.toByteArray()
-}

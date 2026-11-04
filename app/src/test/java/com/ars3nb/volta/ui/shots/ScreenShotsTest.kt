@@ -36,6 +36,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.ars3nb.volta.R
+import com.ars3nb.volta.core.locale.UiText
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.update.UpdateState
 import com.ars3nb.volta.data.model.ConnectMode
@@ -353,7 +354,7 @@ class ScreenShotsTest {
     }
 
     private fun pick() = PickSummary(
-        reason = "",
+        reason = UiText.Raw(""),
         rows = listOf(
             PickRow(1, SERVERS[0].remark, 48, 4, 5, chosen = true),
             PickRow(2, SERVERS[1].remark, 61, 7, 5, chosen = false),

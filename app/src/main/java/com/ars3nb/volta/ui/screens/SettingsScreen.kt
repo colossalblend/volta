@@ -76,6 +76,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ars3nb.volta.core.locale.UiText
 import androidx.annotation.StringRes
 import com.ars3nb.volta.BuildConfig
 import com.ars3nb.volta.R
@@ -136,8 +137,6 @@ fun SettingsScreen(vm: VoltaViewModel) {
     // A TV has no shade for tiles and shows a banner instead of the app icon.
     val tv = LocalTv.current
     val rows = remember(tv) { Tv.settingsRows(tv, Build.VERSION.SDK_INT) }
-    val noVpnSettings = stringResource(R.string.settings_no_vpn_settings)
-    val noBrowser = stringResource(R.string.settings_no_browser, HELP_URL.removePrefix("https://"))
 
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title), fontWeight = FontWeight.SemiBold) }, colors = barColors()) }
@@ -202,7 +201,7 @@ fun SettingsScreen(vm: VoltaViewModel) {
                         subtitle = stringResource(killSwitchHint(alwaysOn)),
                         onClick = {
                             if (!Tv.tryStart(context, Intent(Settings.ACTION_VPN_SETTINGS))) {
-                                vm.showMessage(noVpnSettings)
+                                vm.showMessage(UiText.of(R.string.settings_no_vpn_settings))
                             }
                         }
                     )
@@ -338,14 +337,14 @@ fun SettingsScreen(vm: VoltaViewModel) {
                         Modifier.fillMaxWidth().padding(start = 48.dp, top = 2.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val copied = stringResource(R.string.settings_hwid_copied)
+                        val hwid by vm.hwid.collectAsStateWithLifecycle()
                         Column(Modifier.weight(1f)) {
                             Text(stringResource(R.string.settings_hwid_code), style = MaterialTheme.typography.labelMedium)
-                            Hint(vm.hwidFull())
+                            Hint(hwid)
                         }
-                        IconButton(onClick = {
-                            clipboard.setText(AnnotatedString(vm.hwidFull()))
-                            vm.showMessage(copied)
+                        IconButton(enabled = hwid.isNotEmpty(), onClick = {
+                            clipboard.setText(AnnotatedString(hwid))
+                            vm.showMessage(UiText.of(R.string.settings_hwid_copied))
                         }) {
                             Icon(Icons.Rounded.ContentCopy, stringResource(R.string.settings_hwid_copy))
                         }
@@ -396,7 +395,7 @@ fun SettingsScreen(vm: VoltaViewModel) {
                         subtitle = stringResource(R.string.settings_help_text),
                         onClick = {
                             if (!Tv.tryStart(context, Intent(Intent.ACTION_VIEW, android.net.Uri.parse(HELP_URL)))) {
-                                vm.showMessage(noBrowser)
+                                vm.showMessage(UiText.of(R.string.settings_no_browser, HELP_URL.removePrefix("https://")))
                             }
                         }
                     )

@@ -1003,6 +1003,17 @@ class VoltaRepository(private val context: Context) {
         VoltaVpnService.connect(context, plan)
     }
 
+    /**
+     * Brings changed settings (routing, ad blocking, split tunnelling, DNS) to the live
+     * tunnel on the node it runs on. A connect in the current mode would not: it keeps a
+     * tunnel that is already on its chosen node as it is.
+     */
+    suspend fun reapplyTunnel() = withContext(Dispatchers.IO) {
+        connectMutex.withLock {
+            if (isConnected()) connectSelected()
+        }
+    }
+
     /** Servers of the group the current connect mode works with. */
     private suspend fun groupFor(servers: List<ServerEntity>): List<ServerEntity> =
         when (effectiveMode()) {
@@ -1101,7 +1112,7 @@ class VoltaRepository(private val context: Context) {
             runAutobalancer(it, onPhase, quick = true, reuseNetworkMs = CONNECT_MEMO_TTL_MS)
         }
         if (decision != null && decision.selected == null) {
-            error(decision.reason)
+            throw UiTextException(decision.reason, context)
         }
         // A live tunnel already on the chosen node stays as it is; a switch on a live
         // tunnel was already started by selectServer() and the service drops the repeat.

@@ -309,6 +309,15 @@ class BackupTextsTest {
         assertTrue(restored.message(res("en")), restored.message(res("en")).startsWith("Done. Restored: 2 subscriptions"))
     }
 
+    /** Made once, read later: the language at the moment it is shown is the one used. */
+    @Test
+    fun theMessageIsReadInTheLanguageItIsShownIn() {
+        val text = restored.text()
+        assertEquals(restored.message(res("ru")), text.resolve(res("ru")))
+        assertTrue(text.resolve(res("en")), text.resolve(res("en")).startsWith("Done. Restored: 2 subscriptions"))
+        assertEquals(restored.text(), text)
+    }
+
     /** The date pattern and the counts work in every language, not only in the two above. */
     @Test
     fun everyLanguageCanSayIt() {

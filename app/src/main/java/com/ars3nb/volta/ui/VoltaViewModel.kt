@@ -121,6 +121,13 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     private val _query = MutableStateFlow("")
     private val _runningScope = MutableStateFlow<BalancerScope?>(null)
     private val _connectPhase = MutableStateFlow(ConnectPhase.IDLE)
+
+    /**
+     * The device id, read once off the main thread: the first read asks MediaDrm, which
+     * takes seconds on some phones and would freeze the first frame.
+     */
+    private val _hwid = MutableStateFlow("")
+    val hwid: StateFlow<String> = _hwid.asStateFlow()
     private var retryJob: Job? = null
     private var connectJob: Job? = null
 
@@ -218,8 +225,8 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
         repo.subscriptions, repo.servers, repo.routingProfiles
     ) { subs, servers, profiles -> Triple(subs, servers, profiles) }
 
-    private val settings = combine(repo.designTheme, repo.perAppMode) { theme, perApp ->
-        theme to perApp
+    private val settings = combine(repo.designTheme, repo.perAppMode, _hwid) { theme, perApp, id ->
+        Triple(theme, perApp, id.take(8))
     }
 
     val uiState: StateFlow<VoltaUiState> = combine(
@@ -238,7 +245,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
             networkRegime = loc.regime,
             probes = loc.probes,
             ipInfo = loc.ip,
-            hwidShort = repo.shortHwid(),
+            hwidShort = prefs.third,
             busy = loc.busy,
             message = loc.message,
             error = conn.error
@@ -246,7 +253,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
-        VoltaUiState(hwidShort = repo.shortHwid())
+        VoltaUiState()
     )
 
     val routingProfiles = repo.routingProfiles
@@ -306,6 +313,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     fun coreVersion(): String = repo.coreVersion()
 
     init {
+        viewModelScope.launch(Dispatchers.IO) { _hwid.value = repo.hwid() }
         viewModelScope.launch {
             repo.ensureSeeded()
             // Last verdict first, so the home screen is not blank while the probe runs,
@@ -618,7 +626,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
                 _regime.value = decision.regime
                 _probes.value = decision.probes
             }
-            _message.value = UiText.Raw(decision.reason)
+            _message.value = decision.reason
             if (decision.retryLater && allowRetry) scheduleRetry(scope)
         } catch (e: CancellationException) {
             throw e
@@ -807,6 +815,29 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * A `.conf` or a file of links the user picked. Read off the main thread: a file on
+     * a cloud drive comes over the network, and reading it on the main thread froze the
+     * app until it did.
+     */
+    fun importFile(uri: Uri, onComplete: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val text = withContext(Dispatchers.IO) {
+                runCatching {
+                    getApplication<Application>().contentResolver.openInputStream(uri)?.use { stream ->
+                        String(stream.readAtMost(MAX_IMPORT_FILE_BYTES), Charsets.UTF_8)
+                    }
+                }.getOrNull()
+            }
+            if (text.isNullOrBlank()) {
+                _message.value = UiText.of(R.string.home_import_failed)
+                onComplete(false)
+            } else {
+                importLink(text.trim(), onComplete)
+            }
+        }
+    }
+
     fun importLink(link: String, onComplete: (Boolean) -> Unit = {}) {
         // A volta:// link pasted or shared into the app works like one that was opened.
         if (link.trim().startsWith("volta://", ignoreCase = true)) {
@@ -877,10 +908,23 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
         if (uiState.value.isConnected) _routingDirty.value = true
     }
 
-    /** Reconnects so pending routing changes reach the running tunnel. */
+    /**
+     * Pending routing changes reach the running tunnel, on the node it runs on. (A
+     * connect in the current mode would keep a tunnel that is already on its chosen
+     * node untouched, and the changes with it.)
+     */
     fun applyRoutingNow() {
         _routingDirty.value = false
-        if (uiState.value.isConnected && connectPhase.value == ConnectPhase.IDLE) doConnect()
+        if (!uiState.value.isConnected || connectPhase.value != ConnectPhase.IDLE) return
+        viewModelScope.launch {
+            try {
+                repo.reapplyTunnel()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _message.value = e.uiText(UiText.of(R.string.home_connect_failed))
+            }
+        }
     }
 
     fun setActiveRouting(id: Long) = viewModelScope.launch {
@@ -994,8 +1038,6 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
         _message.value = text
     }
 
-    fun hwidFull(): String = repo.hwid()
-
     // ----------------------------------------------------------------- backup
 
     private val backup by lazy { BackupManager(getApplication<Application>(), repo) }
@@ -1085,7 +1127,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
             _backupWorking.value = true
             try {
                 val report = backup.restore(contents)
-                _message.value = UiText.Raw(report.message(context.resources))
+                _message.value = report.text()
                 // Rules and split tunnelling reach a running tunnel on its next start.
                 touchRouting()
             } catch (e: CancellationException) {
@@ -1100,6 +1142,20 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
 }
 
 private const val RETRY_DELAY_MS = 20_000L
+
+/** Bigger than any server list or `.conf`; a wrong file is not read whole into memory. */
+private const val MAX_IMPORT_FILE_BYTES = 512 * 1024
+
+private fun java.io.InputStream.readAtMost(limit: Int): ByteArray {
+    val out = java.io.ByteArrayOutputStream()
+    val buf = ByteArray(8192)
+    while (out.size() < limit) {
+        val n = read(buf, 0, minOf(buf.size, limit - out.size()))
+        if (n < 0) break
+        out.write(buf, 0, n)
+    }
+    return out.toByteArray()
+}
 
 /** The last [CAPACITY] speed samples, oldest first. [version] grows with each sample. */
 data class SpeedHistory(
@@ -1129,7 +1185,7 @@ data class PickRow(
 )
 
 data class PickSummary(
-    val reason: String,
+    val reason: UiText,
     val rows: List<PickRow>,
     val measured: Int,
     val alive: Int,

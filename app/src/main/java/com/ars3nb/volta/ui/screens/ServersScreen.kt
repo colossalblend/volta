@@ -16,6 +16,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.ars3nb.volta.R
 import com.ars3nb.volta.core.balancer.GuardPolicy
+import com.ars3nb.volta.core.locale.UiText
 import java.text.Collator
 import java.util.Locale
 import com.ars3nb.volta.ui.components.SlidingChoice
@@ -397,7 +398,6 @@ fun ServersScreen(
     }
 
     sheetServer?.let { server ->
-        val copied = stringResource(R.string.servers_link_copied)
         ServerActionsSheet(
             server = server,
             onDismiss = { sheetServer = null },
@@ -407,7 +407,7 @@ fun ServersScreen(
             onDelete = if (server.subscriptionId == null) {
                 { vm.deleteServer(server.id) }
             } else null,
-            onCopied = { vm.showMessage(copied) }
+            onCopied = { vm.showMessage(UiText.of(R.string.servers_link_copied)) }
         )
     }
 }
