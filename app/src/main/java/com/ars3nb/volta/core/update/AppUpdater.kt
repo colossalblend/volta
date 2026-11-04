@@ -159,8 +159,8 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
         if (current is UpdateState.Checking || current is UpdateState.Downloading) return current
         _state.value = UpdateState.Checking
         val now = System.currentTimeMillis()
-        val next = withContext(Dispatchers.IO) {
-            try {
+        val next = try {
+            withContext(Dispatchers.IO) {
                 val found = findNewest()
                 when {
                     // Nothing published yet: nothing to update to, and nothing wrong.
@@ -175,9 +175,15 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
                     verified(found) -> UpdateState.Ready(found)
                     else -> UpdateState.Available(found)
                 }
-            } catch (e: IOException) {
-                UpdateState.Failed(R.string.settings_update_error_check)
             }
+        } catch (e: CancellationException) {
+            // The screen that asked went away mid-check. Left at Checking, every later
+            // check would think one is still running and never look again.
+            if (_state.value is UpdateState.Checking) _state.value = current
+            throw e
+        } catch (e: Exception) {
+            // Not only network errors: a malformed answer must not leave it at Checking.
+            UpdateState.Failed(R.string.settings_update_error_check)
         }
         prefs.setUpdateLastCheck(now)
         _state.value = next
