@@ -464,7 +464,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
             }
     }
 
-    private fun noInternetMessage(internet: InternetCheck.Status): String = getApplication<Application>().getString(
+    private fun noInternetMessage(internet: InternetCheck.Status): UiText = UiText.of(
         if (internet == InternetCheck.Status.AIRPLANE) R.string.network_connect_airplane
         else R.string.network_connect_none
     )
