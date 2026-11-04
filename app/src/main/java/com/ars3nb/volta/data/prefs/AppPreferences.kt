@@ -15,6 +15,7 @@ import com.ars3nb.volta.data.model.PerAppMode
 import com.ars3nb.volta.data.model.PingType
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "volta_prefs")
@@ -255,5 +256,61 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setLastIpJson(json: String) {
         context.dataStore.edit { it[Keys.lastIpJson] = json }
+    }
+
+    // ------------------------------------------------------------------ backup
+
+    /*
+     * What a backup file carries: the user's own choices. The app's bookkeeping (the
+     * last network, the last good servers, update checks) is about the phone it was
+     * made on and stays there.
+     */
+    private val backupBooleans = listOf(
+        Keys.autoFailover, Keys.pingOnStart, Keys.localDns, Keys.blockTorrents, Keys.sendHwid,
+        Keys.batterySaver, Keys.autoConnect, Keys.refreshOnLaunch, Keys.followNetwork,
+        Keys.autoRecheck, Keys.hideBalancers, Keys.simpleMode
+    )
+    private val backupStrings = listOf(
+        Keys.designTheme, Keys.perAppMode, Keys.defaultPingType, Keys.adBlock, Keys.connectMode
+    )
+    private val backupInts = listOf(Keys.mtu)
+    private val backupSets = listOf(Keys.perAppPackages)
+
+    /** The settings the user has set, by their stored names. Untouched ones stay out. */
+    suspend fun backupSettings(): Map<String, Any> {
+        val stored = context.dataStore.data.first()
+        val out = LinkedHashMap<String, Any>()
+        backupBooleans.forEach { key -> stored[key]?.let { out[key.name] = it } }
+        backupStrings.forEach { key -> stored[key]?.let { out[key.name] = it } }
+        backupInts.forEach { key -> stored[key]?.let { out[key.name] = it } }
+        backupSets.forEach { key -> stored[key]?.let { out[key.name] = it.sorted() } }
+        return out
+    }
+
+    /**
+     * Puts back what [backupSettings] wrote. Unknown names and values of the wrong kind
+     * are skipped; a bad enum name is harmless, the readers above fall back to defaults.
+     * Returns how many settings were applied.
+     */
+    suspend fun restoreSettings(values: Map<String, Any?>): Int {
+        var applied = 0
+        context.dataStore.edit { prefs ->
+            backupBooleans.forEach { key ->
+                (values[key.name] as? Boolean)?.let { prefs[key] = it; applied++ }
+            }
+            backupStrings.forEach { key ->
+                (values[key.name] as? String)?.takeIf { it.isNotBlank() }?.let { prefs[key] = it; applied++ }
+            }
+            backupInts.forEach { key ->
+                (values[key.name] as? Number)?.let { prefs[key] = it.toInt().coerceIn(1280, 9000); applied++ }
+            }
+            backupSets.forEach { key ->
+                (values[key.name] as? List<*>)?.let { list ->
+                    prefs[key] = list.filterIsInstance<String>().filter { it.isNotBlank() }.toSet()
+                    applied++
+                }
+            }
+        }
+        return applied
     }
 }

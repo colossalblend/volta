@@ -331,6 +331,9 @@ fun SettingsScreen(vm: VoltaViewModel) {
                 }
             }
 
+            item { SectionHeader("Перенос на новый телефон") }
+            item { BackupCard(vm) }
+
             item { SectionHeader("О приложении") }
             item {
                 VoltaCard(contentPadding = 10) {

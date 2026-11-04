@@ -773,11 +773,17 @@ class VoltaVpnService : VpnService() {
     private fun applyPerAppRules(builder: Builder) {
         val packages = perAppPackages.filter { it.isNotBlank() && it != packageName }
         when {
-            perAppMode == PerAppMode.INCLUDE && packages.isNotEmpty() ->
-                packages.forEach { pkg ->
+            perAppMode == PerAppMode.INCLUDE && packages.isNotEmpty() -> {
+                val added = packages.count { pkg ->
                     runCatching { builder.addAllowedApplication(pkg) }
                         .onFailure { Log.w(TAG, "allowed app missing: $pkg") }
+                        .isSuccess
                 }
+                // None of the chosen apps is installed (say, a list restored on a new
+                // phone). An empty allowed list would put every app, this one too, into
+                // the tunnel and loop the core's own traffic: cover all but Volta instead.
+                if (added == 0) runCatching { builder.addDisallowedApplication(packageName) }
+            }
 
             perAppMode == PerAppMode.EXCLUDE && packages.isNotEmpty() -> {
                 runCatching { builder.addDisallowedApplication(packageName) }
