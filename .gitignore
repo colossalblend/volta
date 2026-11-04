@@ -18,3 +18,6 @@ local.properties
 
 # Built in CI (OpenFlux and voltaproxy helpers), never committed.
 app/src/main/jniLibs/
+
+# Python caches (tools/).
+__pycache__/

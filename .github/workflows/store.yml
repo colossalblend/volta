@@ -1,0 +1,137 @@
+name: Store listing pictures
+
+# The Google Play pictures (store/play): the real screens drawn under Robolectric with
+# sample data (app/src/test/.../ui/shots/StoreShots.kt), then framed and captioned by
+# tools/store/compose.py. Run by hand; the result is an artifact to look at and, when it
+# is right, to commit into store/play/. See store/play/README.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: 'Commit the finished pictures into store/play/ on this store/… branch'
+        type: boolean
+        default: false
+  # Also on a push to a store/… branch that changes the pictures' sources.
+  push:
+    branches: ['store/**']
+    paths:
+      - 'tools/store/**'
+      - 'app/src/test/java/com/ars3nb/volta/ui/shots/StoreShots.kt'
+      - '.github/workflows/store.yml'
+
+concurrency:
+  group: store-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  # Only for the opt-in commit of the pictures back to a store/… branch.
+  contents: write
+
+jobs:
+  pictures:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # The runner image ships an Android SDK; install it ourselves only if missing.
+      - name: Android SDK
+        run: |
+          if [ -z "$ANDROID_HOME" ] || [ ! -d "$ANDROID_HOME" ]; then
+            export ANDROID_HOME="$HOME/android-sdk"
+            mkdir -p "$ANDROID_HOME/cmdline-tools"
+            curl -sSL -o /tmp/clt.zip https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
+            unzip -q /tmp/clt.zip -d "$ANDROID_HOME/cmdline-tools"
+            mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+          fi
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SDKM" ] || SDKM="$(ls -d $ANDROID_HOME/cmdline-tools/*/bin/sdkmanager | tail -1)"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" "platform-tools" "build-tools;36.0.0" > /dev/null
+          "$SDKM" "platforms;android-37" > /dev/null || "$SDKM" "platforms;android-37.0" > /dev/null || true
+
+      - uses: gradle/actions/setup-gradle@v5
+
+      - name: Raw screens
+        timeout-minutes: 30
+        env:
+          VOLTA_STORE: '1'
+        run: |
+          set -o pipefail
+          export VOLTA_SHOTS="$RUNNER_TEMP/store"
+          mkdir -p "$VOLTA_SHOTS"
+          chmod +x gradlew
+          # If no screen comes for four minutes, something hangs: the test JVM's threads go
+          # into the log, then it is stopped so the rest of the job still runs.
+          ( set +e; last=0; still=0
+            while sleep 30; do
+              now=$(cat "$VOLTA_SHOTS"/raw/*/progress.txt 2>/dev/null | wc -l || true)
+              if [ "$now" -gt 0 ] && [ "$now" = "$last" ]; then still=$((still + 30)); else still=0; fi
+              last=$now
+              if [ "$still" -ge 240 ]; then
+                tail -3 "$VOLTA_SHOTS"/raw/*/progress.txt
+                for p in $(pgrep -f GradleWorkerMain); do jstack "$p"; done > "$VOLTA_SHOTS/stacks.txt" 2>&1
+                grep -v 'java.base@\|org.gradle\|jdk.internal\|^\s*- ' "$VOLTA_SHOTS/stacks.txt" | head -700
+                pkill -f GradleWorkerMain
+                break
+              fi
+            done ) &
+          WATCH=$!
+          trap 'kill $WATCH 2>/dev/null || true' EXIT
+          ./gradlew --no-configuration-cache --stacktrace "-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8" \
+            :app:testGithubDebugUnitTest --tests 'com.ars3nb.volta.ui.shots.StoreShots*' 2>&1 \
+            | tee "$RUNNER_TEMP/store-gradle.log" | tail -80
+          ls -la "$VOLTA_SHOTS"/raw/*
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Listing pictures
+        if: always() && hashFiles('tools/store/compose.py') != ''
+        run: |
+          pip install --quiet pillow
+          python tools/store/compose.py --raw "$RUNNER_TEMP/store/raw" --out "$RUNNER_TEMP/store/play"
+          ls -la "$RUNNER_TEMP"/store/play/*
+
+      # Where artifacts can't be fetched, the pictures come back as a commit on the same
+      # store/… branch, to look at before they go into the listing.
+      - name: Commit the pictures
+        if: success() && github.event_name == 'workflow_dispatch' && inputs.commit && startsWith(github.ref_name, 'store/')
+        run: |
+          for lang in "$RUNNER_TEMP"/store/play/*/; do
+            lang=$(basename "$lang")
+            rm -rf "store/play/$lang"
+            mkdir -p "store/play/$lang"
+            cp "$RUNNER_TEMP/store/play/$lang"/*.png "store/play/$lang/"
+          done
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add store/play
+          if git diff --cached --quiet; then echo "no change"; exit 0; fi
+          git commit -q -m "Store: pictures from run $GITHUB_RUN_ID"
+          git push origin "HEAD:$GITHUB_REF_NAME"
+
+      - name: Collect logs
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/store"
+          cat "$RUNNER_TEMP"/store/raw/*/progress.txt 2>/dev/null || true
+          cp "$RUNNER_TEMP/store-gradle.log" "$RUNNER_TEMP/store/gradle.log" 2>/dev/null || true
+          cp -r app/build/test-results/testGithubDebugUnitTest "$RUNNER_TEMP/store/results" 2>/dev/null || true
+
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: store-pictures
+          path: ${{ runner.temp }}/store/
+          retention-days: 14
+          if-no-files-found: warn
