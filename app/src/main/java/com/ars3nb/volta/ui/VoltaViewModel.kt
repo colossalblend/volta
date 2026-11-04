@@ -309,10 +309,6 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     fun setUpdateBeta(v: Boolean) = viewModelScope.launch { updater.setBeta(v) }
 
-    fun coreAvailable(): Boolean = repo.isCoreAvailable()
-    fun openFluxAvailable(): Boolean = OpenFluxRunner.available
-    fun coreVersion(): String = repo.coreVersion()
-
     init {
         viewModelScope.launch(Dispatchers.IO) { _hwid.value = repo.hwid() }
         viewModelScope.launch {
@@ -645,8 +641,6 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
             runBalancerOnce(scope, allowRetry = false)
         }
     }
-
-    fun selectFastest() = runBalancer(BalancerScope.ALL)
 
     // ---------------------------------------------------------- subscriptions
 
@@ -1023,8 +1017,6 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     fun setLocalDns(v: Boolean) = viewModelScope.launch { repo.setLocalDns(v) }
     fun setSendHwid(v: Boolean) = viewModelScope.launch { repo.setSendHwid(v) }
     fun setAutoConnect(v: Boolean) = viewModelScope.launch { repo.setAutoConnect(v) }
-
-    fun refreshIp() = viewModelScope.launch { runCatching { _ip.value = repo.fetchIp() } }
 
     fun clearMessage() {
         _message.value = null

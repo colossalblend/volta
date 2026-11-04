@@ -113,7 +113,6 @@ class VoltaRepository(private val context: Context) {
     val servers: Flow<List<ServerEntity>> = serverDao.observeAll()
     val selectedServer: Flow<ServerEntity?> = serverDao.observeSelected()
     val routingProfiles: Flow<List<RoutingProfileEntity>> = routingDao.observeAll()
-    val shareableRoutingProfiles: Flow<List<RoutingProfileEntity>> = routingDao.observeShareable()
     val activeRouting: Flow<RoutingProfileEntity?> = routingDao.observeActive()
 
     val vpnState = VoltaVpnService.state
@@ -188,7 +187,6 @@ class VoltaRepository(private val context: Context) {
 
     fun hwid(): String = HwidProvider.getHwid(context)
     fun shortHwid(): String = HwidProvider.getShortHwid(context)
-    fun coreVersion(): String = com.ars3nb.volta.core.vpn.XrayCore.version()
     fun isCoreAvailable(): Boolean = com.ars3nb.volta.core.vpn.XrayCore.isCoreAvailable
 
     private val seedMutex = kotlinx.coroutines.sync.Mutex()

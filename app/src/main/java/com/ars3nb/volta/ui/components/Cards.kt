@@ -106,6 +106,8 @@ fun ServerRow(
     val shown = server.latencyMs.takeIf { it >= 0 } ?: server.ewmaMs
     val latencyColor = palette.latency(shown)
     val shape = if (inGroup) RoundedCornerShape(14.dp) else CardShape
+    // Read from the name once, not on every redraw of the row (a ping redraws it).
+    val flag = remember(server.remark) { flagOf(server.remark) }
 
     Surface(
         shape = shape,
@@ -147,7 +149,7 @@ fun ServerRow(
                         modifier = Modifier.size(18.dp)
                     )
 
-                    else -> Text(flagOf(server.remark), fontSize = if (inGroup) 18.sp else 20.sp)
+                    else -> Text(flag, fontSize = if (inGroup) 18.sp else 20.sp)
                 }
             }
             Spacer(Modifier.width(12.dp))
