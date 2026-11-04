@@ -107,7 +107,7 @@ fun SubscriptionEditorDialog(
                     Text("Удалить подписку?", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "Уйдут её серверы и её правила маршрутизации. Остальные подписки останутся как есть.",
+                        "Уйдут её серверы и её правила. Остальные подписки останутся как есть.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = scheme.onSurfaceVariant
                     )

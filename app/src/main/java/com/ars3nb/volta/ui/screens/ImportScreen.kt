@@ -136,7 +136,7 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
         Text("Добавить", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(4.dp))
         Text(
-            "Подписку, сервер или конфиг. Вставьте как есть — Volta разберётся сама.",
+            "Подписку, сервер или ключ. Вставьте как есть, Volta разберётся сама.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -146,7 +146,7 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
             VoltaField(
                 value = input,
                 onValueChange = { input = it },
-                placeholder = "https://…, volta://…, vless://… или текст конфига",
+                placeholder = "Ссылка или ключ от VPN-сервиса",
                 minLines = 4,
                 maxLines = 9
             )
@@ -225,8 +225,8 @@ fun ImportScreen(vm: VoltaViewModel, onBack: () -> Unit) {
             LinkRow(
                 icon = Icons.Rounded.FileOpen,
                 tint = MaterialTheme.colorScheme.primary,
-                title = "Открыть файл конфигурации",
-                subtitle = "AmneziaWG, WireGuard или AmneziaVPN",
+                title = "Открыть файл настроек",
+                subtitle = "Файл, который прислал VPN-сервис",
                 onClick = { if (!state.busy) openFile.launch(arrayOf("*/*")) }
             )
         }
@@ -260,7 +260,7 @@ private fun DetectedLine(kind: Kind) {
         label = "detected"
     ) { k ->
         val (icon, tint, title, body) = when (k) {
-            Kind.Empty -> Look(Icons.Rounded.Link, scheme.onSurfaceVariant, "Пока пусто", "Вставьте ссылку или текст конфига")
+            Kind.Empty -> Look(Icons.Rounded.Link, scheme.onSurfaceVariant, "Пока пусто", "Вставьте ссылку или ключ")
             is Kind.Subscription -> if (k.hidden) {
                 Look(Icons.Rounded.Lock, scheme.primary, "Подписка со скрытой ссылкой", "Адрес не будет виден в приложении")
             } else {
@@ -270,11 +270,11 @@ private fun DetectedLine(kind: Kind) {
                 Icons.Rounded.EnhancedEncryption, palette.good,
                 "Зашифрованная подписка", "Volta откроет её сама, адрес останется скрытым"
             )
-            is Kind.Server -> Look(Icons.Rounded.Storage, palette.home, "Сервер ${k.protocol}", "Добавится в общий список серверов")
+            is Kind.Server -> Look(Icons.Rounded.Storage, palette.home, "Сервер", "Добавится в общий список серверов")
             is Kind.Servers -> Look(Icons.Rounded.Storage, palette.home, "Серверов: ${k.count}", "Все добавятся в общий список")
             Kind.AmneziaKey -> Look(Icons.Rounded.Key, palette.home, "Ключ AmneziaVPN", "Серверы из ключа добавятся в список")
-            Kind.Conf -> Look(Icons.Rounded.Description, palette.home, "Конфиг WireGuard или AmneziaWG", "Станет одним сервером")
-            Kind.Json -> Look(Icons.Rounded.DataObject, palette.home, "JSON-конфиг Xray", "Серверы возьмутся из outbounds")
+            Kind.Conf -> Look(Icons.Rounded.Description, palette.home, "Файл настроек сервера", "Станет одним сервером в списке")
+            Kind.Json -> Look(Icons.Rounded.DataObject, palette.home, "Настройки серверов", "Серверы добавятся в общий список")
             Kind.Control -> Look(
                 Icons.Rounded.PowerSettingsNew, scheme.primary,
                 "Ссылка управления", "Не добавляется, а включает или выключает VPN"
@@ -312,10 +312,10 @@ private val Kind.action: String
     }
 
 private val FORMATS = listOf(
-    "Подписка" to "Ссылка https:// от VPN-сервиса, а также volta://import и зашифрованная volta://crypt",
-    "Сервер" to "VLESS, VMess, Trojan, Shadowsocks и SS-2022, SOCKS5, HTTP, Hysteria2, Hysteria, WireGuard",
-    "AmneziaVPN" to "Ключ vpn:// и конфиги AmneziaWG от версии 1.0 до 3",
-    "Конфиг" to "Файл .conf или JSON-конфиг Xray целиком"
+    "Подписка" to "Ссылка от VPN-сервиса, обычная или зашифрованная. Серверы в ней обновляются сами",
+    "Сервер" to "Ссылка на один сервер, которую прислал сервис",
+    "Ключ AmneziaVPN" to "Длинный ключ, который начинается с vpn://",
+    "Файл настроек" to "Файл, который прислал сервис: его можно открыть кнопкой выше"
 )
 
 /** A config file is a few kilobytes; anything far bigger is not one. */

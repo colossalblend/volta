@@ -34,14 +34,13 @@ import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Insights
-import androidx.compose.material.icons.rounded.Key
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.SyncAlt
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.VpnLock
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -49,7 +48,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.runtime.Composable
@@ -70,7 +68,6 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -86,13 +83,11 @@ import com.ars3nb.volta.ui.components.Hint
 import com.ars3nb.volta.ui.components.IconBubble
 import com.ars3nb.volta.ui.components.LinkRow
 import com.ars3nb.volta.ui.components.SectionHeader
-import com.ars3nb.volta.ui.components.StatusPill
 import com.ars3nb.volta.ui.components.SwitchRow
 import com.ars3nb.volta.ui.components.UpdateAction
 import com.ars3nb.volta.ui.components.UpdateProgress
 import com.ars3nb.volta.ui.components.VoltaCard
 import com.ars3nb.volta.ui.components.VoltaChip
-import com.ars3nb.volta.ui.components.VoltaField
 import com.ars3nb.volta.ui.components.barColors
 import com.ars3nb.volta.ui.components.updateHint
 import com.ars3nb.volta.ui.theme.VoltaTheme
@@ -121,8 +116,6 @@ fun SettingsScreen(vm: VoltaViewModel) {
     val simpleMode by vm.simpleMode.collectAsStateWithLifecycle()
     val update by vm.updateState.collectAsStateWithLifecycle()
     val updateAutoCheck by vm.updateAutoCheck.collectAsStateWithLifecycle()
-    val updateToken by vm.updateToken.collectAsStateWithLifecycle()
-    var editingToken by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val palette = VoltaTheme.palette
@@ -244,7 +237,7 @@ fun SettingsScreen(vm: VoltaViewModel) {
                         onChecked = vm::setPingOnStart
                     )
                     Column(Modifier.padding(start = 48.dp, top = 6.dp, bottom = 8.dp, end = 4.dp)) {
-                        Text("Чем мерить отклик", style = MaterialTheme.typography.titleSmall)
+                        Text("Как проверять серверы", style = MaterialTheme.typography.titleSmall)
                         Spacer(Modifier.height(8.dp))
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -270,8 +263,8 @@ fun SettingsScreen(vm: VoltaViewModel) {
                     SwitchRow(
                         icon = Icons.Rounded.Dns,
                         tint = primary,
-                        title = "Свой DNS в туннеле",
-                        subtitle = "Меньше блокировок сайтов.",
+                        title = "Открывать сайты через VPN",
+                        subtitle = "Адреса сайтов тоже узнаются через VPN, так меньше блокировок.",
                         checked = localDns,
                         onChecked = vm::setLocalDns
                     )
@@ -312,8 +305,8 @@ fun SettingsScreen(vm: VoltaViewModel) {
                     SwitchRow(
                         icon = Icons.Rounded.Fingerprint,
                         tint = primary,
-                        title = "Передавать ID устройства подписке",
-                        subtitle = "Нужно сервисам, которые привязывают подписку к устройству.",
+                        title = "Привязка к устройству",
+                        subtitle = "Включите, если VPN-сервис ограничивает число устройств на одну подписку.",
                         checked = sendHwid,
                         onChecked = vm::setSendHwid
                     )
@@ -322,20 +315,20 @@ fun SettingsScreen(vm: VoltaViewModel) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(Modifier.weight(1f)) {
-                            Text("ID этого устройства", style = MaterialTheme.typography.labelMedium)
+                            Text("Код этого устройства", style = MaterialTheme.typography.labelMedium)
                             Hint(vm.hwidFull())
                         }
                         IconButton(onClick = {
                             clipboard.setText(AnnotatedString(vm.hwidFull()))
-                            vm.showMessage("ID скопирован")
+                            vm.showMessage("Код скопирован")
                         }) {
-                            Icon(Icons.Rounded.ContentCopy, "Скопировать ID")
+                            Icon(Icons.Rounded.ContentCopy, "Скопировать код")
                         }
                     }
                 }
             }
 
-            item { SectionHeader("Версия и обновления") }
+            item { SectionHeader("О приложении") }
             item {
                 VoltaCard(contentPadding = 10) {
                     Row(
@@ -347,75 +340,59 @@ fun SettingsScreen(vm: VoltaViewModel) {
                         Column(Modifier.weight(1f)) {
                             Text("Volta ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleSmall)
                             Hint(
-                                when (val s = update) {
-                                    is UpdateState.Available,
-                                    is UpdateState.Downloading,
-                                    is UpdateState.Ready ->
-                                        "Новая версия ${updateInfo(s)?.versionName}. ${updateHint(s)}"
+                                if (!vm.updatesEnabled) {
+                                    "Обновления приходят через Google Play."
+                                } else {
+                                    when (val s = update) {
+                                        is UpdateState.Available,
+                                        is UpdateState.Downloading,
+                                        is UpdateState.Ready ->
+                                            "Новая версия ${updateInfo(s)?.versionName}. ${updateHint(s)}"
 
-                                    else -> updateHint(s)
+                                        else -> updateHint(s)
+                                    }
                                 }
                             )
                         }
-                        Spacer(Modifier.width(8.dp))
-                        UpdateAction(update, onCheck = vm::checkForUpdate, onInstall = vm::installUpdate)
-                    }
-                    UpdateProgress(update)
-                    SwitchRow(
-                        icon = Icons.Rounded.Autorenew,
-                        tint = primary,
-                        title = "Проверять автоматически",
-                        subtitle = "При запуске и раз в несколько часов в фоне. О новой версии придёт уведомление.",
-                        checked = updateAutoCheck,
-                        onChecked = vm::setUpdateAutoCheck
-                    )
-                    LinkRow(
-                        icon = Icons.Rounded.Key,
-                        tint = primary,
-                        title = "Токен GitHub",
-                        subtitle = if (updateToken.isBlank()) {
-                            "Нужен, только если сборки лежат в закрытом репозитории."
-                        } else {
-                            "Задан, заканчивается на ${updateToken.takeLast(4)}"
-                        },
-                        onClick = { editingToken = true }
-                    )
-                    // What runs the tunnel, at the very end where only the curious look.
-                    Row(
-                        Modifier.fillMaxWidth().padding(start = 48.dp, top = 8.dp, bottom = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Hint(
-                                if (vm.coreAvailable()) "Ядро: ${vm.coreVersion().ifBlank { "Xray" }}"
-                                else "Ядро VPN не установлено, работает только интерфейс"
-                            )
-                            Hint(
-                                if (vm.openFluxAvailable()) "OpenFlux: github.com/p1neappleXpress/OpenFlux (GPL-3.0)"
-                                else "OpenFlux не входит в эту сборку"
-                            )
+                        if (vm.updatesEnabled) {
+                            Spacer(Modifier.width(8.dp))
+                            UpdateAction(update, onCheck = vm::checkForUpdate, onInstall = vm::installUpdate)
                         }
-                        StatusPill(
-                            if (vm.coreAvailable()) "ядро на месте" else "нет ядра",
-                            if (vm.coreAvailable()) palette.good else palette.poor
+                    }
+                    if (vm.updatesEnabled) {
+                        UpdateProgress(update)
+                        SwitchRow(
+                            icon = Icons.Rounded.Autorenew,
+                            tint = primary,
+                            title = "Проверять обновления сами",
+                            subtitle = "При запуске и раз в несколько часов. О новой версии придёт уведомление.",
+                            checked = updateAutoCheck,
+                            onChecked = vm::setUpdateAutoCheck
                         )
                     }
+                    LinkRow(
+                        icon = Icons.AutoMirrored.Rounded.MenuBook,
+                        tint = primary,
+                        title = "Помощь и инструкции",
+                        subtitle = "Как добавить подписку, выбрать режим и настроить приложения",
+                        onClick = {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, android.net.Uri.parse(HELP_URL))
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                )
+                            }
+                        }
+                    )
                 }
             }
         }
     }
 
-    if (editingToken) {
-        TokenDialog(
-            current = updateToken,
-            onSave = {
-                vm.setUpdateToken(it)
-                editingToken = false
-            },
-            onDismiss = { editingToken = false }
-        )
-    }
 }
+
+/** Where the user guide lives (the docs site built from site/). */
+private const val HELP_URL = "https://colossalblend.github.io/volta/"
 
 /** A Quick Settings tile as it will look in the shade; a tap asks Android to add it. */
 @Composable
@@ -507,44 +484,6 @@ private fun ThemeCoin(theme: DesignTheme, selected: Boolean, onClick: () -> Unit
     }
 }
 
-/** A read-only GitHub token, for updates from the private repository. */
-@Composable
-private fun TokenDialog(current: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
-    var value by remember { mutableStateOf(current) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = { Text("Токен GitHub") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Hint(
-                    "Токен с доступом «Contents: Read-only» только к репозиторию Volta. " +
-                        "Хранится на этом телефоне и уходит только на GitHub. Если сборки " +
-                        "лежат в публичном volta-releases, токен не нужен."
-                )
-                VoltaField(
-                    value = value,
-                    onValueChange = { value = it.trim() },
-                    singleLine = true,
-                    placeholder = "github_pat_…",
-                    visualTransformation = PasswordVisualTransformation(),
-                    container = MaterialTheme.colorScheme.surfaceVariant
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onSave(value) }) { Text("Сохранить") }
-        },
-        dismissButton = {
-            if (current.isNotBlank()) {
-                TextButton(onClick = { onSave("") }) { Text("Удалить") }
-            } else {
-                TextButton(onClick = onDismiss) { Text("Отмена") }
-            }
-        }
-    )
-}
-
 private fun updateInfo(state: UpdateState): UpdateInfo? = when (state) {
     is UpdateState.Available -> state.info
     is UpdateState.Downloading -> state.info
@@ -554,17 +493,17 @@ private fun updateInfo(state: UpdateState): UpdateInfo? = when (state) {
 }
 
 private fun pingLabel(t: PingType) = when (t) {
-    PingType.REAL_DELAY -> "Через сервер"
-    PingType.HTTP_GET -> "HTTP GET"
-    PingType.TCP -> "TCP"
-    PingType.ICMP -> "ICMP"
+    PingType.REAL_DELAY -> "Точно"
+    PingType.HTTP_GET -> "Через сайт"
+    PingType.TCP -> "Быстро"
+    PingType.ICMP -> "Просто"
 }
 
 private fun pingHint(t: PingType) = when (t) {
-    PingType.REAL_DELAY -> "Точнее всего, рекомендуем."
-    PingType.HTTP_GET -> "Подходит для серверов за CDN."
-    PingType.TCP -> "Быстро, но менее точно."
-    PingType.ICMP -> "Обычный ping, у многих операторов не работает."
+    PingType.REAL_DELAY -> "Проверяет настоящую скорость через сервер. Рекомендуем."
+    PingType.HTTP_GET -> "Для серверов, которые плохо отвечают на быструю проверку."
+    PingType.TCP -> "Быстрее, но может показать сервер живым, когда он не работает."
+    PingType.ICMP -> "Самая простая проверка. У многих мобильных операторов не работает."
 }
 
 private fun themeLabel(t: DesignTheme) = when (t) {

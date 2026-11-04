@@ -221,7 +221,7 @@ class AutoBalancer(
                 NetworkRegime.UNKNOWN,
                 current,
                 if (servers.isEmpty()) "Нет серверов"
-                else "Ни один сервер не поддерживается этим ядром"
+                else "Эта версия Volta не умеет открывать ни один из этих серверов"
             )
         }
 

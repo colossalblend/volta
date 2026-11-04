@@ -62,22 +62,25 @@ class AppUpdaterTest {
     }
 
     @Test
-    fun readsAssetLinksFromTheReleaseApi() {
-        val release = """
-            {"tag_name": "apk-main", "assets": [
-              {"name": "update.json", "url": "https://api.github.com/repos/o/r/releases/assets/1"},
-              {"name": "volta-x-arm64-v8a.apk", "url": "https://api.github.com/repos/o/r/releases/assets/2"}
-            ]}
-        """.trimIndent()
-        val assets = AppUpdater.parseAssets(release)
-        assertEquals("https://api.github.com/repos/o/r/releases/assets/1", assets["update.json"])
-        assertEquals(2, assets.size)
-        assertEquals(emptyMap<String, String>(), AppUpdater.parseAssets("{}"))
+    fun readsTheReleaseTag() {
+        assertEquals("", AppUpdater.parseManifest(manifest)!!.tag)
+        val tagged = manifest.replaceFirst("{", "{\n  \"tag\": \"v1.2.0\",")
+        assertEquals("v1.2.0", AppUpdater.parseManifest(tagged)!!.tag)
     }
 
     @Test
-    fun followsItsBranchAndMain() {
-        assertEquals(listOf("apk-redesign-auto-groups", "apk-main"), AppUpdater.channels("apk-redesign-auto-groups"))
-        assertEquals(listOf("apk-main"), AppUpdater.channels("apk-main"))
+    fun looksOnlyAtPublishedReleasesWithoutAKey() {
+        assertEquals(
+            "https://github.com/colossalblend/volta/releases/latest/download/update.json",
+            AppUpdater.latestUrl("colossalblend/volta", "update.json")
+        )
+        assertEquals(
+            "https://github.com/o/r/releases/download/v1.2.0/volta-arm64-v8a.apk",
+            AppUpdater.assetUrl("o/r", "v1.2.0", "volta-arm64-v8a.apk")
+        )
+        assertEquals(
+            "https://github.com/o/r/releases/latest/download/a.apk",
+            AppUpdater.assetUrl("o/r", "", "a.apk")
+        )
     }
 }

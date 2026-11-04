@@ -140,15 +140,7 @@ fun ServerRow(
                         modifier = Modifier.size(18.dp)
                     )
 
-                    inGroup -> Text(
-                        protocolBadge(server),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = if (selected) scheme.primary else scheme.onSurfaceVariant,
-                        maxLines = 1
-                    )
-
-                    else -> Text(flagOf(server.remark), fontSize = 20.sp)
+                    else -> Text(flagOf(server.remark), fontSize = if (inGroup) 18.sp else 20.sp)
                 }
             }
             Spacer(Modifier.width(12.dp))
@@ -170,11 +162,9 @@ fun ServerRow(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+                // Where it came from, in words; the connection details stay out of sight.
                 Text(
-                    listOf(
-                        subscriptionName.ifBlank { "Свой сервер" },
-                        if (inGroup) transportLabel(server) else protocolBadge(server)
-                    ).filter { it.isNotBlank() }.joinToString(" · "),
+                    subscriptionName.ifBlank { "Добавлен вручную" },
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
                     maxLines = 1,
@@ -182,13 +172,13 @@ fun ServerRow(
                 )
                 if (!supported) {
                     Text(
-                        "Не поддерживается",
+                        "Эта версия Volta его не открывает",
                         style = MaterialTheme.typography.labelSmall,
                         color = palette.poor
                     )
                 } else if (server.failStreak > 0) {
                     Text(
-                        "Не отвечал ${server.failStreak} раз(а)",
+                        "Недавно не отвечал",
                         style = MaterialTheme.typography.labelSmall,
                         color = palette.fair
                     )

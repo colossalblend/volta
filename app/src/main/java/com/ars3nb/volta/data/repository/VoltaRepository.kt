@@ -317,13 +317,13 @@ class VoltaRepository(private val context: Context) {
             serverTypes = sub.serverTypes
         )
         if (servers.isEmpty()) {
-            val hint = if (parsed.skipped.isNotEmpty()) {
-                " В ответе есть только ${parsed.skipped.joinToString(", ")} — этот протокол " +
-                    "не поддерживается установленным ядром."
-            } else {
-                " Проверьте ссылку, авторизацию или формат ответа провайдера."
-            }
-            error("В ответе подписки не найдено ни одного поддерживаемого сервера.$hint")
+            error(
+                if (parsed.skipped.isNotEmpty()) {
+                    "В подписке только серверы, которые Volta пока не умеет открывать."
+                } else {
+                    "В подписке не нашлось ни одного сервера. Проверьте ссылку или напишите в поддержку VPN-сервиса."
+                }
+            )
         }
         serverDao.replaceSubscription(id, servers)
 
@@ -915,7 +915,7 @@ class VoltaRepository(private val context: Context) {
         // Without the native core a "connection" would be a lie: the TUN would come up
         // with nothing behind it and the app would claim CONNECTED.
         check(isCoreAvailable()) {
-            "Ядро VPN не установлено в этой сборке — подключение невозможно"
+            "Эта сборка Volta не умеет подключаться. Установите полную версию"
         }
         val all = serverDao.getAll()
         require(all.isNotEmpty()) { "Сначала добавьте подписку или сервер" }
@@ -1443,11 +1443,11 @@ class VoltaRepository(private val context: Context) {
         } catch (e: SSLException) {
             error("Не удалось установить защищённое соединение с сервером подписки.")
         } catch (e: IOException) {
-            error("Ошибка сети при загрузке подписки: ${e.message ?: e.javaClass.simpleName}")
+            error("Не удалось загрузить подписку. Проверьте интернет.")
         }
 
         resp.use {
-            if (!it.isSuccessful) error("Не удалось скачать подписку (код ${it.code})")
+            if (!it.isSuccessful) error("Сервис не отдал подписку (ошибка ${it.code}). Проверьте ссылку или срок подписки.")
             val body = it.body?.string().orEmpty().removePrefix("\uFEFF")
             if (body.isBlank()) error("Подписка пустая")
 

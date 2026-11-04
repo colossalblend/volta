@@ -478,7 +478,7 @@ private fun FiltersCard(
             tint = palette.good,
             on = adBlock != AdBlockMode.OFF,
             title = "Блокировка рекламы",
-            subtitle = "AdGuard DNS убирает рекламу и трекеры во всех приложениях",
+            subtitle = "Фильтр AdGuard убирает рекламу и трекеры во всех приложениях",
             onToggle = { onAdBlock(if (it) AdBlockMode.STANDARD else AdBlockMode.OFF) }
         )
         AnimatedVisibility(
@@ -890,7 +890,7 @@ private fun RuleEditorPage(
                     IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Готово") }
                 },
                 actions = {
-                    IconButton(onClick = { showJson = true }) { Icon(Icons.Rounded.Code, "JSON") }
+                    IconButton(onClick = { showJson = true }) { Icon(Icons.Rounded.Code, "Импорт и экспорт правил") }
                 }
             )
         }
@@ -1043,7 +1043,7 @@ private fun QuickAddCard(onAdd: (Presets.Entry, RouteOutbound) -> Unit) {
     }
 
     val support = when {
-        error -> "Не похоже на сайт или IP"
+        error -> "Не похоже на адрес сайта"
         lastAdded != null -> "Добавлено: $lastAdded"
         else -> null
     }
@@ -1056,7 +1056,7 @@ private fun QuickAddCard(onAdd: (Presets.Entry, RouteOutbound) -> Unit) {
                 text = it
                 error = false
             },
-            placeholder = { Text("youtube.com, ссылка или IP") },
+            placeholder = { Text("youtube.com или ссылка") },
             singleLine = true,
             isError = error,
             supportingText = support?.let { line -> { Text(line) } },
@@ -1148,9 +1148,6 @@ private fun RuleCard(
 ) {
     val color by animateColorAsState(outboundColor(rule.outbound), label = "ruleColor")
     val alpha by animateFloatAsState(if (rule.enabled) 1f else 0.45f, label = "ruleAlpha")
-    var advanced by remember(rule.id) {
-        mutableStateOf(rule.ports.isNotBlank() || rule.network.isNotBlank() || rule.protocol.isNotEmpty())
-    }
     VoltaCard(modifier = modifier.animateContentSize(), contentPadding = 0) {
         Row(
             Modifier
@@ -1214,64 +1211,11 @@ private fun RuleCard(
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutboundPicker(selected = rule.outbound, onSelect = { onUpdate(rule.copy(outbound = it)) })
-                Text("Сайты и IP", style = MaterialTheme.typography.labelLarge)
+                Text("Сайты и адреса", style = MaterialTheme.typography.labelLarge)
                 EntryField(
                     rule = rule,
                     onChange = onUpdate
                 )
-                Row(
-                    Modifier.clip(CircleShape).clickable { advanced = !advanced }.padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "Порты и протоколы",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Icon(
-                        if (advanced) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                        null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                AnimatedVisibility(visible = advanced) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = rule.ports,
-                            onValueChange = { onUpdate(rule.copy(ports = it)) },
-                            label = { Text("Порты") },
-                            placeholder = { Text("80,443 или 1000-2000") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf("" to "Любая сеть", "tcp" to "TCP", "udp" to "UDP").forEach { (value, label) ->
-                                FilterChip(
-                                    selected = rule.network == value,
-                                    onClick = { onUpdate(rule.copy(network = value)) },
-                                    label = { Text(label) }
-                                )
-                            }
-                        }
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf("http", "tls", "quic", "bittorrent").forEach { p ->
-                                FilterChip(
-                                    selected = p in rule.protocol,
-                                    onClick = {
-                                        onUpdate(
-                                            rule.copy(
-                                                protocol = if (p in rule.protocol) rule.protocol - p
-                                                else rule.protocol + p
-                                            )
-                                        )
-                                    },
-                                    label = { Text(if (p == "bittorrent") "BitTorrent" else p.uppercase()) }
-                                )
-                            }
-                        }
-                    }
-                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { onMove(-1) }, enabled = canMoveUp) {
                         Icon(Icons.Rounded.KeyboardArrowUp, "Выше")
@@ -1345,7 +1289,7 @@ private fun EntryField(rule: RoutingRuleDto, onChange: (RoutingRuleDto) -> Unit)
     OutlinedTextField(
         value = text,
         onValueChange = { text = it },
-        placeholder = { Text("Добавить: сайт, IP, geosite:…") },
+        placeholder = { Text("Добавить сайт или адрес") },
         singleLine = true,
         trailingIcon = {
             IconButton(onClick = { add() }, enabled = text.isNotBlank()) { Icon(Icons.Rounded.Add, "Добавить") }
@@ -1367,7 +1311,7 @@ private fun JsonDialog(
     var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Правила в JSON") },
+        title = { Text("Импорт и экспорт правил") },
         text = {
             OutlinedTextField(
                 value = text,
@@ -1386,7 +1330,7 @@ private fun JsonDialog(
             Button(onClick = {
                 runCatching { onImport(text) }
                     .onSuccess(onApply)
-                    .onFailure { error = it.message ?: "Некорректный JSON" }
+                    .onFailure { error = it.message ?: "Текст правил повреждён, скопируйте его заново" }
             }) { Text("Применить") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Закрыть") } }
@@ -1414,9 +1358,9 @@ private fun outboundIcon(o: RouteOutbound): ImageVector = when (o) {
 private fun summary(rule: RoutingRuleDto): String {
     val parts = buildList {
         if (rule.domains.isNotEmpty()) add(siteCount(rule.domains.size))
-        if (rule.ips.isNotEmpty()) add("${rule.ips.size} IP")
-        if (rule.ports.isNotBlank()) add("порты ${rule.ports}")
-        if (rule.protocol.isNotEmpty()) add(rule.protocol.joinToString("/"))
+        if (rule.ips.isNotEmpty()) add(addressCount(rule.ips.size))
+        // Ports and protocols come only from providers; they are not spelled out here.
+        if (rule.ports.isNotBlank() || rule.protocol.isNotEmpty()) add("и особые условия")
     }
     return if (parts.isEmpty()) "без условий" else parts.joinToString(", ")
 }
@@ -1445,6 +1389,7 @@ private fun plural(n: Int, one: String, few: String, many: String): String {
     return "$n $word"
 }
 
+private fun addressCount(n: Int) = plural(n, "адрес", "адреса", "адресов")
 private fun ruleCount(n: Int) = plural(n, "правило", "правила", "правил")
 private fun siteCount(n: Int) = plural(n, "сайт", "сайта", "сайтов")
 private fun appCount(n: Int) = plural(n, "приложение", "приложения", "приложений")

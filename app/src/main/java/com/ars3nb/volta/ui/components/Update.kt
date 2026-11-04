@@ -58,8 +58,8 @@ fun UpdateBanner(state: UpdateState, onInstall: () -> Unit) {
 
 /** What the update is doing, in one line. */
 fun updateHint(state: UpdateState): String = when (state) {
-    UpdateState.Idle -> "Проверка ещё не проводилась"
-    UpdateState.Checking -> "Проверяю GitHub…"
+    UpdateState.Idle -> "Ещё не проверяли"
+    UpdateState.Checking -> "Ищу обновления…"
     is UpdateState.UpToDate ->
         "Последняя версия · проверено в " +
             SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(state.checkedAt))

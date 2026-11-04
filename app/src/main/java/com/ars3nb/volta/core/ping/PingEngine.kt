@@ -143,7 +143,7 @@ class PingEngine(
                 )
             }
         }
-        PingResult(server.remark, PingType.HTTP_GET, -1, false, "Сервер не ответил по HTTP")
+        PingResult(server.remark, PingType.HTTP_GET, -1, false, "Сервер не ответил")
     }
 
     suspend fun tcpPing(host: String, port: Int): PingResult = withContext(Dispatchers.IO) {
@@ -240,7 +240,7 @@ class PingEngine(
             return@withContext tcpPing(server.address, server.port).copy(type = type)
         }
         val config = runCatching { ConfigBuilder.buildProbe(server) }.getOrNull()
-            ?: return@withContext PingResult(server.remark, type, -1, false, "Конфиг не собран")
+            ?: return@withContext PingResult(server.remark, type, -1, false, "Сервер не удалось подготовить к проверке")
         // The native call blocks and ignores cancellation, so it runs detached: the
         // timeout then really ends the wait instead of sitting out the core's own
         // 10+ s deadline on a dead node.

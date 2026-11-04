@@ -304,7 +304,7 @@ object ConfigBuilder {
             }
 
             ProtocolType.SHADOWSOCKS -> {
-                require(server.encryption.isNotBlank()) { "Shadowsocks без метода шифрования" }
+                require(server.encryption.isNotBlank()) { "В ссылке на сервер не хватает данных" }
                 ob.addProperty("protocol", "shadowsocks")
                 ob.add("settings", JsonObject().apply {
                     add("servers", JsonArray().apply {
@@ -390,7 +390,7 @@ object ConfigBuilder {
 
             ProtocolType.AMNEZIAWG, ProtocolType.HYSTERIA -> {
                 val spec = helperSpec(server)
-                    ?: throw UnsupportedProtocolException("«${server.remark}»: в сервере нет конфига")
+                    ?: throw UnsupportedProtocolException("«${server.remark}»: у сервера нет настроек, обновите подписку")
                 if (!ProxyHelper.available) {
                     throw UnsupportedProtocolException(
                         "${server.protocol.label} не входит в эту сборку Volta"
@@ -405,7 +405,7 @@ object ConfigBuilder {
 
             ProtocolType.RAW_JSON, ProtocolType.UNKNOWN ->
                 throw UnsupportedProtocolException(
-                    "«${server.remark}»: тип сервера не распознан, подключение невозможно"
+                    "«${server.remark}»: Volta не знает такой тип сервера"
                 )
         }
         ob.add("streamSettings", buildStreamSettings(server))
@@ -446,7 +446,7 @@ object ConfigBuilder {
     private fun hysteriaV1Problem(server: ServerEntity): String? {
         val mode = ConfigParser.extra(server.extraJson, "protocol").lowercase()
         return if (mode.isNotBlank() && mode != "udp") {
-            "«${server.remark}»: Hysteria в режиме $mode не поддерживается, только udp"
+            "«${server.remark}»: этот вариант сервера Volta пока не поддерживает"
         } else null
     }
 
@@ -469,7 +469,7 @@ object ConfigBuilder {
         server: ServerEntity,
         userBlock: (JsonObject) -> Unit
     ): JsonObject {
-        require(server.uuid.isNotBlank()) { "«${server.remark}»: не указан ID пользователя" }
+        require(server.uuid.isNotBlank()) { "«${server.remark}»: в ссылке нет ключа доступа" }
         return JsonObject().apply {
             add("vnext", JsonArray().apply {
                 add(JsonObject().apply {
@@ -494,7 +494,7 @@ object ConfigBuilder {
         val publicKey = ConfigParser.extra(extras, "publicKey", "publickey", "peerPublicKey")
             .ifBlank { server.pbk }
         require(secret.isNotBlank() && publicKey.isNotBlank()) {
-            "«${server.remark}»: WireGuard без ключей"
+            "«${server.remark}»: в настройках сервера нет ключей"
         }
         val localAddresses = ConfigParser.extra(extras, "address", "localAddress", "ip")
             .ifBlank { "172.16.0.2/32" }
@@ -551,7 +551,7 @@ object ConfigBuilder {
             ?.asString?.lowercase().orEmpty()
         if (protocol !in DIALABLE_PROTOCOLS) {
             throw UnsupportedProtocolException(
-                "«${server.remark}»: протокол «$protocol» не поддерживается этим ядром"
+                "«${server.remark}»: такой тип сервера Volta пока не поддерживает"
             )
         }
         return dropRetired(outbound)
@@ -623,7 +623,7 @@ object ConfigBuilder {
             "splithttp" -> "xhttp"
             "mkcp" -> "kcp"
             "quic" -> throw UnsupportedProtocolException(
-                "«${server.remark}»: транспорт QUIC удалён из этого ядра, попросите у сервиса ссылку с ws/grpc/xhttp"
+                "«${server.remark}»: сервер использует устаревший способ подключения, попросите у сервиса новую ссылку"
             )
             else -> network
         }
@@ -631,7 +631,7 @@ object ConfigBuilder {
         // every other node down with it — refuse this one node loudly instead.
         if (security !in setOf("none", "tls", "reality")) {
             throw UnsupportedProtocolException(
-                "«${server.remark}»: шифрование «$security» не поддерживается этим ядром"
+                "«${server.remark}»: сервер использует шифрование, которое Volta не поддерживает"
             )
         }
         stream.addProperty("network", effectiveNetwork)
@@ -639,7 +639,7 @@ object ConfigBuilder {
 
         when (security) {
             "reality" -> {
-                require(server.pbk.isNotBlank()) { "«${server.remark}»: REALITY без публичного ключа" }
+                require(server.pbk.isNotBlank()) { "«${server.remark}»: в ссылке не хватает ключа, попросите у сервиса новую" }
                 stream.add("realitySettings", JsonObject().apply {
                     addProperty(
                         "serverName",
@@ -774,7 +774,7 @@ object ConfigBuilder {
     private fun hysteriaSettings(server: ServerEntity): JsonObject {
         val extras = server.extraJson
         val auth = server.uuid.ifBlank { ConfigParser.extra(extras, "auth", "password") }
-        require(auth.isNotBlank()) { "«${server.remark}»: Hysteria2 без пароля" }
+        require(auth.isNotBlank()) { "«${server.remark}»: в ссылке нет пароля" }
         return JsonObject().apply {
             addProperty("version", 2)
             addProperty("auth", auth)

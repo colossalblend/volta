@@ -95,7 +95,7 @@ fun ServerActionsSheet(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Hint("${server.protocol.label}, ${server.address}:${server.port}")
+                    Hint("Группа ${roleLabel(server.role)}")
                 }
             }
             Spacer(Modifier.height(16.dp))

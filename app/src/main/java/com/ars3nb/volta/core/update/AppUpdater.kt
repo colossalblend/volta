@@ -46,9 +46,8 @@ data class UpdateInfo(
     val versionName: String,
     val xray: String,
     val apk: UpdateApk,
-    val url: String,
-    /** [url] is the GitHub API's: it wants the token and an octet-stream Accept. */
-    val viaApi: Boolean
+    /** A plain download link of the release asset: public, no key, no API. */
+    val url: String
 )
 
 sealed interface UpdateState {
@@ -64,14 +63,17 @@ sealed interface UpdateState {
 }
 
 /**
- * Updates from GitHub. Every CI build goes to a rolling pre-release of its branch
- * ("apk-<branch>") with an update.json naming the build's number and the APK for each
- * CPU type. The app reads that file on its own channel and on apk-main, and when a build
- * is newer than itself downloads the APK for this phone, checks its SHA-256 and hands it
- * to Android's installer. Every build is signed with the same key, so it installs over.
+ * Updates from the repository's GitHub Releases. A release (made by CI from a `v…` tag)
+ * carries an update.json naming its build number and the APK for each CPU type. The app
+ * reads that file from the latest release through GitHub's plain download link —
+ * `releases/latest/download/update.json`, which always points at the newest published
+ * release and never at a pre-release or a branch — so no key, no API and no rate limit.
+ * When the release is newer than the app, the APK for this phone is downloaded, its
+ * SHA-256 checked and handed to Android's installer. Every build is signed with the same
+ * key, so it installs over.
  *
- * The public mirror (volta-releases) is asked first, by plain download links; the app's
- * own repository is private and answers only to a token entered in the settings.
+ * Builds for Google Play have no updater at all ([BuildConfig.OTA] is false): there the
+ * store updates the app, and an app may not update itself around it.
  */
 class AppUpdater(private val context: Context, private val scope: CoroutineScope) {
 
@@ -80,7 +82,9 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
     val state: StateFlow<UpdateState> = _state.asStateFlow()
 
     val autoCheck = prefs.updateAutoCheck
-    val token = prefs.updateToken
+
+    /** False in the Google Play build: the store does the updating. */
+    val enabled: Boolean get() = BuildConfig.OTA
 
     private var download: Job? = null
 
@@ -103,21 +107,16 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
 
     suspend fun setAutoCheck(enabled: Boolean) = prefs.setUpdateAutoCheck(enabled)
 
-    suspend fun setToken(value: String) {
-        prefs.setUpdateToken(value)
-        check()
-    }
-
     /** On opening the app: once per process, then at most every half hour. */
     suspend fun checkOnLaunch() {
-        if (!prefs.updateAutoCheck.first()) return
+        if (!enabled || !prefs.updateAutoCheck.first()) return
         val recent = System.currentTimeMillis() - prefs.updateLastCheck.first() < LAUNCH_EVERY_MS
         if (_state.value is UpdateState.Idle || !recent) check()
     }
 
     /** From the hourly worker: every few hours, and a notification once per new build. */
     suspend fun checkInBackground() {
-        if (!prefs.updateAutoCheck.first()) return
+        if (!enabled || !prefs.updateAutoCheck.first()) return
         if (System.currentTimeMillis() - prefs.updateLastCheck.first() < BACKGROUND_EVERY_MS) return
         val info = when (val found = check()) {
             is UpdateState.Available -> found.info
@@ -131,23 +130,17 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
     }
 
     suspend fun check(): UpdateState {
+        if (!enabled) return UpdateState.Idle
         val current = _state.value
         if (current is UpdateState.Checking || current is UpdateState.Downloading) return current
         _state.value = UpdateState.Checking
-        val token = prefs.updateToken.first()
         val now = System.currentTimeMillis()
         val next = withContext(Dispatchers.IO) {
             try {
-                val found = findNewest(token)
+                val found = findNewest()
                 when {
-                    found == null -> UpdateState.Failed(
-                        if (token.isBlank()) {
-                            "Сборки не найдены. Репозиторий закрытый: нужен публичный " +
-                                "volta-releases или токен GitHub."
-                        } else {
-                            "Сборки не найдены: токен не подходит или не видит репозиторий."
-                        }
-                    )
+                    // Nothing published yet: nothing to update to, and nothing wrong.
+                    found == null -> UpdateState.UpToDate(now)
 
                     found.versionCode <= BuildConfig.VERSION_CODE -> {
                         // Whatever was downloaded before is installed by now.
@@ -159,7 +152,7 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
                     else -> UpdateState.Available(found)
                 }
             } catch (e: IOException) {
-                UpdateState.Failed("GitHub не отвечает. Проверьте интернет или включите VPN.")
+                UpdateState.Failed("Не получилось проверить обновления. Проверьте интернет или включите VPN.")
             }
         }
         prefs.setUpdateLastCheck(now)
@@ -169,6 +162,7 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
 
     /** The button: download what was found (or install what already is) and install it. */
     fun downloadAndInstall() {
+        if (!enabled) return
         val info = when (val s = _state.value) {
             is UpdateState.Available -> s.info
             is UpdateState.Ready -> s.info
@@ -184,9 +178,8 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
         prefs.reconnectAfterUpdate.first().also { if (it) prefs.setReconnectAfterUpdate(false) }
 
     private suspend fun fetchAndInstall(info: UpdateInfo, retry: Boolean) {
-        val token = prefs.updateToken.first()
         val result = withContext(Dispatchers.IO) {
-            runCatching { if (!verified(info)) fetchApk(info, token) }
+            runCatching { if (!verified(info)) fetchApk(info) }
         }
         val error = result.exceptionOrNull()
         when {
@@ -237,50 +230,23 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
         }
     }
 
-    private fun findNewest(token: String): UpdateInfo? {
-        var failure: IOException? = null
-        val found = channels(BuildConfig.UPDATE_TAG).mapNotNull { tag ->
-            try {
-                lookup(tag, token)
-            } catch (e: IOException) {
-                failure = e
-                null
-            }
-        }
-        return found.maxByOrNull { it.versionCode } ?: failure?.let { throw it }
-    }
-
-    /** The build on [tag]: from the first repository that has it. */
-    private fun lookup(tag: String, token: String): UpdateInfo? {
-        for (repo in BuildConfig.UPDATE_REPOS.split(',').filter { it.isNotBlank() }) {
-            // Public: plain download links, no API and so no rate limit.
-            val base = "https://github.com/$repo/releases/download/$tag"
-            fetchText("$base/update.json", token = null, raw = false)?.let { parseManifest(it) }?.let { m ->
-                pickApk(m.apks, Build.SUPPORTED_ABIS.toList(), BuildConfig.DEBUG)?.let { apk ->
-                    return UpdateInfo(m.versionCode, m.versionName, m.xray, apk, "$base/${apk.name}", viaApi = false)
-                }
-            }
-            if (token.isBlank()) continue
-            // Private: the API with the token.
-            val release = fetchText(
-                "https://api.github.com/repos/$repo/releases/tags/$tag",
-                token,
-                raw = false
-            ) ?: continue
-            val assets = parseAssets(release)
-            val manifest = assets["update.json"]
-                ?.let { fetchText(it, token, raw = true) }
-                ?.let { parseManifest(it) } ?: continue
-            val apk = pickApk(manifest.apks, Build.SUPPORTED_ABIS.toList(), BuildConfig.DEBUG) ?: continue
-            val url = assets[apk.name] ?: continue
-            return UpdateInfo(manifest.versionCode, manifest.versionName, manifest.xray, apk, url, viaApi = true)
-        }
-        return null
+    /** The latest published release, or null when there is none yet. */
+    private fun findNewest(): UpdateInfo? {
+        val repo = BuildConfig.UPDATE_REPO
+        val manifest = fetchText(latestUrl(repo, "update.json"))?.let { parseManifest(it) } ?: return null
+        val apk = pickApk(manifest.apks, Build.SUPPORTED_ABIS.toList(), BuildConfig.DEBUG) ?: return null
+        return UpdateInfo(
+            versionCode = manifest.versionCode,
+            versionName = manifest.versionName,
+            xray = manifest.xray,
+            apk = apk,
+            url = assetUrl(repo, manifest.tag, apk.name)
+        )
     }
 
     /** The body, or null when GitHub says there's nothing there (or not for us). */
-    private fun fetchText(url: String, token: String?, raw: Boolean): String? = route { client ->
-        client.newCall(request(url, token, raw)).execute().use { response ->
+    private fun fetchText(url: String): String? = route { client ->
+        client.newCall(request(url)).execute().use { response ->
             when {
                 response.isSuccessful -> response.body?.string()
                 response.code in NOT_THERE -> null
@@ -289,14 +255,14 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
         }
     }
 
-    private fun fetchApk(info: UpdateInfo, token: String) {
+    private fun fetchApk(info: UpdateInfo) {
         val target = apkFile(info)
         // Older downloads are of no use any more.
         updateDir().apply { mkdirs() }.listFiles()?.forEach { it.delete() }
         val part = File(target.path + ".part")
         _state.value = UpdateState.Downloading(info, 0f)
         route { client ->
-            client.newCall(request(info.url, token.takeIf { info.viaApi }, raw = info.viaApi))
+            client.newCall(request(info.url))
                 .execute().use { response ->
                     if (response.code in NOT_THERE) throw GoneException()
                     if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
@@ -345,16 +311,8 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
         }
     }
 
-    private fun request(url: String, token: String?, raw: Boolean): Request =
-        Request.Builder().url(url).apply {
-            header("User-Agent", "Volta/${BuildConfig.VERSION_NAME}")
-            if (url.startsWith("https://api.github.com/")) {
-                header("Accept", if (raw) "application/octet-stream" else "application/vnd.github+json")
-                header("X-GitHub-Api-Version", "2022-11-28")
-                // OkHttp drops it when GitHub redirects the file to its storage host.
-                if (!token.isNullOrBlank()) header("Authorization", "Bearer $token")
-            }
-        }.build()
+    private fun request(url: String): Request =
+        Request.Builder().url(url).header("User-Agent", "Volta/${BuildConfig.VERSION_NAME}").build()
 
     private fun updateDir() = File(context.cacheDir, "update")
     private fun apkFile(info: UpdateInfo) = File(updateDir(), info.apk.name)
@@ -405,7 +363,9 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
         val versionCode: Int,
         val versionName: String,
         val xray: String,
-        val apks: List<UpdateApk>
+        val apks: List<UpdateApk>,
+        /** The release's tag, so the APK is fetched from this very release. */
+        val tag: String = ""
     )
 
     companion object {
@@ -414,11 +374,20 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
         private val LAUNCH_EVERY_MS = TimeUnit.MINUTES.toMillis(30)
         private val BACKGROUND_EVERY_MS = TimeUnit.HOURS.toMillis(6)
 
-        /** 404 for a missing release; 401/403 for a private one without a good token. */
+        /** No release published yet (404), or the repository went private (401/403). */
         private val NOT_THERE = setOf(401, 403, 404)
 
-        /** The branch this build came from, then main, which every branch ends up in. */
-        internal fun channels(own: String): List<String> = listOf(own, "apk-main").distinct()
+        /** GitHub's link to a file of the newest published (non-pre-)release. */
+        internal fun latestUrl(repo: String, file: String): String =
+            "https://github.com/$repo/releases/latest/download/$file"
+
+        /**
+         * The APK's own link in its release. Pinned to the tag when the manifest names
+         * one, so a release published mid-download can't swap the file under the checksum.
+         */
+        internal fun assetUrl(repo: String, tag: String, file: String): String =
+            if (tag.isBlank()) latestUrl(repo, file)
+            else "https://github.com/$repo/releases/download/$tag/$file"
 
         internal fun parseManifest(json: String): Manifest? = runCatching {
             val root = JsonParser.parseString(json).asJsonObject
@@ -426,6 +395,7 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
                 versionCode = root.get("versionCode").asInt,
                 versionName = root.get("versionName")?.asString.orEmpty(),
                 xray = root.get("xray")?.takeIf { !it.isJsonNull }?.asString.orEmpty(),
+                tag = root.get("tag")?.takeIf { !it.isJsonNull }?.asString.orEmpty(),
                 apks = root.getAsJsonArray("apks").map { item ->
                     val o = item.asJsonObject
                     UpdateApk(
@@ -437,14 +407,6 @@ class AppUpdater(private val context: Context, private val scope: CoroutineScope
                 }
             )
         }.getOrNull()
-
-        /** Asset name to its API download URL, from a release as the API returns it. */
-        internal fun parseAssets(json: String): Map<String, String> = runCatching {
-            JsonParser.parseString(json).asJsonObject.getAsJsonArray("assets").associate {
-                val o = it.asJsonObject
-                o.get("name").asString to o.get("url").asString
-            }
-        }.getOrDefault(emptyMap())
 
         /**
          * The APK for this phone: its own CPU type, the debug flavour for a debug build

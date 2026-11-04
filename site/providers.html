@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Volta для VPN-сервисов</title>
+<meta name="description" content="Как VPN-сервису подключить Volta: ссылки «Открыть в Volta», скрытые и зашифрованные подписки, разметка серверов Home, LTE и балансеров, заголовки подписки.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=Unbounded:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="./"><span class="brand-disc" aria-hidden="true"></span>Volta</a>
+  <nav aria-label="Разделы">
+    <a href="./">Главная</a>
+    <a href="guide.html">Как пользоваться</a>
+    <a href="providers.html" aria-current="page">VPN-сервисам</a>
+    <a href="privacy.html">Конфиденциальность</a>
+  </nav>
+</header>
+
+<div class="page">
+  <aside class="toc">
+    <details open>
+      <summary>Содержание</summary>
+      <ul>
+        <li><a href="#button">Кнопка «Открыть в Volta»</a></li>
+        <li><a href="#hidden">Скрытая ссылка</a></li>
+        <li><a href="#crypt">Зашифрованная ссылка</a></li>
+        <li><a href="#groups">Разметка Home / LTE</a></li>
+        <li><a href="#format">Что принимает подписка</a></li>
+        <li><a href="#headers">Заголовки ответа</a></li>
+        <li><a href="#control">Включить и выключить</a></li>
+      </ul>
+    </details>
+  </aside>
+
+  <main class="doc">
+    <h1>Volta для VPN-сервисов</h1>
+    <p class="lead">Volta понимает обычные подписки так же, как Happ и v2rayNG. Здесь — то, что работает только в Volta: добавление в одно нажатие, скрытые и зашифрованные ссылки и разметка серверов для Wi-Fi и мобильной сети.</p>
+
+    <h2 id="button">Кнопка «Открыть в Volta»</h2>
+    <p>Всё после <code>volta://import/</code> — адрес подписки вместе с его собственными параметрами. Volta забирает из него только свои ключи, остальное уходит на ваш сервер как было.</p>
+<pre><code>volta://import/https://sub.example.com/u/abc?token=42
+volta://import/https://sub.example.com/u/abc#Мой%20VPN        название после #
+volta://import?url=https%3A%2F%2Fsub.example.com%2Fu%2Fabc&amp;name=Мой%20VPN</code></pre>
+    <p>Вместо <code>import/</code> можно писать <code>add/</code> или <code>sub/</code>. Повторное нажатие не создаёт дубль: подписка с тем же адресом обновляется.</p>
+<pre><code>&lt;a href="volta://import/https://sub.example.com/u/abc#Мой VPN"&gt;Открыть в Volta&lt;/a&gt;</code></pre>
+
+    <h2 id="hidden">Скрытая ссылка</h2>
+    <p>Параметр <code>visible_subs</code> решает, увидит ли пользователь адрес подписки в приложении.</p>
+<pre><code>volta://import/https://sub.example.com/u/abc?visible_subs=false</code></pre>
+    <ul>
+      <li><code>false</code> — адрес нигде не показывается: ни в карточке, ни в редакторе, ни в сообщениях об ошибках. Его нельзя скопировать или изменить, только переименовать подписку. Обновления работают как обычно.</li>
+      <li><code>true</code> или без параметра — адрес виден и редактируется.</li>
+    </ul>
+    <div class="panel note">
+      <p>Без шифрования адрес всё ещё можно прочитать из самой ссылки. Если это важно, используйте зашифрованную ссылку.</p>
+    </div>
+
+    <h2 id="crypt">Зашифрованная ссылка</h2>
+    <p>Адрес шифруется открытым ключом Volta, открыть его может только приложение. Такая подписка всегда скрыта.</p>
+<pre><code>pip install cryptography
+python3 tools/volta_crypt.py "https://sub.example.com/u/abc"
+python3 tools/volta_crypt.py "https://sub.example.com/u/abc" --server-type "lte:1,2;home:3" --name "Мой VPN"</code></pre>
+    <p>Скрипт лежит в <a href="https://github.com/colossalblend/volta/blob/main/tools/volta_crypt.py">репозитории</a> и выдаёт ссылку вида <code>volta://crypt/AQEE…</code>. Внутрь можно положить только адрес, а можно ещё название и разметку серверов — тогда их не видно и не поменять.</p>
+    <ul>
+      <li>Ссылка остаётся скрытой, если внутри зашифрованной части не написано <code>visible_subs=true</code>. Тот же параметр снаружи ссылки не действует — иначе его мог бы дописать кто угодно.</li>
+      <li>Снаружи можно добавить <code>?name=…</code> и <code>server-type=…</code> как подсказки.</li>
+      <li>Шифрование: P-256, HKDF-SHA256, AES-256-GCM; каждая ссылка уникальна.</li>
+    </ul>
+    <div class="panel warn">
+      <p>Как и в Happ, ключ для расшифровки находится внутри приложения. Шифрование не даёт прочитать, переслать или вставить ссылку в другой клиент, но не защитит от разбора приложения.</p>
+    </div>
+
+    <h2 id="groups">Разметка Home / LTE</h2>
+    <p>Volta делит серверы на группы: <span class="group home">Home</span> для обычного интернета, <span class="group lte">LTE</span> для мобильной сети с ограничениями и балансеры. По группам работают авто-режимы. Подойдёт любой из трёх способов, их можно смешивать. Без разметки Volta определяет группу по названию: «LTE», «обход», «белые списки», «Авто», «Балансер».</p>
+
+    <h3>Способ 1. JSON по группам</h3>
+<pre><code>{
+  "title": "Мой VPN",
+  "wifi":      ["vless://…#Германия", { "remarks": "Нидерланды", "outbounds": [ … ] }],
+  "lte":       [{ "link": "vless://…", "name": "Москва" }],
+  "balancers": [{ "tag": "auto", "protocol": "vless", "settings": { … } }],
+  "routing":   "happ://routing/…"
+}</code></pre>
+    <ul>
+      <li>Home — ключ <code>wifi</code> или <code>home</code>; LTE — <code>lte</code> или <code>mobile</code>; балансеры — <code>balancers</code> или <code>auto</code>.</li>
+      <li>Списки могут лежать внутри <code>"groups": {…}</code> или <code>"servers": {…}</code>.</li>
+      <li>Элемент списка — ссылка на сервер, полный Xray-конфиг, один outbound или <code>{"link": "…", "name": "…"}</code>.</li>
+      <li>Тело можно отдавать в base64, заголовки работают как обычно.</li>
+    </ul>
+
+    <h3>Способ 2. Метка в начале названия</h3>
+<pre><code>[L] Москва        [H] Германия        [A] Автовыбор</code></pre>
+    <p>Также <code>[LTE]</code>, <code>[HOME]</code>, <code>[WIFI]</code>, <code>[AUTO]</code>. Метка должна стоять в самом начале; пользователь её не видит.</p>
+
+    <h3>Способ 3. В ссылке «Открыть в Volta»</h3>
+<pre><code>volta://import/https://sub.example.com/u/abc&amp;server-type=lte:1,2,5-7;home:3;auto:9</code></pre>
+    <p>Номера серверов по порядку в подписке, с единицы. Группы разделяются <code>;</code>, номера — запятой, диапазоны через дефис. Разметка сохраняется и применяется при каждом обновлении подписки.</p>
+
+    <h3>Что важнее</h3>
+    <p>JSON-группа, затем метка, затем <code>server-type</code>, затем название. Выбор пользователя главнее всего. Группа, которую вы разметили явно, считается полной: сервер без разметки не попадёт в неё из-за слова «LTE» в названии.</p>
+    <p>Если LTE-серверов нет совсем, приложение показывает только «Авто Home» и не проверяет сеть — режимы LTE появятся, когда вы добавите такие серверы.</p>
+
+    <h2 id="format">Что принимает подписка</h2>
+    <ul>
+      <li>Список ссылок: <code>vless://</code>, <code>vmess://</code>, <code>trojan://</code>, <code>ss://</code> (включая SS-2022), <code>socks://</code>, <code>hysteria2://</code>/<code>hy2://</code>, <code>hysteria://</code>, <code>wireguard://</code>, ключи <code>vpn://</code> AmneziaVPN — построчно или в base64.</li>
+      <li>Полный Xray-конфиг или массив конфигов, как в v2rayNG; название сервера берётся из <code>remarks</code>.</li>
+      <li>JSON по группам (см. выше).</li>
+      <li>Конфиги WireGuard и AmneziaWG от 1.0 до 3.</li>
+    </ul>
+    <p>Подписка запрашивается по HTTPS. Volta представляется как <code>Volta/1.0 (Android)</code> и передаёт <code>x-device-os</code>, <code>x-ver-os</code>, <code>x-device-model</code>. Заголовок <code>x-hwid</code> уходит, только если пользователь включил «Привязка к устройству».</p>
+
+    <h2 id="headers">Заголовки ответа</h2>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Заголовок</th><th>Что делает</th></tr></thead>
+      <tbody>
+        <tr><td><code>profile-title</code></td><td>Название подписки (можно <code>base64:…</code>).</td></tr>
+        <tr><td><code>subscription-userinfo</code></td><td>Трафик и срок: <code>upload=…; download=…; total=…; expire=…</code>. Показывается на карточке.</td></tr>
+        <tr><td><code>profile-update-interval</code></td><td>Как часто обновлять, в часах.</td></tr>
+        <tr><td><code>announce</code></td><td>Короткое сообщение пользователю на карточке подписки.</td></tr>
+        <tr><td><code>support-url</code>, <code>profile-web-page-url</code></td><td>Ссылки на поддержку и личный кабинет.</td></tr>
+        <tr><td><code>routing</code></td><td>Правила маршрутизации в формате Happ (<code>happ://routing/…</code>), включая свои geoip/geosite.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>Те же поля можно передать строками в начале тела: <code>#profile-title: …</code>, <code>#announce: …</code>.</p>
+
+    <h2 id="control">Включить и выключить</h2>
+<pre><code>volta://connect                  включить в текущем режиме
+volta://connect?mode=home        Авто Home   (lte, auto, manual)
+volta://disconnect               выключить
+volta://toggle                   переключить</code></pre>
+    <p>Если пользователь ещё не дал разрешение на VPN, Android сначала спросит его.</p>
+  </main>
+</div>
+
+<footer>
+  <div class="inner">
+    <span>Volta для Android</span>
+    <a href="https://github.com/colossalblend/volta">Исходный код</a>
+    <a href="https://github.com/colossalblend/volta/releases">Все версии</a>
+    <a href="privacy.html">Конфиденциальность</a>
+  </div>
+</footer>
+</body>
+</html>

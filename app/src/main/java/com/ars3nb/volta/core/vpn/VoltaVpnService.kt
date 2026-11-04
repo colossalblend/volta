@@ -435,7 +435,7 @@ class VoltaVpnService : VpnService() {
 
     private suspend fun doConnect(config: String, name: String, mtu: Int) {
         if (config.isBlank()) {
-            fail("Пустой конфиг")
+            fail("Сервер не выбран")
             return
         }
         _state.value = VpnConnectionState.CONNECTING
@@ -493,7 +493,7 @@ class VoltaVpnService : VpnService() {
 
             val bridge = tun2Socks ?: Tun2Socks(filesDir).also { tun2Socks = it }
             bridge.start(fd.fd, mtu, socksPort).getOrThrow()
-            check(bridge.isRunning()) { "TUN-мост остановился при запуске" }
+            check(bridge.isRunning()) { "VPN не запустился, попробуйте ещё раз" }
 
             generation++
             tunnelActive.set(true)

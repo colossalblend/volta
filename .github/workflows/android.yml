@@ -3,6 +3,8 @@ name: Android APK
 on:
   push:
     branches: [main]
+    # A v… tag (v1.2.0) makes a published release: what installed apps update to.
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -46,12 +48,21 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v5
 
-      # The rolling pre-release this build goes to. Baked into the APK as the channel
-      # its in-app updater follows (together with apk-main).
+      # Where this build goes. A v… tag: a published release named after the tag, which
+      # installed apps update to. Anything else: the branch's rolling pre-release for
+      # testing (apps never update to those on their own).
       - name: Release channel
         env:
           BRANCH: ${{ github.head_ref || github.ref_name }}
-        run: echo "VOLTA_UPDATE_TAG=apk-${BRANCH//\//-}" >> "$GITHUB_ENV"
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            echo "VOLTA_UPDATE_TAG=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
+            echo "VOLTA_VERSION_NAME=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+            echo "VOLTA_STABLE=yes" >> "$GITHUB_ENV"
+          else
+            echo "VOLTA_UPDATE_TAG=apk-${BRANCH//\//-}" >> "$GITHUB_ENV"
+            echo "VOLTA_STABLE=no" >> "$GITHUB_ENV"
+          fi
 
       # Optional real release key: add VOLTA_KEYSTORE_BASE64, VOLTA_KEYSTORE_PASSWORD,
       # VOLTA_KEY_ALIAS and VOLTA_KEY_PASSWORD as repository secrets. Without them the
@@ -71,7 +82,7 @@ jobs:
           set -o pipefail
           chmod +x gradlew
           ./gradlew --no-configuration-cache --stacktrace "-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8" \
-            :app:testDebugUnitTest 2>&1 | tee "$RUNNER_TEMP/gradle.log"
+            :app:testGithubDebugUnitTest 2>&1 | tee "$RUNNER_TEMP/gradle.log"
 
       # The Xray core. The newest libv2ray.aar from 2dust/AndroidLibXrayLite replaces the
       # committed one only when it is newer, still has every call Volta makes, and a
@@ -248,7 +259,7 @@ jobs:
         run: |
           set -o pipefail
           ./gradlew --no-configuration-cache --stacktrace "-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8" \
-            :app:assembleDebug :app:assembleRelease 2>&1 | tee -a "$RUNNER_TEMP/gradle.log"
+            :app:assembleGithubDebug :app:assembleGithubRelease :app:bundlePlayRelease 2>&1 | tee -a "$RUNNER_TEMP/gradle.log"
 
       # Compiler and Gradle errors as one annotation, readable without the raw log.
       - name: Report build errors
@@ -261,10 +272,11 @@ jobs:
           ERRS="${ERRS//$'\n'/'%0A'}"
           echo "::error title=Gradle build failed::${ERRS}"
 
-      # Releases are not counted against the Actions artifact storage quota, which
-      # is shared by all of the owner's private repositories and fills up easily.
-      # One rolling pre-release per branch: always the latest build, never a pile.
-      - name: Publish APKs to a pre-release
+      # Releases are not counted against the Actions artifact storage quota. A v… tag
+      # becomes a published release (marked latest): installed apps find it through
+      # releases/latest/download/update.json, with no key. Branches get one rolling
+      # pre-release each, for testing; apps never update to those by themselves.
+      - name: Publish to GitHub Releases
         id: release
         continue-on-error: true
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
@@ -274,78 +286,69 @@ jobs:
           BRANCH: ${{ github.head_ref || github.ref_name }}
           SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           XRAY: ${{ steps.core.outputs.xray }}
-          XRAY_UPDATED: ${{ steps.core.outputs.adopted }}
           OPENFLUX: ${{ steps.openflux.outputs.openflux }}
         run: |
+          set -e
           TAG="$VOLTA_UPDATE_TAG"
           SHORT="${SHA::7}"
-          VERSION="1.1.$GITHUB_RUN_NUMBER"
+          VERSION="${VOLTA_VERSION_NAME:-1.1.$GITHUB_RUN_NUMBER}"
+          STEM=$([ "$VOLTA_STABLE" = yes ] && echo "volta-$VERSION" || echo "volta-$SHORT")
           OUT="$RUNNER_TEMP/apk"
           mkdir -p "$OUT"
-          # app-<abi>-release.apk → volta-<sha>-<abi>.apk
-          for f in app/build/outputs/apk/release/*.apk; do
-            abi=$(basename "$f" .apk); abi=${abi#app-}; abi=${abi%-release}
-            cp "$f" "$OUT/volta-$SHORT-$abi.apk"
+          # app-github-<abi>-release.apk → <stem>-<abi>.apk
+          for f in app/build/outputs/apk/github/release/*.apk; do
+            abi=$(basename "$f" .apk); abi=${abi#app-github-}; abi=${abi%-release}
+            cp "$f" "$OUT/$STEM-$abi.apk"
           done
-          cp app/build/outputs/apk/debug/*arm64-v8a*.apk "$OUT/volta-$SHORT-arm64-v8a-debug.apk"
+          cp app/build/outputs/apk/github/debug/*arm64-v8a*.apk "$OUT/$STEM-arm64-v8a-debug.apk"
           # What the in-app updater reads: this build's number and the APK for each CPU.
           APKS='[]'
           for f in "$OUT"/*.apk; do
-            name=$(basename "$f"); abi=${name#volta-$SHORT-}; abi=${abi%.apk}
+            name=$(basename "$f"); abi=${name#$STEM-}; abi=${abi%.apk}
             APKS=$(jq -c --arg abi "$abi" --arg name "$name" --argjson size "$(stat -c %s "$f")" \
               --arg sha "$(sha256sum "$f" | cut -d ' ' -f 1)" \
               '. + [{abi: $abi, name: $name, size: $size, sha256: $sha}]' <<<"$APKS")
           done
-          jq -n --argjson code "$((100 + GITHUB_RUN_NUMBER))" --arg name "$VERSION" --arg commit "$SHA" \
-            --arg branch "$BRANCH" --arg xray "${XRAY:-}" --argjson apks "$APKS" \
-            '{versionCode: $code, versionName: $name, commit: $commit, branch: $branch, xray: $xray, apks: $apks}' \
+          jq -n --argjson code "$((100 + GITHUB_RUN_NUMBER))" --arg name "$VERSION" --arg tag "$TAG" \
+            --arg commit "$SHA" --arg branch "$BRANCH" --arg xray "${XRAY:-}" --argjson apks "$APKS" \
+            '{versionCode: $code, versionName: $name, tag: $tag, commit: $commit, branch: $branch, xray: $xray, apks: $apks}' \
             > "$OUT/update.json"
+          # The Google Play bundle rides along; it is uploaded to the Play Console by hand.
+          cp app/build/outputs/bundle/playRelease/*.aab "$OUT/$STEM-google-play.aab" 2>/dev/null || true
           ls -la "$OUT"
           cat "$OUT/update.json"
-          gh release delete "$TAG" --cleanup-tag --yes 2>/dev/null || true
-          gh release create "$TAG" "$OUT"/*.apk "$OUT/update.json" \
-            --target "$SHA" --prerelease \
-            --title "Volta $VERSION · $BRANCH · $SHORT" \
-            --notes "Сборка GitHub Actions: ветка \`$BRANCH\`, коммит $SHA.
-          Ядро Xray: \`${XRAY:-—}\`$([ "$XRAY_UPDATED" = yes ] && echo ' (обновлено при сборке)').
-          OpenFlux: \`${OPENFLUX:-—}\` (GPL-3.0, https://github.com/p1neappleXpress/OpenFlux).
-          AmneziaWG и Hysteria v1: помощник voltaproxy (helper/voltaproxy, GPL-3.0).
 
-          - **\`volta-$SHORT-arm64-v8a.apk\`** — для почти всех телефонов, ставьте этот.
-          - \`volta-$SHORT-armeabi-v7a.apk\` — для старых 32-битных телефонов.
-          - \`volta-$SHORT-universal.apk\` — подходит всем, но весит ~150 МБ.
-          - \`volta-$SHORT-x86_64.apk\` — для эмулятора.
-          - \`volta-$SHORT-arm64-v8a-debug.apk\` — отладочная, если нужно снять логи.
+          NOTES="$RUNNER_TEMP/notes.md"
+          cat > "$NOTES" <<EOF_NOTES
+          Volta $VERSION.
 
-          Все подписаны одним ключом, так что новая сборка ставится поверх старой.
-          Версия $VERSION. Установленное приложение найдёт её само: Настройки → Обновления."
+          - **\`$STEM-arm64-v8a.apk\`** — для почти всех телефонов, ставьте этот.
+          - \`$STEM-armeabi-v7a.apk\` — для старых 32-битных телефонов.
+          - \`$STEM-universal.apk\` — подходит всем, но весит больше.
+          - \`$STEM-x86_64.apk\` — для эмулятора.
+          - \`$STEM-google-play.aab\` — пакет для загрузки в Google Play Console.
+
+          Уже установленное приложение найдёт эту версию само: Настройки → О приложении.
+          Инструкции: https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/
+
+          Сборка из коммита $SHA. Ядро: \`${XRAY:-—}\`. OpenFlux: \`${OPENFLUX:-—}\` (GPL-3.0).
+          EOF_NOTES
+
+          if [ "$VOLTA_STABLE" = yes ]; then
+            if gh release view "$TAG" > /dev/null 2>&1; then
+              gh release upload "$TAG" "$OUT"/* --clobber
+              gh release edit "$TAG" --latest --prerelease=false --notes-file "$NOTES"
+            else
+              gh release create "$TAG" "$OUT"/* --verify-tag --latest \
+                --title "Volta $VERSION" --notes-file "$NOTES"
+            fi
+          else
+            gh release delete "$TAG" --cleanup-tag --yes 2>/dev/null || true
+            gh release create "$TAG" "$OUT"/* --target "$SHA" --prerelease \
+              --title "Volta $VERSION · $BRANCH · $SHORT (тестовая)" --notes-file "$NOTES"
+          fi
           echo "url=https://github.com/$GH_REPO/releases/tag/$TAG" >> "$GITHUB_OUTPUT"
           echo "### APK: https://github.com/$GH_REPO/releases/tag/$TAG" >> "$GITHUB_STEP_SUMMARY"
-
-      # The repository is private, so a phone can't download from it without a key. With
-      # a VOLTA_RELEASES_TOKEN secret (a token allowed to write to <owner>/volta-releases,
-      # a public repository with at least one commit) every build is copied there too,
-      # under the same tag, and the app updates from it with no key at all.
-      - name: Copy APKs to the public releases repository
-        if: steps.release.outcome == 'success'
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.VOLTA_RELEASES_TOKEN }}
-          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          if [ -z "$GH_TOKEN" ]; then
-            echo "No VOLTA_RELEASES_TOKEN secret: builds stay in this repository only."
-            exit 0
-          fi
-          MIRROR="$GITHUB_REPOSITORY_OWNER/volta-releases"
-          VERSION="1.1.$GITHUB_RUN_NUMBER"
-          OUT="$RUNNER_TEMP/apk"
-          gh release delete "$VOLTA_UPDATE_TAG" --repo "$MIRROR" --cleanup-tag --yes 2>/dev/null || true
-          gh release create "$VOLTA_UPDATE_TAG" "$OUT"/*.apk "$OUT/update.json" \
-            --repo "$MIRROR" --prerelease \
-            --title "Volta $VERSION · ${SHA::7}" \
-            --notes "Volta $VERSION. **\`volta-${SHA::7}-arm64-v8a.apk\`** подходит почти всем телефонам."
-          echo "### Public copy: https://github.com/$MIRROR/releases/tag/$VOLTA_UPDATE_TAG" >> "$GITHUB_STEP_SUMMARY"
 
       # Pictures of the home screen and frames of the power disc's animation, drawn from
       # the real composables under Robolectric (app/src/test/.../ui/shots), so a design
@@ -363,10 +366,10 @@ jobs:
           export VOLTA_SHOTS="$RUNNER_TEMP/shots"
           mkdir -p "$VOLTA_SHOTS"
           ./gradlew --no-configuration-cache --stacktrace "-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8" \
-            :app:testDebugUnitTest --tests 'com.ars3nb.volta.ui.shots.*' 2>&1 | tee "$RUNNER_TEMP/shots.log" | tail -60
+            :app:testGithubDebugUnitTest --tests 'com.ars3nb.volta.ui.shots.*' 2>&1 | tee "$RUNNER_TEMP/shots.log" | tail -60
           status=$?
           cp "$RUNNER_TEMP/shots.log" "$VOLTA_SHOTS/gradle.log"
-          cp -r app/build/test-results/testDebugUnitTest "$VOLTA_SHOTS/results" 2>/dev/null || true
+          cp -r app/build/test-results/testGithubDebugUnitTest "$VOLTA_SHOTS/results" 2>/dev/null || true
           (cd "$VOLTA_SHOTS" && zip -qr "$RUNNER_TEMP/screens.zip" .)
           ls -la "$RUNNER_TEMP/screens.zip"
           gh release upload "$VOLTA_UPDATE_TAG" "$RUNNER_TEMP/screens.zip" --clobber
@@ -378,7 +381,7 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: volta-apk
-          path: app/build/outputs/apk/release/*arm64-v8a*.apk
+          path: app/build/outputs/apk/github/release/*arm64-v8a*.apk
           retention-days: 7
           if-no-files-found: error
 

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Политика конфиденциальности Volta</title>
+<meta name="description" content="Какие данные Volta хранит на телефоне и куда обращается по сети.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=Unbounded:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="./"><span class="brand-disc" aria-hidden="true"></span>Volta</a>
+  <nav aria-label="Разделы">
+    <a href="./">Главная</a>
+    <a href="guide.html">Как пользоваться</a>
+    <a href="providers.html">VPN-сервисам</a>
+    <a href="privacy.html" aria-current="page">Конфиденциальность</a>
+  </nav>
+</header>
+
+<div class="page">
+  <aside class="toc">
+    <details open>
+      <summary>Содержание</summary>
+      <ul>
+        <li><a href="#short">Коротко</a></li>
+        <li><a href="#phone">Что хранится на телефоне</a></li>
+        <li><a href="#network">Куда обращается приложение</a></li>
+        <li><a href="#vpn">Ваш трафик</a></li>
+        <li><a href="#permissions">Разрешения</a></li>
+        <li><a href="#contact">Связь</a></li>
+      </ul>
+    </details>
+  </aside>
+
+  <main class="doc">
+    <h1>Политика конфиденциальности</h1>
+    <p class="lead">Действует с 4 ноября 2026 года для приложения Volta для Android.</p>
+
+    <h2 id="short">Коротко</h2>
+    <ul>
+      <li>У Volta нет аккаунтов, рекламы и аналитики. Мы не собираем и не получаем ваши данные.</li>
+      <li>Подписки, серверы и настройки хранятся только на вашем телефоне.</li>
+      <li>Ваш интернет-трафик идёт к серверам вашего VPN-сервиса. Volta его не записывает и никуда не отправляет.</li>
+    </ul>
+
+    <h2 id="phone">Что хранится на телефоне</h2>
+    <ul>
+      <li>Ссылки на подписки, полученные из них серверы, правила маршрутизации и результаты проверок скорости.</li>
+      <li>Настройки приложения и список приложений, которые вы пустили мимо VPN или через него.</li>
+    </ul>
+    <p>Эти данные не покидают телефон, кроме случаев ниже. Резервное копирование в облако для них отключено. Удалить всё можно, удалив приложение или очистив его данные в настройках Android.</p>
+
+    <h2 id="network">Куда обращается приложение</h2>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Куда</th><th>Зачем и что передаётся</th></tr></thead>
+      <tbody>
+        <tr><td>Ваш VPN-сервис</td><td>Загрузка и обновление подписки. Передаются модель телефона и версия Android. Код устройства — только если вы включили «Привязка к устройству»: он вычисляется на телефоне и не раскрывает других данных о нём.</td></tr>
+        <tr><td>Серверы из вашей подписки</td><td>Проверка скорости и подключение VPN.</td></tr>
+        <tr><td>google.com, vk.ru, ya.ru и ещё несколько сайтов</td><td>Проверка, какой сейчас интернет: обычный или мобильный с ограничениями. Отправляется только сам запрос к сайту.</td></tr>
+        <tr><td>gstatic.com, cloudflare.com</td><td>Проверка, что сервер действительно передаёт данные.</td></tr>
+        <tr><td>Службы определения адреса (ipwho.is, ip.sb, ipapi.co, ipinfo.io и подобные)</td><td>Показать на главном экране, какой адрес и страну видит интернет. Эти службы видят адрес, с которого пришёл запрос.</td></tr>
+        <tr><td>AdGuard DNS</td><td>Только если вы включили «Блокировка рекламы».</td></tr>
+        <tr><td>GitHub</td><td>Только в версии со страницы загрузки: проверка и загрузка обновлений. Версия из Google Play обновляется через Google Play.</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h2 id="vpn">Ваш трафик</h2>
+    <p>Volta использует системный VPN Android, чтобы направить трафик к выбранному серверу вашего VPN-сервиса. Что видит и хранит сам сервис, определяет его собственная политика конфиденциальности. Volta не продаёт и не передаёт данные третьим лицам.</p>
+
+    <h2 id="permissions">Разрешения</h2>
+    <ul>
+      <li><strong>VPN</strong> — чтобы работать как VPN.</li>
+      <li><strong>Уведомления</strong> — показывать состояние подключения и новые версии.</li>
+      <li><strong>Запуск после включения телефона</strong> — если вы включили «Подключаться при запуске».</li>
+      <li><strong>Список приложений</strong> — чтобы вы могли выбрать, какие приложения идут мимо VPN. Список не покидает телефон.</li>
+    </ul>
+
+    <h2 id="contact">Связь</h2>
+    <p>Вопросы о конфиденциальности — в <a href="https://github.com/colossalblend/volta/issues">обсуждениях проекта на GitHub</a>. Если политика изменится, новая версия появится на этой странице с новой датой.</p>
+  </main>
+</div>
+
+<footer>
+  <div class="inner">
+    <span>Volta для Android</span>
+    <a href="https://github.com/colossalblend/volta">Исходный код</a>
+    <a href="https://github.com/colossalblend/volta/releases">Все версии</a>
+    <a href="privacy.html">Конфиденциальность</a>
+  </div>
+</footer>
+</body>
+</html>

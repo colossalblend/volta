@@ -53,7 +53,6 @@ class AppPreferences(private val context: Context) {
         val lastGoodHome = longPreferencesKey("last_good_home")
         val lastGoodLte = longPreferencesKey("last_good_lte")
         val updateAutoCheck = booleanPreferencesKey("update_auto_check")
-        val updateToken = stringPreferencesKey("update_token")
         val updateLastCheck = longPreferencesKey("update_last_check")
         val updateNotified = intPreferencesKey("update_notified")
         val reconnectAfterUpdate = booleanPreferencesKey("reconnect_after_update")
@@ -63,7 +62,6 @@ class AppPreferences(private val context: Context) {
     val updateAutoCheck: Flow<Boolean> = context.dataStore.data.map { it[Keys.updateAutoCheck] ?: true }
 
     /** A GitHub token that can read the private repository; blank for public releases. */
-    val updateToken: Flow<String> = context.dataStore.data.map { it[Keys.updateToken].orEmpty() }
     val updateLastCheck: Flow<Long> = context.dataStore.data.map { it[Keys.updateLastCheck] ?: 0L }
 
     /** The build last announced in a notification, so each one is announced once. */
@@ -74,10 +72,6 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setUpdateAutoCheck(enabled: Boolean) {
         context.dataStore.edit { it[Keys.updateAutoCheck] = enabled }
-    }
-
-    suspend fun setUpdateToken(token: String) {
-        context.dataStore.edit { it[Keys.updateToken] = token.trim() }
     }
 
     suspend fun setUpdateLastCheck(at: Long) {

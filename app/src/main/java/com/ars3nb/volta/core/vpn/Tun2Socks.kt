@@ -16,8 +16,8 @@ class Tun2Socks(private val workDir: File) {
     private external fun TProxyGetStats(): LongArray
 
     fun start(tunFd: Int, mtu: Int, socksPort: Int = 10808): Result<Unit> = runCatching {
-        check(libraryLoaded) { "Библиотека TUN-моста не загрузилась" }
-        check(tunFd >= 0) { "Некорректный TUN fd" }
+        check(libraryLoaded) { "Не удалось запустить VPN на этом телефоне" }
+        check(tunFd >= 0) { "Android не дал запустить VPN" }
         if (isRunning()) stop()
 
         val config = File(workDir, "tun2socks.yml")

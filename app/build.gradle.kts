@@ -18,7 +18,9 @@ android {
         // the in-app updater can tell which build is the latest. Local builds stay at 1.
         val run = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
         versionCode = if (run != null) 100 + run else 1
-        versionName = if (run != null) "1.1.$run" else "1.1.0-dev"
+        // A release build takes its name from the tag (v1.2.0 → 1.2.0).
+        versionName = System.getenv("VOLTA_VERSION_NAME")?.takeIf { it.isNotBlank() }
+            ?: if (run != null) "1.1.$run" else "1.1.0-dev"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -26,13 +28,26 @@ android {
         buildConfigField("String", "HWID_SALT", "\"volta-hwid-v1\"")
         buildConfigField("String", "APP_BRAND", "\"Volta\"")
 
-        // Where the in-app updater looks for newer builds: the rolling pre-release of the
-        // branch this build came from, in the public mirror first, then the repository
-        // itself (private, so only with a token entered in the app).
+        // Where the in-app updater looks: the latest published release of this (public)
+        // repository. No key needed; pre-releases and branches are never offered.
         val repo = System.getenv("GITHUB_REPOSITORY") ?: "colossalblend/volta"
-        val mirror = repo.substringBefore('/') + "/volta-releases"
-        buildConfigField("String", "UPDATE_REPOS", "\"$mirror,$repo\"")
-        buildConfigField("String", "UPDATE_TAG", "\"${System.getenv("VOLTA_UPDATE_TAG") ?: "apk-main"}\"")
+        buildConfigField("String", "UPDATE_REPO", "\"$repo\"")
+    }
+
+    // Two ways out of the door. "github": the APKs on GitHub Releases, which update
+    // themselves from there. "play": the Google Play build, with no self-updater, no
+    // install-apps permission and no all-apps visibility (the store forbids or restricts
+    // all three); Play updates it.
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("github") {
+            dimension = "distribution"
+            buildConfigField("Boolean", "OTA", "true")
+        }
+        create("play") {
+            dimension = "distribution"
+            buildConfigField("Boolean", "OTA", "false")
+        }
     }
 
     signingConfigs {

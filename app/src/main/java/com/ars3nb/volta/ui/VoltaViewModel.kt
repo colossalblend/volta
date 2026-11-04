@@ -254,13 +254,12 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     val updateState = updater.state
     val updateAutoCheck = updater.autoCheck
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
-    val updateToken = updater.token
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
+    /** Off in the Google Play build, where the store updates the app. */
+    val updatesEnabled: Boolean get() = updater.enabled
 
     fun checkForUpdate() = viewModelScope.launch { updater.check() }
     fun installUpdate() = updater.downloadAndInstall()
     fun setUpdateAutoCheck(v: Boolean) = viewModelScope.launch { updater.setAutoCheck(v) }
-    fun setUpdateToken(v: String) = viewModelScope.launch { updater.setToken(v) }
 
     fun coreAvailable(): Boolean = repo.isCoreAvailable()
     fun openFluxAvailable(): Boolean = OpenFluxRunner.available
@@ -738,13 +737,13 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
                     // A WireGuard / AmneziaWG .conf, or an AmneziaVPN key with several protocols.
                     AmneziaConfigs.looksLikeConf(value) || value.startsWith("vpn://", true) -> {
                         val n = repo.importJson(value)
-                        require(n > 0) { "В конфиге нет ключей или адреса сервера" }
+                        require(n > 0) { "В файле нет данных сервера" }
                         _message.value = if (n == 1) "Сервер добавлен" else "Импортировано серверов: $n"
                     }
 
                     value.trimStart().startsWith("{") || value.trimStart().startsWith("[") -> {
                         val n = repo.importJson(value)
-                        require(n > 0) { "В JSON нет поддерживаемых серверов" }
+                        require(n > 0) { "Здесь нет серверов, которые Volta умеет открывать" }
                         _message.value = "Импортировано серверов: $n"
                     }
 

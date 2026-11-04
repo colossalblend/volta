@@ -527,7 +527,7 @@ private fun FirstSubscription(onOpenImport: () -> Unit) {
     ) {
         Text(
             "Вставьте ссылку от VPN-сервиса. Серверы разложатся по группам Home и LTE, " +
-                "правила маршрутизации подтянутся сами.",
+                "остальные настройки подтянутся сами.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
