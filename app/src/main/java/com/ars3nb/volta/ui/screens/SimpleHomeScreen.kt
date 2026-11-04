@@ -30,6 +30,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
@@ -40,6 +42,7 @@ import com.ars3nb.volta.ui.ConnectPhase
 import com.ars3nb.volta.ui.VoltaViewModel
 import com.ars3nb.volta.ui.components.PowerButton
 import com.ars3nb.volta.ui.theme.VoltaTheme
+import com.ars3nb.volta.ui.tv.StartFocus
 
 /**
  * Простой режим: the whole app is one big button. It turns the VPN on (Home+LTE picks
@@ -58,6 +61,10 @@ fun SimpleHomeScreen(vm: VoltaViewModel, modifier: Modifier = Modifier) {
     val on = state.isConnected && !working
     val starting = working || vpn == VpnConnectionState.CONNECTING
     val noServers = state.servers.isEmpty() && !state.isConnected
+
+    // On a TV the remote starts on the button (once there are servers to connect to).
+    val startFocus = remember { FocusRequester() }
+    StartFocus(startFocus, target = !noServers, settled = !noServers)
 
     val (title, hint) = when {
         noServers -> "Нет серверов" to "Попросите близких добавить подписку в обычном режиме"
@@ -101,7 +108,8 @@ fun SimpleHomeScreen(vm: VoltaViewModel, modifier: Modifier = Modifier) {
                         working = working,
                         enabled = !noServers,
                         onClick = vm::toggleConnect,
-                        size = buttonSize
+                        size = buttonSize,
+                        modifier = Modifier.focusRequester(startFocus)
                     )
                     Spacer(Modifier.height(20.dp))
                     AnimatedContent(

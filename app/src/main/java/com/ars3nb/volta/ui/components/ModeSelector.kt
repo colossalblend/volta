@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.ui.theme.Motion
 import com.ars3nb.volta.ui.theme.VoltaTheme
+import com.ars3nb.volta.ui.tv.focusRing
 
 private val AUTO_MODES = listOf(ConnectMode.AUTO_HOME_LTE, ConnectMode.AUTO_HOME, ConnectMode.AUTO_LTE)
 
@@ -161,6 +162,7 @@ private fun ThreeGroupSelector(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
+                            .focusRing(RoundedCornerShape(16.dp))
                             .clip(RoundedCornerShape(16.dp))
                             .semantics { this.selected = selected }
                             .clickable(role = Role.Tab) {
@@ -220,6 +222,7 @@ private fun HomeOnlySelector(
                 modifier = Modifier
                     .weight(0.68f)
                     .fillMaxHeight()
+                    .focusRing(RoundedCornerShape(16.dp))
                     .clip(RoundedCornerShape(16.dp))
                     .background(
                         if (auto) palette.home.copy(alpha = if (palette.isDark) 0.17f else 0.14f)
@@ -261,6 +264,7 @@ private fun HomeOnlySelector(
                 modifier = Modifier
                     .weight(0.32f)
                     .fillMaxHeight()
+                    .focusRing(RoundedCornerShape(16.dp))
                     .clip(RoundedCornerShape(16.dp))
                     .border(1.dp, scheme.outlineVariant.copy(alpha = 0.7f), RoundedCornerShape(16.dp))
                     .clickable(onClick = onLteMissing)
@@ -335,6 +339,7 @@ fun ManualModeStrip(
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
+                    .focusRing(RoundedCornerShape(8.dp), width = 2.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .clickable(onClick = onBackToAuto)
                     .padding(6.dp)

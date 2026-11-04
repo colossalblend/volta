@@ -2,6 +2,7 @@ package com.ars3nb.volta
 
 import android.Manifest
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.VpnService
@@ -48,8 +49,17 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(needsPermission) {
                 if (needsPermission) {
                     val intent = VpnService.prepare(this@MainActivity)
-                    if (intent != null) vpnPermission.launch(intent)
-                    else vm.onVpnPermissionResult(true)
+                    if (intent == null) {
+                        vm.onVpnPermissionResult(true)
+                    } else {
+                        try {
+                            vpnPermission.launch(intent)
+                        } catch (e: ActivityNotFoundException) {
+                            // Some TV boxes ship without Android's VPN consent dialog.
+                            vm.onVpnPermissionResult(false)
+                            vm.showMessage("На этом устройстве нет окна разрешения VPN, Volta не может включиться")
+                        }
+                    }
                 }
             }
             Surface(

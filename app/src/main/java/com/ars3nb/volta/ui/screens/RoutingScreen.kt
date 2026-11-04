@@ -94,6 +94,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -119,9 +120,12 @@ import com.ars3nb.volta.ui.components.barColors
 import com.ars3nb.volta.ui.components.CardShape
 import com.ars3nb.volta.ui.components.Hint
 import com.ars3nb.volta.ui.components.SectionHeader
+import com.ars3nb.volta.ui.components.SmallShape
 import com.ars3nb.volta.ui.components.StatusPill
 import com.ars3nb.volta.ui.components.VoltaCard
 import com.ars3nb.volta.ui.theme.VoltaTheme
+import com.ars3nb.volta.ui.tv.RowFocusOutset
+import com.ars3nb.volta.ui.tv.focusRing
 import java.util.UUID
 
 /**
@@ -546,7 +550,7 @@ private fun FilterRow(
         label = "pop"
     )
     Row(
-        Modifier.fillMaxWidth().clickable { onToggle(!on) },
+        Modifier.fillMaxWidth().focusRing(SmallShape, outset = RowFocusOutset).clickable { onToggle(!on) },
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -561,7 +565,12 @@ private fun FilterRow(
             Hint(subtitle)
         }
         Spacer(Modifier.width(8.dp))
-        Switch(checked = on, onCheckedChange = onToggle)
+        // The row toggles too: the remote stops on the row only.
+        Switch(
+            checked = on,
+            onCheckedChange = onToggle,
+            modifier = Modifier.focusProperties { canFocus = false }
+        )
     }
 }
 
@@ -661,7 +670,12 @@ private fun ProfileTile(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (onSelect != null) {
-                RadioButton(selected = selected, onClick = onSelect)
+                // The card picks the profile too: the remote stops on the card only.
+                RadioButton(
+                    selected = selected,
+                    onClick = onSelect,
+                    modifier = Modifier.focusProperties { canFocus = false }
+                )
                 Spacer(Modifier.width(4.dp))
             } else {
                 Icon(
@@ -1152,6 +1166,7 @@ private fun RuleCard(
         Row(
             Modifier
                 .fillMaxWidth()
+                .focusRing(CardShape)
                 .clickable(onClick = onExpand)
                 .padding(start = 14.dp, end = 6.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically

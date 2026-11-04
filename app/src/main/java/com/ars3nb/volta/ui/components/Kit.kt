@@ -42,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -55,6 +56,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.ars3nb.volta.ui.theme.Motion
 import com.ars3nb.volta.ui.theme.VoltaTheme
+import com.ars3nb.volta.ui.tv.RowFocusOutset
+import com.ars3nb.volta.ui.tv.focusRing
 
 /*
  * The small parts every screen is built from, in the language of the redesigned home
@@ -193,7 +196,7 @@ fun VoltaChip(
         enabled = enabled,
         shape = CircleShape,
         color = fill,
-        modifier = modifier.semantics { this.selected = selected }
+        modifier = modifier.focusRing(CircleShape).semantics { this.selected = selected }
     ) {
         Row(
             Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
@@ -253,6 +256,7 @@ fun <T> SlidingChoice(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
+                            .focusRing(CircleShape)
                             .clip(CircleShape)
                             .semantics { this.selected = on }
                             .clickable(role = Role.Tab) { onSelect(option) }
@@ -314,6 +318,7 @@ fun SwitchRow(
     Row(
         modifier
             .fillMaxWidth()
+            .focusRing(SmallShape, outset = RowFocusOutset)
             .clip(SmallShape)
             .clickable(role = Role.Switch) { onChecked(!checked) }
             .padding(vertical = 8.dp),
@@ -326,7 +331,12 @@ fun SwitchRow(
             Hint(subtitle)
         }
         Spacer(Modifier.width(10.dp))
-        Switch(checked = checked, onCheckedChange = onChecked)
+        // A tap on the switch still works; the remote stops on the row only, once.
+        Switch(
+            checked = checked,
+            onCheckedChange = onChecked,
+            modifier = Modifier.focusProperties { canFocus = false }
+        )
     }
 }
 
@@ -344,6 +354,7 @@ fun LinkRow(
     Row(
         modifier
             .fillMaxWidth()
+            .focusRing(SmallShape, outset = RowFocusOutset)
             .clip(SmallShape)
             .clickable(onClick = onClick)
             .padding(vertical = 8.dp),
@@ -383,6 +394,7 @@ fun SheetAction(
     Row(
         modifier
             .fillMaxWidth()
+            .focusRing(SmallShape, outset = RowFocusOutset)
             .clip(SmallShape)
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 8.dp),

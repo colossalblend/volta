@@ -8,19 +8,36 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- Split tunnelling lists the apps that have an icon in the launcher. That is all
-         the Google Play build sees; the GitHub build adds QUERY_ALL_PACKAGES (system
-         apps too) and REQUEST_INSTALL_PACKAGES (self-update) in src/github. -->
+
+    <!-- The same APK runs on Android TV and Google TV boxes: nothing here needs a touch
+         screen, and nothing needs a camera, a phone line or Wi-Fi hardware, so none of
+         them may keep the app off a TV in Google Play. -->
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.hardware.faketouch" android:required="false" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
+    <uses-feature android:name="android.hardware.wifi" android:required="false" />
+
+    <!-- Split tunnelling lists the apps that have an icon in the launcher (on a TV: a
+         tile in the TV launcher). That is all the Google Play build sees; the GitHub
+         build adds QUERY_ALL_PACKAGES (system apps too) and REQUEST_INSTALL_PACKAGES
+         (self-update) in src/github. -->
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
         </intent>
     </queries>
 
     <application
         android:name=".VoltaApp"
         android:allowBackup="false"
+        android:banner="@drawable/tv_banner"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:enableOnBackInvokedCallback="true"
         android:fullBackupContent="@xml/backup_rules"
@@ -74,7 +91,9 @@
             </intent-filter>
         </activity>
 
-        <!-- Launcher entries, one per app icon; Settings enables exactly one. -->
+        <!-- Launcher entries, one per app icon; Settings enables exactly one. Each also
+             answers the TV launcher (LEANBACK_LAUNCHER), so a TV shows one Volta tile
+             with the banner; the icon picker is hidden on TV, so it stays on IconFold. -->
         <activity-alias
             android:name=".IconFold"
             android:enabled="true"
@@ -86,6 +105,10 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
             <meta-data
                 android:name="android.app.shortcuts"
@@ -103,6 +126,10 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
             <meta-data
                 android:name="android.app.shortcuts"
                 android:resource="@xml/shortcuts" />
@@ -118,6 +145,10 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
             <meta-data
                 android:name="android.app.shortcuts"
@@ -135,6 +166,10 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
             <meta-data
                 android:name="android.app.shortcuts"
                 android:resource="@xml/shortcuts" />
@@ -150,6 +185,10 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
             <meta-data
                 android:name="android.app.shortcuts"

@@ -46,6 +46,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -87,6 +89,8 @@ import com.ars3nb.volta.ui.components.offersInstall
 import com.ars3nb.volta.ui.components.trafficActivity
 import com.ars3nb.volta.ui.theme.TABULAR
 import com.ars3nb.volta.ui.theme.VoltaTheme
+import com.ars3nb.volta.ui.tv.StartFocus
+import com.ars3nb.volta.ui.tv.focusRing
 import kotlinx.coroutines.delay
 
 @Composable
@@ -175,6 +179,14 @@ fun HomeContent(
     }
     val working = phase != ConnectPhase.IDLE
     val hasServers = state.servers.isNotEmpty()
+    // Must stay tappable while connected, otherwise a server that vanished under the
+    // tunnel leaves no way to turn the VPN off.
+    val discEnabled = hasServers || state.isConnected
+
+    // On a TV the remote starts on the disc, or on "add a subscription" while there is
+    // nothing to connect to. The servers load a moment after the screen opens.
+    val startFocus = remember { FocusRequester() }
+    StartFocus(startFocus, target = discEnabled, settled = discEnabled)
 
     BoxWithConstraints(
         Modifier
@@ -216,12 +228,11 @@ fun HomeContent(
                         PowerButton(
                             state = state.vpnState,
                             working = working,
-                            // Must stay tappable while connected, otherwise a server that
-                            // vanished under the tunnel leaves no way to turn the VPN off.
-                            enabled = hasServers || state.isConnected,
+                            enabled = discEnabled,
                             onClick = onToggle,
                             size = discSize,
-                            activity = trafficActivity(state.traffic)
+                            activity = trafficActivity(state.traffic),
+                            modifier = if (discEnabled) Modifier.focusRequester(startFocus) else Modifier
                         )
                         ConnectionHeadline(
                             state = state.vpnState,
@@ -288,7 +299,10 @@ fun HomeContent(
                             }
                         }
                     } else {
-                        FirstSubscription(onOpenImport)
+                        FirstSubscription(
+                            onOpenImport,
+                            if (discEnabled) Modifier else Modifier.focusRequester(startFocus)
+                        )
                     }
                 }
             }
@@ -398,7 +412,7 @@ private fun TopBar(regime: NetworkRegime, ip: String?, country: String?, onAdd: 
                 onClick = onAdd,
                 shape = CircleShape,
                 color = scheme.surface,
-                modifier = Modifier.size(44.dp)
+                modifier = Modifier.size(44.dp).focusRing(CircleShape)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(Icons.Rounded.Add, contentDescription = "Добавить подписку или сервер")
@@ -422,7 +436,7 @@ private fun ServerCapsule(
         onClick = onClick,
         shape = RoundedCornerShape(28.dp),
         color = scheme.surface,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth().focusRing(RoundedCornerShape(28.dp))
     ) {
         Row(
             Modifier.padding(start = 8.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
@@ -518,7 +532,7 @@ private fun ServerIdentity(server: ServerEntity?, subscription: SubscriptionEnti
 
 /** No servers yet: the one thing to do. */
 @Composable
-private fun FirstSubscription(onOpenImport: () -> Unit) {
+private fun FirstSubscription(onOpenImport: () -> Unit, buttonModifier: Modifier = Modifier) {
     Column(
         Modifier
             .fillMaxWidth()
@@ -536,9 +550,11 @@ private fun FirstSubscription(onOpenImport: () -> Unit) {
         Spacer(Modifier.height(14.dp))
         Button(
             onClick = onOpenImport,
-            modifier = Modifier
+            modifier = buttonModifier
                 .fillMaxWidth()
                 .height(52.dp)
+                // Cream, not copper: the button itself is copper.
+                .focusRing(CircleShape, color = MaterialTheme.colorScheme.onBackground)
         ) {
             Text("Добавить подписку", style = MaterialTheme.typography.titleSmall)
         }
@@ -551,7 +567,7 @@ private fun RoutingRow(name: String, onClick: () -> Unit) {
         shape = CardShape,
         color = Color.Transparent,
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth().focusRing(CardShape)
     ) {
         Row(
             Modifier.padding(horizontal = 8.dp, vertical = 6.dp),

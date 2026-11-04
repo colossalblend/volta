@@ -19,6 +19,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -204,6 +205,10 @@ fun PowerButton(
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val press by animateFloatAsState(if (pressed) 0.94f else 1f, Motion.press(), label = "press")
+    // The remote's focus (TV, keyboard): a ring round the disc. A tap never focuses it.
+    val focused by interaction.collectIsFocusedAsState()
+    val focusShown by animateFloatAsState(if (focused) 1f else 0f, tween(180), label = "focusRing")
+    val focusColor = MaterialTheme.colorScheme.primary
 
     val description = when {
         busy -> "Подключение, нажмите, чтобы отменить"
@@ -258,6 +263,15 @@ fun PowerButton(
             }
 
             if (sparkAlpha > 0f) drawSpark(c, disc + 7.dp.toPx(), spark, sparkAlpha)
+
+            if (focusShown > 0f) {
+                drawCircle(
+                    color = focusColor.copy(alpha = focusShown),
+                    radius = disc + (14f + 4f * (1f - focusShown)).dp.toPx(),
+                    center = c,
+                    style = Stroke(width = 3.dp.toPx())
+                )
+            }
         }
 
         // The disc itself.
