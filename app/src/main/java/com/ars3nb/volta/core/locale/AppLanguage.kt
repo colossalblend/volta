@@ -70,6 +70,7 @@ object AppLanguage {
                 if (tag.isEmpty()) LocaleList.getEmptyLocaleList() else LocaleList.forLanguageTags(tag)
         } else {
             applyToApp(activity.applicationContext, tag)
+            noteSwitch(tag)
             activity.recreate()
         }
     }
@@ -96,20 +97,65 @@ object AppLanguage {
     }
 
     /**
+     * Android 12 and older: the language picked in this process since it started, or null
+     * when it was not changed. The Application's base context was wrapped once, at start,
+     * so everything made outside a screen (the service's notification, a balancer's
+     * verdict, a tile's toast) would keep speaking the old language until a restart.
+     */
+    @Volatile
+    private var switchedTo: String? = null
+
+    @Volatile
+    private var appResources: Pair<String, Resources>? = null
+
+    internal fun noteSwitch(tag: String?) {
+        switchedTo = tag
+        appResources = null
+        if (tag != null) Locale.setDefault(localeOf(tag))
+    }
+
+    /**
      * The base context in the chosen language, for attachBaseContext. Android 13+ does it
      * itself, and "as the system" needs nothing.
      */
     fun wrap(base: Context): Context {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return base
-        val tag = stored(base)
+        val tag = switchedTo ?: stored(base)
+        // Formatting (dates, numbers) follows too, back to the system's on "as the system".
+        Locale.setDefault(localeOf(tag))
         if (tag.isEmpty()) return base
-        val locale = Locale.forLanguageTag(tag)
-        Locale.setDefault(locale)
-        val config = Configuration(base.resources.configuration)
-        config.setLocales(LocaleList(locale))
-        config.setLayoutDirection(locale)
-        return base.createConfigurationContext(config)
+        return base.createConfigurationContext(configFor(base, tag))
     }
+
+    /**
+     * For the Application's getResources() on Android 12 and older: [current] until the
+     * language is switched in this process, then the resources of [plainBase] (the
+     * unwrapped base) in the new language. Cheap on every call: one field read.
+     */
+    fun applicationResources(plainBase: Context, current: Resources): Resources {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return current
+        val tag = switchedTo ?: return current
+        appResources?.let { (cachedTag, res) -> if (cachedTag == tag) return res }
+        val res = if (tag.isEmpty()) {
+            plainBase.resources
+        } else {
+            plainBase.createConfigurationContext(configFor(plainBase, tag)).resources
+        }
+        appResources = tag to res
+        return res
+    }
+
+    private fun configFor(base: Context, tag: String): Configuration {
+        val locale = Locale.forLanguageTag(tag)
+        return Configuration(base.resources.configuration).apply {
+            setLocales(LocaleList(locale))
+            setLayoutDirection(locale)
+        }
+    }
+
+    private fun localeOf(tag: String): Locale =
+        if (tag.isEmpty()) Resources.getSystem().configuration.locales[0] ?: Locale.getDefault()
+        else Locale.forLanguageTag(tag)
 
     private fun stored(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, "").orEmpty()

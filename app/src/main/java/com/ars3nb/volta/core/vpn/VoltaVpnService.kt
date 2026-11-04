@@ -883,7 +883,9 @@ class VoltaVpnService : VpnService() {
 
     private fun buildNotification(serverName: String, connecting: Boolean): Notification =
         VpnNotificationHelper.build(
-            context = this,
+            // The app's context: on Android 12 and older it follows a language switch made
+            // while the tunnel runs (VoltaApp.getResources); this service's own does not.
+            context = applicationContext,
             serverName = serverName,
             connecting = connecting,
             connected = !connecting && tunnelActive.get(),

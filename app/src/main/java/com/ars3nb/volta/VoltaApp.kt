@@ -2,6 +2,7 @@ package com.ars3nb.volta
 
 import android.app.Application
 import android.content.Context
+import android.content.res.Resources
 import com.ars3nb.volta.core.locale.AppLanguage
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -29,9 +30,23 @@ import java.util.concurrent.TimeUnit
 
 class VoltaApp : Application() {
 
+    /** The base context as Android gave it, before [AppLanguage.wrap]. */
+    private var plainBase: Context? = null
+
     /** In the language picked in Settings (Android 12 and older; 13+ does it itself). */
     override fun attachBaseContext(base: Context) {
+        plainBase = base
         super.attachBaseContext(AppLanguage.wrap(base))
+    }
+
+    /**
+     * Android 12 and older: after a language switch the app's own texts (notification,
+     * verdicts, toasts) follow it at once, not after a restart. 13+ does this itself.
+     */
+    override fun getResources(): Resources {
+        val current = super.getResources()
+        val plain = plainBase ?: return current
+        return AppLanguage.applicationResources(plain, current)
     }
 
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
