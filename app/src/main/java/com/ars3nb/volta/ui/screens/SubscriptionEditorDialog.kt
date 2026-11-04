@@ -1,23 +1,34 @@
 package com.ars3nb.volta.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -28,91 +39,149 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.ars3nb.volta.data.model.SubscriptionEntity
 import com.ars3nb.volta.ui.components.Hint
+import com.ars3nb.volta.ui.components.SheetAction
+import com.ars3nb.volta.ui.components.SubscriptionCoin
+import com.ars3nb.volta.ui.components.VoltaField
+import com.ars3nb.volta.ui.components.serversCount
+import com.ars3nb.volta.ui.components.updatedLabel
 
+/**
+ * One subscription, opened from its card: rename it, change its address (unless the
+ * provider hid it), refresh it now or delete it. A bottom sheet, like the server
+ * actions, so it opens where the thumb is; deleting asks once, in place.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubscriptionEditorDialog(
     subscription: SubscriptionEntity,
     busy: Boolean,
     onDismiss: () -> Unit,
     onSave: (String, String) -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    serverCount: Int = 0,
+    onRefresh: () -> Unit = {}
 ) {
+    val scheme = MaterialTheme.colorScheme
     var name by remember(subscription.id) { mutableStateOf(subscription.name) }
     // A hidden address is never put into UI state at all.
     var url by remember(subscription.id) {
         mutableStateOf(if (subscription.urlHidden) "" else subscription.url)
     }
     var confirmDelete by remember(subscription.id) { mutableStateOf(false) }
+    val changed = name.trim() != subscription.name ||
+        (!subscription.urlHidden && url.trim() != subscription.url)
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text(if (confirmDelete) "Удалить подписку?" else "Подписка") },
-        text = {
-            if (confirmDelete) {
-                Text(
-                    "Будут удалены серверы и правила только этой подписки. " +
-                        "Остальные подписки не затрагиваются."
-                )
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        label = { Text("Название") },
-                        placeholder = { Text("Оставьте пустым — возьмём с сервера") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    if (subscription.urlHidden) {
-                        // The provider keeps the address private: no field, no copy.
-                        HiddenLinkNote()
-                    } else {
-                        OutlinedTextField(
-                            value = url,
-                            onValueChange = { url = it },
-                            label = { Text("HTTPS-ссылка") },
-                            minLines = 2,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    if (subscription.lastUpdated > 0) {
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = scheme.surface
+    ) {
+        AnimatedContent(
+            targetState = confirmDelete,
+            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            label = "subSheet"
+        ) { deleting ->
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 16.dp)
+                    .navigationBarsPadding()
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SubscriptionCoin(subscription, size = 48)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(subscription.name, style = MaterialTheme.typography.titleLarge, maxLines = 1)
                         Hint(
-                            "Обновлялась " + android.text.format.DateUtils
-                                .getRelativeTimeSpanString(subscription.lastUpdated)
+                            listOfNotNull(
+                                serversCount(serverCount).takeIf { serverCount > 0 },
+                                updatedLabel(subscription.lastUpdated)
+                            ).joinToString(", ")
                         )
                     }
-                    TextButton(onClick = { confirmDelete = true }) {
-                        Text("Удалить подписку", color = MaterialTheme.colorScheme.error)
+                }
+                Spacer(Modifier.height(20.dp))
+
+                if (deleting) {
+                    Text("Удалить подписку?", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "Уйдут её серверы и её правила маршрутизации. Остальные подписки останутся как есть.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = scheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    Button(
+                        onClick = onDelete,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = scheme.error,
+                            contentColor = scheme.onError
+                        ),
+                        modifier = Modifier.fillMaxWidth().height(52.dp)
+                    ) { Text("Удалить") }
+                    Spacer(Modifier.height(8.dp))
+                    FilledTonalButton(
+                        onClick = { confirmDelete = false },
+                        modifier = Modifier.fillMaxWidth().height(52.dp)
+                    ) { Text("Оставить") }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        VoltaField(
+                            value = name,
+                            onValueChange = { name = it },
+                            label = "Название",
+                            singleLine = true,
+                            container = scheme.surfaceVariant
+                        )
+                        if (subscription.urlHidden) {
+                            HiddenLinkNote()
+                        } else {
+                            VoltaField(
+                                value = url,
+                                onValueChange = { url = it },
+                                label = "Ссылка подписки",
+                                minLines = 2,
+                                maxLines = 4,
+                                container = scheme.surfaceVariant
+                            )
+                        }
                     }
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        enabled = !busy && changed && (subscription.urlHidden || url.isNotBlank()),
+                        // A hidden subscription never hands its address back to the screen.
+                        onClick = { onSave(name, if (subscription.urlHidden) "" else url) },
+                        modifier = Modifier.fillMaxWidth().height(52.dp)
+                    ) { Text("Сохранить") }
+                    Spacer(Modifier.height(10.dp))
+                    SheetAction(
+                        icon = Icons.Rounded.Refresh,
+                        title = "Обновить сейчас",
+                        subtitle = "Забрать свежий список серверов и правил",
+                        onClick = onRefresh
+                    )
+                    SheetAction(
+                        icon = Icons.Rounded.Delete,
+                        title = "Удалить подписку",
+                        onClick = { confirmDelete = true },
+                        danger = true
+                    )
                 }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = !busy && (confirmDelete || subscription.urlHidden || url.isNotBlank()),
-                // A hidden subscription never hands its address back to the screen.
-                onClick = {
-                    if (confirmDelete) onDelete() else onSave(name, if (subscription.urlHidden) "" else url)
-                }
-            ) { Text(if (confirmDelete) "Удалить" else "Сохранить") }
-        },
-        dismissButton = {
-            TextButton(onClick = { if (confirmDelete) confirmDelete = false else onDismiss() }) {
-                Text("Отмена")
             }
         }
-    )
+    }
 }
 
 /** In place of the address field when the provider hid the link. */
 @Composable
 private fun HiddenLinkNote() {
     Surface(
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(18.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 Icons.Rounded.Lock,
                 null,
@@ -122,12 +191,7 @@ private fun HiddenLinkNote() {
             Spacer(Modifier.width(12.dp))
             Column {
                 Text("Ссылка скрыта", style = MaterialTheme.typography.titleSmall)
-                Text(
-                    "VPN-сервис закрыл адрес подписки. Она обновляется как обычно, " +
-                        "а изменить можно только название.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Hint("VPN-сервис закрыл адрес подписки. Она обновляется как обычно, а изменить можно только название.")
             }
         }
     }

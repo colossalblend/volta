@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -406,90 +407,210 @@ fun groupLabel(role: ServerRole): Pair<String, Boolean?> = when (role) {
 /** The server's country flag (from its name), or a globe when it names none. */
 fun flagOf(remark: String): String = Countries.of(remark).flag
 
+/**
+ * One subscription: who it is (a coin in its colour with its initial), how its servers
+ * split into Home, LTE and provider balancers, and how much traffic is left. The whole
+ * card opens the editor; the only button on it refreshes.
+ */
 @Composable
 fun SubscriptionCard(
     sub: SubscriptionEntity,
-    serverCount: Int,
+    homeCount: Int,
+    lteCount: Int,
+    autoCount: Int,
     routingName: String,
     active: Boolean,
     onClick: () -> Unit,
     onRefresh: () -> Unit,
-    onEdit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val palette = VoltaTheme.palette
-    val dot = remember(sub.colorHex) {
-        runCatching { Color(android.graphics.Color.parseColor(sub.colorHex)) }
-            .getOrDefault(Color(0xFFC4784A))
-    }
+    val scheme = MaterialTheme.colorScheme
+    val tint = subscriptionColor(sub)
+    val total = homeCount + lteCount + autoCount
 
     VoltaCard(modifier = modifier, selected = active, onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(10.dp).clip(CircleShape).background(dot))
-            Spacer(Modifier.width(9.dp))
-            Text(
-                sub.name,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            IconButton(onClick = onRefresh, modifier = Modifier.size(34.dp)) {
-                Icon(Icons.Rounded.Refresh, "Обновить подписку", Modifier.size(18.dp))
-            }
-            IconButton(onClick = onEdit, modifier = Modifier.size(34.dp)) {
-                Icon(Icons.Rounded.Edit, "Изменить подписку", Modifier.size(18.dp))
-            }
-        }
-
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            StatusPill("$serverCount серв.", MaterialTheme.colorScheme.primary)
-            if (sub.urlHidden) {
-                StatusPill("скрыта", MaterialTheme.colorScheme.onSurfaceVariant, icon = Icons.Rounded.Lock)
-            }
-            if (routingName.isNotBlank()) {
-                StatusPill(
-                    routingName,
-                    palette.good,
-                    icon = Icons.Rounded.Bolt,
-                    modifier = Modifier.weight(1f, fill = false)
+            SubscriptionCoin(sub, tint)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    sub.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    updatedLabel(sub.lastUpdated),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant,
+                    maxLines = 1
                 )
             }
+            IconButton(onClick = onRefresh, modifier = Modifier.size(40.dp)) {
+                Icon(Icons.Rounded.Refresh, "Обновить подписку", Modifier.size(20.dp))
+            }
         }
 
-        if (sub.trafficTotal > 0) {
-            Spacer(Modifier.height(10.dp))
-            UsageBar(sub.trafficUsed, sub.trafficTotal)
-            Spacer(Modifier.height(5.dp))
-            Text(
-                "${formatBytes(sub.trafficUsed)} из ${formatBytes(sub.trafficTotal)}" +
-                    formatExpiry(sub.expireAt).let { if (it.isBlank()) "" else " · $it" },
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else if (sub.expireAt > 0) {
-            Spacer(Modifier.height(6.dp))
-            Text(
-                formatExpiry(sub.expireAt),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        if (total > 0) {
+            Spacer(Modifier.height(14.dp))
+            GroupSplit(homeCount, lteCount, autoCount)
+        }
+
+        if (sub.trafficTotal > 0 || sub.expireAt > 0) {
+            Spacer(Modifier.height(14.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    if (sub.trafficTotal > 0) {
+                        "${formatBytes(sub.trafficUsed)} из ${formatBytes(sub.trafficTotal)}"
+                    } else {
+                        "Без лимита трафика"
+                    },
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.weight(1f)
+                )
+                if (sub.expireAt > 0) {
+                    val days = ((sub.expireAt - System.currentTimeMillis()) / 86_400_000L).toInt()
+                    Text(
+                        formatExpiry(sub.expireAt),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = when {
+                            days < 3 -> palette.poor
+                            days < 7 -> palette.fair
+                            else -> scheme.onSurfaceVariant
+                        }
+                    )
+                }
+            }
+            if (sub.trafficTotal > 0) {
+                Spacer(Modifier.height(6.dp))
+                UsageBar(sub.trafficUsed, sub.trafficTotal)
+            }
+        }
+
+        if (sub.urlHidden || routingName.isNotBlank()) {
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (sub.urlHidden) {
+                    StatusPill("ссылка скрыта", scheme.onSurfaceVariant, icon = Icons.Rounded.Lock)
+                }
+                if (routingName.isNotBlank()) {
+                    StatusPill(
+                        routingName,
+                        palette.good,
+                        icon = Icons.Rounded.Bolt,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                }
+            }
         }
 
         if (sub.announce.isNotBlank()) {
-            Spacer(Modifier.height(6.dp))
-            Text(
-                sub.announce,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+            Spacer(Modifier.height(12.dp))
+            // The provider's own words, set apart from the app's.
+            Row(Modifier.height(androidx.compose.foundation.layout.IntrinsicSize.Min)) {
+                Box(
+                    Modifier
+                        .width(3.dp)
+                        .fillMaxHeight()
+                        .clip(CircleShape)
+                        .background(tint.copy(alpha = 0.6f))
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    sub.announce,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
+
+/** The subscription's own colour, as picked when it was added. */
+@Composable
+fun subscriptionColor(sub: SubscriptionEntity): Color = remember(sub.colorHex) {
+    runCatching { Color(android.graphics.Color.parseColor(sub.colorHex)) }
+        .getOrDefault(Color(0xFFC4784A))
+}
+
+/** A coin in the subscription's colour with the first letter of its name. */
+@Composable
+fun SubscriptionCoin(sub: SubscriptionEntity, tint: Color = subscriptionColor(sub), size: Int = 42) {
+    val initial = remember(sub.name) {
+        sub.name.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "V"
+    }
+    Box(
+        Modifier
+            .size(size.dp)
+            .clip(CircleShape)
+            .background(tint.copy(alpha = if (VoltaTheme.palette.isDark) 0.22f else 0.16f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            initial,
+            style = MaterialTheme.typography.titleLarge,
+            fontSize = (size * 0.42f).sp,
+            color = tint
+        )
+    }
+}
+
+/**
+ * How a subscription's servers split between the groups: one bar in the group colours,
+ * each part as long as its share, and the counts under it in the same colours.
+ */
+@Composable
+private fun GroupSplit(home: Int, lte: Int, auto: Int) {
+    val palette = VoltaTheme.palette
+    val neutral = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+    val parts = listOf(
+        Triple(home, palette.home, "Home"),
+        Triple(lte, palette.lte, "LTE"),
+        Triple(auto, neutral, "Балансеры")
+    ).filter { it.first > 0 }
+    Row(
+        Modifier.fillMaxWidth().height(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        parts.forEach { (n, color, _) ->
+            Box(
+                Modifier
+                    .weight(n.toFloat())
+                    .fillMaxHeight()
+                    .clip(CircleShape)
+                    .background(color)
+            )
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        parts.forEach { (n, color, label) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    n.toString(),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (color == neutral) MaterialTheme.colorScheme.onSurface else color
+                )
+            }
+        }
+    }
+}
+
+fun updatedLabel(at: Long): String =
+    if (at <= 0) "ещё не обновлялась"
+    else "обновлена " + android.text.format.DateUtils.getRelativeTimeSpanString(
+        at, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS
+    ).toString().replaceFirstChar { it.lowercase() }
 
 /**
  * What the six probe hosts said: Home hosts on the left, LTE hosts on the right, one

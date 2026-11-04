@@ -1,13 +1,19 @@
 package com.ars3nb.volta.ui.screens
 
-import androidx.compose.foundation.clickable
+import android.content.Intent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
@@ -16,30 +22,34 @@ import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import android.content.Intent
+import androidx.compose.ui.unit.sp
+import com.ars3nb.volta.core.server.Countries
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.ServerRole
 import com.ars3nb.volta.ui.components.Hint
+import com.ars3nb.volta.ui.components.SheetAction
+import com.ars3nb.volta.ui.components.VoltaChip
+import com.ars3nb.volta.ui.components.flagOf
+import com.ars3nb.volta.ui.components.groupColor
 import com.ars3nb.volta.ui.components.roleLabel
+import com.ars3nb.volta.ui.theme.VoltaTheme
 
 /**
  * Long-press actions for one server. A bottom sheet rather than a dropdown so the
- * role picker and the share/copy actions fit without scrolling a tiny menu.
+ * group picker and the share/copy actions fit without scrolling a tiny menu.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,52 +65,66 @@ fun ServerActionsSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
+    val scheme = MaterialTheme.colorScheme
     val shareText = server.rawLink.ifBlank { server.rawJson }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(Modifier.padding(bottom = 24.dp)) {
-            Column(Modifier.padding(horizontal = 24.dp)) {
-                Text(
-                    server.remark,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Hint("${server.protocol.label} · ${server.address}:${server.port}")
-            }
-            Spacer(Modifier.height(12.dp))
-
-            ListItem(
-                headlineContent = { Text("Проверить отклик") },
-                leadingContent = { Icon(Icons.Rounded.Speed, null) },
-                modifier = Modifier.clickableRow { onPing(); onDismiss() }
-            )
-            ListItem(
-                headlineContent = {
-                    Text(if (server.isFavorite) "Убрать из избранного" else "В избранное")
-                },
-                leadingContent = {
-                    Icon(
-                        if (server.isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
-                        null
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = scheme.surface
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 12.dp)
+                .navigationBarsPadding()
+        ) {
+            Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(48.dp).clip(CircleShape).background(scheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(flagOf(server.remark), fontSize = 24.sp)
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        Countries.withoutLeadingFlag(server.remark),
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
-                },
-                modifier = Modifier.clickableRow { onToggleFavorite(); onDismiss() }
-            )
+                    Hint("${server.protocol.label}, ${server.address}:${server.port}")
+                }
+            }
+            Spacer(Modifier.height(16.dp))
 
+            SheetAction(
+                icon = Icons.Rounded.Speed,
+                title = "Проверить отклик",
+                onClick = { onPing(); onDismiss() }
+            )
+            SheetAction(
+                icon = if (server.isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+                title = if (server.isFavorite) "Убрать из избранного" else "В избранное",
+                tint = if (server.isFavorite) scheme.primary else scheme.onSurface,
+                onClick = { onToggleFavorite(); onDismiss() }
+            )
             if (shareText.isNotBlank()) {
-                ListItem(
-                    headlineContent = { Text("Скопировать ссылку") },
-                    leadingContent = { Icon(Icons.Rounded.ContentCopy, null) },
-                    modifier = Modifier.clickableRow {
+                SheetAction(
+                    icon = Icons.Rounded.ContentCopy,
+                    title = "Скопировать ссылку",
+                    onClick = {
                         clipboard.setText(AnnotatedString(shareText))
                         onCopied()
                         onDismiss()
                     }
                 )
-                ListItem(
-                    headlineContent = { Text("Поделиться") },
-                    leadingContent = { Icon(Icons.Rounded.Share, null) },
-                    modifier = Modifier.clickableRow {
+                SheetAction(
+                    icon = Icons.Rounded.Share,
+                    title = "Поделиться",
+                    onClick = {
                         val send = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
                             putExtra(Intent.EXTRA_TEXT, shareText)
@@ -114,36 +138,42 @@ fun ServerActionsSheet(
                 )
             }
 
-            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            Column(Modifier.padding(horizontal = 24.dp)) {
-                Text("Роль сервера", style = MaterialTheme.typography.titleSmall)
-                Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(16.dp))
+            Column(Modifier.padding(horizontal = 8.dp)) {
+                Text("Группа", style = MaterialTheme.typography.titleSmall)
+                Hint(
+                    if (server.roleManual) "Выбрана вами, обновления подписки её не меняют"
+                    else if (server.roleFromProvider) "Указана VPN-сервисом"
+                    else "Определена по названию"
+                )
+                Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ServerRole.entries.forEach { role ->
-                        FilterChip(
+                        VoltaChip(
+                            text = roleLabel(role),
                             selected = server.role == role,
                             onClick = { onSetRole(role); onDismiss() },
-                            label = { Text(roleLabel(role)) }
+                            accent = groupColor(
+                                when (role) {
+                                    ServerRole.NORMAL -> true
+                                    ServerRole.BYPASS_WHITELIST -> false
+                                    ServerRole.AUTO -> null
+                                }
+                            ).takeIf { role != ServerRole.AUTO } ?: scheme.primary
                         )
                     }
                 }
             }
 
             if (onDelete != null) {
-                HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                ListItem(
-                    headlineContent = {
-                        Text("Удалить сервер", color = MaterialTheme.colorScheme.error)
-                    },
-                    leadingContent = {
-                        Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error)
-                    },
-                    modifier = Modifier.clickableRow { onDelete(); onDismiss() }
+                Spacer(Modifier.height(12.dp))
+                SheetAction(
+                    icon = Icons.Rounded.Delete,
+                    title = "Удалить сервер",
+                    onClick = { onDelete(); onDismiss() },
+                    danger = true
                 )
             }
         }
     }
 }
-
-private fun Modifier.clickableRow(onClick: () -> Unit): Modifier =
-    fillMaxWidth().clickable(onClick = onClick)

@@ -1,6 +1,22 @@
 package com.ars3nb.volta.ui.screens
 
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Surface
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import com.ars3nb.volta.core.balancer.GuardPolicy
+import com.ars3nb.volta.ui.components.SlidingChoice
+import com.ars3nb.volta.ui.components.SwitchRow
+import com.ars3nb.volta.ui.components.VoltaChip
+import com.ars3nb.volta.ui.components.VoltaSearchField
+import com.ars3nb.volta.ui.components.subscriptionColor
+import com.ars3nb.volta.ui.theme.VoltaTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.rounded.Check
@@ -25,23 +41,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -97,6 +104,8 @@ fun ServersScreen(
     }
 
     val balancerCount = remember(state.servers) { state.servers.count { it.role == ServerRole.AUTO } }
+    // No LTE server anywhere: the LTE choices fold away, as on the home screen.
+    val hasLte = remember(state.servers) { GuardPolicy.hasLte(state.servers) }
 
     val countryOf = remember(state.servers) {
         state.servers.associate { it.id to Countries.of(it.remark) }
@@ -191,29 +200,19 @@ fun ServersScreen(
         ) {
             item { SectionHeader("Лучший сервер в группе") }
             item {
-                AutobalancerBar(
+                BestPickPads(
                     running = runningScope,
                     enabled = state.servers.isNotEmpty() && !state.busy,
+                    hasLte = hasLte,
                     onRun = vm::runBalancer
                 )
             }
 
             item {
-                OutlinedTextField(
+                VoltaSearchField(
                     value = query,
                     onValueChange = vm::setQuery,
-                    placeholder = { Text("Поиск по названию, адресу, стране") },
-                    leadingIcon = { Icon(Icons.Rounded.Search, null) },
-                    trailingIcon = {
-                        if (query.isNotEmpty()) {
-                            IconButton(onClick = { vm.setQuery("") }) {
-                                Icon(Icons.Rounded.Close, "Очистить")
-                            }
-                        }
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(28.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    placeholder = "Название, страна или адрес"
                 )
             }
 
@@ -224,21 +223,20 @@ fun ServersScreen(
                 ) {
                     ServerPool.entries.forEach { option ->
                         if (option == ServerPool.AUTO && balancerCount == 0) return@forEach
-                        FilterChip(
+                        if (option == ServerPool.BYPASS_WHITELIST && !hasLte) return@forEach
+                        VoltaChip(
+                            text = if (option == ServerPool.AUTO) "${poolLabel(option)} $balancerCount"
+                            else poolLabel(option),
                             selected = pool == option,
                             onClick = { vm.setServerPool(option) },
-                            label = {
-                                Text(
-                                    if (option == ServerPool.AUTO) "${poolLabel(option)} · $balancerCount"
-                                    else poolLabel(option)
-                                )
-                            }
+                            accent = poolAccent(option)
                         )
                     }
-                    FilterChip(
+                    VoltaChip(
+                        text = "Избранные",
                         selected = favoritesOnly,
                         onClick = { favoritesOnly = !favoritesOnly },
-                        label = { Text("Избранные") }
+                        icon = Icons.Rounded.Star
                     )
                 }
             }
@@ -250,18 +248,19 @@ fun ServersScreen(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        FilterChip(
+                        VoltaChip(
+                            text = "Все подписки",
                             selected = subscriptionFilter == null,
-                            onClick = { subscriptionFilter = null },
-                            label = { Text("Все подписки") }
+                            onClick = { subscriptionFilter = null }
                         )
                         state.subscriptions.forEach { sub ->
-                            FilterChip(
+                            VoltaChip(
+                                text = sub.name,
                                 selected = subscriptionFilter == sub.id,
                                 onClick = {
                                     subscriptionFilter = if (subscriptionFilter == sub.id) null else sub.id
                                 },
-                                label = { Text(sub.name, maxLines = 1) }
+                                accent = subscriptionColor(sub)
                             )
                         }
                     }
@@ -270,14 +269,15 @@ fun ServersScreen(
 
             if (pool == ServerPool.AUTO && balancerCount > 0) {
                 item {
-                    VoltaCard {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text("Скрывать балансеры", style = MaterialTheme.typography.titleSmall)
-                                Hint("Серверы «Авто» и «Балансер» не показываются в списке")
-                            }
-                            Switch(checked = hideBalancers, onCheckedChange = vm::setHideBalancers)
-                        }
+                    VoltaCard(contentPadding = 10) {
+                        SwitchRow(
+                            icon = Icons.Rounded.VisibilityOff,
+                            tint = MaterialTheme.colorScheme.primary,
+                            title = "Скрывать балансеры",
+                            subtitle = "Серверы «Авто» и «Балансер» не показываются в общем списке",
+                            checked = hideBalancers,
+                            onChecked = vm::setHideBalancers
+                        )
                     }
                 }
             }
@@ -288,23 +288,20 @@ fun ServersScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        if (byCountry) "${serversCount(visible.size)} · стран: ${countries.size}"
+                        if (byCountry) "${serversCount(visible.size)}, стран: ${countries.size}"
                         else serversCount(visible.size),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.weight(1f)
                     )
-                    SingleChoiceSegmentedButtonRow {
-                        listOf(true to "Страны", false to "Список").forEachIndexed { index, (value, label) ->
-                            SegmentedButton(
-                                selected = byCountry == value,
-                                onClick = { byCountry = value },
-                                shape = SegmentedButtonDefaults.itemShape(index = index, count = 2),
-                                icon = {},
-                                label = { Text(label, style = MaterialTheme.typography.labelMedium) }
-                            )
-                        }
-                    }
+                    SlidingChoice(
+                        options = listOf(true, false),
+                        selected = byCountry,
+                        onSelect = { byCountry = it },
+                        label = { if (it) "Страны" else "Список" },
+                        height = 36.dp,
+                        modifier = Modifier.width(170.dp)
+                    )
                 }
             }
 
@@ -385,40 +382,80 @@ fun ServersScreen(
 }
 
 /**
- * The three app-side autobalancers.
- *
- * "Все" probes the network first and then measures whichever pool fits the answer;
- * the other two go straight to their own pool without touching any websites.
+ * The app-side autobalancers as three pads, one per group, in the group's colour.
+ * Home+LTE asks the sites first and then measures whichever group fits; Home and LTE
+ * go straight to their own servers. Without LTE servers only Home is left.
  */
 @Composable
-private fun AutobalancerBar(
+private fun BestPickPads(
     running: BalancerScope?,
     enabled: Boolean,
+    hasLte: Boolean,
     onRun: (BalancerScope) -> Unit
 ) {
-    VoltaCard {
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            BalancerScope.entries.forEachIndexed { index, scope ->
-                SegmentedButton(
-                    selected = running == scope,
-                    onClick = { onRun(scope) },
-                    enabled = enabled && running == null,
-                    shape = SegmentedButtonDefaults.itemShape(
-                        index = index,
-                        count = BalancerScope.entries.size
-                    ),
-                    icon = {
-                        if (running == scope) {
-                            CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
-                        } else {
-                            SegmentedButtonDefaults.Icon(active = false)
+    val palette = VoltaTheme.palette
+    val scopes = if (hasLte) BalancerScope.entries else listOf(BalancerScope.NORMAL)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        scopes.forEach { scope ->
+            val tint = when (scope) {
+                BalancerScope.ALL -> MaterialTheme.colorScheme.primary
+                BalancerScope.NORMAL -> palette.home
+                BalancerScope.BYPASS -> palette.lte
+            }
+            val busyHere = running == scope
+            Surface(
+                onClick = { onRun(scope) },
+                enabled = enabled && running == null,
+                shape = RoundedCornerShape(18.dp),
+                color = if (busyHere) tint.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surface,
+                modifier = Modifier.weight(1f)
+            ) {
+                Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(if (enabled || busyHere) tint else tint.copy(alpha = 0.4f))
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            scopeLabel(scope),
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 1
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    if (busyHere) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(
+                                Modifier.size(12.dp),
+                                strokeWidth = 1.5.dp,
+                                color = tint
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text("ищу", style = MaterialTheme.typography.labelMedium, color = tint)
                         }
-                    },
-                    label = { Text(scopeLabel(scope)) }
-                )
+                    } else {
+                        Text(
+                            if (hasLte) "подобрать" else "подобрать лучший",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
+                }
             }
         }
     }
+}
+
+@Composable
+private fun poolAccent(pool: ServerPool): Color = when (pool) {
+    ServerPool.NORMAL -> VoltaTheme.palette.home
+    ServerPool.BYPASS_WHITELIST -> VoltaTheme.palette.lte
+    ServerPool.AUTO -> MaterialTheme.colorScheme.onSurfaceVariant
+    ServerPool.ALL -> MaterialTheme.colorScheme.primary
 }
 
 private fun scopeLabel(scope: BalancerScope): String = when (scope) {
@@ -432,7 +469,7 @@ private fun emptyStateAction(
     show: Boolean,
     onOpenImport: () -> Unit
 ): (@Composable () -> Unit)? = if (!show) null else {
-    { OutlinedButton(onClick = onOpenImport) { Text("Добавить") } }
+    { FilledTonalButton(onClick = onOpenImport, modifier = Modifier.padding(top = 8.dp)) { Text("Добавить") } }
 }
 
 /** The last measurement, falling back to the smoothed one; -1 when never measured. */
