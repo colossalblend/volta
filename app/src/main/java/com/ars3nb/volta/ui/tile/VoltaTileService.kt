@@ -24,7 +24,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
-/** Быстрая кнопка в шторке: включает VPN в текущем режиме (Авто Home+LTE и т. д.). */
+/** The quick button in the shade: turns the VPN on in the current mode (Auto Home+LTE and so on). */
 @RequiresApi(Build.VERSION_CODES.N)
 class VoltaTileService : TileService() {
 
@@ -99,8 +99,8 @@ class VoltaTileService : TileService() {
             VpnConnectionState.CONNECTED -> {
                 tile.state = Tile.STATE_ACTIVE
                 tile.label = "Volta"
-                subtitle = server.ifBlank { mode.title }
-                tile.contentDescription = "VPN включён: $subtitle. Нажмите, чтобы выключить"
+                subtitle = server.ifBlank { GroupTileService.title(this, mode) }
+                tile.contentDescription = getString(R.string.home_tile_vpn_on_description, subtitle)
             }
 
             VpnConnectionState.CONNECTING, VpnConnectionState.DISCONNECTING -> {
@@ -108,15 +108,17 @@ class VoltaTileService : TileService() {
                 // would let the user cancel a connect that hangs.
                 tile.state = Tile.STATE_ACTIVE
                 tile.label = "Volta"
-                subtitle = if (state == VpnConnectionState.CONNECTING) "Подключение…" else "Отключение…"
+                subtitle = getString(
+                    if (state == VpnConnectionState.CONNECTING) R.string.vpn_connecting else R.string.home_disconnecting
+                )
                 tile.contentDescription = subtitle
             }
 
             else -> {
                 tile.state = Tile.STATE_INACTIVE
                 tile.label = "Volta"
-                subtitle = mode.title
-                tile.contentDescription = "VPN выключен. Нажмите, чтобы включить: ${mode.title}"
+                subtitle = GroupTileService.title(this, mode)
+                tile.contentDescription = getString(R.string.home_tile_vpn_off_description, subtitle)
             }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) tile.subtitle = subtitle

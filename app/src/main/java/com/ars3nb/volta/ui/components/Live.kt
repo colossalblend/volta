@@ -53,9 +53,11 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.server.Countries
 import com.ars3nb.volta.ui.PickSummary
 import com.ars3nb.volta.ui.SpeedHistory
@@ -93,16 +95,17 @@ fun SpeedGraph(history: SpeedHistory, modifier: Modifier = Modifier, totals: Tra
         label = "dot"
     )
 
+    val res = screenResources()
     VoltaCard(modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "Скорость",
+                stringResource(R.string.home_speed),
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.weight(1f)
             )
-            LegendDot(downColor, "↓ " + formatSpeed(history.down.lastOrNull() ?: 0))
+            LegendDot(downColor, "↓ " + formatSpeed(res, history.down.lastOrNull() ?: 0))
             Spacer(Modifier.width(12.dp))
-            LegendDot(upColor, "↑ " + formatSpeed(history.up.lastOrNull() ?: 0))
+            LegendDot(upColor, "↑ " + formatSpeed(res, history.up.lastOrNull() ?: 0))
         }
         Spacer(Modifier.height(10.dp))
         Canvas(
@@ -182,7 +185,11 @@ fun SpeedGraph(history: SpeedHistory, modifier: Modifier = Modifier, totals: Tra
         if (totals != null) {
             Spacer(Modifier.height(10.dp))
             Text(
-                "За сеанс скачано ${formatBytes(totals.downlinkBytes)}, отправлено ${formatBytes(totals.uplinkBytes)}",
+                stringResource(
+                    R.string.home_session_totals,
+                    formatBytes(res, totals.downlinkBytes),
+                    formatBytes(res, totals.uplinkBytes)
+                ),
                 style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -260,9 +267,9 @@ fun AutoPickCard(summary: PickSummary, modifier: Modifier = Modifier) {
     val worst = (summary.rows.maxOfOrNull { it.medianMs } ?: 1L).coerceAtLeast(1L)
 
     VoltaCard(modifier = modifier) {
-        Text("Почему этот сервер", style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(R.string.home_pick_title), style = MaterialTheme.typography.titleSmall)
         Text(
-            "Проверено ${summary.measured}, ответили ${summary.alive}",
+            stringResource(R.string.home_pick_counts, summary.measured, summary.alive),
             style = MaterialTheme.typography.bodySmall,
             color = scheme.onSurfaceVariant
         )
@@ -287,7 +294,7 @@ fun AutoPickCard(summary: PickSummary, modifier: Modifier = Modifier) {
                             modifier = Modifier.weight(1f)
                         )
                         Text(
-                            "${row.medianMs} мс",
+                            formatLatency(screenResources(), row.medianMs),
                             style = MaterialTheme.typography.labelMedium,
                             color = if (row.chosen) palette.latency(row.medianMs) else scheme.onSurfaceVariant
                         )
@@ -295,7 +302,7 @@ fun AutoPickCard(summary: PickSummary, modifier: Modifier = Modifier) {
                             Spacer(Modifier.width(6.dp))
                             Icon(
                                 Icons.Rounded.CheckCircle,
-                                contentDescription = "Выбран",
+                                contentDescription = stringResource(R.string.home_pick_chosen),
                                 tint = palette.good,
                                 modifier = Modifier.size(16.dp)
                             )

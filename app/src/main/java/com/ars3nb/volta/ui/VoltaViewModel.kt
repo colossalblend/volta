@@ -3,11 +3,16 @@ package com.ars3nb.volta.ui
 import android.app.Application
 import android.net.Uri
 import android.net.VpnService
+import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.ars3nb.volta.BuildConfig
+import com.ars3nb.volta.R
 import com.ars3nb.volta.VoltaApp
 import com.ars3nb.volta.core.link.VoltaLinks
+import com.ars3nb.volta.core.locale.UiText
+import com.ars3nb.volta.core.locale.UiTextException
+import com.ars3nb.volta.core.locale.uiText
 import com.ars3nb.volta.core.link.ImportDetector
 import com.ars3nb.volta.core.openflux.OpenFluxLink
 import com.ars3nb.volta.core.parser.AmneziaConfigs
@@ -67,7 +72,7 @@ data class ConnectionSlice(
 
 data class LocalSlice(
     val busy: Boolean = false,
-    val message: String? = null,
+    val message: UiText? = null,
     val probes: List<SiteProbeResult> = emptyList(),
     val regime: NetworkRegime = NetworkRegime.UNKNOWN,
     val ip: IpInfo? = null
@@ -88,7 +93,8 @@ data class VoltaUiState(
     val ipInfo: IpInfo? = null,
     val hwidShort: String = "",
     val busy: Boolean = false,
-    val message: String? = null,
+    /** A snackbar to show, read in the screen's language (see [UiText]). */
+    val message: UiText? = null,
     val error: String? = null
 ) {
     val isConnected: Boolean get() = vpnState == VpnConnectionState.CONNECTED
@@ -99,11 +105,12 @@ data class VoltaUiState(
 
 class VoltaViewModel(app: Application) : AndroidViewModel(app) {
 
+    private val context: Application get() = getApplication()
     private val repo = (app as VoltaApp).repository
     private val updater = (app as VoltaApp).updater
 
     private val _busy = MutableStateFlow(false)
-    private val _message = MutableStateFlow<String?>(null)
+    private val _message = MutableStateFlow<UiText?>(null)
     private val _probes = MutableStateFlow<List<SiteProbeResult>>(emptyList())
     private val _regime = MutableStateFlow(NetworkRegime.UNKNOWN)
     private val _ip = MutableStateFlow<IpInfo?>(null)
@@ -414,7 +421,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
         repo.cancelPick()
         _connectPhase.value = ConnectPhase.IDLE
         _busy.value = false
-        _message.value = "Подключение отменено"
+        _message.value = UiText.of(R.string.home_connect_cancelled)
     }
 
     fun connect() {
@@ -438,7 +445,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
 
     fun onVpnPermissionResult(granted: Boolean) {
         _needsVpnPermission.value = false
-        if (granted) doConnect() else _message.value = "Нужно разрешение на VPN"
+        if (granted) doConnect() else _message.value = UiText.of(R.string.home_vpn_permission_needed)
     }
 
     private fun doConnect() {
@@ -459,7 +466,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _message.value = e.userMessage("Не удалось подключиться")
+                _message.value = e.uiText(UiText.of(R.string.home_connect_failed))
             } finally {
                 _busy.value = false
                 _connectPhase.value = ConnectPhase.IDLE
@@ -493,7 +500,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------------------------------------------------------------- servers
 
-    /** Choosing a server by hand switches the button to "Свой сервер". */
+    /** Choosing a server by hand switches the button to "Your server" (manual mode). */
     fun selectServer(id: Long) = viewModelScope.launch {
         repo.setConnectMode(ConnectMode.MANUAL)
         repo.selectServer(id)
@@ -520,15 +527,20 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
                 _message.value = if (result.success && result.estimate) {
                     // OpenFlux judged from outside: its carrier answered, the exit is
                     // measured for real once traffic goes through it.
-                    "Отклик: около ${result.latencyMs} мс" +
-                        result.message.takeIf { it.isNotBlank() }?.let { " · канал: $it" }.orEmpty()
+                    val channel = result.message.takeIf { it.isNotBlank() }
+                    if (channel != null) {
+                        UiText.of(R.string.home_ping_estimate_channel, "${result.latencyMs}", channel)
+                    } else {
+                        UiText.of(R.string.home_ping_estimate, "${result.latencyMs}")
+                    }
                 } else if (result.success) {
-                    "Отклик: ${result.latencyMs} мс"
+                    UiText.of(R.string.home_ping_result, "${result.latencyMs}")
                 } else {
-                    result.message.ifBlank { "Сервер не отвечает" }
+                    result.message.takeIf { it.isNotBlank() }?.let(UiText::Raw)
+                        ?: UiText.of(R.string.home_server_not_responding)
                 }
             } catch (e: Exception) {
-                _message.value = e.userMessage("Не удалось проверить сервер")
+                _message.value = e.uiText(UiText.of(R.string.home_ping_failed))
             } finally {
                 _busy.value = false
             }
@@ -540,9 +552,9 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
             _busy.value = true
             try {
                 val ok = repo.pingAll(type, pool)
-                _message.value = "Ответили $ok серверов"
+                _message.value = UiText.plural(R.plurals.home_servers_answered, ok)
             } catch (e: Exception) {
-                _message.value = e.userMessage("Проверка не удалась")
+                _message.value = e.uiText(UiText.of(R.string.home_check_failed))
             } finally {
                 _busy.value = false
             }
@@ -569,12 +581,12 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
                 _regime.value = decision.regime
                 _probes.value = decision.probes
             }
-            _message.value = decision.reason
+            _message.value = UiText.Raw(decision.reason)
             if (decision.retryLater && allowRetry) scheduleRetry(scope)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            _message.value = e.userMessage("Подбор не удался")
+            _message.value = e.uiText(UiText.of(R.string.home_pick_failed))
         } finally {
             _busy.value = false
             _runningScope.value = null
@@ -604,13 +616,13 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val id = repo.addSubscription(name, url)
                 val count = repo.servers.first().count { it.subscriptionId == id }
-                _message.value = if (count > 0) "Добавлено серверов: $count"
-                else "Подписка добавлена"
+                _message.value = if (count > 0) UiText.of(R.string.home_servers_added, count)
+                else UiText.of(R.string.home_subscription_added)
                 onComplete(true)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _message.value = e.userMessage("Не удалось добавить подписку")
+                _message.value = e.uiText(UiText.of(R.string.home_subscription_add_failed))
                 onComplete(false)
             } finally {
                 _busy.value = false
@@ -624,11 +636,15 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 repo.refreshSubscription(id)
                 val count = repo.servers.first().count { it.subscriptionId == id }
-                _message.value = if (count > 0) "Обновлено: $count серверов" else "Подписка обновлена"
+                _message.value = if (count > 0) {
+                    UiText.of(R.string.home_updated_servers, UiText.plural(R.plurals.home_servers_count, count))
+                } else {
+                    UiText.of(R.string.home_subscription_updated)
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _message.value = e.userMessage("Не удалось обновить")
+                _message.value = e.uiText(UiText.of(R.string.home_update_failed))
             } finally {
                 _busy.value = false
             }
@@ -640,12 +656,12 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
             _busy.value = true
             try {
                 repo.updateSubscription(id, name, url)
-                _message.value = "Подписка обновлена"
+                _message.value = UiText.of(R.string.home_subscription_updated)
                 onComplete(true)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _message.value = e.userMessage("Не удалось изменить подписку")
+                _message.value = e.uiText(UiText.of(R.string.home_subscription_edit_failed))
                 onComplete(false)
             } finally {
                 _busy.value = false
@@ -659,9 +675,9 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _busy.value = true
             try {
-                _message.value = "Обновлено подписок: ${repo.refreshAllSubscriptions()}"
+                _message.value = UiText.of(R.string.home_subscriptions_updated, repo.refreshAllSubscriptions())
             } catch (e: Exception) {
-                _message.value = e.userMessage("Не удалось обновить подписки")
+                _message.value = e.uiText(UiText.of(R.string.home_subscriptions_update_failed))
             } finally {
                 _busy.value = false
             }
@@ -688,7 +704,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
                 when (opened) {
                     is VoltaLinks.AddSubscription -> addFromLink(named(opened), onComplete)
                     is VoltaLinks.Invalid -> {
-                        _message.value = getApplication<Application>().getString(opened.message)
+                        _message.value = UiText.of(opened.message)
                         onComplete(false)
                     }
                     else -> onComplete(false)
@@ -717,7 +733,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
                 onComplete(true)
             }
             is VoltaLinks.Invalid -> {
-                _message.value = getApplication<Application>().getString(action.message)
+                _message.value = UiText.of(action.message)
                 onComplete(false)
             }
         }
@@ -736,13 +752,17 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
                 )
                 val count = repo.servers.first().count { it.subscriptionId == id }
                 val hidden = repo.subscriptions.first().firstOrNull { it.id == id }?.urlHidden == true
-                _message.value = "Подписка добавлена: $count серверов" + if (hidden) " · ссылка скрыта" else ""
+                val servers = UiText.plural(R.plurals.home_servers_count, count)
+                _message.value = UiText.of(
+                    if (hidden) R.string.home_subscription_added_hidden else R.string.home_subscription_added_count,
+                    servers
+                )
                 onComplete(true)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 // The repository already took a hidden address out of the error text.
-                _message.value = e.userMessage("Не удалось добавить подписку")
+                _message.value = e.uiText(UiText.of(R.string.home_subscription_add_failed))
                 onComplete(false)
             } finally {
                 _busy.value = false
@@ -768,41 +788,45 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
                     value.startsWith("http://", true) || value.startsWith("https://", true) -> {
                         val id = repo.addSubscription("", value)
                         val count = repo.servers.first().count { it.subscriptionId == id }
-                        _message.value = "Подписка добавлена: $count серверов"
+                        _message.value = UiText.of(
+                            R.string.home_subscription_added_count,
+                            UiText.plural(R.plurals.home_servers_count, count)
+                        )
                     }
 
                     // A WireGuard / AmneziaWG .conf, or an AmneziaVPN key with several protocols.
                     AmneziaConfigs.looksLikeConf(value) || value.startsWith("vpn://", true) -> {
                         val n = repo.importJson(value)
-                        require(n > 0) { "В файле нет данных сервера" }
-                        _message.value = if (n == 1) "Сервер добавлен" else "Импортировано серверов: $n"
+                        if (n <= 0) throw UiTextException(UiText.of(R.string.home_import_no_server_data), context)
+                        _message.value = if (n == 1) UiText.of(R.string.home_server_added)
+                        else UiText.of(R.string.home_servers_imported, n)
                     }
 
                     value.trimStart().startsWith("{") || value.trimStart().startsWith("[") -> {
                         val n = repo.importJson(value)
-                        require(n > 0) { "Здесь нет серверов, которые Volta умеет открывать" }
-                        _message.value = "Импортировано серверов: $n"
+                        if (n <= 0) throw UiTextException(UiText.of(R.string.home_import_nothing_usable), context)
+                        _message.value = UiText.of(R.string.home_servers_imported, n)
                     }
 
                     // Several links pasted at once (a few OpenFlux exits, a server list, a
                     // base64 body): every one of them, as the screen promised.
                     ImportDetector.detect(value) is ImportDetector.Kind.Servers -> {
                         val n = repo.importJson(value)
-                        require(n > 0) { "Здесь нет серверов, которые Volta умеет открывать" }
-                        _message.value = "Импортировано серверов: $n"
+                        if (n <= 0) throw UiTextException(UiText.of(R.string.home_import_nothing_usable), context)
+                        _message.value = UiText.of(R.string.home_servers_imported, n)
                     }
 
                     else -> {
                         val s = repo.importShareLink(value)
-                            ?: error("Формат ссылки не поддерживается")
-                        _message.value = "Добавлен: ${s.remark}"
+                            ?: throw UiTextException(UiText.of(R.string.home_link_unsupported), context)
+                        _message.value = UiText.of(R.string.home_server_added_named, s.remark)
                     }
                 }
                 onComplete(true)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _message.value = e.userMessage("Не удалось импортировать")
+                _message.value = e.uiText(UiText.of(R.string.home_import_failed))
                 onComplete(false)
             } finally {
                 _busy.value = false
@@ -846,9 +870,9 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 repo.bindSubscriptionRouting(subscriptionId, profileId)
                 touchRouting()
-                _message.value = "Правила применены к подписке"
+                _message.value = UiText.of(R.string.home_rules_applied)
             } catch (e: Exception) {
-                _message.value = e.userMessage("Не удалось применить правила")
+                _message.value = e.uiText(UiText.of(R.string.home_rules_apply_failed))
             }
         }
     }
@@ -874,19 +898,20 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
             repo.saveRoutingProfile(
                 RoutingProfileEntity(
                     name = name,
-                    description = "Свой набор правил",
+                    // Stored with the set: written in the language it was made in.
+                    description = context.getString(R.string.home_routing_own_description),
                     rulesJson = RoutingEngine.serializeRules(emptyList()),
                     updatedAt = System.currentTimeMillis()
                 )
             )
-            _message.value = "Набор создан"
+            _message.value = UiText.of(R.string.home_routing_created)
         }
     }
 
     fun copyRoutingProfile(id: Long) {
         viewModelScope.launch {
             repo.copyRoutingProfile(id)
-            _message.value = "Создана редактируемая копия"
+            _message.value = UiText.of(R.string.home_routing_copy_created)
         }
     }
 
@@ -923,7 +948,12 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
         _message.value = null
     }
 
+    /** Text that is already in the screen's language. */
     fun showMessage(text: String) {
+        _message.value = UiText.Raw(text)
+    }
+
+    fun showMessage(text: UiText) {
         _message.value = text
     }
 
@@ -935,7 +965,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     private val _restoreOffer = MutableStateFlow<BackupCodec.Contents?>(null)
     private val _backupWorking = MutableStateFlow(false)
 
-    /** A backup file that was read and waits for «Восстановить». */
+    /** A backup file that was read and waits for "Restore". */
     val restoreOffer: StateFlow<BackupCodec.Contents?> = _restoreOffer.asStateFlow()
 
     /** Saving or restoring is under way (a restore loads every subscription). */
@@ -959,11 +989,11 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
                         ?: error("no stream")
                     stream.use { it.write(text.toByteArray(Charsets.UTF_8)) }
                 }
-                _message.value = "Файл сохранён. На новом телефоне: Настройки → Восстановить из файла"
+                _message.value = UiText.of(R.string.home_backup_saved)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _message.value = "Не удалось сохранить файл. Попробуйте другую папку"
+                _message.value = UiText.of(R.string.home_backup_save_failed)
             } finally {
                 _backupWorking.value = false
             }
@@ -992,16 +1022,16 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
                     backup.read(String(bytes, Charsets.UTF_8))
                 }
                 if (contents.isEmpty) {
-                    _message.value = "В файле нечего восстанавливать"
+                    _message.value = UiText.of(R.string.home_backup_nothing)
                 } else {
                     _restoreOffer.value = contents
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: BackupCodec.BackupException) {
-                _message.value = getApplication<Application>().getString(e.reason)
+                _message.value = UiText.of(e.reason)
             } catch (e: Exception) {
-                _message.value = "Не удалось открыть файл"
+                _message.value = UiText.of(R.string.home_backup_open_failed)
             }
         }
     }
@@ -1018,13 +1048,13 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
             _backupWorking.value = true
             try {
                 val report = backup.restore(contents)
-                _message.value = report.message(getApplication<Application>().resources)
+                _message.value = UiText.Raw(report.message(context.resources))
                 // Rules and split tunnelling reach a running tunnel on its next start.
                 touchRouting()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _message.value = e.userMessage("Не удалось восстановить из файла")
+                _message.value = e.uiText(UiText.of(R.string.home_backup_restore_failed))
             } finally {
                 _backupWorking.value = false
             }
@@ -1097,12 +1127,13 @@ data class PickSummary(
     }
 }
 
-enum class ConnectPhase(val caption: String) {
-    IDLE(""),
-    PREPARING("Готовлю подключение…"),
-    PROBING("Проверяю сеть: Home или LTE…"),
-    MEASURING("Ищу самый быстрый сервер…"),
-    REFINING("Сравниваю лучшие серверы…");
+/** [caption]: what the screen says meanwhile; 0 while idle. */
+enum class ConnectPhase(@StringRes val caption: Int) {
+    IDLE(0),
+    PREPARING(R.string.home_phase_preparing),
+    PROBING(R.string.home_phase_probing),
+    MEASURING(R.string.home_phase_measuring),
+    REFINING(R.string.home_phase_refining);
 
     companion object {
         fun of(phase: AutoBalancer.Phase): ConnectPhase = when (phase) {
@@ -1113,5 +1144,3 @@ enum class ConnectPhase(val caption: String) {
     }
 }
 
-private fun Throwable.userMessage(fallback: String): String =
-    message?.trim()?.takeIf { it.isNotEmpty() } ?: fallback

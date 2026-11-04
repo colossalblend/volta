@@ -3,6 +3,7 @@ package com.ars3nb.volta.core.vpn
 import android.content.Context
 import android.util.Base64
 import android.util.Log
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.HwidProvider
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
@@ -162,11 +163,7 @@ class XrayCore(
                     check(temporary.renameTo(destination)) { "Could not install $name" }
                 } catch (e: Exception) {
                     temporary.delete()
-                    throw IllegalStateException(
-                        "Не удалось подготовить данные маршрутизации ($name). " +
-                            "Переустановите приложение.",
-                        e
-                    )
+                    throw IllegalStateException(context.getString(R.string.home_core_geodata_failed, name), e)
                 }
             }
             runCatching { stamp.writeText(expected) }
@@ -213,7 +210,7 @@ class XrayCore(
             val instance = libClass
                 .getMethod("newCoreController", callbackType)
                 .invoke(null, callback)
-                ?: error("libv2ray не вернул CoreController")
+                ?: error(context.getString(R.string.home_core_no_controller))
 
             // Second argument is the TUN fd; 0 means "no tun inbound".
             // ponytail: the core can drive the TUN itself, which would retire
@@ -230,7 +227,7 @@ class XrayCore(
             controller = null
             Result.failure(
                 IllegalStateException(cause.message?.takeIf { it.isNotBlank() }
-                    ?: "Ядро VPN не запустилось", cause)
+                    ?: context.getString(R.string.home_core_not_started), cause)
             )
         }
     }

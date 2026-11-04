@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap
  * reports when the phone moves between Wi-Fi, mobile data and ethernet.
  *
  * Moving from home Wi-Fi to LTE is exactly when the right server group changes, so
- * "Авто Home+LTE" re-probes and re-picks on this signal instead of waiting for the
+ * "Auto Home+LTE" re-probes and re-picks on this signal instead of waiting for the
  * watchdog to notice a dead exit a minute later.
  */
 class NetworkWatcher(

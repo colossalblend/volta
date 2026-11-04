@@ -12,7 +12,7 @@ import com.ars3nb.volta.MainActivity
 import com.ars3nb.volta.R
 import com.ars3nb.volta.core.vpn.VoltaVpnService
 import com.ars3nb.volta.data.model.TrafficStats
-import java.util.Locale
+import com.ars3nb.volta.ui.components.formatSpeed
 
 object VpnNotificationHelper {
     const val CHANNEL_ID = "volta_vpn"
@@ -26,7 +26,7 @@ object VpnNotificationHelper {
                 context.getString(R.string.vpn_notification_channel_name),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Статус VPN Volta"
+                description = context.getString(R.string.home_notification_channel_description)
                 setShowBadge(false)
             }
             mgr.createNotificationChannel(ch)
@@ -69,7 +69,8 @@ object VpnNotificationHelper {
         val text = buildString {
             append(serverName.ifBlank { "Volta" })
             if (connected && (traffic.downlinkSpeed > 0 || traffic.uplinkSpeed > 0)) {
-                append("  ↓ ${speed(traffic.downlinkSpeed)}  ↑ ${speed(traffic.uplinkSpeed)}")
+                val res = context.resources
+                append("  ↓ ${formatSpeed(res, traffic.downlinkSpeed)}  ↑ ${formatSpeed(res, traffic.uplinkSpeed)}")
             }
         }
 
@@ -112,15 +113,5 @@ object VpnNotificationHelper {
         }
 
         return builder.build()
-    }
-
-    private fun speed(bytesPerSecond: Long): String = when {
-        bytesPerSecond >= 1024L * 1024 ->
-            String.format(Locale.US, "%.1f МБ/с", bytesPerSecond / (1024.0 * 1024.0))
-
-        bytesPerSecond >= 1024 ->
-            String.format(Locale.US, "%.0f КБ/с", bytesPerSecond / 1024.0)
-
-        else -> "$bytesPerSecond Б/с"
     }
 }

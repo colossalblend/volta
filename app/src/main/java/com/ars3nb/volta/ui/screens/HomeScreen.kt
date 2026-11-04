@@ -49,13 +49,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.balancer.AutoBalancer
+import com.ars3nb.volta.core.locale.UiText
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.server.Countries
 import com.ars3nb.volta.core.stats.TrafficSummary
@@ -85,6 +88,8 @@ import com.ars3nb.volta.ui.components.TrafficCard
 import com.ars3nb.volta.ui.components.UpdateBanner
 import com.ars3nb.volta.ui.components.flagOf
 import com.ars3nb.volta.ui.components.formatDuration
+import com.ars3nb.volta.ui.components.formatLatency
+import com.ars3nb.volta.ui.components.screenResources
 import com.ars3nb.volta.ui.components.groupColor
 import com.ars3nb.volta.ui.components.groupLabel
 import com.ars3nb.volta.ui.components.offersInstall
@@ -138,7 +143,7 @@ fun HomeScreen(
         onRecheckNetwork = vm::runStartupProbesForce,
         onInstallUpdate = vm::installUpdate,
         onLteMissing = {
-            vm.showMessage("В подписках нет LTE-серверов: Volta работает как Авто Home и не проверяет сайты")
+            vm.showMessage(UiText.of(R.string.home_lte_missing))
         }
     )
 }
@@ -241,12 +246,12 @@ fun HomeContent(
                         )
                         ConnectionHeadline(
                             state = state.vpnState,
-                            phaseCaption = phase.caption,
+                            phaseCaption = if (phase.caption != 0) stringResource(phase.caption) else "",
                             serverName = selected?.let { Countries.withoutLeadingFlag(it.remark) }.orEmpty(),
                             idleCaption = if (hasServers) {
-                                "Нажмите на диск, чтобы включить VPN"
+                                stringResource(R.string.home_tap_disc)
                             } else {
-                                "Сначала добавьте подписку"
+                                stringResource(R.string.home_add_subscription_first)
                             }
                         )
                         AnimatedVisibility(
@@ -385,7 +390,7 @@ private fun TopBar(regime: NetworkRegime, ip: String?, country: String?, onAdd: 
                 val (label, color) = when (regime) {
                     NetworkRegime.OPEN -> "Home" to palette.home
                     NetworkRegime.WHITELIST_ONLY -> "LTE" to palette.lte
-                    NetworkRegime.BLOCKED -> "нет сети" to palette.poor
+                    NetworkRegime.BLOCKED -> stringResource(R.string.home_regime_no_network) to palette.poor
                     NetworkRegime.UNKNOWN -> "" to Color.Transparent
                 }
                 AnimatedVisibility(visible = label.isNotBlank(), enter = fadeIn(), exit = fadeOut()) {
@@ -425,7 +430,7 @@ private fun TopBar(regime: NetworkRegime, ip: String?, country: String?, onAdd: 
                 modifier = Modifier.size(44.dp).focusRing(CircleShape)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.Add, contentDescription = "Добавить подписку или сервер")
+                    Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.home_add_description))
                 }
             }
         }
@@ -470,7 +475,7 @@ private fun ServerCapsule(
                 Column(horizontalAlignment = Alignment.End) {
                     SignalBars(ms)
                     Text(
-                        "$ms мс",
+                        formatLatency(screenResources(), ms),
                         style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = TABULAR),
                         color = palette.latency(ms)
                     )
@@ -503,8 +508,8 @@ private fun ServerIdentity(server: ServerEntity?, subscription: SubscriptionEnti
             Text(
                 when {
                     server != null -> Countries.withoutLeadingFlag(server.remark)
-                    manual -> "Сервер не выбран"
-                    else -> "Самый быстрый"
+                    manual -> stringResource(R.string.home_server_none)
+                    else -> stringResource(R.string.home_server_fastest)
                 },
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
@@ -531,7 +536,7 @@ private fun ServerIdentity(server: ServerEntity?, subscription: SubscriptionEnti
                 }
             } else {
                 Text(
-                    if (manual) "Откройте список, чтобы выбрать" else "Найду при подключении",
+                    stringResource(if (manual) R.string.home_server_open_list else R.string.home_server_on_connect),
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant
                 )
@@ -550,8 +555,7 @@ private fun FirstSubscription(onOpenImport: () -> Unit, buttonModifier: Modifier
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            "Вставьте ссылку от VPN-сервиса. Серверы разложатся по группам Home и LTE, " +
-                "остальные настройки подтянутся сами.",
+            stringResource(R.string.home_first_subscription),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -566,7 +570,7 @@ private fun FirstSubscription(onOpenImport: () -> Unit, buttonModifier: Modifier
                 // Cream, not copper: the button itself is copper.
                 .focusRing(CircleShape, color = MaterialTheme.colorScheme.onBackground)
         ) {
-            Text("Добавить подписку", style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.home_add_subscription), style = MaterialTheme.typography.titleSmall)
         }
     }
 }
@@ -591,7 +595,7 @@ private fun RoutingRow(name: String, onClick: () -> Unit) {
             )
             Spacer(Modifier.width(10.dp))
             Text(
-                "Маршрутизация: ${name.ifBlank { "встроенная" }}",
+                stringResource(R.string.home_routing, name.ifBlank { stringResource(R.string.home_routing_builtin) }),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),

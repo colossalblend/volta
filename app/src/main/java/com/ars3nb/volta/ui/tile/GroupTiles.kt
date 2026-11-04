@@ -81,7 +81,7 @@ abstract class GroupTileService(private val mode: ConnectMode) : TileService() {
         val repo = app.repository
         // The LTE tile with no LTE server to go to: say so instead of connecting nowhere.
         if (mode == ConnectMode.AUTO_LTE && qsTile?.state == Tile.STATE_UNAVAILABLE) {
-            Toast.makeText(app, "В подписках нет LTE-серверов", Toast.LENGTH_SHORT).show()
+            Toast.makeText(app, getString(R.string.home_tile_no_lte), Toast.LENGTH_SHORT).show()
             return
         }
         // Consent can only be granted from an Activity: remember the group, then open
@@ -102,6 +102,8 @@ abstract class GroupTileService(private val mode: ConnectMode) : TileService() {
             return
         }
         // The tile's own scope dies moments after the click; the app scope outlives it.
+        val modeName = title(this, mode)
+        val failed = getString(R.string.home_tile_connect_failed)
         app.appScope.launch {
             if (repo.connectMode.first() == mode) {
                 repo.disconnect()
@@ -114,11 +116,7 @@ abstract class GroupTileService(private val mode: ConnectMode) : TileService() {
                 // Cancelled from the app's button: nothing went wrong.
                 if (e is CancellationException) return@onFailure
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(
-                        app,
-                        "${mode.title}: ${e.message ?: "не удалось подключиться"}",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    Toast.makeText(app, "$modeName: ${e.message ?: failed}", Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -148,38 +146,41 @@ abstract class GroupTileService(private val mode: ConnectMode) : TileService() {
             // Nothing to connect to in this group: greyed out with the reason.
             mode == ConnectMode.AUTO_LTE && !model.hasLte -> {
                 tile.state = Tile.STATE_UNAVAILABLE
-                subtitle = "Нет серверов"
+                subtitle = getString(R.string.home_no_servers)
             }
 
             ours && model.picking && model.state != VpnConnectionState.CONNECTED -> {
                 tile.state = Tile.STATE_ACTIVE
-                subtitle = "Подбираю сервер…"
+                subtitle = getString(R.string.home_tile_picking)
             }
 
             ours && model.state == VpnConnectionState.CONNECTING -> {
                 // ACTIVE, not UNAVAILABLE: an unavailable tile swallows the tap that
                 // would cancel a connect that hangs.
                 tile.state = Tile.STATE_ACTIVE
-                subtitle = "Подключение…"
+                subtitle = getString(R.string.vpn_connecting)
             }
 
             ours && model.state == VpnConnectionState.CONNECTED -> {
                 tile.state = Tile.STATE_ACTIVE
-                subtitle = model.server.ifBlank { "Включено" }
+                subtitle = model.server.ifBlank { getString(R.string.home_tile_on) }
             }
 
             else -> {
                 tile.state = Tile.STATE_INACTIVE
                 // Home+LTE without LTE servers runs as Home: the shade says so.
-                subtitle = if (mode == ConnectMode.AUTO_HOME_LTE && !model.hasLte) "Выключено · как Home" else "Выключено"
+                subtitle = getString(
+                    if (mode == ConnectMode.AUTO_HOME_LTE && !model.hasLte) R.string.home_tile_off_as_home
+                    else R.string.home_state_off
+                )
             }
         }
         tile.label = label(mode)
         tile.icon = Icon.createWithResource(this, icon(mode))
         tile.contentDescription = if (tile.state == Tile.STATE_ACTIVE) {
-            "Volta ${mode.title}: $subtitle. Нажмите, чтобы выключить"
+            getString(R.string.home_tile_on_description, title(this, mode), subtitle)
         } else {
-            "Volta ${mode.title} выключен. Нажмите, чтобы включить"
+            getString(R.string.home_tile_off_description, title(this, mode))
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) tile.subtitle = subtitle
         tile.updateTile()
@@ -199,6 +200,16 @@ abstract class GroupTileService(private val mode: ConnectMode) : TileService() {
     )
 
     companion object {
+        /** The mode's full name, "Auto Home+LTE", in [context]'s language. */
+        fun title(context: Context, mode: ConnectMode): String = context.getString(
+            when (mode) {
+                ConnectMode.AUTO_HOME_LTE -> R.string.home_mode_auto_home_lte
+                ConnectMode.AUTO_HOME -> R.string.home_mode_auto_home
+                ConnectMode.AUTO_LTE -> R.string.home_mode_auto_lte
+                ConnectMode.MANUAL -> R.string.home_mode_own_server
+            }
+        )
+
         fun label(mode: ConnectMode): String = when (mode) {
             ConnectMode.AUTO_HOME_LTE -> "Home+LTE"
             ConnectMode.AUTO_HOME -> "Home"
@@ -232,7 +243,7 @@ object TileInstaller {
 
     fun request(context: android.content.Context, mode: ConnectMode, onResult: (String) -> Unit) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            onResult(MANUAL_HINT)
+            onResult(manualHint(context))
             return
         }
         val bar = context.getSystemService(android.app.StatusBarManager::class.java)
@@ -242,7 +253,7 @@ object TileInstaller {
             else -> HomeLteTileService::class.java
         }
         if (bar == null) {
-            onResult(MANUAL_HINT)
+            onResult(manualHint(context))
             return
         }
         runCatching {
@@ -255,21 +266,25 @@ object TileInstaller {
                 onResult(
                     when (code) {
                         android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED ->
-                            "Плитка «${GroupTileService.label(mode)}» добавлена в шторку"
+                            context.getString(R.string.home_tile_added, GroupTileService.label(mode))
 
                         android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED ->
-                            "Плитка «${GroupTileService.label(mode)}» уже в шторке"
+                            context.getString(R.string.home_tile_already_added, GroupTileService.label(mode))
 
                         android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_NOT_ADDED ->
-                            "Плитка не добавлена"
+                            context.getString(R.string.home_tile_not_added)
 
-                        else -> MANUAL_HINT
+                        else -> manualHint(context)
                     }
                 )
             }
-        }.onFailure { onResult(MANUAL_HINT) }
+        }.onFailure { onResult(manualHint(context)) }
     }
 
-    const val MANUAL_HINT =
-        "Откройте шторку, нажмите карандаш и перетащите плитки Volta на панель"
+    /** How to put the tiles in the shade by hand (Android 12 and older, or a refusal). */
+    fun manualHint(context: android.content.Context): String = context.getString(R.string.home_tile_manual_hint)
+
+    /** [manualHint] for a caller with no Context at hand, in the app's language. */
+    val MANUAL_HINT: String
+        get() = manualHint(VoltaApp.instance)
 }

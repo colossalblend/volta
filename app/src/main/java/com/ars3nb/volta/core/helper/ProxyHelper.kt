@@ -3,6 +3,7 @@ package com.ars3nb.volta.core.helper
 import android.content.Context
 import android.util.Log
 import com.ars3nb.volta.BuildConfig
+import com.ars3nb.volta.R
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import java.io.File
@@ -69,18 +70,25 @@ object ProxyHelper {
 
     /**
      * Starts the helper for [spec] and waits until its proxy listens. Already running
-     * for the same server: nothing to do.
+     * for the same server: nothing to do. [context] gives the error texts their language.
      */
     @Synchronized
-    fun start(spec: Spec): Result<Unit> {
+    fun start(context: Context, spec: Spec): Result<Unit> {
         if (spec == running && isRunning()) return Result.success(Unit)
         stop()
         val exe = binary()
         if (!exe.canExecute()) {
-            return Result.failure(IllegalStateException("${label(spec)} не входит в эту сборку Volta"))
+            return Result.failure(
+                IllegalStateException(context.getString(R.string.home_helper_not_in_build, label(spec)))
+            )
         }
         val started = runCatching { launch(exe) }.getOrElse {
-            return Result.failure(IllegalStateException("${label(spec)} не запустился: ${it.message}", it))
+            return Result.failure(
+                IllegalStateException(
+                    context.getString(R.string.home_helper_launch_failed, label(spec), it.message.orEmpty()),
+                    it
+                )
+            )
         }
         val writer = started.outputStream.bufferedWriter()
         val request = JsonObject().apply {
@@ -99,7 +107,9 @@ object ProxyHelper {
             runCatching { writer.close() }
             started.destroy()
             val why = first?.str("message")?.takeIf { it.isNotBlank() }
-                ?: if (first == null) "не ответил вовремя" else "остановился"
+                ?: context.getString(
+                    if (first == null) R.string.home_helper_no_answer else R.string.home_helper_stopped
+                )
             return Result.failure(IllegalStateException("${label(spec)}: $why"))
         }
         process = started

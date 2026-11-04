@@ -14,11 +14,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.res.stringArrayResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.stats.TrafficSummary
 import com.ars3nb.volta.ui.theme.TABULAR
 
@@ -29,20 +32,21 @@ import com.ars3nb.volta.ui.theme.TABULAR
  */
 @Composable
 fun TrafficCard(summary: TrafficSummary, modifier: Modifier = Modifier) {
+    val months = stringArrayResource(R.array.home_months)
     VoltaCard(modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "Трафик через VPN",
+                stringResource(R.string.home_traffic_title),
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.weight(1f)
             )
-            Hint("за 2 недели")
+            Hint(stringResource(R.string.home_traffic_period))
         }
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth()) {
-            TrafficFigure("Сегодня", summary.today, Modifier.weight(1f))
-            TrafficFigure(summary.thisMonthName, summary.thisMonth, Modifier.weight(1f))
-            TrafficFigure(summary.lastMonthName, summary.lastMonth, Modifier.weight(1f))
+            TrafficFigure(stringResource(R.string.home_traffic_today), summary.today, Modifier.weight(1f))
+            TrafficFigure(months[summary.thisMonthOf.value - 1], summary.thisMonth, Modifier.weight(1f))
+            TrafficFigure(months[summary.lastMonthOf.value - 1], summary.lastMonth, Modifier.weight(1f))
         }
         Spacer(Modifier.height(14.dp))
         DayBars(
@@ -52,7 +56,7 @@ fun TrafficCard(summary: TrafficSummary, modifier: Modifier = Modifier) {
                 .height(40.dp)
         )
         Spacer(Modifier.height(10.dp))
-        Hint("Считается только то, что прошло через VPN-сервер")
+        Hint(stringResource(R.string.home_traffic_note))
     }
 }
 
@@ -68,7 +72,7 @@ private fun TrafficFigure(label: String, bytes: Long, modifier: Modifier = Modif
         )
         Spacer(Modifier.height(2.dp))
         Text(
-            formatBytes(bytes),
+            formatBytes(screenResources(), bytes),
             style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = TABULAR),
             fontWeight = FontWeight.SemiBold,
             maxLines = 1
@@ -83,7 +87,8 @@ private fun DayBars(values: List<Long>, modifier: Modifier = Modifier) {
     val past = today.copy(alpha = 0.38f)
     val idle = MaterialTheme.colorScheme.surfaceVariant
     val peak = (values.maxOrNull() ?: 0L).coerceAtLeast(1L).toFloat()
-    Canvas(modifier.semantics { contentDescription = "Трафик по дням за две недели" }) {
+    val description = stringResource(R.string.home_traffic_bars_description)
+    Canvas(modifier.semantics { contentDescription = description }) {
         if (values.isEmpty()) return@Canvas
         val gap = 4.dp.toPx()
         val barW = (size.width - gap * (values.size - 1)) / values.size

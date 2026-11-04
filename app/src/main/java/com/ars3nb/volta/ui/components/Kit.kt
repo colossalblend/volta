@@ -46,6 +46,7 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -54,6 +55,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.ars3nb.volta.R
 import com.ars3nb.volta.ui.theme.Motion
 import com.ars3nb.volta.ui.theme.VoltaTheme
 import com.ars3nb.volta.ui.tv.RowFocusOutset
@@ -144,7 +146,7 @@ fun VoltaSearchField(
 ) {
     val clear: (@Composable () -> Unit)? = if (value.isEmpty()) null else ({
         IconButton(onClick = { onValueChange("") }) {
-            Icon(Icons.Rounded.Close, "Очистить")
+            Icon(Icons.Rounded.Close, stringResource(R.string.home_clear))
         }
     })
     VoltaField(

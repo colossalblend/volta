@@ -1,14 +1,20 @@
 package com.ars3nb.volta.core.vpn
 
+import android.content.Context
 import android.util.Log
+import com.ars3nb.volta.R
 import java.io.File
 
 /**
  * JNI bridge for hev-socks5-tunnel (MIT). The native library registers its methods
  * against this exact class path in JNI_OnLoad, so neither the package nor the method
  * names may be renamed — see proguard-rules.pro.
+ *
+ * [context] is the service's: its files folder, and its language for the error texts.
  */
-class Tun2Socks(private val workDir: File) {
+class Tun2Socks(private val context: Context) {
+
+    private val workDir: File get() = context.filesDir
 
     private external fun TProxyStartService(configPath: String, fd: Int): Boolean
     private external fun TProxyStopService(): Boolean
@@ -16,8 +22,8 @@ class Tun2Socks(private val workDir: File) {
     private external fun TProxyGetStats(): LongArray
 
     fun start(tunFd: Int, mtu: Int, socksPort: Int = 10808): Result<Unit> = runCatching {
-        check(libraryLoaded) { "Не удалось запустить VPN на этом телефоне" }
-        check(tunFd >= 0) { "Android не дал запустить VPN" }
+        check(libraryLoaded) { context.getString(R.string.home_tun_unavailable) }
+        check(tunFd >= 0) { context.getString(R.string.home_tun_refused) }
         if (isRunning()) stop()
 
         val config = File(workDir, "tun2socks.yml")
@@ -43,7 +49,7 @@ class Tun2Socks(private val workDir: File) {
             """.trimIndent()
         )
         check(TProxyStartService(config.absolutePath, tunFd)) {
-            "Не удалось запустить TUN-мост"
+            context.getString(R.string.home_tun_bridge_failed)
         }
         Log.i(TAG, "Bridge started: fd=$tunFd mtu=$mtu socks=127.0.0.1:$socksPort")
     }

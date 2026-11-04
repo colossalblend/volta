@@ -13,8 +13,9 @@ data class TrafficSummary(
     val lastMonth: Long = 0,
     /** Bytes per day for the last [TrafficTally.RECENT_DAYS] days, oldest first, today last. */
     val recent: List<Long> = emptyList(),
-    val thisMonthName: String = "",
-    val lastMonthName: String = ""
+    /** The months the two totals are for; the card names them in the app's language. */
+    val thisMonthOf: Month = Month.JANUARY,
+    val lastMonthOf: Month = Month.DECEMBER
 ) {
     /** Nothing has gone through the VPN in the time the card covers. */
     val isEmpty: Boolean get() = thisMonth <= 0 && lastMonth <= 0 && recent.all { it <= 0 }
@@ -57,18 +58,10 @@ object TrafficTally {
             thisMonth = thisMonth,
             lastMonth = lastMonth,
             recent = (RECENT_DAYS - 1 downTo 0).map { back -> byDay[todayKey - back] ?: 0L },
-            thisMonthName = monthName(today.month),
-            lastMonthName = monthName(lastMonthStart.month)
+            thisMonthOf = today.month,
+            lastMonthOf = lastMonthStart.month
         )
     }
-
-    /** The month as a heading: «Ноябрь». Fixed Russian, whatever the phone's language. */
-    fun monthName(month: Month): String = MONTHS[month.value - 1]
-
-    private val MONTHS = listOf(
-        "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
-        "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
-    )
 }
 
 /**

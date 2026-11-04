@@ -1,9 +1,13 @@
 package com.ars3nb.volta.data.repository
 
 import android.content.Context
+import androidx.annotation.StringRes
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.HwidProvider
 import com.ars3nb.volta.core.balancer.AutoBalancer
 import com.ars3nb.volta.core.balancer.GuardPolicy
+import com.ars3nb.volta.core.locale.UiText
+import com.ars3nb.volta.core.locale.UiTextException
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.parser.ConfigParser
 import com.ars3nb.volta.core.server.ServerMarkup
@@ -71,6 +75,10 @@ import okhttp3.Request
 import okhttp3.Response
 
 class VoltaRepository(private val context: Context) {
+
+    /** Stops with a message the screen shows in its own language (see [UiTextException]). */
+    private fun fail(@StringRes id: Int, vararg args: Any): Nothing =
+        throw UiTextException(UiText.Res(id, args.toList()), context)
 
     private val db = VoltaDatabase.get(context)
     private val prefs = AppPreferences(context)
@@ -141,8 +149,8 @@ class VoltaRepository(private val context: Context) {
     val lastRegime = prefs.networkRegime
 
     /**
-     * Whether any LTE server is there to switch to. Without one, "Авто LTE" and
-     * "Авто Home+LTE" run as Home (see [GuardPolicy.effectiveMode]) and no site is probed.
+     * Whether any LTE server is there to switch to. Without one, "Auto LTE" and
+     * "Auto Home+LTE" run as Home (see [GuardPolicy.effectiveMode]) and no site is probed.
      */
     val hasLteServers: Flow<Boolean> = servers.map(GuardPolicy::hasLte).distinctUntilChanged()
 
@@ -256,10 +264,8 @@ class VoltaRepository(private val context: Context) {
         reveal: Boolean = false
     ): Long = withContext(Dispatchers.IO) {
         val normalized = normalizeSubscriptionUrl(url)
-        require(normalized.isNotBlank()) { "Вставьте ссылку на подписку" }
-        require(!normalized.startsWith("http://", ignoreCase = true)) {
-            "Используйте защищённую HTTPS-ссылку на подписку"
-        }
+        if (normalized.isBlank()) fail(R.string.home_err_paste_link)
+        if (normalized.startsWith("http://", ignoreCase = true)) fail(R.string.home_err_https_only)
         val types = ServerMarkup.normalize(serverTypes)
         subDao.getAll().firstOrNull { it.url == normalized }?.let { existing ->
             val updated = existing.copy(
@@ -284,7 +290,8 @@ class VoltaRepository(private val context: Context) {
         }
         val id = subDao.insert(
             SubscriptionEntity(
-                name = name.trim().ifBlank { "Подписка" },
+                // Stored: the default name is written in the language it was added in.
+                name = name.trim().ifBlank { context.getString(R.string.home_default_subscription_name) },
                 nameLocked = name.trim().isNotBlank(),
                 url = normalized,
                 colorHex = SUBSCRIPTION_COLORS[(subDao.getAll().size) % SUBSCRIPTION_COLORS.size],
@@ -307,7 +314,8 @@ class VoltaRepository(private val context: Context) {
             fetchSubscriptionResilient(sub.url, sub.userAgent)
         } catch (e: Exception) {
             // A hidden link must not leak through an error text ("…host sub.example…").
-            if (sub.urlHidden) throw IllegalStateException(concealAddress(e.message, sub.url))
+            // Volta's own texts carry no address.
+            if (sub.urlHidden && e !is UiTextException) throw IllegalStateException(concealAddress(e.message, sub.url))
             throw e
         }
         val body = fetched.body
@@ -325,13 +333,7 @@ class VoltaRepository(private val context: Context) {
             serverTypes = sub.serverTypes
         )
         if (servers.isEmpty()) {
-            error(
-                if (parsed.skipped.isNotEmpty()) {
-                    "В подписке только серверы, которые Volta пока не умеет открывать."
-                } else {
-                    "В подписке не нашлось ни одного сервера. Проверьте ссылку или напишите в поддержку VPN-сервиса."
-                }
-            )
+            fail(if (parsed.skipped.isNotEmpty()) R.string.home_err_only_unsupported else R.string.home_err_no_servers_in_subscription)
         }
         serverDao.replaceSubscription(id, servers)
 
@@ -407,7 +409,8 @@ class VoltaRepository(private val context: Context) {
         displayName: String,
         routing: HappRoutingParser.ParsedRouting
     ): Long {
-        val profileName = routing.name.ifBlank { "$displayName · правила" }
+        // Name and description are stored with the set, in the language it was made in.
+        val profileName = routing.name.ifBlank { context.getString(R.string.home_routing_rules_name, displayName) }
         val existing = routingDao.getBySubscription(subscriptionId)
 
         // A refresh replaces the provider's rules but must not erase what the user added
@@ -421,7 +424,7 @@ class VoltaRepository(private val context: Context) {
         val entity = RoutingProfileEntity(
             id = existing?.id ?: 0,
             name = profileName,
-            description = "Из подписки «$displayName»",
+            description = context.getString(R.string.home_routing_from_subscription, displayName),
             isActive = false,
             isBuiltIn = false,
             sourceSubscriptionId = subscriptionId,
@@ -491,13 +494,11 @@ class VoltaRepository(private val context: Context) {
 
     suspend fun updateSubscription(id: Long, name: String, url: String) =
         withContext(Dispatchers.IO) {
-            val current = subDao.getById(id) ?: error("Подписка не найдена")
+            val current = subDao.getById(id) ?: fail(R.string.home_err_subscription_not_found)
             // A hidden link is never shown, so it can't be edited either: only the name.
             val normalized = if (current.urlHidden) current.url else normalizeSubscriptionUrl(url)
-            require(normalized.isNotBlank()) { "Вставьте ссылку на подписку" }
-            require(!normalized.startsWith("http://", ignoreCase = true)) {
-                "Используйте защищённую HTTPS-ссылку на подписку"
-            }
+            if (normalized.isBlank()) fail(R.string.home_err_paste_link)
+            if (normalized.startsWith("http://", ignoreCase = true)) fail(R.string.home_err_https_only)
             val updated = current.copy(
                 name = name.trim().ifBlank { current.name },
                 nameLocked = name.trim().isNotBlank(),
@@ -604,7 +605,7 @@ class VoltaRepository(private val context: Context) {
     suspend fun updateServerRole(id: Long, role: ServerRole) = serverDao.updateRole(id, role)
 
     suspend fun pingServer(id: Long): PingResult = withContext(Dispatchers.IO) {
-        val server = serverDao.getById(id) ?: error("Сервер не найден")
+        val server = serverDao.getById(id) ?: fail(R.string.home_err_server_not_found)
         val engine = PingEngine(context, batterySaver = prefs.batterySaver.first())
         val result = engine.pingServer(server, prefs.defaultPingType.first())
         persist(server, result)
@@ -700,12 +701,9 @@ class VoltaRepository(private val context: Context) {
                 subDao.bindRoutingProfile(subscriptionId, 0)
                 return@withContext
             }
-            val profile = routingDao.getById(profileId) ?: error("Набор правил не найден")
-            require(
-                profile.sourceSubscriptionId == null ||
-                    profile.sourceSubscriptionId == subscriptionId
-            ) {
-                "Эти правила принадлежат другой подписке и не могут быть применены здесь"
+            val profile = routingDao.getById(profileId) ?: fail(R.string.home_err_rules_not_found)
+            if (profile.sourceSubscriptionId != null && profile.sourceSubscriptionId != subscriptionId) {
+                fail(R.string.home_err_rules_of_other_subscription)
             }
             subDao.bindRoutingProfile(subscriptionId, profileId)
         }
@@ -764,12 +762,12 @@ class VoltaRepository(private val context: Context) {
 
     /** Detaches a copy from its subscription so the user can edit it freely. */
     suspend fun copyRoutingProfile(profileId: Long): Long = withContext(Dispatchers.IO) {
-        val source = routingDao.getById(profileId) ?: error("Набор правил не найден")
+        val source = routingDao.getById(profileId) ?: fail(R.string.home_err_rules_not_found)
         routingDao.insert(
             source.copy(
                 id = 0,
-                name = "${source.name} · копия",
-                description = "Свои правила на основе «${source.name}»",
+                name = context.getString(R.string.home_routing_copy_name, source.name),
+                description = context.getString(R.string.home_routing_copy_description, source.name),
                 isActive = false,
                 isBuiltIn = false,
                 sourceSubscriptionId = null,
@@ -930,11 +928,9 @@ class VoltaRepository(private val context: Context) {
     ): VoltaVpnService.ConnectionPlan = withContext(Dispatchers.IO) {
         // Without the native core a "connection" would be a lie: the TUN would come up
         // with nothing behind it and the app would claim CONNECTED.
-        check(isCoreAvailable()) {
-            "Эта сборка Volta не умеет подключаться. Установите полную версию"
-        }
+        if (!isCoreAvailable()) fail(R.string.home_err_build_cannot_connect)
         val all = serverDao.getAll()
-        require(all.isNotEmpty()) { "Сначала добавьте подписку или сервер" }
+        if (all.isEmpty()) fail(R.string.home_err_add_first)
 
         var server = serverDao.getSelected()
         if (server == null || server.id == excludeServerId) {
@@ -942,7 +938,7 @@ class VoltaRepository(private val context: Context) {
             // A provider balancer only when nothing else is left.
             server = (AutoBalancer.poolFor(dialable, BalancerScope.ALL).ifEmpty { dialable })
                 .minByOrNull { it.score }
-                ?: error("Нет доступных серверов для подключения")
+                ?: fail(R.string.home_err_no_servers_available)
             serverDao.selectServer(server.id)
         }
         ConfigBuilder.dialProblem(server)?.let { error(it) }
@@ -1412,7 +1408,7 @@ class VoltaRepository(private val context: Context) {
         listOf(url, host).filter { it.isNotBlank() }.forEach { text = text.replace(it, "…", ignoreCase = true) }
         // Anything still looking like an address goes too.
         text = text.replace(Regex("https?://\\S+"), "…")
-        return text.ifBlank { "Не удалось обновить подписку" }
+        return text.ifBlank { context.getString(R.string.home_err_subscription_update_failed) }
     }
 
     private fun normalizeSubscriptionUrl(url: String): String {
@@ -1465,19 +1461,19 @@ class VoltaRepository(private val context: Context) {
         val resp = try {
             client.newCall(builder.build()).execute()
         } catch (e: UnknownHostException) {
-            error("Нет связи с сервером подписки. Проверьте интернет.")
+            fail(R.string.home_err_subscription_unreachable)
         } catch (e: SocketTimeoutException) {
-            error("Сервер подписки не ответил вовремя.")
+            fail(R.string.home_err_subscription_timeout)
         } catch (e: SSLException) {
-            error("Не удалось установить защищённое соединение с сервером подписки.")
+            fail(R.string.home_err_subscription_tls)
         } catch (e: IOException) {
-            error("Не удалось загрузить подписку. Проверьте интернет.")
+            fail(R.string.home_err_subscription_download)
         }
 
         resp.use {
-            if (!it.isSuccessful) error("Сервис не отдал подписку (ошибка ${it.code}). Проверьте ссылку или срок подписки.")
+            if (!it.isSuccessful) fail(R.string.home_err_subscription_http, "${it.code}")
             val body = it.body?.string().orEmpty().removePrefix("\uFEFF")
-            if (body.isBlank()) error("Подписка пустая")
+            if (body.isBlank()) fail(R.string.home_err_subscription_empty)
 
             val title = headerIgnoreCase(it, "profile-title")
                 .ifBlank {

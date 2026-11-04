@@ -35,6 +35,7 @@ import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.update.UpdateState
 import com.ars3nb.volta.data.model.ConnectMode
@@ -73,7 +74,8 @@ import org.robolectric.annotation.GraphicsMode
  * `volta.shots` property (VOLTA_SHOTS in CI), so a design can be looked at without a phone.
  */
 @RunWith(AndroidJUnit4::class)
-@Config(sdk = [35], application = Application::class, qualifiers = "w392dp-h850dp-xxhdpi")
+// In Russian, like the sample servers they show.
+@Config(sdk = [35], application = Application::class, qualifiers = "ru-w392dp-h850dp-xxhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class ScreenShotsTest {
 
@@ -124,7 +126,7 @@ class ScreenShotsTest {
 
     /** The home screen on a 1080p TV: the tabs as a rail, the screen at reading width. */
     @Test
-    @Config(qualifiers = "w960dp-h540dp-land-television-xhdpi")
+    @Config(qualifiers = "ru-w960dp-h540dp-land-television-xhdpi")
     fun homeTv() {
         compose.mainClock.autoAdvance = false
         compose.setContent {
@@ -154,7 +156,7 @@ class ScreenShotsTest {
 
     /** Off, a tap off-centre, connecting, connected with traffic, then off again. */
     @Test
-    @Config(qualifiers = "w360dp-h500dp-hdpi")
+    @Config(qualifiers = "ru-w360dp-h500dp-hdpi")
     fun discFrames() {
         var vpn by mutableStateOf(VpnConnectionState.DISCONNECTED)
         var working by mutableStateOf(false)
@@ -206,7 +208,7 @@ class ScreenShotsTest {
         compose.onRoot().performTouchInput { click(Offset(width * 0.62f, height * 0.36f)) }
         working = true
         vpn = VpnConnectionState.CONNECTING
-        caption = ConnectPhase.MEASURING.caption
+        caption = compose.activity.getString(ConnectPhase.MEASURING.caption)
         film(2_000)
         working = false
         caption = ""
@@ -222,7 +224,7 @@ class ScreenShotsTest {
 
     /** The tab bar's pill sliding from the first tab to the fourth. */
     @Test
-    @Config(qualifiers = "w392dp-h120dp-xxhdpi")
+    @Config(qualifiers = "ru-w392dp-h120dp-xxhdpi")
     fun navFrames() {
         var current by mutableStateOf(Routes.HOME)
         compose.mainClock.autoAdvance = false
@@ -244,12 +246,12 @@ class ScreenShotsTest {
             compose.mainClock.advanceTimeBy(FRAME_MS)
             capture("frames/nav-%03d".format(frame++))
         }
-        compose.onNodeWithText("Маршруты").performClick()
+        compose.onNodeWithText(compose.activity.getString(R.string.home_tab_routing)).performClick()
         repeat(24) {
             compose.mainClock.advanceTimeBy(FRAME_MS / 2)
             capture("frames/nav-%03d".format(frame++))
         }
-        compose.onNodeWithText("Серверы").performClick()
+        compose.onNodeWithText(compose.activity.getString(R.string.home_tab_servers)).performClick()
         repeat(24) {
             compose.mainClock.advanceTimeBy(FRAME_MS / 2)
             capture("frames/nav-%03d".format(frame++))

@@ -27,15 +27,18 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.ars3nb.volta.MainActivity
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.vpn.VoltaVpnService
 import com.ars3nb.volta.data.model.VpnConnectionState
 
 class VoltaWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
+            val state = VoltaVpnService.state.value
             GlanceTheme {
                 WidgetContent(
-                    state = VoltaVpnService.state.value,
+                    state = state,
+                    status = context.getString(statusText(state)),
                     serverName = VoltaVpnService.serverName.value
                 )
             }
@@ -43,16 +46,17 @@ class VoltaWidget : GlanceAppWidget() {
     }
 }
 
+private fun statusText(state: VpnConnectionState): Int = when (state) {
+    VpnConnectionState.CONNECTED -> R.string.vpn_connected
+    VpnConnectionState.CONNECTING -> R.string.vpn_connecting
+    VpnConnectionState.DISCONNECTING -> R.string.home_disconnecting
+    VpnConnectionState.ERROR -> R.string.home_widget_error
+    VpnConnectionState.DISCONNECTED -> R.string.home_state_off
+}
+
 @Composable
-private fun WidgetContent(state: VpnConnectionState, serverName: String) {
+private fun WidgetContent(state: VpnConnectionState, status: String, serverName: String) {
     val connected = state == VpnConnectionState.CONNECTED
-    val status = when (state) {
-        VpnConnectionState.CONNECTED -> "Подключено"
-        VpnConnectionState.CONNECTING -> "Подключение…"
-        VpnConnectionState.DISCONNECTING -> "Отключение…"
-        VpnConnectionState.ERROR -> "Ошибка"
-        VpnConnectionState.DISCONNECTED -> "Выключено"
-    }
     val bg = if (connected) Color(0xFF1D2A24) else Color(0xFF16181C)
     val accent = if (connected) Color(0xFF44C08A) else Color(0xFFE08A4C)
 

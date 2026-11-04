@@ -44,12 +44,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.ars3nb.volta.R
 import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.ui.theme.Motion
 import com.ars3nb.volta.ui.theme.VoltaTheme
@@ -64,19 +67,26 @@ fun modeIcon(mode: ConnectMode): ImageVector = when (mode) {
     ConnectMode.MANUAL -> Icons.Rounded.Tune
 }
 
-/** Short label for the selector; "Авто" is said once in the caption above it. */
+/** Short label for the selector; "Auto" is said once in the caption above it. */
+@Composable
 private fun modeShort(mode: ConnectMode): String = when (mode) {
     ConnectMode.AUTO_HOME_LTE -> "Home+LTE"
     ConnectMode.AUTO_HOME -> "Home"
     ConnectMode.AUTO_LTE -> "LTE"
-    ConnectMode.MANUAL -> "Свой"
+    ConnectMode.MANUAL -> stringResource(R.string.home_mode_manual_short)
 }
+
+/** "12 servers" under a group, "empty" when it has none. */
+@Composable
+private fun groupCount(count: Int): String =
+    if (count > 0) pluralStringResource(R.plurals.home_servers_count, count, count)
+    else stringResource(R.string.home_group_empty)
 
 /**
  * The three auto groups as one track with a sliding thumb. The thumb springs to the
  * new position and takes the group's colour, so changing mode feels physical rather
  * than a flat colour swap. When the user picked a server by hand the thumb hides and a
- * "Свой сервер" strip shows under the track.
+ * "Your server" strip shows under the track.
  */
 @Composable
 fun ModeSelector(
@@ -178,7 +188,7 @@ private fun ThreeGroupSelector(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            if (count > 0) serversCount(count) else "пусто",
+                            groupCount(count),
                             style = MaterialTheme.typography.labelSmall,
                             color = scheme.onSurfaceVariant,
                             maxLines = 1
@@ -193,7 +203,7 @@ private fun ThreeGroupSelector(
 /**
  * The selector when the subscriptions carry no LTE server: Home fills most of the
  * track (every auto mode runs as Home now, and no site is probed), and a quiet LTE stub
- * on the right says "нет серверов" rather than disappearing without a word.
+ * on the right says "no servers" rather than disappearing without a word.
  */
 @Composable
 private fun HomeOnlySelector(
@@ -243,13 +253,13 @@ private fun HomeOnlySelector(
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        "Авто Home",
+                        stringResource(R.string.home_mode_auto_home),
                         style = MaterialTheme.typography.titleSmall,
                         color = homeTint,
                         maxLines = 1
                     )
                     Text(
-                        if (homeCount > 0) serversCount(homeCount) else "пусто",
+                        groupCount(homeCount),
                         style = MaterialTheme.typography.labelSmall,
                         color = scheme.onSurfaceVariant,
                         maxLines = 1
@@ -285,7 +295,7 @@ private fun HomeOnlySelector(
                         maxLines = 1
                     )
                     Text(
-                        "нет серверов",
+                        stringResource(R.string.home_group_no_servers),
                         style = MaterialTheme.typography.labelSmall,
                         color = scheme.onSurfaceVariant.copy(alpha = 0.6f),
                         maxLines = 1,
@@ -328,14 +338,18 @@ fun ManualModeStrip(
             )
             Spacer(Modifier.width(10.dp))
             Text(
-                if (serverName.isBlank()) "Сервер выбран вручную" else "Свой сервер: $serverName",
+                if (serverName.isBlank()) {
+                    stringResource(R.string.home_manual_chosen)
+                } else {
+                    stringResource(R.string.home_manual_server, serverName)
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                "Вернуть авто",
+                stringResource(R.string.home_manual_back_to_auto),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier

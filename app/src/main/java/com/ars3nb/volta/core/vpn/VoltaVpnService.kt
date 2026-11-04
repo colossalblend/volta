@@ -1,5 +1,6 @@
 package com.ars3nb.volta.core.vpn
 
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.helper.ProxyHelper
 import com.ars3nb.volta.core.locale.AppLanguage
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
@@ -231,7 +232,7 @@ class VoltaVpnService : VpnService() {
             lastUnderlying = network
             if (previous != null && previous != network && tunnelActive.get()) {
                 Log.i(TAG, "underlying network changed — re-checking the tunnel")
-                startHealthCheck("Сеть сменилась, а сервер не отвечает", initialDelayMs = 6_000)
+                startHealthCheck(getString(R.string.home_vpn_network_changed), initialDelayMs = 6_000)
             }
         }
 
@@ -250,7 +251,7 @@ class VoltaVpnService : VpnService() {
 
     override fun onCreate() {
         super.onCreate()
-        tun2Socks = Tun2Socks(filesDir)
+        tun2Socks = Tun2Socks(this)
         TrafficRecorder.init(this)
         VpnNotificationHelper.ensureChannel(this)
         runCatching { connectivity?.registerDefaultNetworkCallback(underlyingCallback) }
@@ -422,7 +423,7 @@ class VoltaVpnService : VpnService() {
      */
     private suspend fun startOpenFlux(link: String) {
         OpenFluxRunner.start(this, link).onFailure { e ->
-            throw NodeStartException(e.message ?: "OpenFlux не подключился", e)
+            throw NodeStartException(e.message ?: getString(R.string.home_vpn_openflux_failed), e)
         }
     }
 
@@ -449,13 +450,13 @@ class VoltaVpnService : VpnService() {
         val provider = autoStartProvider
         scope.launch {
             if (provider == null) {
-                fail("Не удалось запустить VPN автоматически")
+                fail(getString(R.string.home_vpn_auto_start_failed))
                 return@launch
             }
             // The provider ends in connect(), which arrives here as ACTION_CONNECT.
             runCatching { provider(modeName) }.onFailure { e ->
                 Log.w(TAG, "automatic start failed", e)
-                val message = e.message ?: "Не удалось подключиться"
+                val message = e.message ?: getString(R.string.home_connect_failed)
                 // Started from a tile or at boot, there is no screen to show the error on.
                 // Posted to the main looper: it must outlive this service's scope.
                 val app = applicationContext
@@ -498,7 +499,7 @@ class VoltaVpnService : VpnService() {
 
     private suspend fun doConnect(config: String, name: String, mtu: Int) {
         if (config.isBlank()) {
-            fail("Сервер не выбран")
+            fail(getString(R.string.home_server_none))
             return
         }
         _state.value = VpnConnectionState.CONNECTING
@@ -520,7 +521,7 @@ class VoltaVpnService : VpnService() {
                 startOpenFlux(openFluxLink)
             }
             // AmneziaWG / Hysteria v1: the helper's proxy must listen before the core.
-            lastHelper?.let { ProxyHelper.start(it).getOrThrow() }
+            lastHelper?.let { ProxyHelper.start(this, it).getOrThrow() }
 
             // The core comes up first. Raising the TUN before it would black-hole every
             // packet on the device while geodata is unpacked and the core boots.
@@ -550,15 +551,13 @@ class VoltaVpnService : VpnService() {
                 builder.setMetered(false)
             }
 
-            val fd = builder.establish() ?: throw IllegalStateException(
-                "Не удалось создать VPN-интерфейс. Отзовите разрешение другого VPN и повторите."
-            )
+            val fd = builder.establish() ?: throw IllegalStateException(getString(R.string.home_vpn_no_interface))
             tunFd = fd
             noteAlwaysOn()
 
-            val bridge = tun2Socks ?: Tun2Socks(filesDir).also { tun2Socks = it }
+            val bridge = tun2Socks ?: Tun2Socks(this).also { tun2Socks = it }
             bridge.start(fd.fd, mtu, socksPort).getOrThrow()
-            check(bridge.isRunning()) { "VPN не запустился, попробуйте ещё раз" }
+            check(bridge.isRunning()) { getString(R.string.home_vpn_not_started) }
 
             generation++
             tunnelActive.set(true)
@@ -572,15 +571,15 @@ class VoltaVpnService : VpnService() {
 
             watchdogJob?.cancel()
             watchdogJob = scope.launch { watchdog() }
-            startHealthCheck("Сервер не отвечает")
+            startHealthCheck(getString(R.string.home_server_not_responding))
         } catch (e: NodeStartException) {
             // Turned off meanwhile: the disconnect queued behind this finishes the job.
             if (disconnectsAsked != asked) return
             Log.w(TAG, "node did not come up", e)
-            failOver(e.message ?: "Не удалось подключиться")
+            failOver(e.message ?: getString(R.string.home_connect_failed))
         } catch (e: Exception) {
             Log.e(TAG, "connect failed", e)
-            fail(e.message ?: "Не удалось подключиться")
+            fail(e.message ?: getString(R.string.home_connect_failed))
         }
     }
 
@@ -624,7 +623,7 @@ class VoltaVpnService : VpnService() {
             }
             // The same for the voltaproxy helper: needed, a different one, or none.
             val helper = lastHelper
-            if (helper != null) ProxyHelper.start(helper).getOrThrow() else ProxyHelper.stop()
+            if (helper != null) ProxyHelper.start(this, helper).getOrThrow() else ProxyHelper.stop()
             val core = newCore().also { xray = it }
             core.start(config, tunFd = 0).getOrThrow()
             generation++
@@ -636,11 +635,11 @@ class VoltaVpnService : VpnService() {
                 buildNotification(name, connecting = false)
             )
             watchdogJob = scope.launch { watchdog() }
-            startHealthCheck("Сервер не отвечает")
+            startHealthCheck(getString(R.string.home_server_not_responding))
         } catch (e: NodeStartException) {
             if (disconnectsAsked != asked) return
             Log.w(TAG, "node did not come up, moving on", e)
-            failOver(e.message ?: "Не удалось подключиться")
+            failOver(e.message ?: getString(R.string.home_connect_failed))
         } catch (e: Exception) {
             // The new core refused to start: rebuild the whole tunnel on it, which
             // reports a real failure the usual way.
@@ -690,7 +689,7 @@ class VoltaVpnService : VpnService() {
                         "openflux=${!openFluxDown} helper=${!helperDown}"
                 )
                 // Launched separately: recovery restarts the tunnel, which cancels this job.
-                scope.launch { onTunnelBroken("Соединение прервалось", gen) }
+                scope.launch { onTunnelBroken(getString(R.string.home_vpn_connection_dropped), gen) }
                 return
             }
 
@@ -725,7 +724,7 @@ class VoltaVpnService : VpnService() {
                     probeFailures++
                     Log.w(TAG, "tunnel probe failed ($probeFailures)")
                     if (probeFailures >= 2) {
-                        scope.launch { onTunnelBroken("Сервер перестал отвечать", gen) }
+                        scope.launch { onTunnelBroken(getString(R.string.home_vpn_server_stopped_answering), gen) }
                         return
                     }
                 } else {
@@ -755,7 +754,7 @@ class VoltaVpnService : VpnService() {
     private fun onCoreStoppedItself() {
         if (!tunnelActive.get()) return
         val gen = generation
-        scope.launch { onTunnelBroken("Ядро VPN остановилось", gen) }
+        scope.launch { onTunnelBroken(getString(R.string.home_vpn_core_stopped), gen) }
     }
 
     /** Try the next best node before giving up, so a dead exit is not a dead app. */

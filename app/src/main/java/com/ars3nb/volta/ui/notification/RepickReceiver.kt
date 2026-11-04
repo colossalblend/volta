@@ -6,7 +6,7 @@ import android.content.Intent
 import com.ars3nb.volta.VoltaApp
 import kotlinx.coroutines.launch
 
-/** "Подобрать сервер" in the VPN notification: re-runs the auto choice on a live tunnel. */
+/** "Pick a server" in the VPN notification: re-runs the auto choice on a live tunnel. */
 class RepickReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         val app = context.applicationContext as? VoltaApp ?: return

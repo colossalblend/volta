@@ -43,6 +43,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.annotation.StringRes
+import com.ars3nb.volta.R
 import com.ars3nb.volta.ui.tv.ProvideTv
 import com.ars3nb.volta.ui.tv.Tv
 import com.ars3nb.volta.ui.tv.focusRing
@@ -108,14 +111,19 @@ object Routes {
     const val SUBSCRIPTIONS = "subscriptions"
 }
 
-private data class Tab(val route: String, val label: String, val icon: ImageVector, val chosenIcon: ImageVector)
+private data class Tab(
+    val route: String,
+    @StringRes val label: Int,
+    val icon: ImageVector,
+    val chosenIcon: ImageVector
+)
 
 private val TABS = listOf(
-    Tab(Routes.HOME, "Главная", Icons.Outlined.Home, Icons.Rounded.Home),
-    Tab(Routes.SERVERS, "Серверы", Icons.Outlined.Storage, Icons.Rounded.Storage),
-    Tab(Routes.SUBSCRIPTIONS, "Подписки", Icons.Outlined.CloudSync, Icons.Rounded.CloudSync),
-    Tab(Routes.ROUTING, "Маршруты", Icons.Outlined.AltRoute, Icons.Rounded.AltRoute),
-    Tab(Routes.SETTINGS, "Настройки", Icons.Outlined.Settings, Icons.Rounded.Settings)
+    Tab(Routes.HOME, R.string.home_tab_home, Icons.Outlined.Home, Icons.Rounded.Home),
+    Tab(Routes.SERVERS, R.string.home_tab_servers, Icons.Outlined.Storage, Icons.Rounded.Storage),
+    Tab(Routes.SUBSCRIPTIONS, R.string.home_tab_subscriptions, Icons.Outlined.CloudSync, Icons.Rounded.CloudSync),
+    Tab(Routes.ROUTING, R.string.home_tab_routing, Icons.Outlined.AltRoute, Icons.Rounded.AltRoute),
+    Tab(Routes.SETTINGS, R.string.home_tab_settings, Icons.Outlined.Settings, Icons.Rounded.Settings)
 )
 
 @Composable
@@ -133,9 +141,10 @@ fun VoltaAppRoot(vm: VoltaViewModel = viewModel()) {
     val showBottomBar = current in TABS.map { it.route }
 
     // One place for user-facing messages, so no screen loses or repeats them.
+    // Read in this screen's language when it is shown, not when it was made.
     LaunchedEffect(state.message) {
         state.message?.let {
-            snackbar.showSnackbar(it)
+            snackbar.showSnackbar(it.resolve(context))
             vm.clearMessage()
         }
     }
@@ -371,7 +380,7 @@ internal fun VoltaBottomBar(current: String?, onSelect: (String) -> Unit) {
                         )
                         Spacer(Modifier.height(9.dp))
                         Text(
-                            tab.label,
+                            stringResource(tab.label),
                             style = MaterialTheme.typography.labelSmall,
                             color = if (chosen) scheme.onSurface else scheme.onSurfaceVariant,
                             maxLines = 1
@@ -444,7 +453,7 @@ internal fun VoltaRail(current: String?, onSelect: (String) -> Unit) {
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    tab.label,
+                    stringResource(tab.label),
                     style = MaterialTheme.typography.labelMedium,
                     color = if (chosen) scheme.onSurface else scheme.onSurfaceVariant,
                     maxLines = 1

@@ -3,6 +3,7 @@ package com.ars3nb.volta
 import android.Manifest
 import android.content.Context
 import com.ars3nb.volta.core.locale.AppLanguage
+import com.ars3nb.volta.core.locale.UiText
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -25,6 +26,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.ui.VoltaViewModel
+import com.ars3nb.volta.ui.components.FormatText
 import com.ars3nb.volta.ui.navigation.VoltaAppRoot
 
 class MainActivity : ComponentActivity() {
@@ -48,6 +50,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Sizes and speeds built outside a screen read their units here, in this language.
+        FormatText.resources = resources
         enableEdgeToEdge()
         requestNotificationPermissionIfNeeded()
 
@@ -64,7 +68,7 @@ class MainActivity : ComponentActivity() {
                         } catch (e: ActivityNotFoundException) {
                             // Some TV boxes ship without Android's VPN consent dialog.
                             vm.onVpnPermissionResult(false)
-                            vm.showMessage("На этом устройстве нет окна разрешения VPN, Volta не может включиться")
+                            vm.showMessage(UiText.of(R.string.home_no_vpn_consent))
                         }
                     }
                 }

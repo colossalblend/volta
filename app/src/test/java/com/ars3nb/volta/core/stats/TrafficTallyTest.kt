@@ -3,6 +3,7 @@ package com.ars3nb.volta.core.stats
 import com.ars3nb.volta.data.model.TrafficDayEntity
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.Month
 import java.time.ZoneId
 import java.time.ZoneOffset
 import org.junit.Assert.assertEquals
@@ -29,8 +30,8 @@ class TrafficTallyTest {
         assertEquals(50, s.today)
         assertEquals(150, s.thisMonth)
         assertEquals(1_500, s.lastMonth)
-        assertEquals("Ноябрь", s.thisMonthName)
-        assertEquals("Октябрь", s.lastMonthName)
+        assertEquals(Month.NOVEMBER, s.thisMonthOf)
+        assertEquals(Month.OCTOBER, s.lastMonthOf)
         assertFalse(s.isEmpty)
     }
 
@@ -47,8 +48,8 @@ class TrafficTallyTest {
         assertEquals(7L, s.recent[s.recent.size - 3])
         assertEquals(3L, s.recent.first())
         // Across the new year: January is the month before February… and December before January.
-        assertEquals("Февраль", TrafficTally.summarize(emptyList(), today).lastMonthName)
-        assertEquals("Декабрь", TrafficTally.summarize(emptyList(), LocalDate.of(2027, 1, 15)).lastMonthName)
+        assertEquals(Month.FEBRUARY, TrafficTally.summarize(emptyList(), today).lastMonthOf)
+        assertEquals(Month.DECEMBER, TrafficTally.summarize(emptyList(), LocalDate.of(2027, 1, 15)).lastMonthOf)
     }
 
     @Test

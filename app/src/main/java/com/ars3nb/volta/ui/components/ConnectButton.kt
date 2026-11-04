@@ -73,11 +73,13 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.ars3nb.volta.R
 import com.ars3nb.volta.data.model.TrafficStats
 import com.ars3nb.volta.data.model.VpnConnectionState
 import com.ars3nb.volta.ui.theme.Metals
@@ -211,9 +213,9 @@ fun PowerButton(
     val focusColor = MaterialTheme.colorScheme.primary
 
     val description = when {
-        busy -> "Подключение, нажмите, чтобы отменить"
-        connected -> "Отключить VPN"
-        else -> "Подключить VPN"
+        busy -> stringResource(R.string.home_disc_busy)
+        connected -> stringResource(R.string.home_disc_turn_off)
+        else -> stringResource(R.string.home_disc_turn_on)
     }
     val specks = remember { speckles() }
 
@@ -540,24 +542,25 @@ fun ConnectionHeadline(
     phaseCaption: String,
     serverName: String,
     modifier: Modifier = Modifier,
-    idleCaption: String = "Нажмите на диск, чтобы включить VPN"
+    idleCaption: String = stringResource(R.string.home_tap_disc)
 ) {
     val palette = VoltaTheme.palette
     val scheme = MaterialTheme.colorScheme
     val title = when {
-        phaseCaption.isNotBlank() -> "Подключаю"
-        state == VpnConnectionState.CONNECTED -> "Защищено"
-        state == VpnConnectionState.CONNECTING -> "Подключаю"
-        state == VpnConnectionState.DISCONNECTING -> "Отключаю"
-        state == VpnConnectionState.ERROR -> "Не вышло"
-        else -> "Выключено"
+        phaseCaption.isNotBlank() -> stringResource(R.string.home_state_connecting)
+        state == VpnConnectionState.CONNECTED -> stringResource(R.string.home_state_protected)
+        state == VpnConnectionState.CONNECTING -> stringResource(R.string.home_state_connecting)
+        state == VpnConnectionState.DISCONNECTING -> stringResource(R.string.home_state_disconnecting)
+        state == VpnConnectionState.ERROR -> stringResource(R.string.home_state_failed)
+        else -> stringResource(R.string.home_state_off)
     }
     val caption = when {
         phaseCaption.isNotBlank() -> phaseCaption
         state == VpnConnectionState.CONNECTED -> serverName
-        state == VpnConnectionState.CONNECTING -> serverName.ifBlank { "Поднимаю туннель…" }
-        state == VpnConnectionState.DISCONNECTING -> "Закрываю туннель…"
-        state == VpnConnectionState.ERROR -> "Нажмите на диск, чтобы попробовать снова"
+        state == VpnConnectionState.CONNECTING ->
+            serverName.ifBlank { stringResource(R.string.home_caption_opening_tunnel) }
+        state == VpnConnectionState.DISCONNECTING -> stringResource(R.string.home_caption_closing_tunnel)
+        state == VpnConnectionState.ERROR -> stringResource(R.string.home_caption_try_again)
         else -> idleCaption
     }
     val titleColor by animateColorAsState(
@@ -601,7 +604,7 @@ fun ConnectionHeadline(
             exit = fadeOut(tween(160)) + shrinkVertically()
         ) {
             Text(
-                "Ещё одно нажатие отменит",
+                stringResource(R.string.home_caption_tap_cancels),
                 style = MaterialTheme.typography.labelMedium,
                 color = scheme.onSurfaceVariant.copy(alpha = 0.7f),
                 modifier = Modifier.padding(top = 4.dp)
@@ -626,8 +629,9 @@ fun LiveMeter(
         horizontalArrangement = Arrangement.spacedBy(18.dp)
     ) {
         RollingText(uptimeText, figures, scheme.onBackground)
-        SpeedLabel(Icons.Rounded.ArrowDownward, formatSpeed(traffic.downlinkSpeed), palette.good, figures)
-        SpeedLabel(Icons.Rounded.ArrowUpward, formatSpeed(traffic.uplinkSpeed), scheme.primary, figures)
+        val res = screenResources()
+        SpeedLabel(Icons.Rounded.ArrowDownward, formatSpeed(res, traffic.downlinkSpeed), palette.good, figures)
+        SpeedLabel(Icons.Rounded.ArrowUpward, formatSpeed(res, traffic.uplinkSpeed), scheme.primary, figures)
     }
 }
 

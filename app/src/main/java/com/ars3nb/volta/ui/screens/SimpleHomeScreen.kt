@@ -32,11 +32,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ars3nb.volta.R
 import com.ars3nb.volta.data.model.VpnConnectionState
 import com.ars3nb.volta.ui.ConnectPhase
 import com.ars3nb.volta.ui.VoltaViewModel
@@ -45,7 +47,7 @@ import com.ars3nb.volta.ui.theme.VoltaTheme
 import com.ars3nb.volta.ui.tv.StartFocus
 
 /**
- * Простой режим: the whole app is one big button. It turns the VPN on (Home+LTE picks
+ * Simple mode: the whole app is one big button. It turns the VPN on (Home+LTE picks
  * the server by itself) and the same button turns it off. Big words say what is going
  * on; nothing else on the screen can be pressed by mistake.
  */
@@ -67,13 +69,14 @@ fun SimpleHomeScreen(vm: VoltaViewModel, modifier: Modifier = Modifier) {
     StartFocus(startFocus, target = !noServers, settled = !noServers)
 
     val (title, hint) = when {
-        noServers -> "Нет серверов" to "Попросите близких добавить подписку в обычном режиме"
-        starting -> "Включаю…" to "Подождите несколько секунд"
-        vpn == VpnConnectionState.DISCONNECTING -> "Выключаю…" to ""
-        on -> "VPN включён" to (state.ipInfo?.country?.takeIf { it.isNotBlank() }
-            ?: "Чтобы выключить, нажмите на кнопку")
-        vpn == VpnConnectionState.ERROR -> "Не получилось" to "Нажмите на кнопку ещё раз"
-        else -> "VPN выключен" to "Чтобы включить, нажмите на кнопку"
+        noServers -> stringResource(R.string.home_no_servers) to stringResource(R.string.home_simple_no_servers_hint)
+        starting -> stringResource(R.string.home_simple_turning_on) to stringResource(R.string.home_simple_wait)
+        vpn == VpnConnectionState.DISCONNECTING -> stringResource(R.string.home_simple_turning_off) to ""
+        on -> stringResource(R.string.home_simple_on) to (state.ipInfo?.country?.takeIf { it.isNotBlank() }
+            ?: stringResource(R.string.home_simple_tap_to_turn_off))
+        vpn == VpnConnectionState.ERROR ->
+            stringResource(R.string.home_simple_failed) to stringResource(R.string.home_simple_tap_again)
+        else -> stringResource(R.string.home_simple_off) to stringResource(R.string.home_simple_tap_to_turn_on)
     }
 
     Box(
@@ -146,7 +149,7 @@ fun SimpleHomeScreen(vm: VoltaViewModel, modifier: Modifier = Modifier) {
             // The only other thing on the screen, small and out of the way.
             TextButton(onClick = { askLeave = true }) {
                 Text(
-                    "Обычный режим",
+                    stringResource(R.string.home_simple_normal_mode),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -157,18 +160,18 @@ fun SimpleHomeScreen(vm: VoltaViewModel, modifier: Modifier = Modifier) {
     if (askLeave) {
         AlertDialog(
             onDismissRequest = { askLeave = false },
-            title = { Text("Выйти из простого режима?") },
+            title = { Text(stringResource(R.string.home_simple_leave_title)) },
             text = {
-                Text("Появятся все настройки и списки серверов. Вернуться можно в Настройках.")
+                Text(stringResource(R.string.home_simple_leave_text))
             },
             confirmButton = {
                 Button(onClick = {
                     askLeave = false
                     vm.setSimpleMode(false)
-                }) { Text("Выйти") }
+                }) { Text(stringResource(R.string.home_simple_leave)) }
             },
             dismissButton = {
-                TextButton(onClick = { askLeave = false }) { Text("Остаться") }
+                TextButton(onClick = { askLeave = false }) { Text(stringResource(R.string.home_simple_stay)) }
             }
         )
     }

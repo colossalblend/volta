@@ -1,5 +1,7 @@
 package com.ars3nb.volta.ui.components
 
+import android.content.res.Resources
+import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,14 +28,18 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarColors
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.ars3nb.volta.R
 import com.ars3nb.volta.ui.theme.VoltaTheme
 import com.ars3nb.volta.ui.tv.focusRing
 import java.util.Locale
@@ -254,28 +260,62 @@ fun EmptyState(
 }
 
 // ------------------------------------------------------------------ formatting
+//
+// Units and phrases come from strings_home.xml, in the language of the Resources given:
+// a screen's (screenResources()) or a notification's. The forms without them are for
+// plain functions with no Context at hand; they read [FormatText.resources], which
+// MainActivity keeps pointed at its own resources, already in the app's language.
+// Figures stay in Latin digits with a dot, as before, so they line up in every language.
 
-fun formatBytes(bytes: Long): String {
+/** Where the helpers without a Resources argument read their words; set by MainActivity. */
+object FormatText {
+    @Volatile
+    var resources: Resources? = null
+}
+
+/** The screen's resources, in the language it is drawn in. */
+@Composable
+@ReadOnlyComposable
+fun screenResources(): Resources {
+    LocalConfiguration.current
+    return LocalContext.current.resources
+}
+
+fun formatBytes(bytes: Long): String = formatBytes(FormatText.resources, bytes)
+
+fun formatSpeed(bytesPerSecond: Long): String = formatSpeed(FormatText.resources, bytesPerSecond)
+
+fun formatExpiry(at: Long): String = formatExpiry(FormatText.resources, at)
+
+fun formatLatency(ms: Long): String = formatLatency(FormatText.resources, ms)
+
+fun formatBytes(res: Resources?, bytes: Long): String {
     val b = abs(bytes)
     val kb = 1024.0
     val mb = kb * 1024
     val gb = mb * 1024
     val tb = gb * 1024
     return when {
-        b >= tb -> String.format(Locale.US, "%.2f ТБ", b / tb)
-        b >= gb -> String.format(Locale.US, "%.1f ГБ", b / gb)
-        b >= mb -> String.format(Locale.US, "%.0f МБ", b / mb)
-        b >= kb -> String.format(Locale.US, "%.0f КБ", b / kb)
-        else -> "$b Б"
+        b >= tb -> unit(res, R.string.home_unit_tb, "TB", String.format(Locale.US, "%.2f", b / tb))
+        b >= gb -> unit(res, R.string.home_unit_gb, "GB", String.format(Locale.US, "%.1f", b / gb))
+        b >= mb -> unit(res, R.string.home_unit_mb, "MB", String.format(Locale.US, "%.0f", b / mb))
+        b >= kb -> unit(res, R.string.home_unit_kb, "KB", String.format(Locale.US, "%.0f", b / kb))
+        else -> unit(res, R.string.home_unit_b, "B", "$b")
     }
 }
 
-fun formatSpeed(bytesPerSecond: Long): String = when {
-    bytesPerSecond >= 1024L * 1024 ->
-        String.format(Locale.US, "%.1f МБ/с", bytesPerSecond / (1024.0 * 1024))
+fun formatSpeed(res: Resources?, bytesPerSecond: Long): String = when {
+    bytesPerSecond >= 1024L * 1024 -> unit(
+        res, R.string.home_unit_mb_per_s, "MB/s",
+        String.format(Locale.US, "%.1f", bytesPerSecond / (1024.0 * 1024))
+    )
 
-    bytesPerSecond >= 1024 -> String.format(Locale.US, "%.0f КБ/с", bytesPerSecond / 1024.0)
-    else -> "$bytesPerSecond Б/с"
+    bytesPerSecond >= 1024 -> unit(
+        res, R.string.home_unit_kb_per_s, "KB/s",
+        String.format(Locale.US, "%.0f", bytesPerSecond / 1024.0)
+    )
+
+    else -> unit(res, R.string.home_unit_b_per_s, "B/s", "$bytesPerSecond")
 }
 
 fun formatDuration(millis: Long): String {
@@ -288,16 +328,19 @@ fun formatDuration(millis: Long): String {
     else String.format(Locale.US, "%02d:%02d", m, s)
 }
 
-fun formatExpiry(at: Long): String {
-    if (at <= 0) return ""
+fun formatExpiry(res: Resources?, at: Long): String {
+    if (at <= 0 || res == null) return ""
     val days = ((at - System.currentTimeMillis()) / (1000L * 60 * 60 * 24)).toInt()
     return when {
-        days < 0 -> "истекла"
-        days == 0 -> "истекает сегодня"
-        days == 1 -> "остался 1 день"
-        days < 5 -> "осталось $days дня"
-        else -> "осталось $days дн."
+        days < 0 -> res.getString(R.string.home_expiry_expired)
+        days == 0 -> res.getString(R.string.home_expiry_today)
+        else -> res.getQuantityString(R.plurals.home_expiry_days_left, days, days)
     }
 }
 
-fun formatLatency(ms: Long): String = if (ms < 0) "—" else "$ms мс"
+fun formatLatency(res: Resources?, ms: Long): String =
+    if (ms < 0) "—" else unit(res, R.string.home_unit_ms, "ms", "$ms")
+
+/** "48 ms": the figure with the language's own unit; international symbols without one. */
+private fun unit(res: Resources?, @StringRes id: Int, symbol: String, figure: String): String =
+    res?.getString(id, figure) ?: "$figure $symbol"
