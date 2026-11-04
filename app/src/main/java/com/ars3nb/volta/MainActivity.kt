@@ -1,6 +1,8 @@
 package com.ars3nb.volta
 
 import android.Manifest
+import android.content.Context
+import com.ars3nb.volta.core.locale.AppLanguage
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -25,6 +27,11 @@ import com.ars3nb.volta.ui.VoltaViewModel
 import com.ars3nb.volta.ui.navigation.VoltaAppRoot
 
 class MainActivity : ComponentActivity() {
+
+    /** In the language picked in Settings (Android 12 and older; 13+ does it itself). */
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(AppLanguage.wrap(base))
+    }
 
     private val vm: VoltaViewModel by viewModels()
 

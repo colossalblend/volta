@@ -1,6 +1,8 @@
 package com.ars3nb.volta
 
 import android.app.Application
+import android.content.Context
+import com.ars3nb.volta.core.locale.AppLanguage
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
@@ -26,6 +28,11 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 class VoltaApp : Application() {
+
+    /** In the language picked in Settings (Android 12 and older; 13+ does it itself). */
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(AppLanguage.wrap(base))
+    }
 
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 

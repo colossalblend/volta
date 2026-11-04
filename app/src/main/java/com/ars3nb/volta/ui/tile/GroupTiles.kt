@@ -1,6 +1,8 @@
 package com.ars3nb.volta.ui.tile
 
 import android.app.PendingIntent
+import android.content.Context
+import com.ars3nb.volta.core.locale.AppLanguage
 import android.content.Intent
 import android.graphics.drawable.Icon
 import android.net.VpnService
@@ -34,6 +36,11 @@ import kotlinx.coroutines.withContext
  * tile of the group in use is lit, so the shade itself shows how Volta is connected.
  */
 abstract class GroupTileService(private val mode: ConnectMode) : TileService() {
+
+    /** In the language picked in Settings (Android 12 and older; 13+ does it itself). */
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(AppLanguage.wrap(base))
+    }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var job: Job? = null

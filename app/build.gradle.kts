@@ -96,6 +96,12 @@ android {
     // Not while building a bundle: AGP refuses a bundle with ABI splits on
     // (issuetracker.google.com/402800800), and Google Play splits it per phone anyway.
     // CI builds the bundle in a Gradle run of its own for that reason.
+    // Translations are filled area by area; a gap falls back to English, not a crash.
+    // LocalizationTest is what holds every language complete.
+    lint {
+        warning += "MissingTranslation"
+    }
+
     splits {
         abi {
             isEnable = !buildingBundle

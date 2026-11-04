@@ -85,6 +85,7 @@ import com.ars3nb.volta.ui.components.IconBubble
 import com.ars3nb.volta.ui.components.LinkRow
 import com.ars3nb.volta.ui.components.SectionHeader
 import com.ars3nb.volta.ui.components.SwitchRow
+import com.ars3nb.volta.ui.components.LanguageRow
 import com.ars3nb.volta.ui.components.UpdatePanel
 import com.ars3nb.volta.ui.components.VoltaCard
 import com.ars3nb.volta.ui.components.VoltaChip
@@ -296,6 +297,11 @@ fun SettingsScreen(vm: VoltaViewModel) {
                     Text("Иконка приложения", style = MaterialTheme.typography.titleSmall)
                     Spacer(Modifier.height(12.dp))
                     AppIconPicker()
+                }
+            }
+            item {
+                VoltaCard(contentPadding = 10) {
+                    LanguageRow()
                 }
             }
 

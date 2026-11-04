@@ -1,6 +1,8 @@
 package com.ars3nb.volta.ui.tile
 
 import android.content.Intent
+import android.content.Context
+import com.ars3nb.volta.core.locale.AppLanguage
 import android.graphics.drawable.Icon
 import android.net.VpnService
 import android.os.Build
@@ -25,6 +27,11 @@ import kotlinx.coroutines.launch
 /** Быстрая кнопка в шторке: включает VPN в текущем режиме (Авто Home+LTE и т. д.). */
 @RequiresApi(Build.VERSION_CODES.N)
 class VoltaTileService : TileService() {
+
+    /** In the language picked in Settings (Android 12 and older; 13+ does it itself). */
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(AppLanguage.wrap(base))
+    }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var job: Job? = null

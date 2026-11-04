@@ -1,6 +1,8 @@
 package com.ars3nb.volta.ui.openflux
 
 import android.annotation.SuppressLint
+import android.content.Context
+import com.ars3nb.volta.core.locale.AppLanguage
 import android.app.Activity
 import android.os.Bundle
 import android.view.Gravity
@@ -25,6 +27,11 @@ import com.ars3nb.volta.core.openflux.OpenFluxRunner
  * proxy, so it is passed from the exit's address, where the carrier needs it.
  */
 class OpenFluxCaptchaActivity : Activity() {
+
+    /** In the language picked in Settings (Android 12 and older; 13+ does it itself). */
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(AppLanguage.wrap(base))
+    }
 
     private var web: WebView? = null
     private var proxied = false

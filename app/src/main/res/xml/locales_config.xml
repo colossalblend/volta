@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The languages Volta speaks, for Android 13+ "App languages". Keep in step with AppLanguage.SUPPORTED. -->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="en" />
+    <locale android:name="ru" />
+    <locale android:name="uk" />
+    <locale android:name="be" />
+    <locale android:name="kk" />
+    <locale android:name="uz" />
+    <locale android:name="az" />
+    <locale android:name="tr" />
+    <locale android:name="fa" />
+    <locale android:name="ar" />
+    <locale android:name="zh-CN" />
+    <locale android:name="es" />
+    <locale android:name="de" />
+    <locale android:name="fr" />
+    <locale android:name="pt-BR" />
+</locale-config>

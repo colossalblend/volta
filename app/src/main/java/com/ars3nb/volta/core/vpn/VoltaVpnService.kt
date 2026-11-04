@@ -1,6 +1,7 @@
 package com.ars3nb.volta.core.vpn
 
 import com.ars3nb.volta.core.helper.ProxyHelper
+import com.ars3nb.volta.core.locale.AppLanguage
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import android.app.Notification
 import android.content.Context
@@ -37,6 +38,11 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 class VoltaVpnService : VpnService() {
+
+    /** In the language picked in Settings (Android 12 and older; 13+ does it itself). */
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(AppLanguage.wrap(base))
+    }
 
     companion object {
         private const val TAG = "VoltaVpnService"
