@@ -32,19 +32,33 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.CreditCard
+import androidx.compose.material.icons.rounded.Forum
+import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Map
+import androidx.compose.material.icons.rounded.MedicalServices
+import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Public
+import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.ShoppingBag
+import androidx.compose.material.icons.rounded.SimCard
+import androidx.compose.material.icons.rounded.SmartDisplay
+import androidx.compose.material.icons.rounded.Tag
 import androidx.compose.material.icons.rounded.VpnLock
+import androidx.compose.material.icons.rounded.Work
 import androidx.compose.material3.Checkbox
 import com.ars3nb.volta.ui.components.VoltaChip
 import com.ars3nb.volta.ui.components.VoltaSearchField
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -72,8 +86,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.ars3nb.volta.core.routing.AppPreset
-import com.ars3nb.volta.core.routing.Presets
+import com.ars3nb.volta.core.apps.AppPresets
+import com.ars3nb.volta.core.apps.AppRoute
 import com.ars3nb.volta.data.model.PerAppMode
 import com.ars3nb.volta.ui.VoltaViewModel
 import com.ars3nb.volta.ui.components.barColors
@@ -94,8 +108,9 @@ private data class InstalledApp(
 
 /**
  * Split tunnelling: pick apps, then decide whether the list is what goes *through* the
- * tunnel or what stays outside it. Ready-made sets (banks, government services and so
- * on) pick every installed app of the kind in one tap.
+ * tunnel or what stays outside it. Ready-made sets pick every installed app of a kind in
+ * one tap: Russian services (banks, Госуслуги, marketplaces…) to let past the VPN, or
+ * foreign ones (YouTube, messengers, AI chats…) to send through it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -194,17 +209,17 @@ fun PerAppScreen(vm: VoltaViewModel, onBack: () -> Unit) {
                 }
             }
 
-            item(key = "presets") {
-                AppPresetsCard(
-                    mode = mode,
-                    installed = installed,
-                    selected = selected,
-                    loading = loading,
-                    onToggle = { preset, add ->
-                        change(preset.packages.filter { it in installed }, add)
-                    },
-                    modifier = Modifier.animateItem()
-                )
+            // Only once the installed apps are known: a set shows and picks only those.
+            if (!loading) {
+                item(key = "presets") {
+                    AppPresetsSection(
+                        mode = mode,
+                        installed = installed,
+                        selected = selected,
+                        onToggle = { packages, add -> change(packages, add) },
+                        modifier = Modifier.animateItem()
+                    )
+                }
             }
 
             item(key = "search") {
@@ -335,56 +350,64 @@ private fun PerAppModeSelector(mode: PerAppMode, onSelect: (PerAppMode) -> Unit)
     }
 }
 
+/**
+ * The ready-made sets as chips. Which sets are offered follows the mode: Russian services
+ * while the list is what bypasses the VPN, foreign ones while it is what goes through it.
+ * A chip counts and picks only the apps that are on the phone, and a set with none of
+ * them is left out.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AppPresetsCard(
+private fun AppPresetsSection(
     mode: PerAppMode,
     installed: Set<String>,
     selected: Set<String>,
-    loading: Boolean,
-    onToggle: (AppPreset, Boolean) -> Unit,
+    onToggle: (packages: List<String>, add: Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val accent = routeColor(if (mode == PerAppMode.INCLUDE) mode else PerAppMode.EXCLUDE)
-    VoltaCard(modifier = modifier) {
-        Text("Готовые наборы", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-        Hint(
-            if (mode == PerAppMode.INCLUDE) {
-                "Отмечают все установленные приложения из набора. Через VPN пойдут только они."
-            } else {
-                "Российские сервисы часто не открываются через зарубежный сервер. " +
-                    "Набор отмечает все такие установленные приложения, и они пойдут напрямую."
-            }
-        )
-        Spacer(Modifier.height(8.dp))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Presets.apps.forEach { preset ->
-                val present = preset.packages.filter { it in installed }
-                val on = present.isNotEmpty() && present.all { it in selected }
-                FilterChip(
-                    selected = on,
-                    enabled = !loading && present.isNotEmpty(),
-                    onClick = { onToggle(preset, !on) },
-                    label = {
-                        Text(if (loading) preset.title else "${preset.title} · ${present.size}")
-                    },
-                    leadingIcon = {
-                        AnimatedContent(targetState = on, label = "presetCheck") { checked ->
-                            Icon(
-                                if (checked) Icons.Rounded.Check else Icons.Rounded.Apps,
-                                null,
-                                Modifier.size(16.dp)
-                            )
-                        }
-                    },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = accent.copy(alpha = 0.18f),
-                        selectedLabelColor = accent,
-                        selectedLeadingIconColor = accent
+    val route = if (mode == PerAppMode.INCLUDE) AppRoute.VPN else AppRoute.DIRECT
+    val accent = routeColor(if (route == AppRoute.VPN) PerAppMode.INCLUDE else PerAppMode.EXCLUDE)
+    val sets = remember(route, installed) {
+        AppPresets.forRoute(route)
+            .map { preset -> preset to preset.packages.filter { it in installed } }
+            .filter { (_, present) -> present.isNotEmpty() }
+    }
+    Column(modifier.fillMaxWidth()) {
+        SectionHeader("Готовые наборы")
+        Hint(presetsHint(route))
+        Spacer(Modifier.height(10.dp))
+        if (sets.isEmpty()) {
+            Hint("На телефоне нет приложений из этих наборов.")
+        } else {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (sets.size > 1) {
+                    val everything = sets.flatMap { it.second }
+                    val on = everything.all { it in selected }
+                    VoltaChip(
+                        text = "Все наборы · ${everything.size}",
+                        selected = on,
+                        onClick = { onToggle(everything, !on) },
+                        accent = accent,
+                        icon = if (on) Icons.Rounded.Check else Icons.Rounded.Apps
                     )
-                )
+                }
+                sets.forEach { (preset, present) ->
+                    val on = present.all { it in selected }
+                    VoltaChip(
+                        text = "${preset.title} · ${present.size}",
+                        selected = on,
+                        onClick = { onToggle(present, !on) },
+                        accent = accent,
+                        icon = if (on) Icons.Rounded.Check else presetIcon(preset.id)
+                    )
+                }
             }
         }
+        Spacer(Modifier.height(8.dp))
+        Hint(otherSetsHint(route))
     }
 }
 
@@ -512,6 +535,39 @@ private fun modeHint(mode: PerAppMode) = when (mode) {
     PerAppMode.OFF -> "Туннель охватывает все приложения. Отметьте приложения ниже, и они пойдут мимо VPN."
     PerAppMode.INCLUDE -> "Через VPN пойдут только отмеченные приложения, остальные напрямую."
     PerAppMode.EXCLUDE -> "Отмеченные приложения пойдут напрямую, остальные через VPN."
+}
+
+private fun presetsHint(route: AppRoute) = when (route) {
+    AppRoute.DIRECT -> "Российские сервисы часто не открываются через зарубежный сервер. " +
+        "Набор отмечает все такие приложения на телефоне, и они пойдут напрямую."
+    AppRoute.VPN -> "Зарубежные сервисы, которые без VPN не работают. " +
+        "Набор отмечает все такие приложения на телефоне, и через VPN пойдут только они."
+}
+
+private fun otherSetsHint(route: AppRoute) = when (route) {
+    AppRoute.DIRECT -> "Наборы зарубежных сервисов, например YouTube и нейросетей, есть в режиме «Только эти»."
+    AppRoute.VPN -> "Наборы российских сервисов, например банков и Госуслуг, есть в режиме «Кроме этих»."
+}
+
+private fun presetIcon(id: String): ImageVector = when (id) {
+    "banks" -> Icons.Rounded.CreditCard
+    "gov" -> Icons.Rounded.AccountBalance
+    "shops" -> Icons.Rounded.ShoppingBag
+    "food" -> Icons.Rounded.Restaurant
+    "yandex" -> Icons.Rounded.Search
+    "vk" -> Icons.Rounded.Groups
+    "media" -> Icons.Rounded.Movie
+    "travel" -> Icons.Rounded.Map
+    "health" -> Icons.Rounded.MedicalServices
+    "carriers" -> Icons.Rounded.SimCard
+    "youtube" -> Icons.Rounded.SmartDisplay
+    "messengers" -> Icons.Rounded.Forum
+    "social" -> Icons.Rounded.Tag
+    "ai" -> Icons.Rounded.AutoAwesome
+    "streaming" -> Icons.Rounded.Headphones
+    "work" -> Icons.Rounded.Work
+    "browsers" -> Icons.Rounded.Language
+    else -> Icons.Rounded.Apps
 }
 
 private fun routeLabel(mode: PerAppMode) = when (mode) {

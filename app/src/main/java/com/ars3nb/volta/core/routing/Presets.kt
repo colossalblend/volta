@@ -30,14 +30,6 @@ data class SitePreset(
     )
 }
 
-/** A group of well-known apps for split tunnelling, matched by package name. */
-data class AppPreset(
-    val id: String,
-    val title: String,
-    val subtitle: String,
-    val packages: List<String>
-)
-
 object Presets {
 
     // Service domains and Telegram's subnets follow itdoginfo/allow-domains, the lists
@@ -159,70 +151,6 @@ object Presets {
             subtitle = "Всё в зонах .ru, .su, .рф и крупные сервисы",
             suggested = RouteOutbound.DIRECT,
             domains = listOf("ru", "su", "xn--p1ai") + RoutingEngine.ruWhitelistDomains()
-        )
-    )
-
-    // Package names as published in Google Play and RuStore. Only the ones actually
-    // installed are ever touched, so a renamed app simply drops out.
-    val apps: List<AppPreset> = listOf(
-        AppPreset(
-            id = "banks",
-            title = "Банки",
-            subtitle = "Сбер, Т-Банк, ВТБ, Альфа и другие",
-            packages = listOf(
-                "ru.sberbankmobile", "com.idamob.tinkoff.android", "ru.vtb24.mobilebanking.android",
-                "ru.alfabank.mobile.android", "ru.gazprombank.android.mobilebank.app",
-                "ru.raiffeisennews", "ru.ozon.fintech.finance", "ru.sovcomcard.halva.v1",
-                "ru.letobank.Prometheus", "ru.rshb.dbo", "ru.mts.money", "com.yandex.bank",
-                "ru.psbank.online", "ru.openbank.mobile", "ru.mkb.mobile", "ru.yoo.money",
-                "ru.nspk.mirpay", "ru.nspk.sbpay"
-            )
-        ),
-        AppPreset(
-            id = "gov",
-            title = "Госсервисы",
-            subtitle = "Госуслуги, Госключ, налоги",
-            packages = listOf(
-                "ru.rostel", "ru.gosuslugi.goskey", "com.gnivts.selfemployed",
-                "ru.fns.lkfl", "ru.altarix.mos.pgu", "ru.mos.app"
-            )
-        ),
-        AppPreset(
-            id = "shops",
-            title = "Маркетплейсы",
-            subtitle = "Ozon, Wildberries, Авито, Маркет",
-            packages = listOf(
-                "ru.ozon.app.android", "com.wildberries.ru", "com.avito.android",
-                "ru.beru.android", "ru.megamarket.marketplace", "com.lamoda.lite",
-                "ru.vkusvill", "ru.samokat.app", "com.yandex.lavka"
-            )
-        ),
-        AppPreset(
-            id = "yandex",
-            title = "Яндекс и карты",
-            subtitle = "Go, Карты, Навигатор, 2ГИС, Кинопоиск",
-            packages = listOf(
-                "ru.yandex.taxi", "ru.yandex.yandexmaps", "ru.yandex.yandexnavi",
-                "ru.yandex.searchplugin", "com.yandex.browser", "ru.yandex.music",
-                "ru.kinopoisk", "ru.foodfox.client", "ru.dublgis.dgismobile"
-            )
-        ),
-        AppPreset(
-            id = "social",
-            title = "VK, Max и почта",
-            subtitle = "Российские соцсети и видео",
-            packages = listOf(
-                "com.vkontakte.android", "ru.oneme.app", "ru.ok.android", "com.vk.vkvideo",
-                "ru.mail.mailapp", "ru.rutube.app", "ru.zen.android"
-            )
-        ),
-        AppPreset(
-            id = "carriers",
-            title = "Операторы связи",
-            subtitle = "МТС, МегаФон, Билайн, Т2",
-            packages = listOf(
-                "ru.mts.mymts", "ru.megafon.mlk", "ru.beeline.services", "ru.tele2.mytele2"
-            )
         )
     )
 
