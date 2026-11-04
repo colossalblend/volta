@@ -75,6 +75,7 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ars3nb.volta.BuildConfig
+import com.ars3nb.volta.core.vpn.VoltaVpnService
 import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.PingType
 import com.ars3nb.volta.data.prefs.DesignTheme
@@ -116,6 +117,7 @@ fun SettingsScreen(vm: VoltaViewModel) {
     val simpleMode by vm.simpleMode.collectAsStateWithLifecycle()
     val update by vm.updateState.collectAsStateWithLifecycle()
     val updateAutoCheck by vm.updateAutoCheck.collectAsStateWithLifecycle()
+    val alwaysOn by vm.alwaysOn.collectAsStateWithLifecycle()
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val palette = VoltaTheme.palette
@@ -181,9 +183,9 @@ fun SettingsScreen(vm: VoltaViewModel) {
                     )
                     LinkRow(
                         icon = Icons.Rounded.VpnLock,
-                        tint = primary,
-                        title = "Постоянный VPN",
-                        subtitle = "Android будет сам держать Volta включённым. Откройте шестерёнку рядом с Volta.",
+                        tint = if (alwaysOn?.lockdown == true) palette.good else primary,
+                        title = "Не пускать интернет без VPN",
+                        subtitle = killSwitchHint(alwaysOn),
                         onClick = {
                             runCatching {
                                 context.startActivity(
@@ -334,6 +336,9 @@ fun SettingsScreen(vm: VoltaViewModel) {
                 }
             }
 
+            item { SectionHeader("Перенос на новый телефон") }
+            item { BackupCard(vm) }
+
             item { SectionHeader("О приложении") }
             item {
                 VoltaCard(contentPadding = 10) {
@@ -482,6 +487,23 @@ private fun ThemeCoin(theme: DesignTheme, selected: Boolean, onClick: () -> Unit
             maxLines = 1
         )
     }
+}
+
+/**
+ * Android's own kill switch: Always-on VPN with «Блокировать соединения без VPN». Volta
+ * can't switch it on itself, only say whether it is on and open the screen where it is.
+ */
+private fun killSwitchHint(state: VoltaVpnService.AlwaysOn?): String = when {
+    state == null ->
+        "Android может держать Volta всегда включённой и закрыть интернет, пока VPN не подключён. " +
+            "Нажмите, затем шестерёнку рядом с Volta: «Постоянная VPN» и «Блокировать соединения без VPN»."
+    state.on && state.lockdown ->
+        "Включено: Volta всегда включена, а без VPN интернет закрыт. Выключите VPN — интернет пропадёт, так и задумано."
+    state.on ->
+        "Volta включается сама, но пока VPN подключается, приложения выходят в интернет напрямую. " +
+            "Включите «Блокировать соединения без VPN» в шестерёнке рядом с Volta."
+    else ->
+        "Выключено. Нажмите, затем шестерёнку рядом с Volta: «Постоянная VPN» и «Блокировать соединения без VPN»."
 }
 
 private fun pingLabel(t: PingType) = when (t) {

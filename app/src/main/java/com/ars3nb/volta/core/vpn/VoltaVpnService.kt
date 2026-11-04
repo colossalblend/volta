@@ -3,6 +3,7 @@ package com.ars3nb.volta.core.vpn
 import com.ars3nb.volta.core.helper.ProxyHelper
 import com.ars3nb.volta.core.locale.AppLanguage
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
+import com.ars3nb.volta.core.stats.TrafficRecorder
 import android.app.Notification
 import android.content.Context
 import android.content.Intent
@@ -84,6 +85,15 @@ class VoltaVpnService : VpnService() {
         private val _connectedSince = MutableStateFlow(0L)
         val connectedSince: StateFlow<Long> = _connectedSince.asStateFlow()
 
+        private val _alwaysOn = MutableStateFlow<AlwaysOn?>(null)
+
+        /**
+         * Android's Always-on VPN for Volta, as the running service last saw it. Null
+         * until a tunnel has run in this process, and on Android 9 and older, which
+         * does not tell an app.
+         */
+        val alwaysOn: StateFlow<AlwaysOn?> = _alwaysOn.asStateFlow()
+
         /**
          * Set by the repository so the service can rebuild a config after a node dies
          * without waiting for the UI process to be alive.
@@ -156,6 +166,9 @@ class VoltaVpnService : VpnService() {
             }
         }
     }
+
+    /** Always-on VPN is set to Volta; [lockdown]: no internet at all without the VPN. */
+    data class AlwaysOn(val on: Boolean, val lockdown: Boolean)
 
     /** Everything the service needs to raise a tunnel, built by the repository. */
     data class ConnectionPlan(
@@ -238,11 +251,14 @@ class VoltaVpnService : VpnService() {
     override fun onCreate() {
         super.onCreate()
         tun2Socks = Tun2Socks(filesDir)
+        TrafficRecorder.init(this)
         VpnNotificationHelper.ensureChannel(this)
         runCatching { connectivity?.registerDefaultNetworkCallback(underlyingCallback) }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Turning Always-on or its lockdown on in Android's settings starts the service.
+        noteAlwaysOn()
         when (intent?.action) {
             ACTION_CONNECT -> {
                 val config = intent.getStringExtra(EXTRA_CONFIG).orEmpty()
@@ -498,6 +514,7 @@ class VoltaVpnService : VpnService() {
                 "Не удалось создать VPN-интерфейс. Отзовите разрешение другого VPN и повторите."
             )
             tunFd = fd
+            noteAlwaysOn()
 
             val bridge = tun2Socks ?: Tun2Socks(filesDir).also { tun2Socks = it }
             bridge.start(fd.fd, mtu, socksPort).getOrThrow()
@@ -611,6 +628,7 @@ class VoltaVpnService : VpnService() {
             val (upDelta, downDelta) = xray?.trafficDelta(ConfigBuilder.PROXY_TAG) ?: (0L to 0L)
             uplinkTotal += upDelta
             downlinkTotal += downDelta
+            TrafficRecorder.count(upDelta, downDelta)
             _traffic.value = TrafficStats(
                 uplinkBytes = uplinkTotal,
                 downlinkBytes = downlinkTotal,
@@ -726,6 +744,8 @@ class VoltaVpnService : VpnService() {
         watchdogJob = null
         healthJob?.cancel()
         healthJob = null
+        // The bytes of the last half minute, before the counters are gone.
+        TrafficRecorder.flush()
         tunnelActive.set(false)
         _connectedSince.value = 0
         _traffic.value = TrafficStats()
@@ -776,11 +796,17 @@ class VoltaVpnService : VpnService() {
     private fun applyPerAppRules(builder: Builder) {
         val packages = perAppPackages.filter { it.isNotBlank() && it != packageName }
         when {
-            perAppMode == PerAppMode.INCLUDE && packages.isNotEmpty() ->
-                packages.forEach { pkg ->
+            perAppMode == PerAppMode.INCLUDE && packages.isNotEmpty() -> {
+                val added = packages.count { pkg ->
                     runCatching { builder.addAllowedApplication(pkg) }
                         .onFailure { Log.w(TAG, "allowed app missing: $pkg") }
+                        .isSuccess
                 }
+                // None of the chosen apps is installed (say, a list restored on a new
+                // phone). An empty allowed list would put every app, this one too, into
+                // the tunnel and loop the core's own traffic: cover all but Volta instead.
+                if (added == 0) runCatching { builder.addDisallowedApplication(packageName) }
+            }
 
             perAppMode == PerAppMode.EXCLUDE && packages.isNotEmpty() -> {
                 runCatching { builder.addDisallowedApplication(packageName) }
@@ -792,6 +818,11 @@ class VoltaVpnService : VpnService() {
 
             else -> runCatching { builder.addDisallowedApplication(packageName) }
         }
+    }
+
+    private fun noteAlwaysOn() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        runCatching { _alwaysOn.value = AlwaysOn(on = isAlwaysOn(), lockdown = isLockdownEnabled()) }
     }
 
     /** This app is outside its own VPN, so its active network is the physical one. */

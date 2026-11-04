@@ -56,6 +56,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ars3nb.volta.core.balancer.AutoBalancer
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.server.Countries
+import com.ars3nb.volta.core.stats.TrafficSummary
 import com.ars3nb.volta.core.update.UpdateState
 import com.ars3nb.volta.data.model.BalancerScope
 import com.ars3nb.volta.data.model.ConnectMode
@@ -78,6 +79,7 @@ import com.ars3nb.volta.ui.components.OpenFluxCaptchaBanner
 import com.ars3nb.volta.ui.components.PowerButton
 import com.ars3nb.volta.ui.components.SignalBars
 import com.ars3nb.volta.ui.components.SpeedGraph
+import com.ars3nb.volta.ui.components.TrafficCard
 import com.ars3nb.volta.ui.components.UpdateBanner
 import com.ars3nb.volta.ui.components.flagOf
 import com.ars3nb.volta.ui.components.formatDuration
@@ -103,6 +105,7 @@ fun HomeScreen(
     val pick by vm.pickSummary.collectAsStateWithLifecycle()
     val update by vm.updateState.collectAsStateWithLifecycle()
     val openFlux by vm.openFluxStatus.collectAsStateWithLifecycle()
+    val traffic by vm.trafficSummary.collectAsStateWithLifecycle()
 
     // Ticks only while the tunnel is up, so an idle screen costs nothing.
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -121,6 +124,7 @@ fun HomeScreen(
         pick = pick,
         update = update,
         openFlux = openFlux,
+        traffic = traffic,
         now = now,
         onToggle = vm::toggleConnect,
         onSelectMode = vm::setConnectMode,
@@ -151,6 +155,7 @@ fun HomeContent(
     pick: PickSummary?,
     update: UpdateState,
     openFlux: OpenFluxRunner.Status,
+    traffic: TrafficSummary = TrafficSummary(),
     now: Long,
     onToggle: () -> Unit,
     onSelectMode: (ConnectMode) -> Unit,
@@ -302,6 +307,11 @@ fun HomeContent(
                     ) {
                         SpeedGraph(speed, totals = state.traffic)
                     }
+                }
+
+                // Shown once anything has gone through the VPN, connected or not.
+                if (!traffic.isEmpty) {
+                    item(key = "traffic") { TrafficCard(traffic) }
                 }
 
                 item(key = "pick") {

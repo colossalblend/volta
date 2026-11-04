@@ -1,6 +1,7 @@
 package com.ars3nb.volta.ui
 
 import android.app.Application
+import android.net.Uri
 import android.net.VpnService
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,6 +13,10 @@ import com.ars3nb.volta.core.parser.AmneziaConfigs
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.routing.RoutingEngine
 import com.ars3nb.volta.core.balancer.AutoBalancer
+import com.ars3nb.volta.core.backup.BackupCodec
+import com.ars3nb.volta.data.backup.BackupManager
+import com.ars3nb.volta.core.stats.TrafficSummary
+import com.ars3nb.volta.core.stats.TrafficTally
 import com.ars3nb.volta.data.model.BalancerScope
 import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.IpInfo
@@ -30,6 +35,7 @@ import com.ars3nb.volta.data.model.TrafficStats
 import com.ars3nb.volta.data.model.VpnConnectionState
 import com.ars3nb.volta.data.prefs.DesignTheme
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -47,6 +53,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.time.LocalDate
 
 data class ConnectionSlice(
     val vpnState: VpnConnectionState = VpnConnectionState.DISCONNECTED,
@@ -167,6 +175,21 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SpeedHistory())
 
+    /**
+     * Traffic through the VPN: today, this month, last month and the last two weeks.
+     * The date is looked at once a minute, so "today" moves on at midnight on its own.
+     */
+    val trafficSummary: StateFlow<TrafficSummary> = combine(
+        repo.trafficSince(LocalDate.now().minusDays(TrafficTally.WINDOW_DAYS).toEpochDay()),
+        flow {
+            while (true) {
+                emit(LocalDate.now())
+                delay(60_000)
+            }
+        }.distinctUntilChanged()
+    ) { days, today -> TrafficTally.summarize(days, today) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TrafficSummary())
+
     /** Why the auto mode picked what it picked: the best few with their numbers. */
     val pickSummary: StateFlow<PickSummary?> = repo.lastDecision
         .map { decision -> decision?.let(PickSummary::of) }
@@ -247,6 +270,9 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     val defaultPingType = repo.defaultPingType
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PingType.REAL_DELAY)
+
+    /** Whether Android keeps Volta on and blocks the internet without it (API 29+). */
+    val alwaysOn = repo.alwaysOn
 
     /** The OpenFlux helper, for its captcha banner. */
     val openFluxStatus = OpenFluxRunner.status
@@ -884,6 +910,108 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun hwidFull(): String = repo.hwid()
+
+    // ----------------------------------------------------------------- backup
+
+    private val backup by lazy { BackupManager(getApplication<Application>(), repo) }
+    private val _restoreOffer = MutableStateFlow<BackupCodec.Contents?>(null)
+    private val _backupWorking = MutableStateFlow(false)
+
+    /** A backup file that was read and waits for «Восстановить». */
+    val restoreOffer: StateFlow<BackupCodec.Contents?> = _restoreOffer.asStateFlow()
+
+    /** Saving or restoring is under way (a restore loads every subscription). */
+    val backupWorking: StateFlow<Boolean> = _backupWorking.asStateFlow()
+
+    /** The name offered in the save dialog. */
+    fun backupFileName(): String = BackupCodec.fileName(LocalDate.now())
+
+    /** Writes everything into the file the user just created. */
+    fun exportBackup(uri: Uri) {
+        if (_backupWorking.value) return
+        viewModelScope.launch {
+            _backupWorking.value = true
+            try {
+                val text = backup.export()
+                withContext(Dispatchers.IO) {
+                    val resolver = getApplication<Application>().contentResolver
+                    // "wt" empties a file that was there; not every storage app knows it.
+                    val stream = runCatching { resolver.openOutputStream(uri, "wt") }.getOrNull()
+                        ?: resolver.openOutputStream(uri)
+                        ?: error("no stream")
+                    stream.use { it.write(text.toByteArray(Charsets.UTF_8)) }
+                }
+                _message.value = "Файл сохранён. На новом телефоне: Настройки → Восстановить из файла"
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _message.value = "Не удалось сохранить файл. Попробуйте другую папку"
+            } finally {
+                _backupWorking.value = false
+            }
+        }
+    }
+
+    /** Reads a chosen file and, if it is a Volta backup, asks before restoring it. */
+    fun readBackup(uri: Uri) {
+        if (_backupWorking.value) return
+        viewModelScope.launch {
+            try {
+                val contents = withContext(Dispatchers.IO) {
+                    val bytes = getApplication<Application>().contentResolver.openInputStream(uri)?.use { input ->
+                        val out = java.io.ByteArrayOutputStream()
+                        val buffer = ByteArray(16 * 1024)
+                        while (true) {
+                            val n = input.read(buffer)
+                            if (n < 0) break
+                            out.write(buffer, 0, n)
+                            if (out.size() > BackupCodec.MAX_BYTES) {
+                                throw BackupCodec.BackupException("Файл слишком большой для файла Volta")
+                            }
+                        }
+                        out.toByteArray()
+                    } ?: error("no stream")
+                    backup.read(String(bytes, Charsets.UTF_8))
+                }
+                if (contents.isEmpty) {
+                    _message.value = "В файле нечего восстанавливать"
+                } else {
+                    _restoreOffer.value = contents
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: BackupCodec.BackupException) {
+                _message.value = e.message
+            } catch (e: Exception) {
+                _message.value = "Не удалось открыть файл"
+            }
+        }
+    }
+
+    fun dismissRestore() {
+        _restoreOffer.value = null
+    }
+
+    fun confirmRestore() {
+        val contents = _restoreOffer.value ?: return
+        _restoreOffer.value = null
+        if (_backupWorking.value) return
+        viewModelScope.launch {
+            _backupWorking.value = true
+            try {
+                val report = backup.restore(contents)
+                _message.value = report.message()
+                // Rules and split tunnelling reach a running tunnel on its next start.
+                touchRouting()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _message.value = e.userMessage("Не удалось восстановить из файла")
+            } finally {
+                _backupWorking.value = false
+            }
+        }
+    }
 }
 
 private const val RETRY_DELAY_MS = 20_000L
