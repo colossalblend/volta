@@ -1,0 +1,6 @@
+build/
+.gradle/
+.kotlin/
+# Put here by CI (or by hand, see README.md): the Xray core and its geo lists.
+resources/windows-x64/*
+!resources/windows-x64/README.txt
