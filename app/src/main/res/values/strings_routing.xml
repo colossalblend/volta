@@ -31,6 +31,10 @@
     <string name="routing_adblock_family">Family</string>
     <string name="routing_adblock_family_hint">Also hides adult sites and turns on safe search.</string>
     <string name="routing_adblock_standard_hint">If “Private DNS” in Android settings is set to a server of your own, turn it off or choose Automatic, and more ads will be removed. The filter doesn\'t remove ads inside YouTube.</string>
+    <string name="routing_adblock_strict">Strict</string>
+    <string name="routing_adblock_standard_desc">Blocks ads, analytics and crash and session trackers in every app. Sign-in buttons, video, links in emails and support chats keep working.</string>
+    <string name="routing_adblock_strict_hint">Also hides cookie and consent banners and blocks personalisation and A/B testing. Some sites may look or behave oddly, for example wait for a consent box that never appears. If a site breaks, switch back to “Ads and trackers”.</string>
+    <string name="routing_adblock_test_note">Ad-block test sites also count Facebook and Instagram sign-in, YouTube video, links in emails, app links and support chats. Volta leaves them open on purpose so nothing breaks, so no mode scores 100% there.</string>
     <string name="routing_torrents_title">Block torrents</string>
     <string name="routing_torrents_subtitle">Many servers ban users for seeding, and going direct, your internet provider sees it</string>
     <string name="routing_split_title">Split tunneling</string>

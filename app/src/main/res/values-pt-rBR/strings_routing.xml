@@ -28,6 +28,10 @@
     <string name="routing_adblock_family">Família</string>
     <string name="routing_adblock_family_hint">Também esconde sites adultos e ativa a pesquisa segura.</string>
     <string name="routing_adblock_standard_hint">Se o “DNS particular” nas configurações do Android tiver um servidor próprio, desative-o ou escolha o modo automático; assim mais anúncios serão removidos. O filtro não remove anúncios dentro do YouTube.</string>
+    <string name="routing_adblock_strict">Rigoroso</string>
+    <string name="routing_adblock_standard_desc">Bloqueia anúncios, análises e rastreadores de erros e sessões em todos os apps. Botões de login, vídeos, links em e-mails e chats de suporte continuam funcionando.</string>
+    <string name="routing_adblock_strict_hint">Também esconde os avisos de cookies e consentimento e bloqueia personalização e testes A/B. Alguns sites podem ficar com aparência ou comportamento estranho, por exemplo esperar uma janela de consentimento que nunca aparece. Se um site quebrar, volte para “Anúncios e rastreadores”.</string>
+    <string name="routing_adblock_test_note">Sites de teste de bloqueadores também contam o login com Facebook e Instagram, os vídeos do YouTube, os links em e-mails, os links para apps e os chats de suporte. O Volta os deixa abertos de propósito para nada quebrar, por isso nenhum modo chega a 100% lá.</string>
     <string name="routing_torrents_title">Bloquear torrents</string>
     <string name="routing_torrents_subtitle">Muitos servidores banem por compartilhar torrents, e no direto sua operadora vê</string>
     <string name="routing_split_title">Tunelamento dividido</string>

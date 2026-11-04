@@ -28,6 +28,10 @@
     <string name="routing_adblock_family">Ailə</string>
     <string name="routing_adblock_family_hint">Həmçinin böyüklər üçün saytları gizlədir və təhlükəsiz axtarışı aktiv edir.</string>
     <string name="routing_adblock_standard_hint">Android ayarlarında «Şəxsi DNS» bölməsində öz serveriniz göstərilibsə, onu söndürün və ya avtomatik rejimi seçin, belə daha çox reklam silinəcək. YouTube daxilindəki reklamı filtr silmir.</string>
+    <string name="routing_adblock_strict">Sərt</string>
+    <string name="routing_adblock_standard_desc">Bütün tətbiqlərdə reklamı, analitikanı, xəta və sessiya izləyicilərini bloklayır. Giriş düymələri, video, məktublardakı keçidlər və dəstək çatları əvvəlki kimi işləyir.</string>
+    <string name="routing_adblock_strict_hint">Həmçinin cookie və razılıq bannerlərini gizlədir, fərdiləşdirmə və A/B testlərini bloklayır. Bəzi saytlar qəribə görünə və ya işləyə bilər, məsələn heç vaxt çıxmayan razılıq pəncərəsini gözləyə bilər. Sayt pozulsa, «Reklam və izləyicilər» rejiminə qayıdın.</string>
+    <string name="routing_adblock_test_note">Reklam bloklayıcı test saytları Facebook və Instagram ilə girişi, YouTube videosunu, məktublardakı keçidləri, tətbiqə aparan keçidləri və dəstək çatlarını da sayır. Heç nə pozulmasın deyə Volta onları qəsdən açıq saxlayır, ona görə də orada heç bir rejim 100% toplamır.</string>
     <string name="routing_torrents_title">Torrentləri blokla</string>
     <string name="routing_torrents_subtitle">Bir çox server paylamaya görə bloklayır, birbaşa isə onları provayder görür</string>
     <string name="routing_split_title">Bölünmüş tunelləmə</string>

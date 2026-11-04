@@ -28,6 +28,10 @@
     <string name="routing_adblock_family">家庭</string>
     <string name="routing_adblock_family_hint">还会隐藏成人网站并开启安全搜索。</string>
     <string name="routing_adblock_standard_hint">如果 Android 设置的“私人 DNS”中填写了自己的服务器，请关闭它或选择自动模式，这样能去除更多广告。此过滤器无法去除 YouTube 内的广告。</string>
+    <string name="routing_adblock_strict">严格</string>
+    <string name="routing_adblock_standard_desc">在所有应用中拦截广告、统计分析以及错误和会话跟踪器。登录按钮、视频、邮件中的链接和客服聊天照常可用。</string>
+    <string name="routing_adblock_strict_hint">还会隐藏 Cookie 和同意横幅，并拦截个性化推荐和 A/B 测试。部分网站可能显示或运行异常，例如一直等待永远不会出现的同意窗口。如果某个网站出了问题，请切回“广告和跟踪器”。</string>
+    <string name="routing_adblock_test_note">广告拦截测试网站还会把 Facebook 和 Instagram 登录、YouTube 视频、邮件中的链接、打开应用的链接和客服聊天算在内。Volta 有意不拦截它们，以免出现故障，因此在那里任何模式都拿不到 100%。</string>
     <string name="routing_torrents_title">屏蔽种子下载</string>
     <string name="routing_torrents_subtitle">许多服务器会因做种而封禁，直连时运营商也能看到</string>
     <string name="routing_split_title">分应用代理</string>

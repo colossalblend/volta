@@ -950,12 +950,23 @@ object ConfigBuilder {
      * caught by the public-tracker list, which takes away most ways to find peers.
      * This is a strong hint, not a guarantee.
      *
+     * The geosite list names the hosts tracking code talks to, not their neighbours
+     * (consoles, secondary collectors, script CDNs), and AdGuard DNS leaves those alone
+     * too; [AdBlockLists] adds them, in tiers by mode. Geosite and Volta's list share one
+     * rule: the core builds one domain matcher per rule, so a second rule would only
+     * cost another pass over every connection.
+     *
      * The geosite names come from the bundled geosite.dat; CI runs every built config
      * through `xray run -test` against that file, so a list it lacks fails the build.
      */
     private fun filterRules(adBlock: AdBlockMode, blockTorrents: Boolean): List<RoutingRuleDto> = buildList {
         if (adBlock != AdBlockMode.OFF) {
-            add(filterRule("Реклама и трекеры", domains = listOf("geosite:category-ads-all")))
+            add(
+                filterRule(
+                    "Реклама и трекеры",
+                    domains = listOf("geosite:category-ads-all") + AdBlockLists.domainsFor(adBlock)
+                )
+            )
         }
         if (adBlock == AdBlockMode.FAMILY) {
             // Family DNS hides adult sites only from lookups the core answers.
@@ -989,6 +1000,16 @@ object ConfigBuilder {
                 .getOrNull()
                 ?.takeIf { it.size() > 0 }
                 ?.let { dns.add("hosts", it) }
+        }
+        // Volta's own tracker list, answered by the core itself: an app gets an address
+        // that leads nowhere at once, and a browser that sees no shared address cannot
+        // send these names down a connection it already has open to a sibling host,
+        // where the routing rule would never see them. The provider's own entries win.
+        AdBlockLists.domainsFor(adBlock).takeIf { it.isNotEmpty() }?.let { blocked ->
+            val hosts = dns.getAsJsonObject("hosts") ?: JsonObject().also { dns.add("hosts", it) }
+            blocked.forEach { name ->
+                if (!hosts.has(name)) hosts.add(name, jsonArray("0.0.0.0", "::"))
+            }
         }
         dns.addProperty("queryStrategy", "UseIP")
         dns.addProperty("disableCache", false)

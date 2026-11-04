@@ -102,6 +102,144 @@ class ConfigBuilderTest {
     }
 
     @Test
+    fun voltasTrackerListIsTieredByMode() {
+        fun adRule(mode: AdBlockMode) = rules(root(ConfigBuilder.build(vless(), null, adBlock = mode)))
+            .single { it.domains().contains("geosite:category-ads-all") }
+        fun hosts(mode: AdBlockMode) =
+            root(ConfigBuilder.build(vless(), null, adBlock = mode)).getAsJsonObject("dns")
+                .getAsJsonObject("hosts")
+
+        listOf(AdBlockMode.STANDARD, AdBlockMode.FAMILY).forEach { mode ->
+            val domains = adRule(mode).domains()
+            assertTrue("$mode", domains.containsAll(AdBlockLists.STANDARD))
+            assertTrue("$mode", AdBlockLists.STRICT.none { it in domains })
+            assertTrue("$mode", hosts(mode).keySet().containsAll(AdBlockLists.STANDARD))
+            assertTrue("$mode", AdBlockLists.STRICT.none { hosts(mode).has(it) })
+        }
+        val strict = adRule(AdBlockMode.STRICT)
+        assertEquals("block", strict.get("outboundTag").asString)
+        assertTrue(strict.domains().containsAll(AdBlockLists.STANDARD + AdBlockLists.STRICT))
+        val strictHosts = hosts(AdBlockMode.STRICT)
+        (AdBlockLists.STANDARD + AdBlockLists.STRICT).forEach { name ->
+            assertEquals(name, listOf("0.0.0.0", "::"), strictHosts.getAsJsonArray(name).map { it.asString })
+        }
+        // Strict keeps Standard's AdGuard server; it is not a DNS mode of its own.
+        assertEquals(AdBlockMode.STANDARD.dohUrl, AdBlockMode.STRICT.dohUrl)
+        assertFalse(ConfigBuilder.build(vless(), null, adBlock = AdBlockMode.STRICT).contains("category-porn"))
+
+        // The hosts the owner's test found open, by tier.
+        listOf("metrika.yandex.ru", "appmetrica.yandex.ru", "advertising.yandex.ru", "ads.vk.com",
+            "ads.x.com", "ads.tiktok.com", "ads-api.tiktok.com", "ads.microsoft.com", "o0.ingest.sentry.io",
+            "browser.sentry-cdn.com", "us.i.posthog.com", "r.lr-ingest.com", "api.bugsnag.com",
+            "tr.facebook.com", "fls-na.amazon.com", "adtech.yahooinc.com", "www.tkqlhce.com"
+        ).forEach { host ->
+            assertTrue(host, AdBlockLists.STANDARD.any { matches(it, host) })
+        }
+        listOf("privacyportal.onetrust.com", "cdn.cookielaw.org", "consent.trustarc.com",
+            "sdk.privacy-center.org", "cdn.privacy-mgmt.com", "cmp.osano.com",
+            "fundingchoicesmessages.google.com", "cdn.dynamicyield.com",
+            "clientstream.launchdarkly.com", "xp.apple.com", "s.youtube.com"
+        ).forEach { host ->
+            assertTrue(host, AdBlockLists.STRICT.any { matches(it, host) })
+            assertFalse(host, AdBlockLists.STANDARD.any { matches(it, host) })
+        }
+        // One rule for geosite and Volta's list together, not one per tier.
+        assertEquals(
+            1,
+            rules(root(ConfigBuilder.build(vless(), null, adBlock = AdBlockMode.STRICT)))
+                .count { r -> r.get("outboundTag")?.asString == "block" && r.domains().isNotEmpty() }
+        )
+    }
+
+    @Test
+    fun theNeverBlockHostsAreNeverBlocked() {
+        // Logins, YouTube playback, links in mail, support chats: whatever the mode, no
+        // block rule and no DNS answer of Volta's own may catch them.
+        assertTrue(AdBlockLists.NEVER_BLOCK.containsAll(listOf(
+            "graph.instagram.com", "i.instagram.com", "graph.facebook.com", "connect.facebook.net",
+            "redirector.googlevideo.com", "bnc.lt", "click.mailchimp.com", "widget.intercom.io",
+            "widgets.pinterest.com", "tagmanager.google.com"
+        )))
+        AdBlockMode.entries.forEach { mode ->
+            val config = root(ConfigBuilder.build(vless(), null, adBlock = mode, blockTorrents = true))
+            val blocked = rules(config).filter { it.get("outboundTag")?.asString == "block" }
+                .flatMap { it.domains() }
+            val hosts = config.getAsJsonObject("dns")?.getAsJsonObject("hosts")?.keySet().orEmpty()
+            AdBlockLists.NEVER_BLOCK.forEach { host ->
+                assertTrue("$mode blocks $host", blocked.none { matches(it, host) })
+                assertTrue("$mode answers $host", hosts.none { matches(it, host) })
+            }
+        }
+    }
+
+    @Test
+    fun adFilterComesBeforeEveryProfileAndProviderRule() {
+        // «Российские сайты напрямую» sends geosite:category-ru and geoip:ru direct; the
+        // ad rule must still be met first, or metrika.yandex.ru would go direct.
+        val ru = RoutingEngine.builtInProfiles().single { it.name == RoutingEngine.BUILTIN_RU_NAME }
+        val providerJson =
+            """{"rules":[{"type":"field","domain":["domain:yandex.ru","regexp:.*"],"outboundTag":"direct"}]}"""
+        val shipped = vless().copy(
+            rawJson = """{"routing":{"domainStrategy":"AsIs","rules":[""" +
+                """{"type":"field","domain":["geosite:category-ru","domain:shipped.example"],"outboundTag":"direct"},""" +
+                """{"type":"field","ip":["0.0.0.0/0"],"outboundTag":"direct"}]}}"""
+        )
+        val configs = mapOf(
+            "ru profile" to ConfigBuilder.build(vless(), ru, adBlock = AdBlockMode.STANDARD),
+            "provider json" to ConfigBuilder.build(
+                vless(),
+                ru.copy(useProviderRules = true),
+                providerJson,
+                adBlock = AdBlockMode.STRICT
+            ),
+            "server routing" to ConfigBuilder.build(
+                shipped,
+                null,
+                preferServerRouting = true,
+                adBlock = AdBlockMode.FAMILY
+            )
+        )
+        configs.forEach { (name, json) ->
+            val rules = rules(root(json))
+            val ads = rules.indexOfFirst { it.domains().contains("geosite:category-ads-all") }
+            assertTrue(name, ads >= 0)
+            assertTrue(name, rules[ads].domains().contains("domain:metrika.yandex.ru"))
+            // Every rule a profile or provider sent (anything not the app's own plumbing)
+            // comes after it.
+            val firstForeign = rules.indexOfFirst { r ->
+                r.domains().any {
+                    it == "geosite:category-ru" || it == "regexp:.*" || it == "domain:shipped.example"
+                } || r.ips().contains("geoip:ru") || r.ips().contains("0.0.0.0/0")
+            }
+            assertTrue(name, firstForeign > ads)
+            // Before the ad rule only DNS plumbing, the exit check and local addresses.
+            rules.take(ads).forEach { r ->
+                assertTrue("$name: $r", r.domains().isEmpty())
+                assertTrue(
+                    "$name: $r",
+                    r.ips().all { it == ConfigBuilder.TUN_DNS || it == "geoip:private" }
+                )
+            }
+        }
+    }
+
+    @Test
+    fun providersDnsHostsWinOverVoltasList() {
+        val profile = RoutingProfileEntity(
+            name = "Hosts",
+            dnsHostsJson = """{"domain:ads.vk.com":"10.0.0.7","provider.example":"10.0.0.8"}"""
+        )
+        val hosts = root(ConfigBuilder.build(vless(), profile, adBlock = AdBlockMode.STANDARD))
+            .getAsJsonObject("dns").getAsJsonObject("hosts")
+        assertEquals("10.0.0.7", hosts.get("domain:ads.vk.com").asString)
+        assertEquals("10.0.0.8", hosts.get("provider.example").asString)
+        assertTrue(hosts.has("domain:metrika.yandex.ru"))
+        // Off: the provider's hosts alone.
+        val off = root(ConfigBuilder.build(vless(), profile)).getAsJsonObject("dns").getAsJsonObject("hosts")
+        assertEquals(setOf("domain:ads.vk.com", "provider.example"), off.keySet())
+    }
+
+    @Test
     fun familyModeAlsoBlocksAdultSitesInTheRouting() {
         val family = ConfigBuilder.build(vless(), null, adBlock = AdBlockMode.FAMILY)
         val standard = ConfigBuilder.build(vless(), null, adBlock = AdBlockMode.STANDARD)
@@ -560,6 +698,16 @@ class ConfigBuilderTest {
 
     private fun JsonObject.ips(): List<String> =
         getAsJsonArray("ip")?.map { it.asString }.orEmpty()
+
+    /** Whether the core's domain matcher [entry] catches [host] (geosite: is not opened). */
+    private fun matches(entry: String, host: String): Boolean = when {
+        entry.startsWith("domain:") -> entry.removePrefix("domain:").let { host == it || host.endsWith(".$it") }
+        entry.startsWith("full:") -> host == entry.removePrefix("full:")
+        entry.startsWith("keyword:") -> host.contains(entry.removePrefix("keyword:"))
+        entry.startsWith("regexp:") -> Regex(entry.removePrefix("regexp:")).containsMatchIn(host)
+        entry.startsWith("geosite:") || entry.startsWith("ext:") -> false
+        else -> host == entry || host.endsWith(".$entry")
+    }
 
     /** The filters' target: a blackhole tagged `block`. */
     private fun assertBlockOutbound(config: JsonObject) {

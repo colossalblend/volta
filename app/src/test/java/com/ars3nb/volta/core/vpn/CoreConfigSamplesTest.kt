@@ -61,6 +61,15 @@ class CoreConfigSamplesTest {
             null,
             adBlock = com.ars3nb.volta.data.model.AdBlockMode.STANDARD
         )
+        // Strict: both tiers of Volta's list in the routing and in the DNS hosts, over
+        // the Russian set and a provider's own hosts, so the core reads all of it.
+        out += "ads-strict" to ConfigBuilder.build(
+            ws,
+            RoutingEngine.builtInProfiles().last().copy(
+                dnsHostsJson = """{"provider.example":"10.0.0.8","domain:ads.vk.com":"10.0.0.7"}"""
+            ),
+            adBlock = com.ars3nb.volta.data.model.AdBlockMode.STRICT
+        )
         val pool = servers.values.take(3).mapIndexed { i, s -> s.copy(id = i + 1L) }
         out += "balancer" to ConfigBuilder.build(pool.first(), null, balancerPool = pool)
         out += "probe" to ConfigBuilder.buildProbe(servers.getValue("vless-reality-vision"))
