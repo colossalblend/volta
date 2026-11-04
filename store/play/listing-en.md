@@ -29,6 +29,7 @@ Subscriptions, links and keys
 • Single servers: VLESS (with REALITY), VMess, Trojan, Shadowsocks, SOCKS, Hysteria and Hysteria2.
 • AmneziaVPN keys, AmneziaWG and WireGuard config files (.conf), OpenFlux links.
 • All of it goes into one field: Volta works out what you pasted.
+• Bluetooth sharing: send a subscription or a server from your phone to a TV or another phone nearby. The link travels encrypted, and only after you match a six-digit code on both screens.
 
 Apps and sites
 • Split tunnelling: let chosen apps bypass the VPN, or send only those apps through it.
@@ -49,6 +50,8 @@ Close at hand
 
 Privacy
 Volta has no accounts, ads or analytics. Subscriptions and settings stay on the phone. Your traffic goes to your VPN service's servers; Volta does not log it or send it anywhere. Details: https://colossalblend.github.io/volta/privacy.html
+
+Volta is also available for Windows and iPhone: builds and source code on GitHub.
 
 Guide (in Russian): https://colossalblend.github.io/volta/guide.html
 Source code: https://github.com/colossalblend/volta

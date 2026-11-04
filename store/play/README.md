@@ -7,7 +7,8 @@ What goes into the Play Console's store listing: the texts and the pictures.
   with it, and the texts say so.
 - `ru/`, `en/` — the pictures for each language:
   - `phone-01…08-*.png` — phone screenshots, 1080 × 1920;
-  - `tv-01…02-*.png` — Android TV screenshots, 1920 × 1080;
+  - `tv-01…02-*.png` — Android TV screenshots, 1920 × 1080: the home screen, and Add
+    with «Получить по Bluetooth» in the remote's focus;
   - `feature-graphic.png` — the feature graphic, 1024 × 500.
 
 ## How the pictures are made
@@ -17,7 +18,9 @@ Robolectric with sample data: fictional servers on documentation addresses
 (203.0.113.x, 198.51.100.x), a subscription called «Мой VPN», made-up app names with
 plain letter icons. See `app/src/test/java/com/ars3nb/volta/ui/shots/StoreShots.kt`.
 Routing is drawn without the tab bar under it, so that the ad filter's card, Strict mode
-and the torrent switch fit on one screen. Screens that need the ViewModel get a real one over a test database; the network is shut
+and the torrent switch fit on one screen. The TV's Add screen is drawn on a box that
+reports Bluetooth LE, as a real one does, so its «Получить по Bluetooth» row is there.
+Screens that need the ViewModel get a real one over a test database; the network is shut
 off in the test, so nothing on them comes from the machine that drew them.
 
 The phone screens are drawn at 392 × 665 dp, 2x; the TV ones at 1280 × 720 dp, 1.5x,
@@ -28,7 +31,10 @@ gets its own sample library (`ru`: «Мой VPN», Russian server names; `en`: �
 with a thin copper rim on the app's background and writes the caption above it in the
 app's own fonts: a headline in Unbounded (two lines at most) and one line in Onest, the
 same sizes on every picture. The captions live in that script, one list per language;
-it stops with "caption does not fit" rather than shrink or clip one.
+it stops with "caption does not fit" rather than shrink or clip one. Captions name no
+other company's product (the app's own screens still say what its filter is built on).
+On Add, the section header the screen's bottom edge cuts in half gives way to the
+screen's background (`TRIM_TAIL`), as on a phone a few dp shorter.
 
 ## Making them again
 

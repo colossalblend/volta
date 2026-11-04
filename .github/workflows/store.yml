@@ -120,6 +120,24 @@ jobs:
           git commit -q -m "Store: pictures from run $GITHUB_RUN_ID"
           git push origin "HEAD:$GITHUB_REF_NAME"
 
+      # Where artifacts can't be fetched either (a proxy that refuses the artifact store),
+      # the same pictures go onto the branch's pre-release as one zip:
+      #   gh api -H "Accept: application/octet-stream" \
+      #     repos/<owner>/<repo>/releases/assets/<id> > store-pictures.zip
+      - name: Pictures to the branch's pre-release
+        if: success() && startsWith(github.ref_name, 'store/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="apk-$(echo "$GITHUB_REF_NAME" | tr '/' '-')"
+          if ! gh release view "$tag" > /dev/null 2>&1; then
+            echo "no pre-release $tag yet (android.yml makes it); skipped"
+            exit 0
+          fi
+          (cd "$RUNNER_TEMP/store" && zip -qr "$RUNNER_TEMP/store-pictures.zip" play raw -x '*/progress.txt')
+          gh release upload "$tag" "$RUNNER_TEMP/store-pictures.zip" --clobber
+          echo "uploaded to $tag: store-pictures.zip from run $GITHUB_RUN_ID"
+
       - name: Collect logs
         if: always()
         run: |
