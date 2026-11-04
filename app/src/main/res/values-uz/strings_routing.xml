@@ -28,6 +28,10 @@
     <string name="routing_adblock_family">Oilaviy</string>
     <string name="routing_adblock_family_hint">Shuningdek, kattalar uchun saytlarni yashiradi va xavfsiz qidiruvni yoqadi.</string>
     <string name="routing_adblock_standard_hint">Android sozlamalaridagi «Shaxsiy DNS» boʻlimida oʻz serveringiz koʻrsatilgan boʻlsa, uni oʻchiring yoki avtomatik rejimni tanlang, shunda reklama koʻproq olib tashlanadi. YouTube ichidagi reklamani filtr olib tashlamaydi.</string>
+    <string name="routing_adblock_strict">Qatʼiy</string>
+    <string name="routing_adblock_standard_desc">Barcha ilovalarda reklama, analitika hamda xato va seans trekerlarini bloklaydi. Kirish tugmalari, video, xatlardagi havolalar va qoʻllab-quvvatlash chatlari avvalgidek ishlaydi.</string>
+    <string name="routing_adblock_strict_hint">Shuningdek, cookie va rozilik bannerlarini yashiradi, shaxsiylashtirish va A/B testlarni bloklaydi. Baʼzi saytlar gʻalati koʻrinishi yoki ishlashi mumkin, masalan hech qachon chiqmaydigan rozilik oynasini kutib qolishi. Sayt buzilsa, «Reklama va trekerlar» rejimiga qayting.</string>
+    <string name="routing_adblock_test_note">Reklama bloklagich test saytlari Facebook va Instagram orqali kirish, YouTube video, xatlardagi havolalar, ilovaga olib boruvchi havolalar va qoʻllab-quvvatlash chatlarini ham hisoblaydi. Hech narsa buzilmasligi uchun Volta ularni ataylab ochiq qoldiradi, shuning uchun u yerda hech bir rejim 100% toʻplamaydi.</string>
     <string name="routing_torrents_title">Torrentlarni bloklash</string>
     <string name="routing_torrents_subtitle">Koʻp serverlar tarqatish uchun bloklaydi, toʻgʻridan-toʻgʻri esa ularni provayder koʻradi</string>
     <string name="routing_split_title">Tunnelni ajratish</string>

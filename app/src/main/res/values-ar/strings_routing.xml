@@ -28,6 +28,10 @@
     <string name="routing_adblock_family">عائلي</string>
     <string name="routing_adblock_family_hint">ويُخفي أيضًا مواقع البالغين ويُفعّل البحث الآمن.</string>
     <string name="routing_adblock_standard_hint">إذا كان «DNS الخاص» في إعدادات Android مضبوطًا على خادم آخر، فأوقفه أو اختر الوضع التلقائي، وهكذا تُزال إعلانات أكثر. لا يزيل الفلتر الإعلانات داخل YouTube.</string>
+    <string name="routing_adblock_strict">صارم</string>
+    <string name="routing_adblock_standard_desc">يحظر الإعلانات والتحليلات وأدوات تتبّع الأعطال والجلسات في كل التطبيقات. تبقى أزرار تسجيل الدخول والفيديو والروابط في الرسائل ومحادثات الدعم تعمل.</string>
+    <string name="routing_adblock_strict_hint">ويُخفي أيضًا لافتات ملفات تعريف الارتباط والموافقة، ويحظر التخصيص واختبارات A/B. قد تبدو بعض المواقع أو تتصرف بشكل غريب، كأن تنتظر نافذة موافقة لا تظهر أبدًا. إذا تعطّل موقع، فارجع إلى «الإعلانات وأدوات التتبع».</string>
+    <string name="routing_adblock_test_note">تحتسب مواقع اختبار حاجبات الإعلانات أيضًا تسجيل الدخول عبر Facebook وInstagram وفيديو YouTube والروابط في الرسائل وروابط فتح التطبيقات ومحادثات الدعم. يتركها Volta مفتوحة عمدًا كي لا يتعطّل شيء، لذا لا يبلغ أي وضع 100% هناك.</string>
     <string name="routing_torrents_title">حظر التورنت</string>
     <string name="routing_torrents_subtitle">كثير من الخوادم تحظر بسبب مشاركة التورنت، وعند الاتصال المباشر يراها مزود الإنترنت</string>
     <string name="routing_split_title">تقسيم النفق</string>

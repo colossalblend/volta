@@ -28,6 +28,10 @@
     <string name="routing_adblock_family">خانوادگی</string>
     <string name="routing_adblock_family_hint">سایت‌های بزرگسالان را هم پنهان می‌کند و جست‌وجوی امن را روشن می‌کند.</string>
     <string name="routing_adblock_standard_hint">اگر در «DNS خصوصی» در تنظیمات Android سرور دیگری وارد شده است، آن را خاموش کنید یا حالت خودکار را انتخاب کنید تا تبلیغات بیشتری حذف شود. این فیلتر تبلیغات داخل YouTube را حذف نمی‌کند.</string>
+    <string name="routing_adblock_strict">سخت‌گیرانه</string>
+    <string name="routing_adblock_standard_desc">تبلیغات، تحلیل‌گرها و ردیاب‌های خطا و نشست را در همهٔ برنامه‌ها مسدود می‌کند. دکمه‌های ورود، ویدیو، پیوندهای داخل ایمیل و گفت‌وگوهای پشتیبانی کار می‌کنند.</string>
+    <string name="routing_adblock_strict_hint">بنرهای کوکی و رضایت را هم پنهان می‌کند و شخصی‌سازی و آزمون‌های A/B را مسدود می‌کند. ممکن است برخی سایت‌ها ظاهر یا رفتار عجیبی داشته باشند، مثلاً منتظر پنجرهٔ رضایتی بمانند که هرگز نمی‌آید. اگر سایتی خراب شد، به حالت «تبلیغات و ردیاب‌ها» برگردید.</string>
+    <string name="routing_adblock_test_note">سایت‌های آزمون مسدودکنندهٔ تبلیغات ورود با Facebook و Instagram، ویدیوی YouTube، پیوندهای داخل ایمیل، پیوندهای باز کردن برنامه و گفت‌وگوهای پشتیبانی را هم می‌شمارند. Volta عمداً آن‌ها را باز می‌گذارد تا چیزی خراب نشود، پس هیچ حالتی آنجا به ۱۰۰٪ نمی‌رسد.</string>
     <string name="routing_torrents_title">مسدود کردن تورنت</string>
     <string name="routing_torrents_subtitle">بسیاری از سرورها به‌خاطر اشتراک‌گذاری تورنت مسدود می‌کنند و در حالت مستقیم، ارائه‌دهندهٔ اینترنت آن را می‌بیند</string>
     <string name="routing_split_title">تونل‌زنی جداگانه</string>

@@ -511,16 +511,33 @@ private fun FiltersCard(
                         label = { Text(stringResource(R.string.routing_adblock_standard)) }
                     )
                     FilterChip(
+                        selected = adBlock == AdBlockMode.STRICT,
+                        onClick = { onAdBlock(AdBlockMode.STRICT) },
+                        label = { Text(stringResource(R.string.routing_adblock_strict)) }
+                    )
+                    FilterChip(
                         selected = adBlock == AdBlockMode.FAMILY,
                         onClick = { onAdBlock(AdBlockMode.FAMILY) },
                         label = { Text(stringResource(R.string.routing_adblock_family)) }
                     )
                 }
+                // What the chosen mode does, in plain words; then what holds for all.
                 Hint(
                     stringResource(
-                        if (adBlock == AdBlockMode.FAMILY) R.string.routing_adblock_family_hint
-                        else R.string.routing_adblock_standard_hint
+                        when (adBlock) {
+                            AdBlockMode.STRICT -> R.string.routing_adblock_strict_hint
+                            AdBlockMode.FAMILY -> R.string.routing_adblock_family_hint
+                            else -> R.string.routing_adblock_standard_desc
+                        }
                     )
+                )
+                Hint(
+                    stringResource(R.string.routing_adblock_standard_hint),
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                Hint(
+                    stringResource(R.string.routing_adblock_test_note),
+                    modifier = Modifier.padding(top = 4.dp)
                 )
             }
         }

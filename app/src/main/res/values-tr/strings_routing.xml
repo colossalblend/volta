@@ -28,6 +28,10 @@
     <string name="routing_adblock_family">Aile</string>
     <string name="routing_adblock_family_hint">Ayrıca yetişkin sitelerini gizler ve güvenli aramayı açar.</string>
     <string name="routing_adblock_standard_hint">Android ayarlarındaki “Özel DNS” bölümünde kendi sunucunuz ayarlıysa onu kapatın veya otomatik modu seçin; böylece daha fazla reklam kalkar. Filtre YouTube içindeki reklamları kaldırmaz.</string>
+    <string name="routing_adblock_strict">Sıkı</string>
+    <string name="routing_adblock_standard_desc">Tüm uygulamalarda reklamları, analitiği, hata ve oturum izleyicilerini engeller. Giriş düğmeleri, videolar, e-postalardaki bağlantılar ve destek sohbetleri çalışmaya devam eder.</string>
+    <string name="routing_adblock_strict_hint">Ayrıca çerez ve onay bildirimlerini gizler, kişiselleştirmeyi ve A/B testlerini engeller. Bazı siteler tuhaf görünebilir ya da tuhaf davranabilir; örneğin hiç gelmeyecek bir onay penceresini bekleyebilir. Bir site bozulursa “Reklamlar ve izleyiciler” moduna geri dönün.</string>
+    <string name="routing_adblock_test_note">Reklam engelleyici test siteleri Facebook ve Instagram ile girişi, YouTube videolarını, e-postalardaki bağlantıları, uygulamaya açılan bağlantıları ve destek sohbetlerini de sayar. Volta hiçbir şey bozulmasın diye bunları bilerek açık bırakır, bu yüzden orada hiçbir mod %100 almaz.</string>
     <string name="routing_torrents_title">Torrentleri engelle</string>
     <string name="routing_torrents_subtitle">Birçok sunucu paylaşım yüzünden yasaklıyor, doğrudan bağlanınca da internet sağlayıcınız görüyor</string>
     <string name="routing_split_title">Bölünmüş tünel</string>

@@ -28,6 +28,10 @@
     <string name="routing_adblock_family">Familie</string>
     <string name="routing_adblock_family_hint">Blendet außerdem Websites für Erwachsene aus und schaltet die sichere Suche ein.</string>
     <string name="routing_adblock_standard_hint">Wenn unter „Privates DNS“ in den Android-Einstellungen ein eigener Server eingetragen ist, schalten Sie ihn aus oder wählen Sie „Automatisch“, dann verschwindet mehr Werbung. Werbung in YouTube entfernt der Filter nicht.</string>
+    <string name="routing_adblock_strict">Streng</string>
+    <string name="routing_adblock_standard_desc">Sperrt Werbung, Analyse sowie Fehler- und Sitzungstracker in allen Apps. Anmeldeknöpfe, Videos, Links in E-Mails und Support-Chats funktionieren weiter.</string>
+    <string name="routing_adblock_strict_hint">Blendet außerdem Cookie- und Einwilligungsbanner aus und sperrt Personalisierung und A/B-Tests. Manche Websites sehen dann seltsam aus oder verhalten sich so, etwa wenn sie auf ein Einwilligungsfenster warten, das nie erscheint. Wenn eine Website nicht mehr geht, wechseln Sie zurück zu „Werbung und Tracker“.</string>
+    <string name="routing_adblock_test_note">Werbeblocker-Testseiten zählen auch die Anmeldung mit Facebook und Instagram, YouTube-Videos, Links in E-Mails, App-Links und Support-Chats. Volta lässt sie absichtlich offen, damit nichts kaputtgeht, deshalb erreicht dort kein Modus 100 %.</string>
     <string name="routing_torrents_title">Torrents sperren</string>
     <string name="routing_torrents_subtitle">Viele Server sperren wegen Seeding, und direkt sieht es Ihr Internetanbieter</string>
     <string name="routing_split_title">Split-Tunneling</string>

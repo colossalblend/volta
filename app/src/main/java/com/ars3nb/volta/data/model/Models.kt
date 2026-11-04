@@ -152,7 +152,14 @@ enum class AdBlockMode(val dohUrl: String) {
     STANDARD("https://dns.adguard-dns.com/dns-query"),
 
     /** The same plus adult sites (also blocked by name) and safe search (DNS only). */
-    FAMILY("https://family.adguard-dns.com/dns-query")
+    FAMILY("https://family.adguard-dns.com/dns-query"),
+
+    /**
+     * Standard's AdGuard DNS, plus Volta's strict list: cookie/consent banners,
+     * personalisation and A/B testing (see AdBlockLists.STRICT). Stored by name, so it
+     * comes last and the names before it never change.
+     */
+    STRICT("https://dns.adguard-dns.com/dns-query")
 }
 
 enum class VpnConnectionState {

@@ -28,6 +28,10 @@
     <string name="routing_adblock_family">Famille</string>
     <string name="routing_adblock_family_hint">Masque aussi les sites pour adultes et active la recherche sécurisée.</string>
     <string name="routing_adblock_standard_hint">Si un serveur personnalisé est indiqué dans « DNS privé » des paramètres Android, désactivez-le ou choisissez le mode automatique : plus de pubs seront retirées. Le filtre ne retire pas les pubs dans YouTube.</string>
+    <string name="routing_adblock_strict">Strict</string>
+    <string name="routing_adblock_standard_desc">Bloque les pubs, l’analytique et les traqueurs d’erreurs et de sessions dans toutes les applis. Les boutons de connexion, les vidéos, les liens des e-mails et les chats d’assistance continuent de marcher.</string>
+    <string name="routing_adblock_strict_hint">Masque aussi les bandeaux de cookies et de consentement et bloque la personnalisation et les tests A/B. Certains sites peuvent s’afficher ou se comporter bizarrement, par exemple attendre une fenêtre de consentement qui n’arrive jamais. Si un site ne marche plus, revenez à « Pubs et traqueurs ».</string>
+    <string name="routing_adblock_test_note">Les sites de test des bloqueurs comptent aussi la connexion avec Facebook et Instagram, les vidéos YouTube, les liens des e-mails, les liens vers les applis et les chats d’assistance. Volta les laisse ouverts exprès pour que rien ne casse : aucun mode n’y atteint donc 100 %.</string>
     <string name="routing_torrents_title">Bloquer les torrents</string>
     <string name="routing_torrents_subtitle">Beaucoup de serveurs bannissent pour le partage, et en direct votre fournisseur d’accès les voit</string>
     <string name="routing_split_title">Tunnel fractionné</string>

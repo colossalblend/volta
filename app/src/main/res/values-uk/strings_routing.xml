@@ -28,6 +28,10 @@
     <string name="routing_adblock_family">Сімейний</string>
     <string name="routing_adblock_family_hint">Також приховує сайти для дорослих і вмикає безпечний пошук.</string>
     <string name="routing_adblock_standard_hint">Якщо в «Приватному DNS» у налаштуваннях Android указано свій сервер, вимкніть його або виберіть автоматичний режим, так реклами зникне більше. Рекламу всередині YouTube фільтр не прибирає.</string>
+    <string name="routing_adblock_strict">Сувора</string>
+    <string name="routing_adblock_standard_desc">Блокує рекламу, аналітику й трекери помилок і сесій в усіх застосунках. Кнопки входу, відео, посилання в листах і чати підтримки працюють як і раніше.</string>
+    <string name="routing_adblock_strict_hint">Також приховує банери cookie та згод і блокує персоналізацію й A/B-тести. Деякі сайти можуть виглядати чи поводитися дивно, наприклад чекати вікно згоди, яке так і не з’явиться. Якщо сайт зламався, поверніться до режиму «Реклама й трекери».</string>
+    <string name="routing_adblock_test_note">Сайти-тести блокувальників зараховують і вхід через Facebook та Instagram, відео YouTube, посилання в листах, посилання в застосунки й чати підтримки. Volta навмисно їх не чіпає, щоб нічого не зламалося, тож 100% там не набирає жоден режим.</string>
     <string name="routing_torrents_title">Блокувати торенти</string>
     <string name="routing_torrents_subtitle">Багато серверів банять за роздачі, а напряму їх бачить провайдер</string>
     <string name="routing_split_title">Роздільне тунелювання</string>
