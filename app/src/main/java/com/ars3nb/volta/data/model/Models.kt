@@ -1,9 +1,12 @@
 package com.ars3nb.volta.data.model
 
+import androidx.annotation.StringRes
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.ars3nb.volta.R
+import com.ars3nb.volta.VoltaApp
 
 /** Role of a server for the app-level autobalancer. */
 enum class ServerRole {
@@ -113,13 +116,22 @@ enum class ConnectMode {
             MANUAL -> null
         }
 
-    val title: String
+    /** The mode's name, for stringResource. */
+    @get:StringRes
+    val titleRes: Int
         get() = when (this) {
-            AUTO_HOME_LTE -> "Авто Home+LTE"
-            AUTO_HOME -> "Авто Home"
-            AUTO_LTE -> "Авто LTE"
-            MANUAL -> "Свой сервер"
+            AUTO_HOME_LTE -> R.string.servers_mode_auto_home_lte
+            AUTO_HOME -> R.string.servers_mode_auto_home
+            AUTO_LTE -> R.string.servers_mode_auto_lte
+            MANUAL -> R.string.servers_mode_manual
         }
+
+    /**
+     * The mode's name in the app's language, for places outside Compose (the tiles).
+     * In unit tests, where there is no app, the enum name.
+     */
+    val title: String
+        get() = runCatching { VoltaApp.instance.getString(titleRes) }.getOrElse { name }
 
     fun next(): ConnectMode = entries[(ordinal + 1) % entries.size]
 }

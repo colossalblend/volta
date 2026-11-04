@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Servers: the server list, country cards, a server's actions, checks and the autobalancer's
+     verdicts, OpenFlux. Server names and the words Countries and ServerClassifier read in them
+     stay as providers wrote them; these are only what Volta itself shows. -->
+<resources>
+
+    <!-- The server list -->
+    <string name="servers_title">Сервери</string>
+    <string name="servers_ping_all">Перевірити відгук усіх</string>
+    <string name="servers_sort">Сортування</string>
+    <string name="servers_best_in_group">Найкращий сервер у групі</string>
+    <string name="servers_search_hint">Назва, країна або адреса</string>
+    <string name="servers_favorites">Обрані</string>
+    <string name="servers_all_subscriptions">Усі підписки</string>
+    <string name="servers_hide_balancers">Приховувати балансери</string>
+    <string name="servers_hide_balancers_text">Сервери «Авто» і «Балансер» не показуються в загальному списку</string>
+    <string name="servers_view_countries">Країни</string>
+    <string name="servers_view_list">Список</string>
+    <string name="servers_empty_title">Серверів поки немає</string>
+    <string name="servers_nothing_found">Нічого не знайшлося</string>
+    <string name="servers_empty_text">Додайте підписку або вставте посилання на сервер.</string>
+    <string name="servers_nothing_found_text">Змініть фільтр або пошуковий запит.</string>
+    <string name="servers_link_copied">Посилання скопійовано</string>
+    <string name="servers_searching">шукаю</string>
+    <string name="servers_pick">підібрати</string>
+    <string name="servers_pick_best">підібрати найкращий</string>
+    <string name="servers_add">Додати</string>
+    <string name="servers_pool_all">Усі</string>
+    <string name="servers_pool_balancers">Балансери</string>
+    <string name="servers_sort_fastest">Спочатку швидкі</string>
+    <string name="servers_sort_name">За назвою</string>
+    <string name="servers_sort_subscription">За підпискою</string>
+
+    <!-- Server rows, country cards, subscription cards, the network card -->
+    <string name="servers_row_actions">Дії із сервером</string>
+    <string name="servers_added_manually">Додано вручну</string>
+    <string name="servers_unsupported">Ця версія Volta його не відкриває</string>
+    <string name="servers_recently_failed">Нещодавно не відповідав</string>
+    <string name="servers_selected">Вибрано</string>
+    <string name="servers_now">Зараз</string>
+    <string name="servers_from_ms">від %1$d мс</string>
+    <string name="servers_collapse">Згорнути</string>
+    <string name="servers_expand">Розгорнути</string>
+    <string name="servers_role_balancer">Балансер</string>
+    <string name="servers_sub_refresh">Оновити підписку</string>
+    <string name="servers_sub_traffic">%1$s з %2$s</string>
+    <string name="servers_sub_unlimited">Без ліміту трафіку</string>
+    <string name="servers_sub_link_hidden">посилання приховане</string>
+    <string name="servers_sub_never_updated">ще не оновлювалася</string>
+    <string name="servers_sub_updated">оновлено %1$s</string>
+    <string name="servers_network_home">Мережа Home</string>
+    <string name="servers_network_lte">Мережа LTE</string>
+    <string name="servers_network_offline">Немає інтернету</string>
+    <string name="servers_network_unchecked">Мережу не перевірено</string>
+    <string name="servers_network_recheck">Перевірити мережу</string>
+
+    <!-- A server's actions -->
+    <string name="servers_group_named">Група %1$s</string>
+    <string name="servers_check_response">Перевірити відгук</string>
+    <string name="servers_unfavorite">Прибрати з обраного</string>
+    <string name="servers_favorite">До обраного</string>
+    <string name="servers_copy_link">Скопіювати посилання</string>
+    <string name="servers_share">Поділитися</string>
+    <string name="servers_share_server">Поділитися сервером</string>
+    <string name="servers_group">Група</string>
+    <string name="servers_group_manual">Вибрана вами, оновлення підписки її не змінюють</string>
+    <string name="servers_group_provider">Указана VPN-сервісом</string>
+    <string name="servers_group_by_name">Визначена за назвою</string>
+    <string name="servers_delete">Видалити сервер</string>
+
+    <!-- Countries named by Volta itself; the rest come from the system in the app's language -->
+    <string name="servers_country_other">Інші</string>
+    <string name="servers_country_us">США</string>
+    <string name="servers_country_gb">Велика Британія</string>
+    <string name="servers_country_ae">ОАЕ</string>
+    <string name="servers_country_kr">Південна Корея</string>
+    <string name="servers_country_hk">Гонконг</string>
+    <string name="servers_country_md">Молдова</string>
+    <string name="servers_country_cz">Чехія</string>
+
+    <!-- Connect modes -->
+    <string name="servers_mode_auto_home_lte">Авто Home+LTE</string>
+    <string name="servers_mode_auto_home">Авто Home</string>
+    <string name="servers_mode_auto_lte">Авто LTE</string>
+    <string name="servers_mode_manual">Свій сервер</string>
+
+    <!-- Server checks -->
+    <string name="servers_ping_no_address">Порожня адреса</string>
+    <string name="servers_ping_no_answer">Сервер не відповів</string>
+    <string name="servers_ping_node_no_answer">Вузол не відповів</string>
+    <string name="servers_ping_prepare_failed">Не вдалося підготувати сервер до перевірки</string>
+    <string name="servers_ping_unreachable">Адреса недоступна</string>
+
+    <!-- The autobalancer's verdicts -->
+    <string name="servers_balancer_no_servers">Немає серверів</string>
+    <string name="servers_balancer_none_dialable">Ця версія Volta не вміє відкривати жоден із цих серверів</string>
+    <string name="servers_balancer_offline">Немає інтернету. Спробуйте пізніше.</string>
+    <string name="servers_balancer_group_empty">У цій групі немає серверів</string>
+    <string name="servers_balancer_connecting">Підключаємося до «%1$s»</string>
+    <string name="servers_balancer_in_group">%1$s: %2$s</string>
+    <string name="servers_balancer_none_suitable">відповідних серверів немає</string>
+    <string name="servers_balancer_none_answered">сервери не відповіли, залишено «%1$s»</string>
+    <string name="servers_balancer_picked">вибрано «%1$s»</string>
+    <string name="servers_balancer_kept">залишено «%1$s»</string>
+    <string name="servers_ms">%1$d мс</string>
+
+    <!-- OpenFlux -->
+    <string name="servers_openflux_not_in_build">OpenFlux не входить до цієї збірки Volta</string>
+    <string name="servers_openflux_link_unreadable">Посилання OpenFlux не читається</string>
+    <string name="servers_openflux_carriers_silent">Канали OpenFlux не відповідають</string>
+    <string name="servers_openflux_start_failed">OpenFlux не запустився: %1$s</string>
+    <string name="servers_openflux_stopped_on_start">OpenFlux зупинився під час запуску</string>
+    <string name="servers_openflux_check_failed">OpenFlux: перевірку не пройдено</string>
+    <string name="servers_openflux_timeout">OpenFlux: вузол не відповів за 30 секунд</string>
+    <string name="servers_openflux_not_connected">OpenFlux не підключився</string>
+    <string name="servers_openflux_stopped">OpenFlux зупинився</string>
+    <string name="servers_openflux_link_damaged">Посилання OpenFlux пошкоджене, скопіюйте його знову</string>
+    <string name="servers_openflux_link_newer">Посилання OpenFlux новіше, ніж уміє ця версія Volta</string>
+    <string name="servers_openflux_unknown_transport">У посиланні OpenFlux транспорт, якого Volta не знає</string>
+    <string name="servers_openflux_short_key">У посиланні OpenFlux закороткий ключ</string>
+    <string name="servers_openflux_error">OpenFlux: %1$s</string>
+    <string name="servers_openflux_connect_failed">не вдалося підключитися</string>
+    <string name="servers_openflux_channel_description">Перевірки, які просить пройти OpenFlux</string>
+    <string name="servers_openflux_captcha_title">OpenFlux просить пройти перевірку</string>
+    <string name="servers_openflux_captcha_text">%1$s: натисніть, щоб відкрити</string>
+    <string name="servers_openflux_captcha_on_server">%1$s на сервері</string>
+    <string name="servers_open">Відкрити</string>
+
+    <!-- OpenFlux carriers: the services a link rides; brand names stay, generic words change -->
+    <string name="servers_carrier_yandex">Яндекс Документи</string>
+    <string name="servers_carrier_vyandex">Яндекс Волга</string>
+    <string name="servers_carrier_boards">Яндекс Дошки</string>
+    <string name="servers_carrier_avito">Авіто</string>
+    <string name="servers_carrier_telemost">Телемост</string>
+    <string name="servers_carrier_direct">напряму</string>
+
+    <!-- The OpenFlux check page -->
+    <string name="servers_captcha_not_needed">Перевірка більше не потрібна</string>
+    <string name="servers_captcha_cant_open">Цю перевірку Volta поки не відкриває</string>
+    <string name="servers_captcha_hint">Пройдіть перевірку на сторінці й натисніть «%1$s».</string>
+    <string name="servers_captcha_via_server">Сторінку відкрито через сервер OpenFlux.</string>
+    <string name="servers_captcha_cancel">Скасувати</string>
+    <string name="servers_captcha_done">Готово</string>
+    <string name="servers_captcha_not_passed">Сторінка ще не пропустила: пройдіть перевірку до кінця</string>
+
+    <!-- Counts -->
+    <plurals name="servers_count">
+        <item quantity="one">%1$d сервер</item>
+        <item quantity="few">%1$d сервери</item>
+        <item quantity="many">%1$d серверів</item>
+        <item quantity="other">%1$d сервера</item>
+    </plurals>
+    <plurals name="servers_count_in_countries">
+        <item quantity="one">%1$s, країн: %2$d</item>
+        <item quantity="few">%1$s, країн: %2$d</item>
+        <item quantity="many">%1$s, країн: %2$d</item>
+        <item quantity="other">%1$s, країн: %2$d</item>
+    </plurals>
+</resources>

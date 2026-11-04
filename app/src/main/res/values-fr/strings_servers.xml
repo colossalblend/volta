@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Servers: the server list, country cards, a server's actions, checks and the autobalancer's
+     verdicts, OpenFlux. Server names and the words Countries and ServerClassifier read in them
+     stay as providers wrote them; these are only what Volta itself shows. -->
+<resources>
+
+    <!-- The server list -->
+    <string name="servers_title">Serveurs</string>
+    <string name="servers_ping_all">Tester la réponse de tous</string>
+    <string name="servers_sort">Tri</string>
+    <string name="servers_best_in_group">Meilleur serveur du groupe</string>
+    <string name="servers_search_hint">Nom, pays ou adresse</string>
+    <string name="servers_favorites">Favoris</string>
+    <string name="servers_all_subscriptions">Tous les abonnements</string>
+    <string name="servers_hide_balancers">Masquer les répartiteurs</string>
+    <string name="servers_hide_balancers_text">Les serveurs « Auto » et « Répartiteur » ne sont pas affichés dans la liste générale</string>
+    <string name="servers_view_countries">Pays</string>
+    <string name="servers_view_list">Liste</string>
+    <string name="servers_empty_title">Aucun serveur pour l’instant</string>
+    <string name="servers_nothing_found">Aucun résultat</string>
+    <string name="servers_empty_text">Ajoutez un abonnement ou collez le lien d’un serveur.</string>
+    <string name="servers_nothing_found_text">Modifiez le filtre ou la recherche.</string>
+    <string name="servers_link_copied">Lien copié</string>
+    <string name="servers_searching">recherche</string>
+    <string name="servers_pick">choisir</string>
+    <string name="servers_pick_best">choisir le meilleur</string>
+    <string name="servers_add">Ajouter</string>
+    <string name="servers_pool_all">Tous</string>
+    <string name="servers_pool_balancers">Répartiteurs</string>
+    <string name="servers_sort_fastest">Les plus rapides d’abord</string>
+    <string name="servers_sort_name">Par nom</string>
+    <string name="servers_sort_subscription">Par abonnement</string>
+
+    <!-- Server rows, country cards, subscription cards, the network card -->
+    <string name="servers_row_actions">Actions du serveur</string>
+    <string name="servers_added_manually">Ajouté manuellement</string>
+    <string name="servers_unsupported">Cette version de Volta ne l’ouvre pas</string>
+    <string name="servers_recently_failed">N’a pas répondu récemment</string>
+    <string name="servers_selected">Sélectionné</string>
+    <string name="servers_now">Actuel</string>
+    <string name="servers_from_ms">dès %1$d ms</string>
+    <string name="servers_collapse">Réduire</string>
+    <string name="servers_expand">Développer</string>
+    <string name="servers_role_balancer">Répartiteur</string>
+    <string name="servers_sub_refresh">Actualiser l’abonnement</string>
+    <string name="servers_sub_traffic">%1$s sur %2$s</string>
+    <string name="servers_sub_unlimited">Trafic illimité</string>
+    <string name="servers_sub_link_hidden">lien masqué</string>
+    <string name="servers_sub_never_updated">pas encore actualisé</string>
+    <string name="servers_sub_updated">actualisé %1$s</string>
+    <string name="servers_network_home">Réseau Home</string>
+    <string name="servers_network_lte">Réseau LTE</string>
+    <string name="servers_network_offline">Pas d’internet</string>
+    <string name="servers_network_unchecked">Réseau non vérifié</string>
+    <string name="servers_network_recheck">Vérifier le réseau</string>
+
+    <!-- A server's actions -->
+    <string name="servers_group_named">Groupe %1$s</string>
+    <string name="servers_check_response">Tester la réponse</string>
+    <string name="servers_unfavorite">Retirer des favoris</string>
+    <string name="servers_favorite">Ajouter aux favoris</string>
+    <string name="servers_copy_link">Copier le lien</string>
+    <string name="servers_share">Partager</string>
+    <string name="servers_share_server">Partager le serveur</string>
+    <string name="servers_group">Groupe</string>
+    <string name="servers_group_manual">Choisi par vous, les mises à jour de l’abonnement ne le changent pas</string>
+    <string name="servers_group_provider">Défini par le service VPN</string>
+    <string name="servers_group_by_name">Déterminé d’après le nom</string>
+    <string name="servers_delete">Supprimer le serveur</string>
+
+    <!-- Countries named by Volta itself; the rest come from the system in the app's language -->
+    <string name="servers_country_other">Autres</string>
+    <string name="servers_country_us">États-Unis</string>
+    <string name="servers_country_gb">Royaume-Uni</string>
+    <string name="servers_country_ae">Émirats arabes unis</string>
+    <string name="servers_country_kr">Corée du Sud</string>
+    <string name="servers_country_hk">Hong Kong</string>
+    <string name="servers_country_md">Moldavie</string>
+    <string name="servers_country_cz">Tchéquie</string>
+
+    <!-- Connect modes -->
+    <string name="servers_mode_auto_home_lte">Auto Home+LTE</string>
+    <string name="servers_mode_auto_home">Auto Home</string>
+    <string name="servers_mode_auto_lte">Auto LTE</string>
+    <string name="servers_mode_manual">Mon serveur</string>
+
+    <!-- Server checks -->
+    <string name="servers_ping_no_address">Adresse vide</string>
+    <string name="servers_ping_no_answer">Le serveur n’a pas répondu</string>
+    <string name="servers_ping_node_no_answer">Le nœud n’a pas répondu</string>
+    <string name="servers_ping_prepare_failed">Impossible de préparer le serveur pour le test</string>
+    <string name="servers_ping_unreachable">Adresse injoignable</string>
+
+    <!-- The autobalancer's verdicts -->
+    <string name="servers_balancer_no_servers">Aucun serveur</string>
+    <string name="servers_balancer_none_dialable">Cette version de Volta ne peut ouvrir aucun de ces serveurs</string>
+    <string name="servers_balancer_offline">Pas d’internet. Réessayez plus tard.</string>
+    <string name="servers_balancer_group_empty">Aucun serveur dans ce groupe</string>
+    <string name="servers_balancer_connecting">Connexion à « %1$s »</string>
+    <string name="servers_balancer_in_group">%1$s : %2$s</string>
+    <string name="servers_balancer_none_suitable">aucun serveur adapté</string>
+    <string name="servers_balancer_none_answered">les serveurs n’ont pas répondu, « %1$s » est conservé</string>
+    <string name="servers_balancer_picked">« %1$s » choisi</string>
+    <string name="servers_balancer_kept">« %1$s » conservé</string>
+    <string name="servers_ms">%1$d ms</string>
+
+    <!-- OpenFlux -->
+    <string name="servers_openflux_not_in_build">OpenFlux n’est pas inclus dans cette version de Volta</string>
+    <string name="servers_openflux_link_unreadable">Le lien OpenFlux est illisible</string>
+    <string name="servers_openflux_carriers_silent">Les canaux OpenFlux ne répondent pas</string>
+    <string name="servers_openflux_start_failed">OpenFlux n’a pas démarré : %1$s</string>
+    <string name="servers_openflux_stopped_on_start">OpenFlux s’est arrêté au démarrage</string>
+    <string name="servers_openflux_check_failed">OpenFlux : vérification non réussie</string>
+    <string name="servers_openflux_timeout">OpenFlux : le nœud n’a pas répondu en 30 secondes</string>
+    <string name="servers_openflux_not_connected">OpenFlux ne s’est pas connecté</string>
+    <string name="servers_openflux_stopped">OpenFlux s’est arrêté</string>
+    <string name="servers_openflux_link_damaged">Le lien OpenFlux est endommagé, copiez-le à nouveau</string>
+    <string name="servers_openflux_link_newer">Le lien OpenFlux est plus récent que ce que cette version de Volta prend en charge</string>
+    <string name="servers_openflux_unknown_transport">Le lien OpenFlux utilise un transport que Volta ne connaît pas</string>
+    <string name="servers_openflux_short_key">La clé du lien OpenFlux est trop courte</string>
+    <string name="servers_openflux_error">OpenFlux : %1$s</string>
+    <string name="servers_openflux_connect_failed">connexion impossible</string>
+    <string name="servers_openflux_channel_description">Vérifications demandées par OpenFlux</string>
+    <string name="servers_openflux_captcha_title">OpenFlux demande une vérification</string>
+    <string name="servers_openflux_captcha_text">%1$s : touchez pour ouvrir</string>
+    <string name="servers_openflux_captcha_on_server">%1$s sur le serveur</string>
+    <string name="servers_open">Ouvrir</string>
+
+    <!-- OpenFlux carriers: the services a link rides; brand names stay, generic words change -->
+    <string name="servers_carrier_yandex">Yandex Docs</string>
+    <string name="servers_carrier_vyandex">Yandex Volga</string>
+    <string name="servers_carrier_boards">Yandex Boards</string>
+    <string name="servers_carrier_avito">Avito</string>
+    <string name="servers_carrier_telemost">Telemost</string>
+    <string name="servers_carrier_direct">direct</string>
+
+    <!-- The OpenFlux check page -->
+    <string name="servers_captcha_not_needed">La vérification n’est plus nécessaire</string>
+    <string name="servers_captcha_cant_open">Volta ne peut pas encore ouvrir cette vérification</string>
+    <string name="servers_captcha_hint">Passez la vérification sur la page puis touchez « %1$s ».</string>
+    <string name="servers_captcha_via_server">La page est ouverte via le serveur OpenFlux.</string>
+    <string name="servers_captcha_cancel">Annuler</string>
+    <string name="servers_captcha_done">Terminé</string>
+    <string name="servers_captcha_not_passed">La page ne vous laisse pas encore passer : terminez la vérification</string>
+
+    <!-- Counts -->
+    <plurals name="servers_count">
+        <item quantity="one">%1$d serveur</item>
+        <item quantity="other">%1$d serveurs</item>
+    </plurals>
+    <plurals name="servers_count_in_countries">
+        <item quantity="one">%1$s, %2$d pays</item>
+        <item quantity="other">%1$s, %2$d pays</item>
+    </plurals>
+</resources>

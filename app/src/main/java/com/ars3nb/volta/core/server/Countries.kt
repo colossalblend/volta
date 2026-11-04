@@ -1,5 +1,9 @@
 package com.ars3nb.volta.core.server
 
+import android.content.res.Resources
+import androidx.annotation.StringRes
+import com.ars3nb.volta.R
+import com.ars3nb.volta.VoltaApp
 import java.util.Locale
 
 /**
@@ -7,24 +11,66 @@ import java.util.Locale
  * (🇩🇪), else a country or city named in Russian or English ("Германия", "Frankfurt"),
  * else a two-letter code standing on its own ("DE"). Only for grouping the list; it
  * plays no part in choosing a server.
+ *
+ * The names it reads stay Russian and English, whatever language the app speaks: they
+ * are what providers write. The name it shows is in the app's language ([name]).
  */
 object Countries {
 
-    data class Country(val code: String, val name: String, val flag: String)
+    data class Country(val code: String, val flag: String) {
+        /**
+         * The country's name in the app's language. Composables take [Countries.name] with
+         * their own resources instead, so the name follows a language switch at once.
+         */
+        val name: String get() = nameInApp(code)
+    }
 
     const val UNKNOWN_CODE = "ZZ"
-    val UNKNOWN = Country(UNKNOWN_CODE, "Другие", "🌐")
+    val UNKNOWN = Country(UNKNOWN_CODE, "🌐")
 
     fun of(remark: String): Country = codeOf(remark)?.let(::byCode) ?: UNKNOWN
 
     fun byCode(code: String): Country {
         val upper = code.uppercase()
         if (upper == UNKNOWN_CODE) return UNKNOWN
-        val name = Locale("", upper).getDisplayCountry(RU)
-            .takeIf { it.isNotBlank() && !it.equals(upper, ignoreCase = true) }
-            ?: upper
-        return Country(upper, NAME_FIXES[upper] ?: name, flagOf(upper))
+        return Country(upper, flagOf(upper))
     }
+
+    /**
+     * The name to show for [code] in the language of [resources]: Volta's own short name
+     * where the official one is long ("USA", not "United States of America"), else the
+     * system's name for the country in that language.
+     */
+    fun name(resources: Resources, code: String): String {
+        val upper = code.uppercase()
+        shortNameRes(upper)?.let { return resources.getString(it) }
+        return systemName(upper, resources.configuration.locales[0] ?: Locale.getDefault())
+    }
+
+    /** [name] with the app's resources; the system's name when there is no app (unit tests). */
+    private fun nameInApp(code: String): String =
+        runCatching { name(VoltaApp.instance.resources, code) }
+            .getOrElse { systemName(code.uppercase(), Locale.getDefault()) }
+
+    /** Volta's own name for the countries whose official names are long, and for "no country". */
+    @StringRes
+    fun shortNameRes(code: String): Int? = when (code.uppercase()) {
+        UNKNOWN_CODE -> R.string.servers_country_other
+        "US" -> R.string.servers_country_us
+        "GB" -> R.string.servers_country_gb
+        "AE" -> R.string.servers_country_ae
+        "KR" -> R.string.servers_country_kr
+        "HK" -> R.string.servers_country_hk
+        "MD" -> R.string.servers_country_md
+        "CZ" -> R.string.servers_country_cz
+        else -> null
+    }
+
+    /** The system's name for [code] in [locale]; the code itself when it has none. */
+    internal fun systemName(code: String, locale: Locale): String =
+        Locale("", code).getDisplayCountry(locale)
+            .takeIf { it.isNotBlank() && !it.equals(code, ignoreCase = true) }
+            ?: code
 
     /** 🇩🇪 for "DE": two regional-indicator symbols. */
     fun flagOf(code: String): String =
@@ -89,8 +135,11 @@ object Countries {
         "UZ", "KG", "AZ", "CY", "GR", "LU", "BE", "SK", "SI", "HR", "IS", "AR", "MX", "TW"
     )
 
-    /** Shorter names than the official ones Locale gives. */
-    private val NAME_FIXES = mapOf(
+    /**
+     * The short Russian names providers write instead of the official ones. Only read
+     * from server names, never shown: the names shown come from [shortNameRes].
+     */
+    private val RU_SHORT_NAMES = mapOf(
         "US" to "США",
         "GB" to "Великобритания",
         "AE" to "ОАЭ",
@@ -146,7 +195,7 @@ object Countries {
         }.filter { (name, code) ->
             name.isNotBlank() && name != code.lowercase() && name !in AMBIGUOUS
         } +
-            NAME_FIXES.map { (code, name) -> name.lowercase() to code } +
+            RU_SHORT_NAMES.map { (code, name) -> name.lowercase() to code } +
             ALIASES.toList()
     }
 

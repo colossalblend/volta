@@ -57,10 +57,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ars3nb.volta.R
 import com.ars3nb.volta.data.model.NetworkRegime
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.ServerRole
@@ -113,7 +118,7 @@ fun ServerRow(
             .clip(shape)
             .combinedClickable(
                 onClick = onClick,
-                onLongClickLabel = "Действия сервера",
+                onLongClickLabel = stringResource(R.string.servers_row_actions),
                 onLongClick = onLongClick
             )
     ) {
@@ -166,7 +171,7 @@ fun ServerRow(
                 }
                 // Where it came from, in words; the connection details stay out of sight.
                 Text(
-                    subscriptionName.ifBlank { "Добавлен вручную" },
+                    subscriptionName.ifBlank { stringResource(R.string.servers_added_manually) },
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
                     maxLines = 1,
@@ -174,13 +179,13 @@ fun ServerRow(
                 )
                 if (!supported) {
                     Text(
-                        "Эта версия Volta его не открывает",
+                        stringResource(R.string.servers_unsupported),
                         style = MaterialTheme.typography.labelSmall,
                         color = palette.poor
                     )
                 } else if (server.failStreak > 0) {
                     Text(
-                        "Недавно не отвечал",
+                        stringResource(R.string.servers_recently_failed),
                         style = MaterialTheme.typography.labelSmall,
                         color = palette.fair
                     )
@@ -204,7 +209,7 @@ fun ServerRow(
                 if (selected) {
                     Icon(
                         Icons.Rounded.CheckCircle,
-                        contentDescription = "Выбран",
+                        contentDescription = stringResource(R.string.servers_selected),
                         tint = scheme.primary,
                         modifier = Modifier.size(16.dp)
                     )
@@ -229,6 +234,8 @@ fun ServerRow(
 @Composable
 fun CountryCard(
     country: Countries.Country,
+    /** The country's name in the app's language (see [countryName]). */
+    name: String,
     count: Int,
     bestMs: Long,
     expanded: Boolean,
@@ -273,7 +280,7 @@ fun CountryCard(
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            country.name,
+                            name,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
@@ -282,7 +289,7 @@ fun CountryCard(
                         )
                         if (current) {
                             Spacer(Modifier.width(8.dp))
-                            StatusPill("Сейчас", scheme.primary)
+                            StatusPill(stringResource(R.string.servers_now), scheme.primary)
                         }
                     }
                     Text(
@@ -295,7 +302,7 @@ fun CountryCard(
                     Column(horizontalAlignment = Alignment.End) {
                         SignalBars(bestMs)
                         Text(
-                            "от $bestMs мс",
+                            stringResource(R.string.servers_from_ms, bestMs),
                             style = MaterialTheme.typography.labelSmall,
                             color = palette.latency(bestMs)
                         )
@@ -304,7 +311,9 @@ fun CountryCard(
                 }
                 Icon(
                     Icons.Rounded.ExpandMore,
-                    contentDescription = if (expanded) "Свернуть" else "Развернуть",
+                    contentDescription = stringResource(
+                        if (expanded) R.string.servers_collapse else R.string.servers_expand
+                    ),
                     tint = scheme.onSurfaceVariant,
                     modifier = Modifier.rotate(turn)
                 )
@@ -322,17 +331,25 @@ fun CountryCard(
     }
 }
 
-/** "1 сервер", "3 сервера", "12 серверов". */
-fun serversCount(n: Int): String {
-    val mod100 = n % 100
-    val mod10 = n % 10
-    val word = when {
-        mod100 in 11..14 -> "серверов"
-        mod10 == 1 -> "сервер"
-        mod10 in 2..4 -> "сервера"
-        else -> "серверов"
-    }
-    return "$n $word"
+/** "1 server", "3 servers", in the app's language. */
+@Composable
+fun serversCount(n: Int): String = pluralStringResource(R.plurals.servers_count, n, n)
+
+/**
+ * A country's name in the app's language: Volta's short name for the few with long
+ * official ones, the system's name for the rest.
+ */
+@Composable
+fun countryName(country: Countries.Country): String {
+    LocalConfiguration.current
+    return Countries.name(LocalContext.current.resources, country.code)
+}
+
+/** An OpenFlux carrier as people know it ("Yandex Docs", "direct"), in the app's language. */
+@Composable
+fun carrierName(type: String): String {
+    LocalConfiguration.current
+    return OpenFluxLink.carrierName(LocalContext.current, type)
 }
 
 /** Short protocol name for a badge. */
@@ -354,12 +371,15 @@ fun protocolBadge(server: ServerEntity): String = when (server.protocol) {
 
 /**
  * "VLESS · Reality · XHTTP": what a row inside a country card says under the name.
- * An OpenFlux server names its carriers: "OpenFlux · Яндекс Документы + напрямую".
+ * An OpenFlux server names its carriers: "OpenFlux · Yandex Docs + direct".
  */
+@Composable
 fun transportLabel(server: ServerEntity): String {
     if (server.protocol == ProtocolType.OPENFLUX) {
+        val context = LocalContext.current
+        LocalConfiguration.current
         val carriers = server.network.split('+').filter { it.isNotBlank() }
-            .joinToString(" + ") { OpenFluxLink.carrierName(it) }
+            .joinToString(" + ") { OpenFluxLink.carrierName(context, it) }
         return listOf(server.protocol.label, carriers).filter { it.isNotBlank() }.joinToString(" · ")
     }
     if (server.protocol == ProtocolType.AMNEZIAWG) {
@@ -384,17 +404,19 @@ fun transportLabel(server: ServerEntity): String {
         .joinToString(" · ")
 }
 
+@Composable
 fun roleLabel(role: ServerRole): String = when (role) {
     ServerRole.NORMAL -> "Home"
     ServerRole.BYPASS_WHITELIST -> "LTE"
-    ServerRole.AUTO -> "Балансер"
+    ServerRole.AUTO -> stringResource(R.string.servers_role_balancer)
 }
 
 /** Group badge text and whether it is Home (true), LTE (false) or a balancer (null). */
+@Composable
 fun groupLabel(role: ServerRole): Pair<String, Boolean?> = when (role) {
     ServerRole.NORMAL -> "Home" to true
     ServerRole.BYPASS_WHITELIST -> "LTE" to false
-    ServerRole.AUTO -> "Балансер" to null
+    ServerRole.AUTO -> stringResource(R.string.servers_role_balancer) to null
 }
 
 /** The server's country flag (from its name), or a globe when it names none. */
@@ -441,7 +463,7 @@ fun SubscriptionCard(
                 )
             }
             IconButton(onClick = onRefresh, modifier = Modifier.size(40.dp)) {
-                Icon(Icons.Rounded.Refresh, "Обновить подписку", Modifier.size(20.dp))
+                Icon(Icons.Rounded.Refresh, stringResource(R.string.servers_sub_refresh), Modifier.size(20.dp))
             }
         }
 
@@ -455,9 +477,13 @@ fun SubscriptionCard(
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
                     if (sub.trafficTotal > 0) {
-                        "${formatBytes(sub.trafficUsed)} из ${formatBytes(sub.trafficTotal)}"
+                        stringResource(
+                            R.string.servers_sub_traffic,
+                            formatBytes(sub.trafficUsed),
+                            formatBytes(sub.trafficTotal)
+                        )
                     } else {
-                        "Без лимита трафика"
+                        stringResource(R.string.servers_sub_unlimited)
                     },
                     style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.weight(1f)
@@ -485,7 +511,11 @@ fun SubscriptionCard(
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (sub.urlHidden) {
-                    StatusPill("ссылка скрыта", scheme.onSurfaceVariant, icon = Icons.Rounded.Lock)
+                    StatusPill(
+                        stringResource(R.string.servers_sub_link_hidden),
+                        scheme.onSurfaceVariant,
+                        icon = Icons.Rounded.Lock
+                    )
                 }
                 if (routingName.isNotBlank()) {
                     StatusPill(
@@ -562,7 +592,7 @@ private fun GroupSplit(home: Int, lte: Int, auto: Int) {
     val parts = listOf(
         Triple(home, palette.home, "Home"),
         Triple(lte, palette.lte, "LTE"),
-        Triple(auto, neutral, "Балансеры")
+        Triple(auto, neutral, stringResource(R.string.servers_pool_balancers))
     ).filter { it.first > 0 }
     Row(
         Modifier.fillMaxWidth().height(6.dp),
@@ -599,11 +629,16 @@ private fun GroupSplit(home: Int, lte: Int, auto: Int) {
     }
 }
 
+/** When a subscription was last refreshed: "updated 5 minutes ago". */
+@Composable
 fun updatedLabel(at: Long): String =
-    if (at <= 0) "ещё не обновлялась"
-    else "обновлена " + android.text.format.DateUtils.getRelativeTimeSpanString(
-        at, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS
-    ).toString().replaceFirstChar { it.lowercase() }
+    if (at <= 0) stringResource(R.string.servers_sub_never_updated)
+    else stringResource(
+        R.string.servers_sub_updated,
+        android.text.format.DateUtils.getRelativeTimeSpanString(
+            at, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS
+        ).toString().replaceFirstChar { it.lowercase() }
+    )
 
 /**
  * What the six probe hosts said: Home hosts on the left, LTE hosts on the right, one
@@ -618,10 +653,11 @@ fun NetworkStatusCard(
 ) {
     val palette = VoltaTheme.palette
     val (label, color) = when (regime) {
-        NetworkRegime.OPEN -> "Сеть Home" to palette.home
-        NetworkRegime.WHITELIST_ONLY -> "Сеть LTE" to palette.lte
-        NetworkRegime.BLOCKED -> "Нет интернета" to palette.poor
-        NetworkRegime.UNKNOWN -> "Сеть не проверена" to MaterialTheme.colorScheme.onSurfaceVariant
+        NetworkRegime.OPEN -> stringResource(R.string.servers_network_home) to palette.home
+        NetworkRegime.WHITELIST_ONLY -> stringResource(R.string.servers_network_lte) to palette.lte
+        NetworkRegime.BLOCKED -> stringResource(R.string.servers_network_offline) to palette.poor
+        NetworkRegime.UNKNOWN ->
+            stringResource(R.string.servers_network_unchecked) to MaterialTheme.colorScheme.onSurfaceVariant
     }
     val icon = when (regime) {
         NetworkRegime.OPEN -> Icons.Rounded.Public
@@ -639,7 +675,7 @@ fun NetworkStatusCard(
                 modifier = Modifier.weight(1f)
             )
             IconButton(onClick = onRecheck, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Rounded.Refresh, "Проверить сеть", Modifier.size(17.dp))
+                Icon(Icons.Rounded.Refresh, stringResource(R.string.servers_network_recheck), Modifier.size(17.dp))
             }
         }
     }

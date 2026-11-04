@@ -1,5 +1,7 @@
 package com.ars3nb.volta.core.balancer
 
+import androidx.annotation.StringRes
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.ping.NetworkProbe
 import com.ars3nb.volta.core.ping.PingEngine
 import com.ars3nb.volta.core.vpn.ConfigBuilder
@@ -259,8 +261,10 @@ class AutoBalancer(
                 scope,
                 NetworkRegime.UNKNOWN,
                 current,
-                if (servers.isEmpty()) "Нет серверов"
-                else "Эта версия Volta не умеет открывать ни один из этих серверов"
+                text(
+                    if (servers.isEmpty()) R.string.servers_balancer_no_servers
+                    else R.string.servers_balancer_none_dialable
+                )
             )
         }
 
@@ -285,7 +289,7 @@ class AutoBalancer(
                     switched = false,
                     ranked = emptyList(),
                     probes = probes,
-                    reason = "Нет интернета. Попробуйте позже.",
+                    reason = text(R.string.servers_balancer_offline),
                     retryLater = true
                 )
             }
@@ -296,7 +300,7 @@ class AutoBalancer(
         if (pool.isEmpty()) {
             // Not the current node: it belongs to another group (or is a provider
             // balancer), and connecting there would ignore the group the user chose.
-            return empty(scope, regime, null, "В этой группе нет серверов")
+            return empty(scope, regime, null, text(R.string.servers_balancer_group_empty))
         }
 
         // The node to beat: the one in use if it belongs here, otherwise the one that
@@ -332,7 +336,7 @@ class AutoBalancer(
                     switched = pick.id != current?.id,
                     ranked = emptyList(),
                     probes = probes,
-                    reason = "Подключаемся к «${pick.remark}»",
+                    reason = text(R.string.servers_balancer_connecting, pick.remark),
                     quick = true
                 )
             }
@@ -440,18 +444,23 @@ class AutoBalancer(
     ): String {
         val alive = ranked.count { it.ok }
         val ms = ranked.firstOrNull { it.server.id == selected?.id }?.takeIf { it.ok }?.latencyMs
-        val speed = ms?.let { " · $it мс" }.orEmpty()
+        val speed = ms?.let { " · " + text(R.string.servers_ms, it) }.orEmpty()
         val group = when (groupOf(scope, regime)) {
-            BalancerScope.NORMAL -> "Home: "
-            BalancerScope.BYPASS -> "LTE: "
-            else -> ""
+            BalancerScope.NORMAL -> "Home"
+            BalancerScope.BYPASS -> "LTE"
+            else -> null
         }
-        return when {
-            selected == null -> "${group}подходящих серверов нет"
-            alive == 0 -> "${group}серверы не ответили, оставлен «${selected.remark}»"
-            switched -> "${group}выбран «${selected.remark}»$speed"
-            previous != null && previous.id == selected.id -> "${group}оставлен «${selected.remark}»$speed"
-            else -> "${group}выбран «${selected.remark}»$speed"
+        val said = when {
+            selected == null -> text(R.string.servers_balancer_none_suitable)
+            alive == 0 -> text(R.string.servers_balancer_none_answered, selected.remark)
+            switched -> text(R.string.servers_balancer_picked, selected.remark) + speed
+            previous != null && previous.id == selected.id ->
+                text(R.string.servers_balancer_kept, selected.remark) + speed
+            else -> text(R.string.servers_balancer_picked, selected.remark) + speed
         }
+        return if (group == null) said else text(R.string.servers_balancer_in_group, group, said)
     }
+
+    /** What the user is told, in the app's language. */
+    private fun text(@StringRes id: Int, vararg args: Any): String = pingEngine.context.getString(id, *args)
 }

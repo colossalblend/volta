@@ -1,6 +1,7 @@
 package com.ars3nb.volta.core.ping
 
 import android.content.Context
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.helper.ProxyHelper
 import com.ars3nb.volta.core.openflux.OpenFluxLink
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
@@ -43,7 +44,8 @@ import okhttp3.Request
  * the old approach it never touches the running tunnel, so it works while connected.
  */
 class PingEngine(
-    private val context: Context,
+    /** Also where the words of its results (and of the autobalancer's) come from. */
+    val context: Context,
     private val batterySaver: Boolean = true
 ) {
     companion object {
@@ -144,7 +146,9 @@ class PingEngine(
      */
     private suspend fun httpGetPing(server: ServerEntity): PingResult = withContext(Dispatchers.IO) {
         if (server.address.isBlank()) {
-            return@withContext PingResult(server.remark, PingType.HTTP_GET, -1, false, "Пустой адрес")
+            return@withContext PingResult(
+                server.remark, PingType.HTTP_GET, -1, false, context.getString(R.string.servers_ping_no_address)
+            )
         }
         val authority = if (server.address.contains(':') && !server.address.startsWith("[")) {
             "[${server.address}]:${server.port}"
@@ -163,12 +167,14 @@ class PingEngine(
                 )
             }
         }
-        PingResult(server.remark, PingType.HTTP_GET, -1, false, "Сервер не ответил")
+        PingResult(server.remark, PingType.HTTP_GET, -1, false, context.getString(R.string.servers_ping_no_answer))
     }
 
     suspend fun tcpPing(host: String, port: Int): PingResult = withContext(Dispatchers.IO) {
         if (host.isBlank()) {
-            return@withContext PingResult(host, PingType.TCP, -1, false, "Пустой адрес")
+            return@withContext PingResult(
+                host, PingType.TCP, -1, false, context.getString(R.string.servers_ping_no_address)
+            )
         }
         val start = System.nanoTime()
         val socket = Socket()
@@ -254,7 +260,7 @@ class PingEngine(
                 type = type,
                 latencyMs = ms,
                 success = ms > 0,
-                message = if (ms > 0) "" else "Узел не ответил"
+                message = if (ms > 0) "" else context.getString(R.string.servers_ping_node_no_answer)
             )
         }
         if (!XrayCore.isCoreAvailable) {
@@ -262,7 +268,9 @@ class PingEngine(
             return@withContext tcpPing(server.address, server.port).copy(type = type)
         }
         val config = runCatching { ConfigBuilder.buildProbe(server) }.getOrNull()
-            ?: return@withContext PingResult(server.remark, type, -1, false, "Сервер не удалось подготовить к проверке")
+            ?: return@withContext PingResult(
+                server.remark, type, -1, false, context.getString(R.string.servers_ping_prepare_failed)
+            )
         // The native call blocks and ignores cancellation, so it runs detached: the
         // timeout then really ends the wait instead of sitting out the core's own
         // 10+ s deadline on a dead node.
@@ -280,7 +288,7 @@ class PingEngine(
             type = type,
             latencyMs = ms,
             success = ms > 0,
-            message = if (ms > 0) "" else "Узел не ответил"
+            message = if (ms > 0) "" else context.getString(R.string.servers_ping_node_no_answer)
         )
     }
 
@@ -299,7 +307,9 @@ class PingEngine(
     private suspend fun openFluxDelay(server: ServerEntity, timeoutMs: Long): PingResult {
         val type = PingType.REAL_DELAY
         if (!OpenFluxRunner.available) {
-            return PingResult(server.remark, type, -1, false, "OpenFlux не входит в эту сборку Volta")
+            return PingResult(
+                server.remark, type, -1, false, context.getString(R.string.servers_openflux_not_in_build)
+            )
         }
         if (OpenFluxRunner.runs(server.rawLink)) {
             // The node in use, known to work: as patient as the background check, so a
@@ -307,25 +317,34 @@ class PingEngine(
             val patience = maxOf(timeoutMs, GUARD_TIMEOUT_MS)
             val measuring = detached.async { throughOpenFlux(patience) }
             val ms = withTimeoutOrNull(patience) { measuring.await() } ?: -1L
-            return PingResult(server.remark, type, ms, ms > 0, if (ms > 0) "" else "Узел не ответил")
+            return PingResult(
+                server.remark, type, ms, ms > 0,
+                if (ms > 0) "" else context.getString(R.string.servers_ping_node_no_answer)
+            )
         }
         val endpoints = OpenFluxLink.parse(server.rawLink)?.endpoints.orEmpty()
         if (endpoints.isEmpty()) {
-            return PingResult(server.remark, type, -1, false, "Ссылка OpenFlux не читается")
+            return PingResult(
+                server.remark, type, -1, false, context.getString(R.string.servers_openflux_link_unreadable)
+            )
         }
         val knocks = coroutineScope {
             endpoints.map { e -> async { e to tcpPing(e.host, e.port) } }.awaitAll()
         }
         // Best first already: the core sends traffic over the best carrier that works.
         val (carrier, knock) = knocks.firstOrNull { it.second.success }
-            ?: return PingResult(server.remark, type, -1, false, "Каналы OpenFlux не отвечают", estimate = true)
+            ?: return PingResult(
+                server.remark, type, -1, false,
+                context.getString(R.string.servers_openflux_carriers_silent),
+                estimate = true
+            )
         val figure = maxOf(knock.latencyMs.coerceAtLeast(1) * OPENFLUX_ROUND_TRIPS, server.ewmaMs)
         return PingResult(
             target = server.remark,
             type = type,
             latencyMs = figure,
             success = true,
-            message = OpenFluxLink.carrierName(carrier.type),
+            message = OpenFluxLink.carrierName(context, carrier.type),
             estimate = true
         )
     }
@@ -506,7 +525,7 @@ class PingEngine(
                     type = type,
                     latencyMs = -1,
                     success = false,
-                    message = "Адрес недоступен"
+                    message = context.getString(R.string.servers_ping_unreachable)
                 )
             }
             unreachable.forEach { (id, result) -> onResult?.invoke(id, result) }

@@ -1,5 +1,8 @@
 package com.ars3nb.volta.core.openflux
 
+import android.content.Context
+import androidx.annotation.StringRes
+import com.ars3nb.volta.R
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import java.io.ByteArrayOutputStream
@@ -37,10 +40,15 @@ data class OpenFluxLink(
     /** A place a carrier connects to: the exit itself for direct, the service otherwise. */
     data class Endpoint(val type: String, val host: String, val port: Int, val priority: Int)
 
-    /** The carriers as people know them, best first: «Яндекс Документы + напрямую». */
+    /**
+     * The carriers as people know them, best first: «Яндекс Документы + напрямую». It
+     * becomes the stored name of a link that has none (see ConfigParser), so it stays in
+     * the Russian the names were always stored in; the screens name carriers with
+     * [carrierName] in the app's language.
+     */
     val carriersLabel: String
         get() = transports.sortedByDescending { it.priority }
-            .map { carrierName(it.type) }
+            .map { storedCarrierName(it.type) }
             .distinct()
             .joinToString(" + ")
 
@@ -248,7 +256,34 @@ data class OpenFluxLink(
             }
         }
 
-        fun carrierName(type: String): String = when (type) {
+        /** A carrier as people know it ("Yandex Docs", "direct"), in the language of [context]. */
+        fun carrierName(context: Context, type: String): String =
+            carrierNameRes(type)?.let { context.getString(it) } ?: carrierBrand(type)
+
+        /** The words for a carrier whose name has a translation; null for brand names. */
+        @StringRes
+        fun carrierNameRes(type: String): Int? = when (type) {
+            "yandex" -> R.string.servers_carrier_yandex
+            "vyandex" -> R.string.servers_carrier_vyandex
+            "boards" -> R.string.servers_carrier_boards
+            "avito" -> R.string.servers_carrier_avito
+            "telemost" -> R.string.servers_carrier_telemost
+            "direct" -> R.string.servers_carrier_direct
+            else -> null
+        }
+
+        /** Names that are the same in every language. */
+        private fun carrierBrand(type: String): String = when (type) {
+            "mailru" -> "Mail.ru"
+            "cupsonline" -> "Cups"
+            else -> type
+        }
+
+        /**
+         * The Russian names a nameless link's stored name is made of ([carriersLabel]).
+         * Stored, never shown as such: not translated.
+         */
+        private fun storedCarrierName(type: String): String = when (type) {
             "yandex" -> "Яндекс Документы"
             "vyandex" -> "Яндекс Волга"
             "boards" -> "Яндекс Доски"

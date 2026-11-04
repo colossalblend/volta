@@ -10,7 +10,14 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Surface
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import com.ars3nb.volta.R
 import com.ars3nb.volta.core.balancer.GuardPolicy
+import java.text.Collator
+import java.util.Locale
 import com.ars3nb.volta.ui.components.SlidingChoice
 import com.ars3nb.volta.ui.components.SwitchRow
 import com.ars3nb.volta.ui.components.VoltaChip
@@ -26,6 +33,7 @@ import androidx.compose.material3.DropdownMenuItem
 import com.ars3nb.volta.core.server.Countries
 import com.ars3nb.volta.ui.components.barColors
 import com.ars3nb.volta.ui.components.CountryCard
+import com.ars3nb.volta.ui.components.countryName
 import com.ars3nb.volta.ui.components.serversCount
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -110,9 +118,16 @@ fun ServersScreen(
     val countryOf = remember(state.servers) {
         state.servers.associate { it.id to Countries.of(it.remark) }
     }
+    // Shown, searched and sorted in the app's language.
+    val resources = LocalContext.current.resources
+    val locale: Locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
+    val countryNames = remember(countryOf, resources, locale) {
+        countryOf.values.map { it.code }.distinct().associateWith { Countries.name(resources, it) }
+    }
 
     val visible = remember(
-        state.servers, pool, query, sort, favoritesOnly, supported, subscriptionFilter, hideBalancers
+        state.servers, pool, query, sort, favoritesOnly, supported, subscriptionFilter, hideBalancers,
+        countryNames
     ) {
         state.servers
             .filter { pool.matches(it.role) }
@@ -125,7 +140,7 @@ fun ServersScreen(
                     it,
                     query,
                     subsById[it.subscriptionId]?.name.orEmpty(),
-                    countryOf[it.id]?.name.orEmpty()
+                    countryOf[it.id]?.let { c -> countryNames[c.code] }.orEmpty()
                 )
             }
             .sortedWith(
@@ -142,13 +157,14 @@ fun ServersScreen(
     }
 
     // All subscriptions together, one card per country, alphabetical; unnamed last.
-    val countries = remember(visible) {
+    val countries = remember(visible, countryNames, locale) {
+        val collator = Collator.getInstance(locale)
         visible.groupBy { countryOf[it.id] ?: Countries.UNKNOWN }
             .toList()
             .sortedWith(
                 compareBy<Pair<Countries.Country, List<ServerEntity>>> {
                     it.first.code == Countries.UNKNOWN_CODE
-                }.thenBy { it.first.name }
+                }.thenBy(collator) { countryNames[it.first.code] ?: it.first.code }
             )
     }
     val currentCountry = state.selectedServer?.let { countryOf[it.id]?.code }
@@ -158,7 +174,7 @@ fun ServersScreen(
         topBar = {
             TopAppBar(
                 colors = barColors(),
-                title = { Text("Серверы", fontWeight = FontWeight.SemiBold) },
+                title = { Text(stringResource(R.string.servers_title), fontWeight = FontWeight.SemiBold) },
                 actions = {
                     IconButton(
                         onClick = { vm.pingAll(pool = pool) },
@@ -167,12 +183,12 @@ fun ServersScreen(
                         if (state.busy && runningScope == null) {
                             CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                         } else {
-                            Icon(Icons.Rounded.Speed, "Проверить отклик всех")
+                            Icon(Icons.Rounded.Speed, stringResource(R.string.servers_ping_all))
                         }
                     }
                     Box {
                         IconButton(onClick = { sortMenu = true }) {
-                            Icon(Icons.Rounded.SwapVert, "Сортировка")
+                            Icon(Icons.Rounded.SwapVert, stringResource(R.string.servers_sort))
                         }
                         DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
                             ServerSort.entries.forEach { option ->
@@ -198,7 +214,7 @@ fun ServersScreen(
             contentPadding = PaddingValues(16.dp, 0.dp, 16.dp, 24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            item { SectionHeader("Лучший сервер в группе") }
+            item { SectionHeader(stringResource(R.string.servers_best_in_group)) }
             item {
                 BestPickPads(
                     running = runningScope,
@@ -212,7 +228,7 @@ fun ServersScreen(
                 VoltaSearchField(
                     value = query,
                     onValueChange = vm::setQuery,
-                    placeholder = "Название, страна или адрес"
+                    placeholder = stringResource(R.string.servers_search_hint)
                 )
             }
 
@@ -233,7 +249,7 @@ fun ServersScreen(
                         )
                     }
                     VoltaChip(
-                        text = "Избранные",
+                        text = stringResource(R.string.servers_favorites),
                         selected = favoritesOnly,
                         onClick = { favoritesOnly = !favoritesOnly },
                         icon = Icons.Rounded.Star
@@ -249,7 +265,7 @@ fun ServersScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         VoltaChip(
-                            text = "Все подписки",
+                            text = stringResource(R.string.servers_all_subscriptions),
                             selected = subscriptionFilter == null,
                             onClick = { subscriptionFilter = null }
                         )
@@ -273,8 +289,8 @@ fun ServersScreen(
                         SwitchRow(
                             icon = Icons.Rounded.VisibilityOff,
                             tint = MaterialTheme.colorScheme.primary,
-                            title = "Скрывать балансеры",
-                            subtitle = "Серверы «Авто» и «Балансер» не показываются в общем списке",
+                            title = stringResource(R.string.servers_hide_balancers),
+                            subtitle = stringResource(R.string.servers_hide_balancers_text),
                             checked = hideBalancers,
                             onChecked = vm::setHideBalancers
                         )
@@ -288,17 +304,27 @@ fun ServersScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        if (byCountry) "${serversCount(visible.size)}, стран: ${countries.size}"
-                        else serversCount(visible.size),
+                        if (byCountry) {
+                            pluralStringResource(
+                                R.plurals.servers_count_in_countries,
+                                countries.size,
+                                serversCount(visible.size),
+                                countries.size
+                            )
+                        } else {
+                            serversCount(visible.size)
+                        },
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.weight(1f)
                     )
+                    val byCountryLabel = stringResource(R.string.servers_view_countries)
+                    val listLabel = stringResource(R.string.servers_view_list)
                     SlidingChoice(
                         options = listOf(true, false),
                         selected = byCountry,
                         onSelect = { byCountry = it },
-                        label = { if (it) "Страны" else "Список" },
+                        label = { if (it) byCountryLabel else listLabel },
                         height = 36.dp,
                         modifier = Modifier.width(170.dp)
                     )
@@ -309,13 +335,14 @@ fun ServersScreen(
                 item {
                     EmptyState(
                         icon = Icons.Rounded.Storage,
-                        title = if (state.servers.isEmpty()) "Серверов пока нет"
-                        else "Ничего не нашлось",
-                        subtitle = if (state.servers.isEmpty()) {
-                            "Добавьте подписку или вставьте ссылку на сервер."
-                        } else {
-                            "Измените фильтр или поисковый запрос."
-                        },
+                        title = stringResource(
+                            if (state.servers.isEmpty()) R.string.servers_empty_title
+                            else R.string.servers_nothing_found
+                        ),
+                        subtitle = stringResource(
+                            if (state.servers.isEmpty()) R.string.servers_empty_text
+                            else R.string.servers_nothing_found_text
+                        ),
                         action = emptyStateAction(state.servers.isEmpty(), onOpenImport)
                     )
                 }
@@ -327,6 +354,7 @@ fun ServersScreen(
                     val expanded = query.isNotBlank() || country.code in open
                     CountryCard(
                         country = country,
+                        name = countryNames[country.code] ?: countryName(country),
                         count = servers.size,
                         bestMs = servers.map(::measuredMs).filter { it >= 0 }.minOrNull() ?: -1,
                         expanded = expanded,
@@ -367,6 +395,7 @@ fun ServersScreen(
     }
 
     sheetServer?.let { server ->
+        val copied = stringResource(R.string.servers_link_copied)
         ServerActionsSheet(
             server = server,
             onDismiss = { sheetServer = null },
@@ -376,7 +405,7 @@ fun ServersScreen(
             onDelete = if (server.subscriptionId == null) {
                 { vm.deleteServer(server.id) }
             } else null,
-            onCopied = { vm.showMessage("Ссылка скопирована") }
+            onCopied = { vm.showMessage(copied) }
         )
     }
 }
@@ -434,11 +463,15 @@ private fun BestPickPads(
                                 color = tint
                             )
                             Spacer(Modifier.width(6.dp))
-                            Text("ищу", style = MaterialTheme.typography.labelMedium, color = tint)
+                            Text(
+                                stringResource(R.string.servers_searching),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = tint
+                            )
                         }
                     } else {
                         Text(
-                            if (hasLte) "подобрать" else "подобрать лучший",
+                            stringResource(if (hasLte) R.string.servers_pick else R.string.servers_pick_best),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1
@@ -469,7 +502,11 @@ private fun emptyStateAction(
     show: Boolean,
     onOpenImport: () -> Unit
 ): (@Composable () -> Unit)? = if (!show) null else {
-    { FilledTonalButton(onClick = onOpenImport, modifier = Modifier.padding(top = 8.dp)) { Text("Добавить") } }
+    {
+        FilledTonalButton(onClick = onOpenImport, modifier = Modifier.padding(top = 8.dp)) {
+            Text(stringResource(R.string.servers_add))
+        }
+    }
 }
 
 /** The last measurement, falling back to the smoothed one; -1 when never measured. */
@@ -492,15 +529,17 @@ private fun matchesQuery(
         server.tags.lowercase().contains(q)
 }
 
+@Composable
 private fun poolLabel(pool: ServerPool): String = when (pool) {
-    ServerPool.ALL -> "Все"
+    ServerPool.ALL -> stringResource(R.string.servers_pool_all)
     ServerPool.NORMAL -> "Home"
     ServerPool.BYPASS_WHITELIST -> "LTE"
-    ServerPool.AUTO -> "Балансеры"
+    ServerPool.AUTO -> stringResource(R.string.servers_pool_balancers)
 }
 
+@Composable
 private fun sortLabel(sort: ServerSort): String = when (sort) {
-    ServerSort.BEST -> "Сначала быстрые"
-    ServerSort.NAME -> "По названию"
-    ServerSort.SUBSCRIPTION -> "По подписке"
+    ServerSort.BEST -> stringResource(R.string.servers_sort_fastest)
+    ServerSort.NAME -> stringResource(R.string.servers_sort_name)
+    ServerSort.SUBSCRIPTION -> stringResource(R.string.servers_sort_subscription)
 }
