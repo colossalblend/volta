@@ -80,6 +80,24 @@ class StoredNamesTest {
     }
 
     @Test
+    fun theSetOfASubscriptionWithTheDefaultNameIsShownInEnglish() {
+        val set = RoutingProfileEntity(
+            name = "Подписка · правила",
+            description = "Из подписки «Подписка»",
+            sourceSubscriptionId = 1
+        )
+        assertEquals("Subscription · rules", RoutingNames.profileName(set, context))
+        assertEquals("From the subscription “Subscription”", RoutingNames.profileDescription(set, context))
+        // A copy of it.
+        val copy = RoutingProfileEntity(
+            name = "Подписка · правила · копия",
+            description = "Свои правила на основе «Подписка · правила»"
+        )
+        assertEquals("Subscription · rules · copy", RoutingNames.profileName(copy, context))
+        assertEquals("Your own rules based on “Subscription · rules”", RoutingNames.profileDescription(copy, context))
+    }
+
+    @Test
     fun aNamelessOpenFluxLinkIsShownInEnglish() {
         assertEquals(
             "OpenFlux · Yandex Docs + direct",
@@ -97,6 +115,10 @@ class StoredNamesTest {
         val set = RoutingProfileEntity(name = "Мой VPN · правила", sourceSubscriptionId = 1)
         assertEquals("Мой VPN · Regeln", RoutingNames.profileName(set, context))
         assertEquals("Abo", subscriptionName(context, "Подписка"))
+        assertEquals(
+            "Abo · Regeln",
+            RoutingNames.profileName(RoutingProfileEntity(name = "Подписка · правила", sourceSubscriptionId = 1), context)
+        )
         assertEquals("Russische Websites direkt", RoutingNames.profileName(RoutingEngine.builtInProfiles()[1], context))
     }
 

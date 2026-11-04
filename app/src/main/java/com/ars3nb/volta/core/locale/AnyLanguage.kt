@@ -33,6 +33,10 @@ object AnyLanguage {
     fun isAny(context: Context, @StringRes id: Int, text: String): Boolean =
         text.isNotEmpty() && text in all(context, id)
 
+    /** [id] in the language of [context] when [text] is [id] in one of the languages; else [text]. */
+    fun translated(context: Context, @StringRes id: Int, text: String): String =
+        if (isAny(context, id, text)) context.getString(id) else text
+
     /**
      * What stands for %1$s in [text] when [text] is the one-argument string [id] in one of
      * the languages ("My VPN" in "My VPN · правила"); null when it is none of them.

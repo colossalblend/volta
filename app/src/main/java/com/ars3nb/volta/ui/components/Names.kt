@@ -6,7 +6,6 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import com.ars3nb.volta.R
-import com.ars3nb.volta.core.locale.AnyLanguage
 import com.ars3nb.volta.core.openflux.OpenFluxLink
 import com.ars3nb.volta.core.routing.RoutingNames
 import com.ars3nb.volta.core.server.Countries
@@ -38,12 +37,7 @@ fun shownSubscriptionName(name: String): String = subscriptionName(screenContext
 @ReadOnlyComposable
 fun shownSubscriptionName(sub: SubscriptionEntity): String = shownSubscriptionName(sub.name)
 
-fun subscriptionName(context: Context, name: String): String =
-    if (AnyLanguage.isAny(context, R.string.home_default_subscription_name, name)) {
-        context.getString(R.string.home_default_subscription_name)
-    } else {
-        name
-    }
+fun subscriptionName(context: Context, name: String): String = RoutingNames.subscriptionName(context, name)
 
 /**
  * A server's name without its leading flag; a nameless OpenFlux link's "OpenFlux · Yandex

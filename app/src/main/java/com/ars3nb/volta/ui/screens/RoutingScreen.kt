@@ -268,7 +268,8 @@ fun RoutingScreen(vm: VoltaViewModel, onOpenPerApp: () -> Unit) {
                             profile = p,
                             selected = false,
                             ownerName = state.subscriptions
-                                .firstOrNull { it.id == p.sourceSubscriptionId }?.name,
+                                .firstOrNull { it.id == p.sourceSubscriptionId }
+                                ?.let { shownSubscriptionName(it) },
                             onSelect = null,
                             onEdit = { editingId = p.id },
                             onRename = null,

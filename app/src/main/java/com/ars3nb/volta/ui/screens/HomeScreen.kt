@@ -104,6 +104,7 @@ import com.ars3nb.volta.ui.tv.focusRing
 import kotlinx.coroutines.delay
 import com.ars3nb.volta.ui.components.shownServerName
 import com.ars3nb.volta.ui.components.shownProfileName
+import com.ars3nb.volta.ui.components.shownSubscriptionName
 import com.ars3nb.volta.ui.components.shownIpCountry
 
 @Composable
@@ -547,7 +548,7 @@ private fun ServerIdentity(server: ServerEntity?, subscription: SubscriptionEnti
                         style = MaterialTheme.typography.labelMedium,
                         color = groupColor(home)
                     )
-                    subscription?.name?.takeIf { it.isNotBlank() }?.let { name ->
+                    subscription?.name?.takeIf { it.isNotBlank() }?.let { shownSubscriptionName(it) }?.let { name ->
                         Spacer(Modifier.width(8.dp))
                         Text(
                             name,

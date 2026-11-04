@@ -449,7 +449,7 @@ object RoutingNames {
         val name = profile.name
         if (profile.isBuiltIn) return name
         if (profile.sourceSubscriptionId != null) {
-            return relabel(context, R.string.home_routing_rules_name, name) ?: name
+            return relabel(context, R.string.home_routing_rules_name, name) { subscriptionName(context, it) } ?: name
         }
         return relabel(context, R.string.home_routing_copy_name, name) { base -> shownBaseName(base, context) } ?: name
     }
@@ -468,7 +468,8 @@ object RoutingNames {
         val text = profile.description
         if (profile.isBuiltIn || text.isBlank()) return text
         if (profile.sourceSubscriptionId != null) {
-            return relabel(context, R.string.home_routing_from_subscription, text) ?: text
+            return relabel(context, R.string.home_routing_from_subscription, text) { subscriptionName(context, it) }
+                ?: text
         }
         return relabel(context, R.string.home_routing_copy_description, text) { base -> shownBaseName(base, context) }
             ?: text
@@ -479,8 +480,16 @@ object RoutingNames {
         RoutingEngine.BUILTIN_ALL_NAME -> context.getString(R.string.routing_builtin_all_name)
         RoutingEngine.BUILTIN_RU_NAME -> context.getString(R.string.routing_builtin_ru_name)
         HappRoutingParser.DEFAULT_NAME -> context.getString(R.string.routing_sub_rules_name)
-        else -> relabel(context, R.string.home_routing_rules_name, name) ?: name
+        else -> relabel(context, R.string.home_routing_rules_name, name) { subscriptionName(context, it) } ?: name
     }
+
+    /**
+     * A subscription's name as shown: the default name Volta gives a nameless subscription
+     * ("Subscription", stored by older builds as "Подписка") in the language of [context];
+     * a name the user typed or the provider sent as it is.
+     */
+    fun subscriptionName(context: Context, name: String): String =
+        AnyLanguage.translated(context, R.string.home_default_subscription_name, name)
 
     /**
      * [text] made from the one-argument string [id] in some language, made again in the
