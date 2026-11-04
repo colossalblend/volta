@@ -325,7 +325,8 @@ class ConfigBuilderTest {
         val error = assertThrows(ConfigBuilder.UnsupportedProtocolException::class.java) {
             ConfigBuilder.build(quic, null)
         }
-        assertTrue(error.message!!.contains("QUIC"))
+        // Said in plain words: what the user should do, not the transport's name.
+        assertTrue(error.message!!.contains("новую ссылку"))
         assertFalse(ConfigBuilder.canDial(quic))
         assertNotNull(ConfigBuilder.dialProblem(quic))
     }
