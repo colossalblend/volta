@@ -1,0 +1,223 @@
+name: iOS IPA
+
+# The iOS app (ios/): SwiftUI app + Network Extension, Xray-core through LibXray.
+# Without an Apple Developer account the IPA is unsigned and has to be re-signed before
+# it installs; see ios/README.md for what works with which signature.
+on:
+  push:
+    branches: ['**']
+    # A v… tag (v1.2.0) adds the iOS build to that release. Path filters are not
+    # applied to tag pushes, so every tag gets one.
+    tags: ['v*']
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  # libXray release (CalVer); it pins the Xray-core release of the same date.
+  LIBXRAY_VERSION: v26.10.31
+
+jobs:
+  ipa:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      # Where this build goes, named the way the Android workflow names its builds:
+      # a v… tag is that release; anything else is the branch's rolling pre-release
+      # apk-<branch>, where the iOS files sit next to the Android ones.
+      - name: Release channel
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          SHORT="${GITHUB_SHA::7}"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            TAG="$GITHUB_REF_NAME"; VERSION="${GITHUB_REF_NAME#v}"; STEM="volta-$VERSION"; STABLE=yes
+          else
+            TAG="apk-${BRANCH//\//-}"; VERSION="1.1.$GITHUB_RUN_NUMBER"; STEM="volta-$SHORT"; STABLE=no
+          fi
+          # iOS takes plain numbers only: 1.2.0, never 1.2.0-beta.
+          MARKETING=$(grep -oE '^[0-9]+(\.[0-9]+){0,2}' <<<"$VERSION" || true)
+          {
+            echo "VOLTA_TAG=$TAG"
+            echo "VOLTA_VERSION=$VERSION"
+            echo "VOLTA_MARKETING=${MARKETING:-1.1.$GITHUB_RUN_NUMBER}"
+            echo "VOLTA_BUILD=$((100 + GITHUB_RUN_NUMBER))"
+            echo "VOLTA_STEM=$STEM"
+            echo "VOLTA_STABLE=$STABLE"
+            echo "VOLTA_SHORT=$SHORT"
+            echo "VOLTA_BRANCH=$BRANCH"
+          } >> "$GITHUB_ENV"
+
+      # The Xray core. Built once per libXray version with its own script and gomobile,
+      # then cached: a Go build for the device and the simulator takes a while.
+      - name: Restore LibXray
+        id: libxray
+        uses: actions/cache/restore@v4
+        with:
+          path: ios/Frameworks
+          key: libxray-${{ env.LIBXRAY_VERSION }}-${{ hashFiles('ios/scripts/build-libxray.sh') }}
+
+      - uses: actions/setup-go@v6
+        if: steps.libxray.outputs.cache-hit != 'true'
+        with:
+          go-version: stable
+          cache: false
+
+      - name: Build LibXray
+        if: steps.libxray.outputs.cache-hit != 'true'
+        env:
+          GOTOOLCHAIN: auto
+        run: bash ios/scripts/build-libxray.sh "$LIBXRAY_VERSION" ios/Frameworks
+
+      - name: Save LibXray
+        if: steps.libxray.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ios/Frameworks
+          key: libxray-${{ env.LIBXRAY_VERSION }}-${{ hashFiles('ios/scripts/build-libxray.sh') }}
+
+      # Link parsing, subscriptions, server groups, countries and the Xray configs Volta
+      # builds, as a Swift package on the Mac itself: no simulator needed.
+      - name: Unit tests
+        run: |
+          set -o pipefail
+          swift test --package-path ios 2>&1 | tee "$RUNNER_TEMP/tests.log"
+
+      - name: Check translations
+        run: python3 ios/tools/strings.py --check
+
+      - name: Xcode project
+        run: |
+          brew install xcodegen > /dev/null 2>&1 || brew upgrade xcodegen || true
+          xcodegen --version
+          cd ios && xcodegen generate
+          xcodebuild -list -project Volta.xcodeproj
+
+      - name: Build (unsigned)
+        run: |
+          set -o pipefail
+          BEAUTIFY=cat; command -v xcbeautify > /dev/null && BEAUTIFY="xcbeautify --quiet --disable-logging"
+          xcodebuild archive \
+            -project ios/Volta.xcodeproj -scheme Volta -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/unsigned.xcarchive" \
+            -skipPackagePluginValidation -skipMacroValidation \
+            MARKETING_VERSION="$VOLTA_MARKETING" CURRENT_PROJECT_VERSION="$VOLTA_BUILD" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            2>&1 | tee "$RUNNER_TEMP/xcodebuild.log" | $BEAUTIFY
+
+      # Payload/Volta.app with PlugIns/PacketTunnel.appex, zipped. Both bundles carry an
+      # ad-hoc signature holding their entitlements (VPN extension, app group): no
+      # certificate, but re-signing tools and TrollStore read the entitlements from it.
+      - name: Unsigned IPA
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          bash ios/scripts/package-ipa.sh "$RUNNER_TEMP/unsigned.xcarchive" \
+            "$RUNNER_TEMP/out/$VOLTA_STEM-ios-unsigned.ipa"
+
+      # Optional real signature: add IOS_CERT_P12_BASE64, IOS_CERT_PASSWORD,
+      # IOS_APP_PROFILE_BASE64, IOS_EXT_PROFILE_BASE64 and IOS_TEAM_ID as repository
+      # secrets (ios/README.md says how). Bundle IDs and the app group are read from
+      # the profiles, so they may differ from Volta's defaults.
+      - name: Signed IPA
+        id: signed
+        continue-on-error: true
+        env:
+          IOS_CERT_P12_BASE64: ${{ secrets.IOS_CERT_P12_BASE64 }}
+          IOS_CERT_PASSWORD: ${{ secrets.IOS_CERT_PASSWORD }}
+          IOS_APP_PROFILE_BASE64: ${{ secrets.IOS_APP_PROFILE_BASE64 }}
+          IOS_EXT_PROFILE_BASE64: ${{ secrets.IOS_EXT_PROFILE_BASE64 }}
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+        if: env.IOS_CERT_P12_BASE64 != '' && env.IOS_APP_PROFILE_BASE64 != '' && env.IOS_EXT_PROFILE_BASE64 != ''
+        run: bash ios/scripts/build-signed.sh "$RUNNER_TEMP/out/$VOLTA_STEM-ios.ipa"
+
+      - name: Report build errors
+        if: failure()
+        run: |
+          for LOG in "$RUNNER_TEMP/tests.log" "$RUNNER_TEMP/xcodebuild.log" "$RUNNER_TEMP/signed.log"; do
+            [ -f "$LOG" ] || continue
+            ERRS=$(grep -E "error:|error -|fatal|Undefined symbol|ld: |\*\* .* FAILED \*\*|failed \(" "$LOG" | sort -u | head -80)
+            [ -n "$ERRS" ] || continue
+            ERRS="${ERRS//'%'/'%25'}"
+            ERRS="${ERRS//$'\n'/'%0A'}"
+            echo "::error title=$(basename "$LOG")::${ERRS}"
+          done
+
+      - name: Upload IPA as an artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: volta-ios
+          path: ${{ runner.temp }}/out/*.ipa
+          retention-days: 14
+          if-no-files-found: error
+
+      # Releases follow the Android workflow: a v… tag adds the IPA to that release, a
+      # branch to its rolling pre-release apk-<branch>. Only the iOS files and the iOS
+      # part of the notes are ever touched; update.json and the APKs stay as they are.
+      - name: Publish to GitHub Releases
+        id: release
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SIGNED: ${{ steps.signed.outcome }}
+        run: bash ios/scripts/publish-release.sh "$RUNNER_TEMP/out"
+
+      # Pictures of every screen from the simulator with sample data (Volta/Model/Demo.swift),
+      # to look at a design change before anyone installs it. Never fails the build.
+      - name: Screenshots
+        continue-on-error: true
+        timeout-minutes: 20
+        run: bash ios/scripts/screenshots.sh "$RUNNER_TEMP/screens"
+
+      # On a branch the pictures also go to its pre-release, next to the IPA.
+      - name: Screenshots to the pre-release
+        if: env.VOLTA_STABLE != 'yes' && steps.release.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          shopt -s nullglob
+          PNGS=("$RUNNER_TEMP"/screens/*.png)
+          [ ${#PNGS[@]} -gt 0 ] || exit 0
+          ZIP="$RUNNER_TEMP/$VOLTA_STEM-ios-screens.zip"
+          (cd "$RUNNER_TEMP/screens" && zip -q "$ZIP" ./*.png)
+          gh release upload "$VOLTA_TAG" "$ZIP" --clobber
+
+      - name: Upload screenshots
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v5
+        with:
+          name: ios-screens
+          path: ${{ runner.temp }}/screens
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload logs
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@v5
+        with:
+          name: ios-logs
+          path: |
+            ${{ runner.temp }}/*.log
+          retention-days: 7
+          if-no-files-found: ignore
