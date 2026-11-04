@@ -271,6 +271,9 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     val defaultPingType = repo.defaultPingType
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PingType.REAL_DELAY)
 
+    /** Whether Android keeps Volta on and blocks the internet without it (API 29+). */
+    val alwaysOn = repo.alwaysOn
+
     /** The OpenFlux helper, for its captcha banner. */
     val openFluxStatus = OpenFluxRunner.status
 

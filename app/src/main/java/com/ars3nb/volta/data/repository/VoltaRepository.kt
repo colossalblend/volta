@@ -113,6 +113,9 @@ class VoltaRepository(private val context: Context) {
     val traffic = VoltaVpnService.traffic
     val connectedSince = VoltaVpnService.connectedSince
 
+    /** Always-on VPN and its lockdown, as the running tunnel last saw them. */
+    val alwaysOn = VoltaVpnService.alwaysOn
+
     /** Bytes through the VPN server per day from [fromDay] on (see TrafficRecorder). */
     fun trafficSince(fromDay: Long): Flow<List<TrafficDayEntity>> = db.trafficDao().observeSince(fromDay)
 
