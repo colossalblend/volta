@@ -48,6 +48,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.test.core.app.ApplicationProvider
 import com.ars3nb.volta.R
 import com.ars3nb.volta.VoltaApp
+import com.ars3nb.volta.core.locale.UiText
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.stats.TrafficSummary
 import com.ars3nb.volta.core.stats.TrafficTally
@@ -628,7 +629,7 @@ abstract class StoreShots(private val lang: String) {
     }
 
     private fun pickHome() = PickSummary(
-        reason = "",
+        reason = UiText.Raw(""),
         rows = listOf(
             PickRow(1, SERVERS[0].remark, 48, 4, 5, chosen = true),
             PickRow(8, SERVERS[7].remark, 57, 6, 5, chosen = false),
@@ -640,7 +641,7 @@ abstract class StoreShots(private val lang: String) {
     )
 
     private fun pickLte() = PickSummary(
-        reason = "",
+        reason = UiText.Raw(""),
         rows = listOf(
             PickRow(9, SERVERS[8].remark, 22, 3, 5, chosen = true),
             PickRow(10, SERVERS[9].remark, 31, 4, 5, chosen = false),
