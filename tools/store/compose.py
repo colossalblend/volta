@@ -91,7 +91,7 @@ TV = [("home", "tv-home"), ("add", "tv-import")]
 # Screens whose last lines are a section header cut by the screen's bottom edge: the
 # header (and anything below it) gives way to the screen's own background, as on a
 # phone a few dp shorter. Nothing above it changes.
-TRIM_TAIL = {"import"}
+TRIM_TAIL = {"import", "perapp", "routing"}
 
 FEATURE = {
     "ru": ["VPN-клиент", "для ваших подписок"],
@@ -161,9 +161,12 @@ def status_strip(width, color, ink):
     return strip
 
 
-def trim_tail(screen, gap=16):
-    """Blanks a line cut by the bottom edge: everything below the first run of [gap]
-    empty rows above it, in the screen's own background."""
+def trim_tail(screen, gap=16, reach=0.2, line=48):
+    """Blanks what the bottom edge cuts: the last block of ink (a header, the top of a
+    card) up from the edge to the first run of [gap] empty rows, in the screen's own
+    background; and a lone header line just above it, which belongs to what was cut.
+    Looks only at the bottom [reach] of the screen; a screen that ends on a whole card,
+    with no such gap, is left as it is."""
     sw, sh = screen.size
     bg = screen.getpixel((2, sh - 2))
     px = screen.load()
@@ -171,19 +174,30 @@ def trim_tail(screen, gap=16):
     def empty(y):
         return all(max(abs(a - b) for a, b in zip(px[x, y], bg)) < 6 for x in range(0, sw, 2))
 
-    y = sh - 1
-    while y > 0 and empty(y):
-        y -= 1  # the bottom margin, if any
-    while y > 0 and not empty(y):
-        y -= 1  # the cut line
-    run = 0
-    while y > 0 and run < gap:
-        run = run + 1 if empty(y) else 0
-        y -= 1
-    if y <= sh // 2:
-        raise SystemExit("trim_tail: no gap above the cut line")
-    # From the gap's last row: what is above keeps its margin, the cut line goes.
-    ImageDraw.Draw(screen).rectangle((0, y + gap, sw, sh), fill=bg)
+    # Runs of rows from the bottom up: [is_empty, top, bottom].
+    runs = []
+    for y in range(sh - 1, round(sh * (1 - reach)), -1):
+        e = empty(y)
+        if runs and runs[-1][0] == e:
+            runs[-1][1] = y
+        else:
+            runs.append([e, y, y])
+    if runs and runs[0][0]:
+        runs.pop(0)  # the bottom margin, if any
+    # runs[0] is now the cut block; the gaps of fewer than [gap] rows inside it don't count.
+    i = 1
+    while i < len(runs) and not (runs[i][0] and runs[i][2] - runs[i][1] + 1 >= gap):
+        i += 1
+    if i >= len(runs):
+        return screen
+    cut = runs[i][2] + 1  # first row under the gap
+    # A header just above: one short block, more room above it than below it.
+    if i + 2 < len(runs):
+        below, block, above = runs[i], runs[i + 1], runs[i + 2]
+        tall = block[2] - block[1] + 1
+        if tall <= line and above[0] and (above[2] - above[1]) > (below[2] - below[1]):
+            cut = block[1] - (below[2] - below[1] + 1)
+    ImageDraw.Draw(screen).rectangle((0, cut, sw, sh), fill=bg)
     return screen
 
 
