@@ -33,8 +33,9 @@ app's own fonts: a headline in Unbounded (two lines at most) and one line in One
 same sizes on every picture. The captions live in that script, one list per language;
 it stops with "caption does not fit" rather than shrink or clip one. Captions name no
 other company's product (the app's own screens still say what its filter is built on).
-On Add, the section header the screen's bottom edge cuts in half gives way to the
-screen's background (`TRIM_TAIL`), as on a phone a few dp shorter.
+On Add, Apps and Routing, a line the screen's bottom edge cuts in half (and a lone header
+over it) gives way to the screen's background (`TRIM_TAIL`), as on a phone a few dp
+shorter; nothing above it changes.
 
 ## Making them again
 
@@ -49,7 +50,20 @@ screen's background (`TRIM_TAIL`), as on a phone a few dp shorter.
    `raw/<lang>/` holds the bare screens, `play/<lang>/` the finished pictures.
 3. Look at every picture, then copy `play/<lang>/*` here and commit.
 
-Where artifacts can't be downloaded, run it with `-f commit=true` on a `store/…` branch:
+Where artifacts can't be downloaded (a proxy that refuses GitHub's artifact store), take
+the same pictures from the branch's pre-release: on a `store/…` branch the job also puts
+`store-pictures.zip` (`play/` and `raw/`) on the release `apk-store-…`, replacing the last
+one. Through the REST API, which goes where `gh release download` may not:
+
+```sh
+id=$(gh api repos/colossalblend/volta/releases/tags/apk-store-play-listing \
+  --jq '.assets[] | select(.name=="store-pictures.zip") | .id')
+gh api -H "Accept: application/octet-stream" \
+  repos/colossalblend/volta/releases/assets/$id > /tmp/store-pictures.zip
+```
+
+(The release is made by android.yml's first build of the branch; without it the step is
+skipped.) Or run the workflow with `-f commit=true` on a `store/…` branch:
 the job then commits the finished pictures into `store/play/<lang>/` on that branch
 ("Store: pictures from run …"), and `git pull` brings them in to look at. Squash those
 commits into yours before merging if you like.
@@ -76,7 +90,9 @@ names for it in the companion there, and the captions under the same key in `PHO
 - Play's Device and Network Abuse policy does not let an app block or interfere with
   ads shown by other apps, and since November 2022 that is spelled out for VpnService
   apps. The ad filter (Routing → Ad blocking) ships in the `play` flavour too, and the
-  sixth picture and one line of the full description mention it. Before submitting,
+  sixth picture and one line of the full description mention it. That picture also
+  shows the app's own hints, which name the filter's source and the sign-in and video
+  services it leaves alone. Before submitting,
   decide whether the `play` build keeps it; if not, drop that line and swap the sixth
   picture's caption for the torrent and site rules.
 - The texts say plainly that Volta comes with no servers; the pictures show fictional
