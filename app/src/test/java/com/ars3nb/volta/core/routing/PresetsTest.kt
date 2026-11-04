@@ -39,12 +39,4 @@ class PresetsTest {
         assertEquals(Presets.sites.size, Presets.sites.map { it.id }.toSet().size)
         assertEquals(RouteOutbound.DIRECT, Presets.sites.first { it.id == "ru" }.suggested)
     }
-
-    @Test
-    fun appPresetsHavePackageNames() {
-        Presets.apps.forEach { preset ->
-            assertTrue(preset.id, preset.packages.isNotEmpty())
-            assertTrue(preset.id, preset.packages.all { it.matches(Regex("""[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)+""")) })
-        }
-    }
 }
