@@ -2,6 +2,7 @@ package com.ars3nb.volta.core.vpn
 
 import com.ars3nb.volta.core.helper.ProxyHelper
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
+import com.ars3nb.volta.core.stats.TrafficRecorder
 import android.app.Notification
 import android.content.Context
 import android.content.Intent
@@ -232,6 +233,7 @@ class VoltaVpnService : VpnService() {
     override fun onCreate() {
         super.onCreate()
         tun2Socks = Tun2Socks(filesDir)
+        TrafficRecorder.init(this)
         VpnNotificationHelper.ensureChannel(this)
         runCatching { connectivity?.registerDefaultNetworkCallback(underlyingCallback) }
     }
@@ -603,6 +605,7 @@ class VoltaVpnService : VpnService() {
             val (upDelta, downDelta) = xray?.trafficDelta(ConfigBuilder.PROXY_TAG) ?: (0L to 0L)
             uplinkTotal += upDelta
             downlinkTotal += downDelta
+            TrafficRecorder.count(upDelta, downDelta)
             _traffic.value = TrafficStats(
                 uplinkBytes = uplinkTotal,
                 downlinkBytes = downlinkTotal,
@@ -718,6 +721,8 @@ class VoltaVpnService : VpnService() {
         watchdogJob = null
         healthJob?.cancel()
         healthJob = null
+        // The bytes of the last half minute, before the counters are gone.
+        TrafficRecorder.flush()
         tunnelActive.set(false)
         _connectedSince.value = 0
         _traffic.value = TrafficStats()

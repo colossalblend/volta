@@ -13,6 +13,7 @@ import com.ars3nb.volta.data.model.RoutingProfileEntity
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.ServerRole
 import com.ars3nb.volta.data.model.SubscriptionEntity
+import com.ars3nb.volta.data.model.TrafficDayEntity
 
 class Converters {
     @TypeConverter
@@ -34,9 +35,10 @@ class Converters {
     entities = [
         SubscriptionEntity::class,
         ServerEntity::class,
-        RoutingProfileEntity::class
+        RoutingProfileEntity::class,
+        TrafficDayEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -44,6 +46,7 @@ abstract class VoltaDatabase : RoomDatabase() {
     abstract fun subscriptionDao(): SubscriptionDao
     abstract fun serverDao(): ServerDao
     abstract fun routingDao(): RoutingDao
+    abstract fun trafficDao(): TrafficDao
 
     companion object {
         private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -126,6 +129,24 @@ abstract class VoltaDatabase : RoomDatabase() {
             }
         }
 
+        /** v8: traffic through the VPN server per day (the home screen's traffic card). */
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Exactly the table Room creates for TrafficDayEntity, or it refuses to open.
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `traffic_days` (`day` INTEGER NOT NULL, " +
+                        "`uplinkBytes` INTEGER NOT NULL, `downlinkBytes` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`day`))"
+                )
+            }
+        }
+
+        /** Every step from the first schema to the current one, in order. */
+        internal val MIGRATIONS: Array<Migration> = arrayOf(
+            MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
+            MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8
+        )
+
         @Volatile
         private var INSTANCE: VoltaDatabase? = null
 
@@ -136,10 +157,7 @@ abstract class VoltaDatabase : RoomDatabase() {
                     VoltaDatabase::class.java,
                     "volta.db"
                 )
-                    .addMigrations(
-                        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
-                        MIGRATION_5_6, MIGRATION_6_7
-                    )
+                    .addMigrations(*MIGRATIONS)
                     .build()
                     .also { INSTANCE = it }
             }

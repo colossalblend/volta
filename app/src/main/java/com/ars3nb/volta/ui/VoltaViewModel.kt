@@ -12,6 +12,8 @@ import com.ars3nb.volta.core.parser.AmneziaConfigs
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.routing.RoutingEngine
 import com.ars3nb.volta.core.balancer.AutoBalancer
+import com.ars3nb.volta.core.stats.TrafficSummary
+import com.ars3nb.volta.core.stats.TrafficTally
 import com.ars3nb.volta.data.model.BalancerScope
 import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.IpInfo
@@ -47,6 +49,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 data class ConnectionSlice(
     val vpnState: VpnConnectionState = VpnConnectionState.DISCONNECTED,
@@ -166,6 +169,21 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SpeedHistory())
+
+    /**
+     * Traffic through the VPN: today, this month, last month and the last two weeks.
+     * The date is looked at once a minute, so "today" moves on at midnight on its own.
+     */
+    val trafficSummary: StateFlow<TrafficSummary> = combine(
+        repo.trafficSince(LocalDate.now().minusDays(TrafficTally.WINDOW_DAYS).toEpochDay()),
+        flow {
+            while (true) {
+                emit(LocalDate.now())
+                delay(60_000)
+            }
+        }.distinctUntilChanged()
+    ) { days, today -> TrafficTally.summarize(days, today) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TrafficSummary())
 
     /** Why the auto mode picked what it picked: the best few with their numbers. */
     val pickSummary: StateFlow<PickSummary?> = repo.lastDecision

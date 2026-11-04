@@ -36,6 +36,7 @@ import com.ars3nb.volta.data.model.ServerRole
 import com.ars3nb.volta.data.model.SiteCategory
 import com.ars3nb.volta.data.model.SiteProbeResult
 import com.ars3nb.volta.data.model.SubscriptionEntity
+import com.ars3nb.volta.data.model.TrafficDayEntity
 import com.ars3nb.volta.data.model.VpnConnectionState
 import com.ars3nb.volta.data.model.matches
 import com.ars3nb.volta.data.prefs.AppPreferences
@@ -111,6 +112,9 @@ class VoltaRepository(private val context: Context) {
     val vpnError = VoltaVpnService.error
     val traffic = VoltaVpnService.traffic
     val connectedSince = VoltaVpnService.connectedSince
+
+    /** Bytes through the VPN server per day from [fromDay] on (see TrafficRecorder). */
+    fun trafficSince(fromDay: Long): Flow<List<TrafficDayEntity>> = db.trafficDao().observeSince(fromDay)
 
     val designTheme = prefs.designTheme
     val autoFailover = prefs.autoFailover
