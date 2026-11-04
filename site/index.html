@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Volta — VPN, который сам выбирает сервер</title>
+<title>Volta — VPN-клиент</title>
 <meta name="description" content="Volta — VPN-клиент для Android. Добавьте подписку от вашего VPN-сервиса, а Volta сама выберет быстрый сервер и переключится, когда вы уйдёте с Wi-Fi на мобильный интернет.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,7 +13,7 @@
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="./"><span class="brand-disc" aria-hidden="true"></span>Volta</a>
+  <a class="brand" href="./"><svg viewBox="0 0 20 26" aria-hidden="true"><rect x="1" y="2" width="18" height="4.5" rx="1.5" fill="#252a29"/><rect x="3" y="8" width="14" height="3" rx="1.2" fill="#8e9693"/><rect x="1" y="12.5" width="18" height="4.5" rx="1.5" fill="#252a29"/><rect x="3" y="18.5" width="14" height="3" rx="1.2" fill="#8e9693"/><rect x="1" y="23" width="18" height="2.5" rx="1" fill="#252a29"/></svg>Volta</a>
   <nav aria-label="Разделы">
     <a href="./" aria-current="page">Главная</a>
     <a href="guide.html">Как пользоваться</a>
@@ -22,26 +22,99 @@
   </nav>
 </header>
 
-<main>
+<main class="landing">
   <section class="hero">
-    <div>
-      <h1>VPN, который сам выбирает сервер</h1>
+    <div class="hero-text">
+      <h1>VPN-клиент</h1>
       <p class="lead">Добавьте подписку от вашего VPN-сервиса и нажмите на диск. Volta найдёт быстрый сервер, а когда вы уйдёте из дома на мобильный интернет, проверит сеть и переключится сама.</p>
+      <p class="no-servers">В приложении нет своих серверов. Нужна ссылка-подписка от вашего VPN-сервиса — её вставляют на экране «Добавить».</p>
       <div class="cta">
         <a class="button primary" href="https://github.com/colossalblend/volta/releases/latest">Скачать для Android</a>
         <a class="button" href="guide.html">Как начать</a>
       </div>
     </div>
-    <div class="disc" role="img" aria-label="Медный диск включения, как в приложении"><span class="ring"></span></div>
+    <figure class="pile-figure">
+      <svg class="pile" viewBox="0 64 400 560" role="img" aria-labelledby="pile-t">
+<title id="pile-t">Вольтов столб: медные и цинковые диски, переложенные картоном, провод и искра</title>
+<defs>
+<linearGradient id="g-copper" x1="0" x2="1"><stop offset="0" stop-color="#5a2a10"/><stop offset=".3" stop-color="#d68e57"/><stop offset=".45" stop-color="#e9b07f"/><stop offset=".75" stop-color="#9c4f22"/><stop offset="1" stop-color="#4b220c"/></linearGradient>
+<linearGradient id="g-zinc" x1="0" x2="1"><stop offset="0" stop-color="#596163"/><stop offset=".3" stop-color="#c5cccd"/><stop offset=".45" stop-color="#eef1f1"/><stop offset=".75" stop-color="#8d9698"/><stop offset="1" stop-color="#4e5557"/></linearGradient>
+<linearGradient id="g-card" x1="0" x2="1"><stop offset="0" stop-color="#4f3a24"/><stop offset=".35" stop-color="#9b7c52"/><stop offset=".75" stop-color="#76593a"/><stop offset="1" stop-color="#463220"/></linearGradient>
+<linearGradient id="g-wood" x1="0" x2="1"><stop offset="0" stop-color="#2c2622"/><stop offset=".35" stop-color="#5b4a3d"/><stop offset=".75" stop-color="#3e332b"/><stop offset="1" stop-color="#231e1b"/></linearGradient>
+<linearGradient id="g-glass" x1="0" x2="1"><stop offset="0" stop-color="#9fb3ad" stop-opacity=".55"/><stop offset=".4" stop-color="#f6fbf9" stop-opacity=".9"/><stop offset="1" stop-color="#7e938d" stop-opacity=".55"/></linearGradient>
+<radialGradient id="g-glow"><stop offset="0" stop-color="#fffbe6"/><stop offset=".25" stop-color="#ffe27a" stop-opacity=".9"/><stop offset=".6" stop-color="#ffc94a" stop-opacity=".25"/><stop offset="1" stop-color="#ffc94a" stop-opacity="0"/></radialGradient>
+</defs>
+<ellipse cx="160" cy="594" rx="150" ry="22" fill="#262b2a" opacity=".14"/>
+<g><ellipse cx="160" cy="580" rx="122" ry="15" fill="url(#g-wood)"/><rect x="38" y="548" width="244" height="32" fill="url(#g-wood)"/><ellipse cx="160" cy="548" rx="122" ry="15" fill="#4a3d33"/></g>
+<g class="rods"><rect x="63" y="144" width="8" height="404" rx="4" fill="url(#g-glass)"/><rect x="249" y="144" width="8" height="404" rx="4" fill="url(#g-glass)"/></g>
+<g class="discs">
+<g><ellipse cx="160" cy="548" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="538" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="538" rx="80" ry="15" fill="#d9dfdf"/></g>
+<g><ellipse cx="160" cy="538" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="531" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="531" rx="75" ry="15" fill="#a3865d"/></g>
+<g><ellipse cx="160" cy="531" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="522" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="522" rx="80" ry="15" fill="#d99a68"/></g>
+<g><ellipse cx="160" cy="522" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="512" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="512" rx="80" ry="15" fill="#d9dfdf"/></g>
+<g><ellipse cx="160" cy="512" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="505" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="505" rx="75" ry="15" fill="#a3865d"/></g>
+<g><ellipse cx="160" cy="505" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="496" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="496" rx="80" ry="15" fill="#d99a68"/></g>
+<g><ellipse cx="160" cy="496" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="486" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="486" rx="80" ry="15" fill="#d9dfdf"/></g>
+<g><ellipse cx="160" cy="486" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="479" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="479" rx="75" ry="15" fill="#a3865d"/></g>
+<g><ellipse cx="160" cy="479" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="470" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="470" rx="80" ry="15" fill="#d99a68"/></g>
+<g><ellipse cx="160" cy="470" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="460" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="460" rx="80" ry="15" fill="#d9dfdf"/></g>
+<g><ellipse cx="160" cy="460" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="453" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="453" rx="75" ry="15" fill="#a3865d"/></g>
+<g><ellipse cx="160" cy="453" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="444" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="444" rx="80" ry="15" fill="#d99a68"/></g>
+<g><ellipse cx="160" cy="444" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="434" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="434" rx="80" ry="15" fill="#d9dfdf"/></g>
+<g><ellipse cx="160" cy="434" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="427" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="427" rx="75" ry="15" fill="#a3865d"/></g>
+<g><ellipse cx="160" cy="427" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="418" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="418" rx="80" ry="15" fill="#d99a68"/></g>
+<g><ellipse cx="160" cy="418" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="408" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="408" rx="80" ry="15" fill="#d9dfdf"/></g>
+<g><ellipse cx="160" cy="408" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="401" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="401" rx="75" ry="15" fill="#a3865d"/></g>
+<g><ellipse cx="160" cy="401" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="392" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="392" rx="80" ry="15" fill="#d99a68"/></g>
+<g><ellipse cx="160" cy="392" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="382" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="382" rx="80" ry="15" fill="#d9dfdf"/></g>
+<g><ellipse cx="160" cy="382" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="375" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="375" rx="75" ry="15" fill="#a3865d"/></g>
+<g><ellipse cx="160" cy="375" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="366" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="366" rx="80" ry="15" fill="#d99a68"/></g>
+<g><ellipse cx="160" cy="366" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="356" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="356" rx="80" ry="15" fill="#d9dfdf"/></g>
+<g><ellipse cx="160" cy="356" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="349" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="349" rx="75" ry="15" fill="#a3865d"/></g>
+<g><ellipse cx="160" cy="349" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="340" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="340" rx="80" ry="15" fill="#d99a68"/></g>
+<g><ellipse cx="160" cy="340" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="330" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="330" rx="80" ry="15" fill="#d9dfdf"/></g>
+<g><ellipse cx="160" cy="330" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="323" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="323" rx="75" ry="15" fill="#a3865d"/></g>
+<g><ellipse cx="160" cy="323" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="314" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="314" rx="80" ry="15" fill="#d99a68"/></g>
+<g><ellipse cx="160" cy="314" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="304" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="304" rx="80" ry="15" fill="#d9dfdf"/></g>
+<g><ellipse cx="160" cy="304" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="297" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="297" rx="75" ry="15" fill="#a3865d"/></g>
+<g><ellipse cx="160" cy="297" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="288" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="288" rx="80" ry="15" fill="#d99a68"/></g>
+<g><ellipse cx="160" cy="288" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="278" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="278" rx="80" ry="15" fill="#d9dfdf"/></g>
+<g><ellipse cx="160" cy="278" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="271" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="271" rx="75" ry="15" fill="#a3865d"/></g>
+<g><ellipse cx="160" cy="271" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="262" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="262" rx="80" ry="15" fill="#d99a68"/></g>
+<g><ellipse cx="160" cy="262" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="252" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="252" rx="80" ry="15" fill="#d9dfdf"/></g>
+<g><ellipse cx="160" cy="252" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="245" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="245" rx="75" ry="15" fill="#a3865d"/></g>
+<g><ellipse cx="160" cy="245" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="236" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="236" rx="80" ry="15" fill="#d99a68"/></g>
+<g><ellipse cx="160" cy="236" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="226" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="226" rx="80" ry="15" fill="#d9dfdf"/></g>
+<g><ellipse cx="160" cy="226" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="219" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="219" rx="75" ry="15" fill="#a3865d"/></g>
+<g><ellipse cx="160" cy="219" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="210" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="210" rx="80" ry="15" fill="#d99a68"/></g>
+<g><ellipse cx="160" cy="210" rx="80" ry="15" fill="url(#g-zinc)"/><rect x="80" y="200" width="160" height="10" fill="url(#g-zinc)"/><ellipse cx="160" cy="200" rx="80" ry="15" fill="#d9dfdf"/></g>
+<g><ellipse cx="160" cy="200" rx="75" ry="15" fill="url(#g-card)"/><rect x="85" y="193" width="150" height="7" fill="url(#g-card)"/><ellipse cx="160" cy="193" rx="75" ry="15" fill="#a3865d"/></g>
+<g><ellipse cx="160" cy="193" rx="80" ry="15" fill="url(#g-copper)"/><rect x="80" y="184" width="160" height="9" fill="url(#g-copper)"/><ellipse cx="160" cy="184" rx="80" ry="15" fill="#d99a68"/></g>
+</g>
+<g><ellipse cx="160" cy="184" rx="106" ry="15" fill="url(#g-wood)"/><rect x="54" y="172" width="212" height="12" fill="url(#g-wood)"/><ellipse cx="160" cy="172" rx="106" ry="15" fill="#54463a"/></g>
+<rect x="63" y="158" width="8" height="16" rx="4" fill="url(#g-glass)"/><ellipse cx="67" cy="158" rx="7" ry="3" fill="#cfd9d5"/><rect x="249" y="158" width="8" height="16" rx="4" fill="url(#g-glass)"/><ellipse cx="253" cy="158" rx="7" ry="3" fill="#cfd9d5"/>
+<rect x="154" y="146" width="12" height="26" fill="#7a3b17"/><ellipse cx="160" cy="146" rx="11" ry="4" fill="#c27a45"/>
+<rect x="268" y="556" width="14" height="16" rx="2" fill="#7a3b17"/>
+<path d="M160,144 C160,54 350,34 336,240 S330,290 330,300" fill="none" stroke="#5a2a10" stroke-width="6" stroke-linecap="round"/>
+<path d="M160,144 C160,54 350,34 336,240 S330,290 330,300" fill="none" stroke="#c9844f" stroke-width="3" stroke-linecap="round"/>
+<path d="M282,564 C360,562 370,500 344,418 S330,370 330,358" fill="none" stroke="#5a2a10" stroke-width="6" stroke-linecap="round"/>
+<path d="M282,564 C360,562 370,500 344,418 S330,370 330,358" fill="none" stroke="#c9844f" stroke-width="3" stroke-linecap="round"/>
+<circle cx="330" cy="300" r="6" fill="#c9844f" stroke="#5a2a10" stroke-width="1.5"/><circle cx="330" cy="358" r="6" fill="#c9844f" stroke="#5a2a10" stroke-width="1.5"/>
+<g transform="translate(330 329.0)"><g class="spark"><g transform="scale(1.45)"><circle r="48" fill="url(#g-glow)"/><path d="M0,-15 L3,-4 L16,-10 L6,1 L19,8 L3,5 L1,15 L-3,5 L-17,10 L-6,0 L-15,-11 L-3,-4 Z" fill="#fff6c8" stroke="#ffd34d" stroke-width="1.5" stroke-linejoin="round"/><circle r="3.5" fill="#fff"/></g></g></g>
+</svg>
+      <figcaption>Вольтов столб, первая батарея. От него и название.</figcaption>
+    </figure>
   </section>
 
-  <section class="quick" aria-labelledby="start">
+  <section class="part quick" aria-labelledby="start">
     <h2 id="start">Начать за минуту</h2>
-    <ol class="steps">
-      <li><strong>Установите Volta</strong>Из Google Play или файлом с <a href="https://github.com/colossalblend/volta/releases/latest">страницы загрузки</a>. Для большинства телефонов подходит файл с <code>arm64-v8a</code> в названии.</li>
-      <li><strong>Добавьте подписку</strong>Нажмите «Добавить подписку», вставьте ссылку, которую прислал VPN-сервис, и нажмите «Добавить». Если сервис дал кнопку «Открыть в Volta», достаточно нажать её.</li>
-      <li><strong>Нажмите на диск</strong>Android один раз спросит разрешение на VPN. Дальше Volta подключается сама и сама меняет сервер, если он перестал работать.</li>
-    </ol>
+    <div class="part-body">
+      <ol class="steps">
+        <li><strong>Установите Volta</strong>Из Google Play или файлом с <a href="https://github.com/colossalblend/volta/releases/latest">страницы загрузки</a>. Для большинства телефонов подходит файл с <code>arm64-v8a</code> в названии.</li>
+        <li><strong>Добавьте подписку</strong>Нажмите «Добавить подписку», вставьте ссылку, которую прислал VPN-сервис, и нажмите «Добавить». Если сервис дал кнопку «Открыть в Volta», достаточно нажать её.</li>
+        <li><strong>Нажмите на диск</strong>Android один раз спросит разрешение на VPN. Дальше Volta подключается сама и сама меняет сервер, если он перестал работать.</li>
+      </ol>
+    </div>
   </section>
 
   <section class="paths">
