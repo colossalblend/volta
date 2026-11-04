@@ -25,6 +25,9 @@ struct HomeScreen: View {
     private func hero(disc: CGFloat) -> some View {
         VStack(spacing: 0) {
             HomeTopBar()
+            if model.internet != .ok && !model.isConnected {
+                InternetBanner(status: model.internet).padding(.top, 6)
+            }
             Spacer(minLength: 8)
             VStack(spacing: 0) {
                 PowerDisc(
@@ -85,6 +88,90 @@ struct HomeScreen: View {
                 NetworkStatusCard()
             }
         }
+        if !model.trafficSummary.isEmpty { TrafficCard(summary: model.trafficSummary) }
+    }
+}
+
+/// No network under the VPN (Android's InternetBanner): said before the disc is tapped.
+private struct InternetBanner: View {
+    var status: InternetCheck.Status
+    @Environment(\.palette) private var p
+
+    private var title: String {
+        switch status {
+        case .airplane: return L("network_airplane_title")
+        case .weakMobile: return L("network_weak_title")
+        default: return L("network_none_title")
+        }
+    }
+
+    private var text: String {
+        switch status {
+        case .airplane: return L("network_airplane_text")
+        case .weakMobile: return L("network_weak_text")
+        default: return L("network_none_text")
+        }
+    }
+
+    var body: some View {
+        VoltaCard(spacing: 4) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "wifi.exclamationmark").foregroundColor(p.poor)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.vTitleSmall).foregroundColor(p.onSurface)
+                    Hint(text)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+}
+
+/// Traffic through the VPN: today, this month and last, and two weeks of bars (Android's
+/// TrafficCard; the extension counts it, so it is there even if the app slept).
+private struct TrafficCard: View {
+    var summary: TrafficSummary
+    @Environment(\.palette) private var p
+
+    var body: some View {
+        VoltaCard(spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(L("home_traffic_title")).font(.vTitleSmall).foregroundColor(p.onSurface)
+                Spacer()
+                Hint(L("home_traffic_period"))
+            }
+            HStack(alignment: .top, spacing: 8) {
+                figure(L("home_traffic_today"), summary.today)
+                figure(month(summary.thisMonthOf), summary.thisMonth)
+                figure(month(summary.lastMonthOf), summary.lastMonth)
+            }
+            let top = max(1, summary.recent.max() ?? 1)
+            HStack(alignment: .bottom, spacing: 4) {
+                ForEach(Array(summary.recent.enumerated()), id: \.offset) { i, bytes in
+                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                        .fill(i == summary.recent.count - 1 ? p.primary : p.primary.opacity(0.45))
+                        .frame(height: max(3, 44 * CGFloat(Double(bytes) / Double(top))))
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .frame(height: 44, alignment: .bottom)
+            .accessibilityElement()
+            .accessibilityLabel(L("home_traffic_bars_description"))
+            Hint(L("home_traffic_note"))
+        }
+    }
+
+    private func figure(_ title: String, _ bytes: Int64) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title).font(.vLabelMedium).foregroundColor(p.onSurfaceVariant).lineLimit(1)
+            Text(Format.bytes(bytes)).font(.vTitleMedium).foregroundColor(p.onSurface).lineLimit(1).minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func month(_ m: Int) -> String {
+        let key = "home_months.\(max(0, min(11, m - 1)))"
+        return L(key)
     }
 }
 

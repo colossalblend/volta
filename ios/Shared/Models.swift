@@ -123,6 +123,12 @@ struct Subscription: Codable, Identifiable, Hashable {
     var urlHidden: Bool = false
     /// `server-type` markup from the import link (see ServerMarkup).
     var serverTypes: String = ""
+    /// The rules the provider shipped (routing header, happ://, Happ or Xray JSON).
+    var providerRoutingJson: String = ""
+    /// The routing profile bound to this subscription; 0 = the app's default.
+    var routingProfileId: Int64 = 0
+    /// Send this phone's device code (x-hwid) with this subscription.
+    var hwidEnabled: Bool = true
 
     static let colors = ["#C4784A", "#4A8FC4", "#5FB07A", "#B05FA8", "#C4A24A", "#4AC4B8"]
 }
@@ -148,6 +154,9 @@ extension Subscription {
         colorHex = c.value(.colorHex, "#C4784A")
         urlHidden = c.value(.urlHidden, false)
         serverTypes = c.value(.serverTypes, "")
+        providerRoutingJson = c.value(.providerRoutingJson, "")
+        routingProfileId = c.value(.routingProfileId, 0)
+        hwidEnabled = c.value(.hwidEnabled, true)
     }
 }
 
@@ -280,6 +289,8 @@ struct ImportResult {
     var updateIntervalHours: Int = 12
     /// Protocols recognised but not dialable in this build (TUIC, AmneziaWG…).
     var skipped: [String] = []
+    /// Rules found in the body (`#routing-link:`, `#routing-profile:`, a JSON `routing`).
+    var routingJson: String = ""
 }
 
 /// Everything the VPN extension needs to start: written by the app into the shared
@@ -297,4 +308,36 @@ struct TunnelPlan: Codable {
     var dnsServers: [String] = ["1.1.1.1", "8.8.8.8"]
     var ipv6: Bool = true
     var createdAt: Double = Date().timeIntervalSince1970
+    /// What the guard in the extension may switch to; nil = it only watches.
+    var guardPlan: GuardPlan? = nil
+}
+
+/// The servers the extension may move a live tunnel to, already built into configs (the
+/// extension has no subscriptions, profiles or geo files of its own).
+struct GuardPlan: Codable {
+    var mode: ConnectMode
+    /// Wi-Fi ↔ mobile data and whitelist checks pick the group (Home+LTE only).
+    var followNetwork: Bool = true
+    /// Now and then the group is compared and a clearly faster server takes over.
+    var autoRecheck: Bool = true
+    /// The group the live server is in.
+    var group: ServerRole = .normal
+    var home: [GuardCandidate] = []
+    var lte: [GuardCandidate] = []
+
+    func candidates(_ role: ServerRole) -> [GuardCandidate] { role == .bypass ? lte : home }
+    var hasLte: Bool { !lte.isEmpty }
+}
+
+struct GuardCandidate: Codable, Identifiable {
+    var id: Int64
+    var name: String
+    var address: String
+    var port: Int
+    /// The whole Xray config with this server as `proxy` (the others of its group as `alt-N`).
+    var config: String
+    /// Its usual delay, ms (-1 = not known).
+    var usualMs: Int = -1
+    /// `alt-N` tag → server id, as in [config].
+    var alternates: [String: Int64] = [:]
 }

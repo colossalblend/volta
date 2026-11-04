@@ -36,6 +36,7 @@ enum ConfigParser {
         var supportUrl = ""
         var webPageUrl = ""
         var updateInterval = 12
+        var routingJson = ""
 
         let normalized = body.removingPrefix("\u{FEFF}").trimmed
             .replacingOccurrences(of: "\r\n", with: "\n")
@@ -69,6 +70,10 @@ enum ConfigParser {
                 announce = decodeProfileTitle(value)
             } else if t.hasPrefixIgnoringCase("#profile-web-page-url:") {
                 webPageUrl = value
+            } else if t.hasPrefixIgnoringCase("#routing-link:") || t.hasPrefixIgnoringCase("happ://routing/") {
+                if routingJson.isBlank { routingJson = t.hasPrefix("#") ? value : t }
+            } else if t.hasPrefixIgnoringCase("#routing-profile:") {
+                routingJson = value
             } else if t.hasPrefixIgnoringCase("#subscription-userinfo:") {
                 if let info = parseUserInfo(value) {
                     trafficUsed = info.used
@@ -107,17 +112,21 @@ enum ConfigParser {
             out.supportUrl = supportUrl.ifBlank(r.supportUrl)
             out.webPageUrl = webPageUrl
             out.updateIntervalHours = updateInterval
+            out.routingJson = routingJson.ifBlank(r.routingJson)
             return out
         }
 
         let start = content.trimmed
         // A provider's JSON split into groups: {"wifi": [...], "lte": [...]}.
-        if start.hasPrefix("{"), let grouped = parseGroupedJson(content, subscriptionId: subscriptionId) {
+        if start.hasPrefix("{"), var grouped = parseGroupedJson(content, subscriptionId: subscriptionId) {
+            if let routing = JSON.object(content)?.obj("routing") { grouped.routingJson = JSON.string(routing) }
             return withMeta(grouped)
         }
         // A whole Xray config, or an array of them (v2rayNG style).
         if start.hasPrefix("{") {
-            return withMeta(parseXrayJson(content, subscriptionId: subscriptionId), defaultTitle: "JSON config")
+            var parsed = parseXrayJson(content, subscriptionId: subscriptionId)
+            if let routing = JSON.object(content)?.obj("routing") { parsed.routingJson = JSON.string(routing) }
+            return withMeta(parsed, defaultTitle: "JSON config")
         }
         if start.hasPrefix("["), let parsed = parseXrayJsonArray(content, subscriptionId: subscriptionId) {
             return withMeta(parsed)

@@ -13,19 +13,28 @@ import Tun2SocksKit
 ///  - Xray-core reads the interface itself through its TUN inbound (one Go runtime less
 ///    work in between, but its own TCP/IP stack).
 /// Either way the extension's own sockets bypass the tunnel, so Xray reaches the server
-/// directly. Memory stays within the ~50 MB iOS gives an extension: no geo files, the
-/// core's Go heap capped by libXray (30 MB, GC every second), small hev buffers.
+/// directly. Memory stays within the ~50 MB iOS gives an extension: only the geo lists the
+/// config names (trimmed by the app), the core's Go heap capped by libXray (30 MB, GC
+/// every second), small hev buffers. TunnelGuard watches the server while the app sleeps.
 final class PacketTunnelProvider: NEPacketTunnelProvider {
 
     private var engine: TunnelEngine = .hev
     private var metricsPort = 0
+    private var socksPort = 0
+    private var socksUser = ""
+    private var socksPass = ""
     private var stopping = false
     private let queue = DispatchQueue(label: "com.ars3nb.volta.tunnel")
+    private var guardian: TunnelGuard?
+    private var trafficTimer: DispatchSourceTimer?
+    /// Counters already written to the per-day traffic file.
+    private var countedUp: Int64 = 0
+    private var countedDown: Int64 = 0
 
     override func startTunnel(options: [String: NSObject]?, completionHandler: @escaping (Error?) -> Void) {
         stopping = false
         AppGroup.writeLastError(nil)
-        guard let plan = AppGroup.readPlan(), var root = JSON.object(plan.xrayConfig) else {
+        guard let plan = AppGroup.readPlan(), let root = JSON.object(plan.xrayConfig) else {
             return fail(L10n.tr("tunnel.error.noPlan"), completionHandler)
         }
         engine = plan.engine
@@ -33,30 +42,10 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         // A fresh local port and password for the SOCKS hop on every start, so no other
         // app on the phone can find and use it.
         let ports = XrayBridge.freePorts(2)
-        let socksPort = ports.first ?? Int.random(in: 20_000...50_000)
+        socksPort = ports.first ?? Int.random(in: 20_000...50_000)
         metricsPort = ports.count > 1 ? ports[1] : socksPort + 1
-        let user = Self.randomToken()
-        let pass = Self.randomToken()
-
-        switch engine {
-        case .hev:
-            if var inbounds = root["inbounds"] as? [JSONObject], !inbounds.isEmpty {
-                var inbound = inbounds[0]
-                var settings = inbound.obj("settings") ?? [:]
-                settings["auth"] = "password"
-                settings["accounts"] = [["user": user, "pass": pass]]
-                settings["udp"] = true
-                inbound["settings"] = settings
-                inbound["port"] = socksPort
-                inbound["listen"] = "127.0.0.1"
-                inbounds[0] = inbound
-                root["inbounds"] = inbounds
-            }
-        case .xray:
-            root["stats"] = JSONObject()
-            root["policy"] = ["system": ["statsOutboundUplink": true, "statsOutboundDownlink": true]]
-            root["metrics"] = ["tag": "metrics", "listen": "127.0.0.1:\(metricsPort)"]
-        }
+        socksUser = Self.randomToken()
+        socksPass = Self.randomToken()
 
         let excluded = Self.resolve(plan.excludedAddresses, timeout: 1.5)
         setTunnelNetworkSettings(Self.networkSettings(plan, excluded: excluded)) { [weak self] error in
@@ -65,32 +54,55 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                 return self.fail(L10n.tr("tunnel.error.settings", error.localizedDescription), completionHandler)
             }
             self.queue.async {
-                self.startCore(root: root, plan: plan, socksPort: socksPort, user: user, pass: pass,
-                               completionHandler: completionHandler)
+                self.startCore(root: root, plan: plan, completionHandler: completionHandler)
             }
         }
     }
 
-    private func startCore(root: JSONObject, plan: TunnelPlan, socksPort: Int, user: String, pass: String,
-                           completionHandler: @escaping (Error?) -> Void) {
-        var root = root
-        guard let fd = Self.tunnelFileDescriptor() else {
-            return fail(L10n.tr("tunnel.error.noInterface"), completionHandler)
-        }
-        if engine == .xray {
+    /// The parts of a config only the extension knows: the SOCKS hop's port and password,
+    /// the metrics port, the interface descriptor.
+    private func runtime(_ config: JSONObject) -> JSONObject? {
+        var root = config
+        switch engine {
+        case .hev:
+            if var inbounds = root["inbounds"] as? [JSONObject], !inbounds.isEmpty {
+                var inbound = inbounds[0]
+                var settings = inbound.obj("settings") ?? [:]
+                settings["auth"] = "password"
+                settings["accounts"] = [["user": socksUser, "pass": socksPass]]
+                settings["udp"] = true
+                inbound["settings"] = settings
+                inbound["port"] = socksPort
+                inbound["listen"] = "127.0.0.1"
+                inbounds[0] = inbound
+                root["inbounds"] = inbounds
+            }
+        case .xray:
+            guard let fd = Self.tunnelFileDescriptor() else { return nil }
             // Xray works on a duplicate of the descriptor; the original stays the system's.
             var env = root.obj("env") ?? [:]
             env["xray.tun.fd"] = String(fd)
             root["env"] = env
         }
+        // Traffic counters and the observatory's findings, for the app and the guard.
+        root["stats"] = JSONObject()
+        root["policy"] = ["system": ["statsOutboundUplink": true, "statsOutboundDownlink": true]]
+        root["metrics"] = ["tag": "metrics", "listen": "127.0.0.1:\(metricsPort)"]
+        return root
+    }
+
+    private func startCore(root: JSONObject, plan: TunnelPlan, completionHandler: @escaping (Error?) -> Void) {
+        guard let config = runtime(root) else {
+            return fail(L10n.tr("tunnel.error.noInterface"), completionHandler)
+        }
         XrayBridge.stop()
-        let result = XrayBridge.run(config: JSON.string(root))
+        let result = XrayBridge.run(config: JSON.string(config))
         guard result.ok else {
             return fail(L10n.tr("tunnel.error.core", result.error), completionHandler)
         }
         if engine == .hev {
-            let config = Self.hevConfig(mtu: plan.mtu, port: socksPort, user: user, pass: pass)
-            Socks5Tunnel.run(withConfig: .string(content: config)) { [weak self] code in
+            let hev = Self.hevConfig(mtu: plan.mtu, port: socksPort, user: socksUser, pass: socksPass)
+            Socks5Tunnel.run(withConfig: .string(content: hev)) { [weak self] code in
                 guard let self = self, !self.stopping else { return }
                 // The bridge stopped while the tunnel was meant to be up.
                 let message = L10n.tr("tunnel.error.bridge", Int(code))
@@ -100,13 +112,42 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                                                    userInfo: [NSLocalizedDescriptionKey: message]))
             }
         }
+        countedUp = 0
+        countedDown = 0
+        startTrafficTimer()
+        if let guardPlan = plan.guardPlan {
+            let g = TunnelGuard(plan: guardPlan, liveId: plan.serverId, queue: queue)
+            g.readCounters = { [weak self] in self?.counters() ?? (0, 0) }
+            g.readObservatory = { [weak self] in self?.observatory() ?? [:] }
+            g.switchTo = { [weak self] candidate in self?.switchCore(to: candidate) ?? false }
+            guardian = g
+            g.start()
+        }
         completionHandler(nil)
+    }
+
+    /// Moves the live tunnel to another server: the core restarts with its config, the
+    /// interface and the SOCKS hop stay. Runs on [queue].
+    private func switchCore(to candidate: GuardCandidate) -> Bool {
+        guard !stopping, let root = JSON.object(candidate.config), let config = runtime(root) else { return false }
+        recordTraffic()
+        XrayBridge.stop()
+        let result = XrayBridge.run(config: JSON.string(config))
+        // Metrics counters start again with the new core.
+        if engine == .xray { countedUp = 0; countedDown = 0 }
+        if !result.ok { AppGroup.writeLastError(L10n.tr("tunnel.error.core", result.error)) }
+        return result.ok
     }
 
     override func stopTunnel(with reason: NEProviderStopReason, completionHandler: @escaping () -> Void) {
         stopping = true
         let engine = self.engine
+        guardian?.stop()
+        guardian = nil
         queue.async {
+            self.recordTraffic()
+            self.trafficTimer?.cancel()
+            self.trafficTimer = nil
             if engine == .hev { Socks5Tunnel.quit() }
             XrayBridge.stop()
             completionHandler()
@@ -118,19 +159,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         guard message == TunnelMessage.stats else { completionHandler?(nil); return }
         queue.async { [weak self] in
             guard let self = self else { completionHandler?(nil); return }
-            var stats = TunnelMessage.Stats(uplink: 0, downlink: 0, engine: self.engine.rawValue)
-            switch self.engine {
-            case .hev:
-                let s = Socks5Tunnel.stats
-                // hev counts from the interface's point of view: what it sent is upload.
-                stats.uplink = Int64(s.up.bytes)
-                stats.downlink = Int64(s.down.bytes)
-            case .xray:
-                if let traffic = self.xrayTraffic() {
-                    stats.uplink = traffic.0
-                    stats.downlink = traffic.1
-                }
-            }
+            let (up, down) = self.counters()
+            var stats = TunnelMessage.Stats(uplink: up, downlink: down, engine: self.engine.rawValue)
             stats.memory = Self.residentMemory()
             completionHandler?(try? JSONEncoder().encode(stats))
         }
@@ -138,33 +168,81 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
 
     override func sleep(completionHandler: @escaping () -> Void) { completionHandler() }
 
-    override func wake() {}
+    override func wake() { guardian?.checkSoon(reason: .wake) }
 
-    // MARK: - Pieces
+    // MARK: - Counters
+
+    /// Bytes up and down so far: hev counts from the interface's point of view (what it
+    /// sent is upload); the Xray engine reads the proxy outbound's counters.
+    private func counters() -> (Int64, Int64) {
+        switch engine {
+        case .hev:
+            let s = Socks5Tunnel.stats
+            return (Int64(s.up.bytes), Int64(s.down.bytes))
+        case .xray:
+            return xrayTraffic() ?? (0, 0)
+        }
+    }
+
+    private func startTrafficTimer() {
+        trafficTimer?.cancel()
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + 30, repeating: 30, leeway: .seconds(5))
+        timer.setEventHandler { [weak self] in self?.recordTraffic() }
+        timer.resume()
+        trafficTimer = timer
+    }
+
+    /// Adds what went through since the last time to today's total in the shared container.
+    private func recordTraffic() {
+        let (up, down) = counters()
+        // A counter that went down was started again (a new core): count it from zero.
+        let du = up >= countedUp ? up - countedUp : up
+        let dd = down >= countedDown ? down - countedDown : down
+        countedUp = up
+        countedDown = down
+        AppGroup.addTraffic(up: du, down: dd)
+    }
 
     private func fail(_ message: String, _ completionHandler: @escaping (Error?) -> Void) {
         AppGroup.writeLastError(message)
         completionHandler(NSError(domain: "Volta", code: 1, userInfo: [NSLocalizedDescriptionKey: message]))
     }
 
-    /// Traffic through the proxy outbound, from Xray's metrics server.
-    private func xrayTraffic() -> (Int64, Int64)? {
+    private func debugVars() -> JSONObject? {
         guard metricsPort > 0, let url = URL(string: "http://127.0.0.1:\(metricsPort)/debug/vars") else { return nil }
-        var result: (Int64, Int64)?
+        var result: JSONObject?
         let done = DispatchSemaphore(value: 0)
         var request = URLRequest(url: url)
         request.timeoutInterval = 1
         URLSession.shared.dataTask(with: request) { data, _, _ in
             defer { done.signal() }
-            guard let data = data,
-                  let root = try? JSONSerialization.jsonObject(with: data) as? JSONObject,
-                  let proxy = (root.obj("stats")?.obj("outbound"))?.obj(ConfigBuilder.proxyTag) else { return }
-            let up = (proxy["uplink"] as? NSNumber)?.int64Value ?? 0
-            let down = (proxy["downlink"] as? NSNumber)?.int64Value ?? 0
-            result = (up, down)
+            guard let data = data else { return }
+            result = try? JSONSerialization.jsonObject(with: data) as? JSONObject
         }.resume()
         _ = done.wait(timeout: .now() + 1.5)
         return result
+    }
+
+    /// Traffic through the proxy outbound, from Xray's metrics server.
+    private func xrayTraffic() -> (Int64, Int64)? {
+        guard let proxy = debugVars()?.obj("stats")?.obj("outbound")?.obj(ConfigBuilder.proxyTag) else { return nil }
+        let up = (proxy["uplink"] as? NSNumber)?.int64Value ?? 0
+        let down = (proxy["downlink"] as? NSNumber)?.int64Value ?? 0
+        return (up, down)
+    }
+
+    /// What the core's observatory measured: `proxy` and every `alt-N`.
+    private func observatory() -> [String: GuardPolicy.Observation] {
+        guard let obs = debugVars()?.obj("observatory") else { return [:] }
+        var out: [String: GuardPolicy.Observation] = [:]
+        for (tag, value) in obs {
+            guard let o = value as? JSONObject else { continue }
+            let alive = (o["alive"] as? NSNumber)?.boolValue ?? false
+            let delay = (o["delay"] as? NSNumber)?.intValue ?? -1
+            out[tag] = GuardPolicy.Observation(alive: alive, delayMs: alive ? delay : -1)
+        }
+        return out
     }
 
     static func networkSettings(_ plan: TunnelPlan, excluded: [String]) -> NEPacketTunnelNetworkSettings {

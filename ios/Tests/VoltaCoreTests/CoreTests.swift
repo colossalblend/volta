@@ -122,10 +122,9 @@ final class ConfigBuilderTests: XCTestCase {
         XCTAssertEqual(inbound.str("protocol"), "socks")
         XCTAssertEqual(inbound.int("port", 0), 23456)
         XCTAssertEqual(inbound.obj("settings")?.str("auth"), "password")
-        // No geo files on iOS: nothing may refer to them.
-        let text = JSON.string(root)
-        XCTAssertFalse(text.contains("geoip:"))
-        XCTAssertFalse(text.contains("geosite:"))
+        // Local networks direct, as on Android (the list is written trimmed before connecting).
+        let rules = try XCTUnwrap(root.obj("routing")?["rules"] as? [JSONObject])
+        XCTAssertTrue(rules.contains { ($0["ip"] as? [String]) == ["geoip:private"] })
     }
 
     func testFlowDroppedOffRawTcp() throws {
@@ -156,11 +155,11 @@ final class ConfigBuilderTests: XCTestCase {
 
     func testRussiaDirectAndDns() throws {
         var options = ConfigBuilder.Options()
-        options.russiaDirect = true
+        options.profile = RoutingEngine.builtInProfiles()[1]
         let root = try config("trojan://pw@t.example:443#T", options)
         let rules = try XCTUnwrap(root.obj("routing")?.arr("rules") as? [JSONObject])
         XCTAssertEqual(rules.first?.str("outboundTag"), "dns-out")
-        XCTAssertTrue(rules.contains { ($0["domain"] as? [String])?.contains("domain:ru") == true })
+        XCTAssertTrue(rules.contains { ($0["domain"] as? [String])?.contains("geosite:category-ru") == true })
         XCTAssertEqual(rules.last?.str("outboundTag"), "proxy")
         XCTAssertNotNil(root.obj("dns"))
     }

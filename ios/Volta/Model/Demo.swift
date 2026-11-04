@@ -99,6 +99,7 @@ enum Demo {
         }
         switch value("-volta-tab") {
         case "servers": model.tab = .servers
+        case "routing": model.tab = .routing
         case "subscriptions": model.tab = .subscriptions
         case "settings": model.tab = .settings
         case "import":

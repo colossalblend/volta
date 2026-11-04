@@ -60,6 +60,31 @@ enum SubCrypto {
         }
     }
 
+    /// What a provider tool does (tools/volta_crypt.py), and how a backup keeps a hidden
+    /// subscription address out of plain sight: the same format `decrypt` opens.
+    static func encrypt(_ plaintext: String, publicKey: P256.KeyAgreement.PublicKey? = nil,
+                        keyId: Int = currentKeyId) throws -> String {
+        guard let recipient = publicKey ?? appKey?.publicKey else { throw CryptError(message: L10n.tr("link.crypt.unknownKey")) }
+        let ephemeral = P256.KeyAgreement.PrivateKey()
+        let epk = ephemeral.publicKey.x963Representation
+        var header = Data([version, UInt8(truncatingIfNeeded: keyId)])
+        header.append(epk)
+        let shared = try ephemeral.sharedSecretFromKeyAgreement(with: recipient)
+        let aes = shared.hkdfDerivedSymmetricKey(
+            using: SHA256.self, salt: epk, sharedInfo: Data(info.utf8), outputByteCount: 32
+        )
+        let nonce = AES.GCM.Nonce()
+        let box = try AES.GCM.seal(Data(plaintext.utf8), using: aes, nonce: nonce, authenticating: header)
+        var out = header
+        nonce.withUnsafeBytes { out.append(contentsOf: $0) }
+        out.append(box.ciphertext)
+        out.append(box.tag)
+        return out.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .trimmingTrailing("=")
+    }
+
     /// The app's key, masked so it is not a greppable string in the binary.
     private static let appKey: P256.KeyAgreement.PrivateKey? = {
         let parts = [

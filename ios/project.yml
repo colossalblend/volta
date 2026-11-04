@@ -25,7 +25,9 @@ settings:
     ENABLE_BITCODE: NO
     DEAD_CODE_STRIPPING: YES
     ENABLE_USER_SCRIPT_SANDBOXING: NO
-    LOCALIZATION_PREFERS_STRING_CATALOGS: NO
+    # Texts live in Localization/Localizable.xcstrings, made by tools/strings.py from the
+    # Android string resources; Xcode compiles the catalog into each language's tables.
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
     SWIFT_EMIT_LOC_STRINGS: NO
     CODE_SIGN_STYLE: Automatic
     # Identity of the build. CI overrides these from the provisioning profiles when it
@@ -51,6 +53,11 @@ targets:
       - path: Shared
       - path: Bridge
       - path: Localization
+      # v2fly's geosite/geoip (scripts/fetch-geo.sh, run by CI). The app writes the lists
+      # a config names into small files for the extension before each connect.
+      - path: Geo
+        optional: true
+        buildPhase: resources
     dependencies:
       - target: PacketTunnel
       - framework: Frameworks/LibXray.xcframework
@@ -74,7 +81,7 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDevelopmentRegion: ru
         CFBundleAllowMixedLocalizations: true
-        CFBundleLocalizations: [ru, en, uk, kk, uz, tr, fa, zh-Hans, es, de]
+        CFBundleLocalizations: [ru, en, uk, be, kk, uz, az, tr, fa, ar, zh-Hans, es, de, fr, pt-BR]
         LSRequiresIPhoneOS: true
         ITSAppUsesNonExemptEncryption: false
         UILaunchScreen:

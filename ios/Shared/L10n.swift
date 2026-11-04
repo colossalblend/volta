@@ -15,30 +15,11 @@ enum L10n {
     /// The app's language as iOS picked it (the per-app setting included).
     static var language: String { Bundle.main.preferredLocalizations.first ?? "ru" }
 
-    /// Plural category for [n] in the current language: one, few, many or other.
-    static func pluralCategory(_ n: Int, language: String = L10n.language) -> String {
-        let lang = String(language.prefix(2))
-        let mod10 = n % 10
-        let mod100 = n % 100
-        switch lang {
-        case "ru", "uk":
-            if mod10 == 1 && mod100 != 11 { return "one" }
-            if (2...4).contains(mod10) && !(12...14).contains(mod100) { return "few" }
-            return "many"
-        case "en", "de", "es", "kk", "uz", "tr", "fa":
-            return n == 1 ? "one" : "other"
-        default:
-            return "other"
-        }
-    }
-
-    /// `key.one` / `key.few` / `key.many` / `key.other` with the number put in.
+    /// A plural text with the number put in. The String Catalog holds every language's
+    /// forms (one/few/many/other, Arabic's zero/two too); iOS picks the right one.
     static func plural(_ key: String, _ n: Int) -> String {
-        let category = pluralCategory(n)
-        var format = NSLocalizedString("\(key).\(category)", tableName: nil, bundle: .main, value: "", comment: "")
-        if format.isEmpty || format == "\(key).\(category)" {
-            format = NSLocalizedString("\(key).other", tableName: nil, bundle: .main, value: "%d", comment: "")
-        }
-        return String(format: format, locale: Locale.current, n)
+        let format = NSLocalizedString(key, tableName: nil, bundle: .main, value: "%ld", comment: "")
+        if format == key { return String(n) }
+        return String.localizedStringWithFormat(format, n)
     }
 }

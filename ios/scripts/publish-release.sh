@@ -19,6 +19,21 @@ FILES=("$OUT"/*.ipa)
 
 UNSIGNED="$VOLTA_STEM-ios-unsigned.ipa"
 SIGNED_NAME="$VOLTA_STEM-ios.ipa"
+
+# What the app's «Проверка обновлений» reads (Shared/Updates.swift): this build's number
+# (100 + run number, like Android's versionCode) and the IPA to point at.
+IPA_NAME="$UNSIGNED"; SIGNED_FLAG=false
+if [ -f "$OUT/$SIGNED_NAME" ]; then IPA_NAME="$SIGNED_NAME"; SIGNED_FLAG=true; fi
+python3 - "$OUT/ios-update.json" <<PY
+import json, sys
+json.dump({
+    "versionCode": int("$VOLTA_BUILD"), "versionName": "$VOLTA_VERSION", "tag": "$TAG",
+    "commit": "$SHA", "branch": "$VOLTA_BRANCH", "xray": "${LIBXRAY_VERSION:-}",
+    "ipa": "$IPA_NAME", "signed": $([ "$SIGNED_FLAG" = true ] && echo True || echo False),
+}, open(sys.argv[1], "w"), indent=2)
+PY
+cat "$OUT/ios-update.json"
+FILES+=("$OUT/ios-update.json")
 NOTES="$(mktemp)"
 {
   echo "<!-- volta-ios -->"
@@ -38,7 +53,7 @@ NOTES="$(mktemp)"
 
 if gh release view "$TAG" > /dev/null 2>&1; then
   ASSETS="$(gh release view "$TAG" --json assets -q '.assets[].name')"
-  OTHERS="$(grep -v -E -- '-ios(-unsigned|-screens)?\.(ipa|zip)$' <<<"$ASSETS" || true)"
+  OTHERS="$(grep -v -E -- '-ios(-unsigned|-screens)?\.(ipa|zip)$|^ios-update\.json$' <<<"$ASSETS" || true)"
   if [ "$VOLTA_STABLE" != yes ] && [ -z "$OTHERS" ]; then
     # Nothing but earlier iOS builds: start the rolling pre-release over at this commit.
     gh release delete "$TAG" --cleanup-tag --yes

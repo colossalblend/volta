@@ -1,8 +1,9 @@
 import SwiftUI
+import UIKit
 
-/// The colour themes, as on Android minus Material You (iOS has no wallpaper colours).
-enum DesignTheme: String, CaseIterable, Codable {
-    case system, volta, light, ocean, ember
+extension DesignTheme {
+    /// Light or dark comes from iOS.
+    var followsSystem: Bool { self == .system || self == .dynamic }
 }
 
 extension Color {
@@ -91,8 +92,24 @@ struct Palette {
         home: Color(hex: 0x5AA9E6), lte: Color(hex: 0xE0B341), isDark: true
     )
 
+    /// iOS's own colours and accent, light or dark with the system (Android's Material You
+    /// counterpart: an iPhone gives apps no wallpaper colours, but it has its system tint).
+    static func dynamic(dark: Bool) -> Palette {
+        let accent = Color(UIColor.systemBlue)
+        return Palette(
+            background: Color(UIColor.systemGroupedBackground), surface: Color(UIColor.secondarySystemGroupedBackground),
+            surfaceVariant: Color(UIColor.tertiarySystemFill), onBackground: Color(UIColor.label),
+            onSurface: Color(UIColor.label), onSurfaceVariant: Color(UIColor.secondaryLabel),
+            primary: accent, onPrimary: .white, outline: Color(UIColor.separator), error: Color(UIColor.systemRed),
+            heroTop: Color(UIColor.secondarySystemGroupedBackground),
+            good: Color(UIColor.systemGreen), fair: Color(UIColor.systemOrange), poor: Color(UIColor.systemRed),
+            home: Color(UIColor.systemTeal), lte: Color(UIColor.systemYellow), isDark: dark
+        )
+    }
+
     static func resolve(_ theme: DesignTheme, systemDark: Bool) -> Palette {
         switch theme {
+        case .dynamic: return .dynamic(dark: systemDark)
         case .system: return systemDark ? .volta : .light
         case .volta: return .volta
         case .light: return .light
@@ -109,6 +126,8 @@ struct Palette {
         case .ocean: return (Color(hex: 0x0B1A20), Color(hex: 0x193239), Color(hex: 0x3DBFB4))
         case .ember: return (Color(hex: 0x161210), Color(hex: 0x2E251E), Color(hex: 0xF08A3C))
         case .system: return (Color(hex: 0x101316), Color(hex: 0xFFFFFF), Color(hex: 0xD08350))
+        case .dynamic: return (Color(UIColor.systemGroupedBackground), Color(UIColor.secondarySystemGroupedBackground),
+                               Color(UIColor.systemBlue))
         }
     }
 }

@@ -72,3 +72,55 @@ enum TunnelMessage {
         var memory: Int64 = 0
     }
 }
+
+extension AppGroup {
+    /// The trimmed geo lists for the next tunnel (`xray.location.asset`).
+    static var geoRunURL: URL {
+        let dir = containerURL.appendingPathComponent("geo-run", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    /// A subscription's own downloaded lists (Happ Geoipurl / Geositeurl), full size.
+    static var geoSubscriptionsURL: URL {
+        let dir = containerURL.appendingPathComponent("geo-subs", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    static var trafficURL: URL { containerURL.appendingPathComponent("traffic.json") }
+    static var guardStateURL: URL { containerURL.appendingPathComponent("guard-state.json") }
+
+    private static let trafficLock = NSLock()
+
+    static func readTraffic() -> TrafficDays {
+        guard let data = try? Data(contentsOf: trafficURL),
+              let days = try? JSONDecoder().decode(TrafficDays.self, from: data) else { return TrafficDays() }
+        return days
+    }
+
+    /// Adds bytes to today (the extension calls it while the tunnel runs).
+    static func addTraffic(up: Int64, down: Int64, at date: Date = Date()) {
+        if up <= 0 && down <= 0 { return }
+        trafficLock.lock()
+        defer { trafficLock.unlock() }
+        var days = readTraffic()
+        let today = TrafficTally.day(of: date)
+        days.add(day: today, up: up, down: down)
+        days.prune(today: today)
+        if let data = try? JSONEncoder().encode(days) { try? data.write(to: trafficURL, options: [.atomic]) }
+    }
+
+    static func writeGuardState(_ state: GuardState?) {
+        guard let state = state, let data = try? JSONEncoder().encode(state) else {
+            try? FileManager.default.removeItem(at: guardStateURL)
+            return
+        }
+        try? data.write(to: guardStateURL, options: [.atomic])
+    }
+
+    static func readGuardState() -> GuardState? {
+        guard let data = try? Data(contentsOf: guardStateURL) else { return nil }
+        return try? JSONDecoder().decode(GuardState.self, from: data)
+    }
+}

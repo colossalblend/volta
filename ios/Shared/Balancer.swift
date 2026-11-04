@@ -142,3 +142,13 @@ enum Balancer {
         return (selected, ranked)
     }
 }
+
+extension Balancer {
+    /// The same hysteresis as `beats`, on two plain delays: a challenger must be faster
+    /// by the margin and by the ratio, so near-equal servers never trade places.
+    static func isClearlyFaster(_ challengerMs: Int, than holderMs: Int) -> Bool {
+        if challengerMs <= 0 { return false }
+        if holderMs <= 0 { return true }
+        return challengerMs + switchMarginMs < holderMs && Double(challengerMs) < Double(holderMs) * switchMarginRatio
+    }
+}

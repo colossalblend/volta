@@ -99,8 +99,15 @@ jobs:
           set -o pipefail
           swift test --package-path ios 2>&1 | tee "$RUNNER_TEMP/tests.log"
 
+      # The String Catalog is made from the Android string resources (same wording in all
+      # 15 languages); this fails when it is out of date or a text is missing.
       - name: Check translations
         run: python3 ios/tools/strings.py --check
+
+      # v2fly's geosite/geoip, as the Android core carries them, minus the few country
+      # lists too big for the VPN extension. The app trims them per connect.
+      - name: Geo lists
+        run: bash ios/scripts/fetch-geo.sh ios/Geo
 
       - name: Xcode project
         run: |
@@ -121,6 +128,21 @@ jobs:
             MARKETING_VERSION="$VOLTA_MARKETING" CURRENT_PROJECT_VERSION="$VOLTA_BUILD" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             2>&1 | tee "$RUNNER_TEMP/xcodebuild.log" | $BEAUTIFY
+
+      # The catalog compiled into every language, and the geo lists in the bundle.
+      - name: Check the app bundle
+        run: |
+          APP="$RUNNER_TEMP/unsigned.xcarchive/Products/Applications/Volta.app"
+          ls "$APP" | head -50
+          MISSING=0
+          for lang in ru en uk be kk uz az tr fa ar zh-Hans es de fr pt-BR; do
+            if ! ls "$APP/$lang.lproj"/Localizable.* > /dev/null 2>&1; then echo "::error::no $lang.lproj/Localizable"; MISSING=1; fi
+          done
+          for f in geosite.dat geoip.dat; do
+            [ -s "$APP/$f" ] || [ -s "$APP/Geo/$f" ] || { echo "::error::$f is not in the app"; MISSING=1; }
+          done
+          ls -la "$APP/ru.lproj" "$APP/ar.lproj" || true
+          exit $MISSING
 
       # Payload/Volta.app with PlugIns/PacketTunnel.appex, zipped. Both bundles carry an
       # ad-hoc signature holding their entitlements (VPN extension, app group): no

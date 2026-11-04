@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The app's frame: the four tabs with the Android bottom bar, the «Добавить» screen over
+/// The app's frame: the five tabs with the Android bottom bar, the «Добавить» screen over
 /// them, and one place for short messages.
 struct RootView: View {
     @EnvironmentObject private var model: AppModel
@@ -15,6 +15,7 @@ struct RootView: View {
                 switch model.tab {
                 case .home: HomeScreen()
                 case .servers: ServersScreen()
+                case .routing: RoutingScreen()
                 case .subscriptions: SubscriptionsScreen()
                 case .settings: SettingsScreen()
                 }
@@ -35,13 +36,13 @@ struct RootView: View {
         .animation(.easeInOut(duration: 0.2), value: model.tab)
         .animation(Motion.settle, value: model.toast)
         .environment(\.palette, p)
-        .preferredColorScheme(model.settings.theme == .system ? nil : (p.isDark ? .dark : .light))
+        .preferredColorScheme(model.settings.theme.followsSystem ? nil : (p.isDark ? .dark : .light))
         .tint(p.primary)
         .fullScreenCover(isPresented: $model.importOpen) {
             ImportScreen()
                 .environment(\.palette, p)
                 .environmentObject(model)
-                .preferredColorScheme(model.settings.theme == .system ? nil : (p.isDark ? .dark : .light))
+                .preferredColorScheme(model.settings.theme.followsSystem ? nil : (p.isDark ? .dark : .light))
         }
         .task { await model.onLaunch() }
         .onOpenURL { url in model.open(url: url) }
@@ -67,6 +68,7 @@ private struct VoltaTabBar: View {
         [
             Tab(tab: .home, title: L("tab.home"), icon: "house", chosenIcon: "house.fill"),
             Tab(tab: .servers, title: L("tab.servers"), icon: "server.rack", chosenIcon: "server.rack"),
+            Tab(tab: .routing, title: L("home_tab_routing"), icon: "arrow.triangle.branch", chosenIcon: "arrow.triangle.branch"),
             Tab(tab: .subscriptions, title: L("tab.subscriptions"), icon: "icloud", chosenIcon: "icloud.fill"),
             Tab(tab: .settings, title: L("tab.settings"), icon: "gearshape", chosenIcon: "gearshape.fill")
         ]

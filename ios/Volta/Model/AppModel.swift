@@ -22,7 +22,7 @@ enum ConnectPhase: Equatable {
 }
 
 enum AppTab: Int, CaseIterable {
-    case home, servers, subscriptions, settings
+    case home, servers, routing, subscriptions, settings
 }
 
 /// "Why this server": the finalists of the last auto pick.
@@ -57,7 +57,8 @@ struct UserError: LocalizedError {
 }
 
 /// The app's state and everything the screens can ask for. A port of the Android view
-/// model and repository, minus what iOS has no room for (routing profiles, helpers).
+/// model and repository (routing in AppModel+Routing, the rest of the parity work in
+/// AppModel+Parity), minus what iOS has no room for (the helper programs, per-app VPN).
 @MainActor
 final class AppModel: ObservableObject {
 
@@ -85,6 +86,14 @@ final class AppModel: ObservableObject {
     @Published var ipInfo: IpChecker.Info?
     @Published var coreVersion = ""
     @Published private(set) var connecting = false
+    @Published var profiles: [RoutingProfile] = []
+    /// Routing changed while connected: «Применить» reconnects.
+    @Published var routingPending = false
+    /// What the guard in the extension last did (the live server may have changed).
+    @Published var guardState: GuardState?
+    @Published var update: UpdateStatus = .idle
+    @Published var trafficSummary = TrafficSummary()
+    @Published var internet: InternetCheck.Status = .ok
 
     let vpn = VPNController()
     private var connectTask: Task<Void, Never>?
@@ -101,6 +110,7 @@ final class AppModel: ObservableObject {
         subscriptions = Store.loadSubscriptions()
         servers = Store.loadServers()
         Countries.displayLanguage = L10n.language
+        seedProfiles()
         if Demo.isOn { Demo.apply(to: self) }
     }
 
@@ -132,6 +142,8 @@ final class AppModel: ObservableObject {
             return
         }
         vpn.onStatusChange = { [weak self] status in self?.apply(status) }
+        startInternetWatch()
+        loadTraffic()
         await vpn.load()
         coreVersion = await Task.detached(priority: .utility) { XrayBridge.version }.value
         if settings.refreshOnLaunch && !subscriptions.isEmpty {
@@ -141,12 +153,14 @@ final class AppModel: ObservableObject {
             regime = await NetworkProbe.run()
         }
         refreshIp()
+        await checkUpdatesOnLaunch()
     }
 
     func setActive(_ value: Bool) {
         active = value
         if Demo.isOn { return }
         if value {
+            loadTraffic()
             apply(vpn.status)
             if isConnected { startStats() }
         } else {
@@ -225,6 +239,12 @@ final class AppModel: ObservableObject {
 
     func connect(mode: ConnectMode? = nil) {
         guard connectTask == nil else { return }
+        // Connecting with no network under the VPN can only spin: say so instead.
+        if internet.blocksConnect {
+            lastError = L(internet == .airplane ? "network_connect_airplane" : "network_connect_none")
+            vpnState = .error
+            return
+        }
         lastError = nil
         if vpnState == .error { vpnState = .disconnected }
         AppGroup.writeLastError(nil)
@@ -235,7 +255,8 @@ final class AppModel: ObservableObject {
                 let server = try await self.chooseServer(for: mode ?? self.settings.mode)
                 try Task.checkCancellation()
                 self.phase = .starting
-                try self.writePlan(for: server)
+                try self.writeTunnelPlan(for: server, mode: mode ?? self.settings.mode)
+                self.routingPending = false
                 try await self.vpn.start(keepConnected: self.settings.keepConnected)
                 self.settings.selectedServerId = server.id
             } catch is CancellationError {
@@ -257,12 +278,13 @@ final class AppModel: ObservableObject {
     }
 
     /// Moves a running tunnel to [server]: a new plan, then the extension restarts.
-    private func reconnect(to server: Server) {
+    func reconnectTunnel(to server: Server) {
         guard isConnected || vpnState == .connecting else { return }
         Task { [weak self] in
             guard let self = self else { return }
             do {
-                try self.writePlan(for: server)
+                try self.writeTunnelPlan(for: server, mode: self.settings.mode)
+                self.routingPending = false
                 self.userStopped = true
                 await self.vpn.stop()
                 for _ in 0..<40 {
@@ -274,25 +296,6 @@ final class AppModel: ObservableObject {
                 self.lastError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             }
         }
-    }
-
-    private func writePlan(for server: Server) throws {
-        var options = ConfigBuilder.Options()
-        options.engine = settings.engine
-        options.localDns = settings.localDns
-        options.russiaDirect = settings.russiaDirect
-        let config = try ConfigBuilder.build(server: server, options: options)
-        // The chosen server first, then the others, so the app's pings bypass the tunnel.
-        var addresses = [server.address]
-        for s in servers where !addresses.contains(s.address) && !s.address.isBlank { addresses.append(s.address) }
-        let plan = TunnelPlan(
-            xrayConfig: config,
-            engine: settings.engine,
-            serverName: server.remark,
-            serverId: server.id,
-            excludedAddresses: Array(addresses.prefix(96))
-        )
-        try AppGroup.writePlan(plan)
     }
 
     /// The server for a connect: the selected one, or the best of the group the mode
@@ -370,6 +373,7 @@ final class AppModel: ObservableObject {
             while !Task.isCancelled {
                 guard let self = self else { return }
                 if let stats = await self.vpn.stats() { self.applyStats(stats) }
+                self.applyGuardState()
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
         }
@@ -402,7 +406,7 @@ final class AppModel: ObservableObject {
         Haptics.select()
         settings.selectedServerId = server.id
         settings.mode = .manual
-        if isConnected { reconnect(to: server) }
+        if isConnected { reconnectTunnel(to: server) }
     }
 
     func setMode(_ mode: ConnectMode) {
@@ -520,7 +524,7 @@ final class AppModel: ObservableObject {
             }
             let ms = decision.ranked.first { $0.server.id == chosen.id }?.latencyMs ?? -1
             self.show(L("balancer.picked", Countries.withoutLeadingFlag(chosen.remark), ms))
-            if changed && self.isConnected { self.reconnect(to: chosen) }
+            if changed && self.isConnected { self.reconnectTunnel(to: chosen) }
         }
     }
 
@@ -588,7 +592,7 @@ final class AppModel: ObservableObject {
         let body: String
         do {
             body = try await SubscriptionFetcher.fetch(
-                url: sub.url, userAgent: sub.userAgent, hwid: settings.sendHwid ? Hwid.value : nil
+                url: sub.url, userAgent: sub.userAgent, hwid: settings.sendHwid && sub.hwidEnabled ? Hwid.value : nil
             )
         } catch {
             // A hidden link must not leak through an error text.
@@ -596,6 +600,7 @@ final class AppModel: ObservableObject {
             throw error
         }
         let parsed = ConfigParser.parseSubscriptionBody(body, subscriptionId: id)
+        let fetchedBody = body
         let merged = ServerClassifier.mergeProviderUpdate(
             previous: servers.filter { $0.subscriptionId == id },
             incoming: parsed.servers,
@@ -625,6 +630,7 @@ final class AppModel: ObservableObject {
             s.webPageUrl = parsed.webPageUrl
             s.updateIntervalHours = parsed.updateIntervalHours
             subscriptions[i] = s
+            await applyProviderRouting(subscriptionId: id, displayName: s.name, body: fetchedBody, parsed: parsed)
         }
         persist()
     }
@@ -685,6 +691,7 @@ final class AppModel: ObservableObject {
     }
 
     func deleteSubscription(_ id: Int64) {
+        forgetRouting(ofSubscription: id)
         subscriptions.removeAll { $0.id == id }
         servers.removeAll { $0.subscriptionId == id }
         if selectedServer == nil { settings.selectedServerId = servers.first { $0.role != .auto }?.id }
@@ -814,7 +821,7 @@ final class AppModel: ObservableObject {
 
     // MARK: - Persistence
 
-    private func persist() {
+    func persist() {
         Store.save(subscriptions: subscriptions)
         Store.save(servers: servers)
     }

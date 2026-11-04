@@ -2,57 +2,17 @@ import CryptoKit
 import Foundation
 import Security
 
-enum PingMethod: String, Codable, CaseIterable {
-    /// Real delay through the server, measured by the core. Recommended.
-    case realDelay
-    /// A plain TCP handshake with the server's address: quick, but a server can answer it
-    /// and still not work.
-    case tcp
-}
-
-/// Everything the user can switch, kept in the shared container's defaults.
-struct AppSettings: Codable, Equatable {
-    var theme: DesignTheme = .volta
-    var mode: ConnectMode = .autoHomeLte
-    var selectedServerId: Int64?
-    var refreshOnLaunch = true
-    var probeOnLaunch = true
-    var pingMethod: PingMethod = .realDelay
-    var localDns = true
-    var russiaDirect = false
-    var engine: TunnelEngine = .hev
-    var sendHwid = true
-    var keepConnected = false
-    var hideBalancers = true
-    /// The server that last carried traffic in each group (BalancerScope raw value).
-    var remembered: [String: Int64] = [:]
-}
-
-extension AppSettings {
-    init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        theme = c.value(.theme, .volta)
-        mode = c.value(.mode, .autoHomeLte)
-        selectedServerId = (try? c.decodeIfPresent(Int64.self, forKey: .selectedServerId)) ?? nil
-        refreshOnLaunch = c.value(.refreshOnLaunch, true)
-        probeOnLaunch = c.value(.probeOnLaunch, true)
-        pingMethod = c.value(.pingMethod, .realDelay)
-        localDns = c.value(.localDns, true)
-        russiaDirect = c.value(.russiaDirect, false)
-        engine = c.value(.engine, .hev)
-        sendHwid = c.value(.sendHwid, true)
-        keepConnected = c.value(.keepConnected, false)
-        hideBalancers = c.value(.hideBalancers, true)
-        remembered = c.value(.remembered, [:])
-    }
-}
-
 /// Subscriptions and servers as JSON files in the shared container, settings in its
 /// defaults. Small enough to write whole on every change.
 enum Store {
     private static var subscriptionsURL: URL { AppGroup.containerURL.appendingPathComponent("subscriptions.json") }
     private static var serversURL: URL { AppGroup.containerURL.appendingPathComponent("servers.json") }
     private static let settingsKey = "volta.settings"
+
+    private static var routingURL: URL { AppGroup.containerURL.appendingPathComponent("routing.json") }
+
+    static func loadProfiles() -> [RoutingProfile]? { load(routingURL) }
+    static func save(profiles: [RoutingProfile]) { write(profiles, to: routingURL) }
 
     static func loadSubscriptions() -> [Subscription] { load(subscriptionsURL) ?? [] }
     static func loadServers() -> [Server] { load(serversURL) ?? [] }

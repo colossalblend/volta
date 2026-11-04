@@ -1,6 +1,7 @@
 import Foundation
 
-/// Builds the Xray-core config for one server: a port of the Android ConfigBuilder.
+/// Builds the Xray-core config for one server: a port of the Android ConfigBuilder,
+/// routing profiles, provider rules, AdGuard and the torrent filter included.
 ///
 /// The tunnel side differs by engine:
 ///  - `.hev`: a SOCKS inbound on 127.0.0.1 (random port and password per session) that
@@ -8,13 +9,24 @@ import Foundation
 ///  - `.xray`: Xray-core's own TUN inbound on the extension's interface (the extension
 ///    puts the descriptor into `env` before starting).
 ///
-/// No geoip/geosite files: the Network Extension has about 50 MB of memory, and the full
-/// files alone would take most of it. Local networks are spelled out as CIDRs instead,
-/// and "Russian sites directly" goes by domain suffix.
+/// Geo lists keep their Android names (`geoip:private`, `geosite:category-ru`…). The
+/// Network Extension has about 50 MB, so the app writes trimmed copies of the lists a config
+/// names before each connect (see GeoData) and points the core at them with `env`.
 enum ConfigBuilder {
 
     static let proxyTag = "proxy"
+    /// Other servers of the group, watched by the core's observatory for the guard.
+    static let alternatePrefix = "alt-"
     static let probeURL = "https://www.gstatic.com/generate_204"
+
+    /// The DNS server iOS is given while the core answers lookups itself: a free address in
+    /// the tunnel's own 198.18.0.0/24 (Android uses 10.10.14.2 the same way). Nothing
+    /// listens there; the routing hands every lookup sent to it to the core's resolver. A
+    /// public resolver here would let apps upgrade to encrypted DNS past AdGuard.
+    static let tunnelDns = "198.18.0.2"
+
+    /// Where lookups the core does not answer itself (MX, SRV, TXT…) are passed on.
+    static let passThroughDns = "1.1.1.1"
 
     struct Options {
         var engine: TunnelEngine = .hev
@@ -23,12 +35,31 @@ enum ConfigBuilder {
         var socksPass: String = ""
         /// The core answers DNS itself, through the tunnel.
         var localDns: Bool = true
-        /// Russian domains and the usual whitelist go around the VPN.
-        var russiaDirect: Bool = false
-        /// Xray's metrics server (traffic counters) on this local port; 0 = off.
+        /// Xray's metrics server (traffic counters, observatory) on this local port; 0 = off.
         var metricsPort: Int = 0
         var mtu: Int = 1500
         var logLevel: String = "warning"
+        /// The routing profile this server runs with (RoutingResolver), nil = none.
+        var profile: RoutingProfile? = nil
+        /// The subscription's own rule JSON (only for its own profile).
+        var providerRoutingJson: String = ""
+        /// A JSON subscription's server carries its own routing: use it as shipped.
+        var preferServerRouting: Bool = false
+        /// The subscription's own geo files (`ext:` names), nil = the app's lists.
+        var geo: GeoNames? = nil
+        /// AdGuard DNS for every lookup in the tunnel plus the core's ad list.
+        var adBlock: AdBlockMode = .off
+        /// Drops BitTorrent whatever the profile says.
+        var blockTorrents: Bool = false
+        /// Other servers of the group: added as `alt-N` outbounds that only the observatory
+        /// dials, so the guard in the extension knows which one to move to.
+        var alternates: [Server] = []
+        var probeIntervalSeconds: Int = 120
+        /// Folder with the trimmed geo lists (`xray.location.asset`).
+        var assetDir: String? = nil
+
+        /// Whether the core's DNS module runs (AdGuard needs it).
+        var dnsInCore: Bool { localDns || adBlock != .off }
     }
 
     /// The core cannot dial this server; the message is for the user.
@@ -40,19 +71,31 @@ enum ConfigBuilder {
     // MARK: - Whole config
 
     static func build(server: Server, options: Options) throws -> String {
+        JSON.string(try buildObject(server: server, options: options))
+    }
+
+    static func buildObject(server: Server, options: Options) throws -> JSONObject {
         var root: JSONObject = [:]
         root["log"] = ["loglevel": options.logLevel, "access": "none"]
         root["inbounds"] = [inbound(options)]
 
         var outbounds: [Any] = [try outbound(for: server, tag: proxyTag)]
-        outbounds += chainedOutbounds(server, primaryTag: proxyTag)
+        var chainedTags = Set<String>()
+        for extra in chainedOutbounds(server, primaryTag: proxyTag) where chainedTags.insert(extra.str("tag")).inserted {
+            outbounds.append(extra)
+        }
+        let alternates = usableAlternates(server, options.alternates)
+        for (n, alt) in alternates.enumerated() {
+            if let ob = try? outbound(for: alt, tag: alternatePrefix + String(n)) { outbounds.append(ob) }
+        }
+        let alternateCount = alternates.count
         outbounds.append(directOutbound())
         outbounds.append(blockOutbound())
-        if options.localDns { outbounds.append(dnsOutbound()) }
+        if options.dnsInCore { outbounds.append(dnsOutbound()) }
         root["outbounds"] = outbounds
 
-        root["routing"] = routing(options)
-        if options.localDns { root["dns"] = dns(options) }
+        root["routing"] = routing(server: server, options: options)
+        if options.dnsInCore { root["dns"] = dns(options) }
 
         if options.metricsPort > 0 {
             root["stats"] = JSONObject()
@@ -61,7 +104,31 @@ enum ConfigBuilder {
             ]
             root["metrics"] = ["tag": "metrics", "listen": "127.0.0.1:\(options.metricsPort)"]
         }
-        return JSON.string(root)
+        if alternateCount > 0 || options.metricsPort > 0 {
+            var subjects = [proxyTag]
+            if alternateCount > 0 { subjects.append(alternatePrefix) }
+            root["observatory"] = [
+                "subjectSelector": subjects,
+                "probeURL": probeURL,
+                "probeInterval": "\(options.probeIntervalSeconds)s",
+                "enableConcurrency": true
+            ] as JSONObject
+        }
+        if let dir = options.assetDir {
+            var env = root.obj("env") ?? [:]
+            env["xray.location.asset"] = dir
+            root["env"] = env
+        }
+        return root
+    }
+
+    /// The other servers a config carries as `alt-N`, in that order: only nodes that dial
+    /// on their own (a chained one would need its helpers' tags).
+    static func usableAlternates(_ server: Server, _ alternates: [Server]) -> [Server] {
+        alternates.filter { alt in
+            alt.id != server.id && chainedOutbounds(alt, primaryTag: proxyTag).isEmpty &&
+                (try? outbound(for: alt, tag: alternatePrefix)) != nil
+        }
     }
 
     /// The smallest config the core's ping takes: the server's outbound and a direct one.
@@ -132,7 +199,8 @@ enum ConfigBuilder {
     }
 
     private static func dnsOutbound() -> JSONObject {
-        ["tag": "dns-out", "protocol": "dns", "settings": ["nonIPQuery": "skip"]]
+        ["tag": "dns-out", "protocol": "dns",
+         "settings": ["nonIPQuery": "skip", "address": passThroughDns, "port": 53] as JSONObject]
     }
 
     /// One proxy outbound. A provider's own JSON outbound wins over the field-by-field
@@ -186,7 +254,9 @@ enum ConfigBuilder {
             ob["protocol"] = "hysteria"
             ob["settings"] = ["version": 2, "address": server.address, "port": server.port] as JSONObject
         case .amneziawg, .hysteria, .openflux:
-            throw Unsupported(message: L10n.tr("server.error.notInThisBuild", server.proto.label))
+            // On Android these run in helper programs next to the core. An iOS VPN extension
+            // has about 50 MB and room for one Go runtime (Xray's), so they cannot come along.
+            throw Unsupported(message: L10n.tr("server.error.helperOnly", server.proto.label))
         case .rawJson, .unknown:
             throw Unsupported(message: L10n.tr("server.error.unknownType", server.remark))
         }
@@ -467,51 +537,102 @@ enum ConfigBuilder {
 
     // MARK: - Routing and DNS
 
-    /// Addresses that never leave the device. Spelled out: there is no geoip.dat here.
+    /// Addresses that never leave the device, for when no geoip.dat has the private list.
     static let privateRanges = [
         "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
         "192.168.0.0/16", "224.0.0.0/4", "255.255.255.255/32",
         "::1/128", "fc00::/7", "fe80::/10", "ff00::/8"
     ]
 
-    /// Domains that stay reachable under the mobile whitelist (Android's list).
-    static let russianWhitelist = [
-        "gosuslugi.ru", "mos.ru", "kremlin.ru", "government.ru", "cbr.ru", "nalog.gov.ru", "pochta.ru",
-        "vk.com", "vk.ru", "ok.ru", "mail.ru", "dzen.ru", "rutube.ru", "yandex.ru", "ya.ru", "yandex.net",
-        "ozon.ru", "wildberries.ru", "avito.ru", "megamarket.ru", "tinkoff.ru", "tbank.ru", "vtb.ru",
-        "alfabank.ru", "sberbank.ru", "mts.ru", "megafon.ru", "beeline.ru", "tele2.ru", "rzd.ru",
-        "aeroflot.ru", "hh.ru", "2gis.ru", "kinopoisk.ru", "ivi.ru", "okko.tv", "max.ru"
-    ]
-
-    static let russianSuffixes = ["domain:ru", "domain:su", "domain:xn--p1ai"]
-
-    private static func routing(_ o: Options) -> JSONObject {
-        var rules: [JSONObject] = []
-        if o.localDns {
-            rules.append(["type": "field", "port": "53", "network": "udp", "outboundTag": "dns-out"])
+    /// Android's built-in filters, ahead of every profile rule so no profile can undo
+    /// them. Ads: AdGuard DNS alone misses apps that find addresses elsewhere, so the same
+    /// list blocks connections by the sniffed name. Torrents: BitTorrent is told by
+    /// sniffing, trackers by name; a strong hint, not a guarantee.
+    static func filterRules(_ adBlock: AdBlockMode, _ blockTorrents: Bool) -> [RoutingRule] {
+        var out: [RoutingRule] = []
+        func filter(_ name: String, domains: [String] = [], protocol proto: [String] = []) -> RoutingRule {
+            RoutingRule(name: name, outbound: .block, domains: domains, protocol: proto, source: "builtin", sortOrder: Int.min)
         }
-        rules.append(["type": "field", "ip": privateRanges, "outboundTag": "direct"])
-        if o.russiaDirect {
-            rules.append([
-                "type": "field",
-                "domain": russianSuffixes + russianWhitelist.map { "domain:\($0)" },
-                "outboundTag": "direct"
-            ])
+        if adBlock != .off {
+            out.append(filter("Реклама и трекеры", domains: ["geosite:category-ads-all"] + AdBlockLists.domains(for: adBlock)))
         }
-        rules.append(["type": "field", "network": "tcp,udp", "outboundTag": proxyTag])
-        // AsIs: the destination is already an address (the system resolved it through the
-        // tunnel), and sniffing gives the host name for the domain rules.
-        return ["domainStrategy": "AsIs", "rules": rules]
+        if adBlock == .family {
+            out.append(filter("Сайты для взрослых", domains: ["geosite:category-porn"]))
+        }
+        if blockTorrents {
+            out.append(filter("Торренты", protocol: ["bittorrent"]))
+            out.append(filter("Торрент-трекеры", domains: ["geosite:category-public-tracker"]))
+        }
+        return out
+    }
+
+    static func serverRouting(_ server: Server) -> JSONObject? {
+        guard server.rawJson.contains("\"routing\"") else { return nil }
+        return JSON.object(server.rawJson)?.obj("routing")
+    }
+
+    /// The rules a server runs with, before the filters: the server's own routing when the
+    /// subscription ships it, else the profile merged with the provider's rules.
+    static func effectiveRules(server: Server, options o: Options) -> (rules: [RoutingRule], strategy: String?) {
+        let shipped = serverRouting(server)
+        let serverRules = o.preferServerRouting ? shipped.map { RoutingEngine.parseRules(JSON.string($0)) } ?? [] : []
+        var rules: [RoutingRule]
+        var strategy: String?
+        if !serverRules.isEmpty {
+            rules = serverRules.map { var r = $0; r.source = "provider"; return r }
+            strategy = shipped?.str("domainStrategy")
+        } else {
+            rules = RoutingEngine.mergeRules(
+                profileRules: o.profile?.rules ?? [],
+                useProviderRules: o.profile?.useProviderRules ?? true,
+                providerRoutingJson: o.providerRoutingJson,
+                serverJsonRouting: shipped.map { JSON.string($0) } ?? ""
+            )
+            strategy = o.profile?.domainStrategy
+        }
+        if let geo = o.geo { rules = rules.map { geo.rewrite($0) } }
+        return (rules, strategy)
+    }
+
+    private static func routing(server: Server, options o: Options) -> JSONObject {
+        let (rules, strategy) = effectiveRules(server: server, options: o)
+        // After the rewrite: the filters always use the app's own lists.
+        return RoutingEngine.toXrayRouting(
+            filterRules(o.adBlock, o.blockTorrents) + rules,
+            domainStrategy: (strategy ?? "").ifBlank("IPIfNonMatch"),
+            dnsRuleEnabled: o.dnsInCore,
+            dnsAddress: tunnelDns
+        )
     }
 
     private static func dns(_ o: Options) -> JSONObject {
-        var servers: [Any] = ["https://1.1.1.1/dns-query"]
-        if o.russiaDirect {
-            servers.append(["address": "localhost", "domains": russianSuffixes] as JSONObject)
+        var dns: JSONObject = [:]
+        var hosts: JSONObject = [:]
+        // Happ DnsHosts: fixed answers the provider wants for its own domains.
+        if let profileHosts = o.profile.flatMap({ JSON.object($0.dnsHostsJson) }) { hosts = profileHosts }
+        // Volta's own tracker list, answered by the core itself (the provider's entries win).
+        for name in AdBlockLists.domains(for: o.adBlock) where hosts[name] == nil {
+            hosts[name] = ["0.0.0.0", "::"]
         }
-        servers.append("localhost")
+        if !hosts.isEmpty { dns["hosts"] = hosts }
         // IPv4 answers only: most servers have no IPv6 exit, and apps then wait for it.
-        return ["servers": servers, "queryStrategy": "UseIPv4", "disableCache": false]
+        dns["queryStrategy"] = "UseIPv4"
+        dns["disableCache"] = false
+        if o.adBlock != .off {
+            // AdGuard answers everything, Russian domains included; the system resolver stays last.
+            dns["servers"] = [o.adBlock.dohUrl, "localhost"]
+            return dns
+        }
+        let remote = (o.profile?.remoteDns ?? "").ifBlank("https://1.1.1.1/dns-query")
+        let domestic = (o.profile?.domesticDns ?? "").ifBlank("https://dns.google/dns-query")
+        dns["servers"] = [
+            remote,
+            ["address": domestic,
+             "domains": ["geosite:category-ru", "domain:ru", "domain:su", "domain:xn--p1ai"],
+             "expectIPs": ["geoip:ru"]] as JSONObject,
+            "localhost"
+        ] as [Any]
+        return dns
     }
 
     // MARK: - Helpers
