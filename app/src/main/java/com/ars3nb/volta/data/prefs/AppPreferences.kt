@@ -52,16 +52,27 @@ class AppPreferences(private val context: Context) {
         val simpleMode = booleanPreferencesKey("simple_mode")
         val lastGoodHome = longPreferencesKey("last_good_home")
         val lastGoodLte = longPreferencesKey("last_good_lte")
+        val otaEnabled = booleanPreferencesKey("ota_enabled")
         val updateAutoCheck = booleanPreferencesKey("update_auto_check")
         val updateLastCheck = longPreferencesKey("update_last_check")
         val updateNotified = intPreferencesKey("update_notified")
         val reconnectAfterUpdate = booleanPreferencesKey("reconnect_after_update")
     }
 
+    /**
+     * The app updates itself at all. Off: no checks, no banner, no notification — new
+     * versions are then the user's own business (the releases page, another store).
+     */
+    val otaEnabled: Flow<Boolean> = context.dataStore.data.map { it[Keys.otaEnabled] ?: true }
+
+    suspend fun setOtaEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.otaEnabled] = enabled }
+    }
+
     /** Look for a newer build on GitHub on launch and now and then in the background. */
     val updateAutoCheck: Flow<Boolean> = context.dataStore.data.map { it[Keys.updateAutoCheck] ?: true }
 
-    /** A GitHub token that can read the private repository; blank for public releases. */
+    /** When the last check ran, so launches and the worker don't check too often. */
     val updateLastCheck: Flow<Long> = context.dataStore.data.map { it[Keys.updateLastCheck] ?: 0L }
 
     /** The build last announced in a notification, so each one is announced once. */

@@ -5,6 +5,11 @@ import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,6 +37,7 @@ import androidx.compose.material.icons.rounded.BatterySaver
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
@@ -72,8 +78,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ars3nb.volta.BuildConfig
-import com.ars3nb.volta.core.update.UpdateInfo
-import com.ars3nb.volta.core.update.UpdateState
 import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.PingType
 import com.ars3nb.volta.data.prefs.DesignTheme
@@ -84,12 +88,10 @@ import com.ars3nb.volta.ui.components.IconBubble
 import com.ars3nb.volta.ui.components.LinkRow
 import com.ars3nb.volta.ui.components.SectionHeader
 import com.ars3nb.volta.ui.components.SwitchRow
-import com.ars3nb.volta.ui.components.UpdateAction
-import com.ars3nb.volta.ui.components.UpdateProgress
+import com.ars3nb.volta.ui.components.UpdatePanel
 import com.ars3nb.volta.ui.components.VoltaCard
 import com.ars3nb.volta.ui.components.VoltaChip
 import com.ars3nb.volta.ui.components.barColors
-import com.ars3nb.volta.ui.components.updateHint
 import com.ars3nb.volta.ui.theme.VoltaTheme
 import com.ars3nb.volta.ui.tile.GroupTileService
 import com.ars3nb.volta.ui.tile.TileInstaller
@@ -116,6 +118,7 @@ fun SettingsScreen(vm: VoltaViewModel) {
     val simpleMode by vm.simpleMode.collectAsStateWithLifecycle()
     val update by vm.updateState.collectAsStateWithLifecycle()
     val updateAutoCheck by vm.updateAutoCheck.collectAsStateWithLifecycle()
+    val otaEnabled by vm.otaEnabled.collectAsStateWithLifecycle()
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val palette = VoltaTheme.palette
@@ -331,44 +334,54 @@ fun SettingsScreen(vm: VoltaViewModel) {
             item { SectionHeader("О приложении") }
             item {
                 VoltaCard(contentPadding = 10) {
-                    Row(
-                        Modifier.padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconBubble(Icons.Rounded.SystemUpdate, primary)
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("Volta ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleSmall)
-                            Hint(
-                                if (!vm.updatesEnabled) {
-                                    "Обновления приходят через Google Play."
-                                } else {
-                                    when (val s = update) {
-                                        is UpdateState.Available,
-                                        is UpdateState.Downloading,
-                                        is UpdateState.Ready ->
-                                            "Новая версия ${updateInfo(s)?.versionName}. ${updateHint(s)}"
-
-                                        else -> updateHint(s)
+                    UpdatePanel(
+                        state = update,
+                        currentVersion = BuildConfig.VERSION_NAME,
+                        on = otaEnabled,
+                        onCheck = vm::checkForUpdate,
+                        onInstall = vm::installUpdate,
+                        storeNote = if (vm.updaterBuilt) null else "Обновления приходят через Google Play"
+                    )
+                    // The Google Play build has no updater of its own: nothing to switch.
+                    if (vm.updaterBuilt) {
+                        SwitchRow(
+                            icon = Icons.Rounded.SystemUpdate,
+                            tint = primary,
+                            title = "Обновления из приложения",
+                            subtitle = "Volta сама скачает и предложит установить новую версию",
+                            checked = otaEnabled,
+                            onChecked = vm::setOtaEnabled
+                        )
+                        AnimatedVisibility(
+                            visible = otaEnabled,
+                            enter = fadeIn() + expandVertically(),
+                            exit = fadeOut() + shrinkVertically()
+                        ) {
+                            SwitchRow(
+                                icon = Icons.Rounded.Autorenew,
+                                tint = primary,
+                                title = "Проверять без меня",
+                                subtitle = "При запуске и раз в несколько часов. О новой версии придёт уведомление",
+                                checked = updateAutoCheck,
+                                onChecked = vm::setUpdateAutoCheck
+                            )
+                        }
+                        if (!otaEnabled) {
+                            LinkRow(
+                                icon = Icons.Rounded.Download,
+                                tint = primary,
+                                title = "Скачать вручную",
+                                subtitle = "Страница с последней версией",
+                                onClick = {
+                                    runCatching {
+                                        context.startActivity(
+                                            Intent(Intent.ACTION_VIEW, android.net.Uri.parse(RELEASES_URL))
+                                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        )
                                     }
                                 }
                             )
                         }
-                        if (vm.updatesEnabled) {
-                            Spacer(Modifier.width(8.dp))
-                            UpdateAction(update, onCheck = vm::checkForUpdate, onInstall = vm::installUpdate)
-                        }
-                    }
-                    if (vm.updatesEnabled) {
-                        UpdateProgress(update)
-                        SwitchRow(
-                            icon = Icons.Rounded.Autorenew,
-                            tint = primary,
-                            title = "Проверять обновления сами",
-                            subtitle = "При запуске и раз в несколько часов. О новой версии придёт уведомление.",
-                            checked = updateAutoCheck,
-                            onChecked = vm::setUpdateAutoCheck
-                        )
                     }
                     LinkRow(
                         icon = Icons.AutoMirrored.Rounded.MenuBook,
@@ -393,6 +406,9 @@ fun SettingsScreen(vm: VoltaViewModel) {
 
 /** Where the user guide lives (the docs site built from site/). */
 private const val HELP_URL = "https://colossalblend.github.io/volta/"
+
+/** The newest published build, for when updating from the app is switched off. */
+private val RELEASES_URL = "https://github.com/${BuildConfig.UPDATE_REPO}/releases/latest"
 
 /** A Quick Settings tile as it will look in the shade; a tap asks Android to add it. */
 @Composable
@@ -482,14 +498,6 @@ private fun ThemeCoin(theme: DesignTheme, selected: Boolean, onClick: () -> Unit
             maxLines = 1
         )
     }
-}
-
-private fun updateInfo(state: UpdateState): UpdateInfo? = when (state) {
-    is UpdateState.Available -> state.info
-    is UpdateState.Downloading -> state.info
-    is UpdateState.Ready -> state.info
-    is UpdateState.Failed -> state.info
-    else -> null
 }
 
 private fun pingLabel(t: PingType) = when (t) {

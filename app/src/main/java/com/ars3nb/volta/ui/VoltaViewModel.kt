@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.VpnService
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.ars3nb.volta.BuildConfig
 import com.ars3nb.volta.VoltaApp
 import com.ars3nb.volta.core.link.VoltaLinks
 import com.ars3nb.volta.core.openflux.OpenFluxLink
@@ -254,12 +255,16 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     val updateState = updater.state
     val updateAutoCheck = updater.autoCheck
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
-    /** Off in the Google Play build, where the store updates the app. */
-    val updatesEnabled: Boolean get() = updater.enabled
+    /** This build can update itself at all: the GitHub one, not the Google Play one. */
+    val updaterBuilt: Boolean get() = BuildConfig.OTA
+
+    /** The switch «Обновления из приложения»; always false in the Google Play build. */
+    val otaEnabled: StateFlow<Boolean> = updater.otaEnabled
 
     fun checkForUpdate() = viewModelScope.launch { updater.check() }
     fun installUpdate() = updater.downloadAndInstall()
     fun setUpdateAutoCheck(v: Boolean) = viewModelScope.launch { updater.setAutoCheck(v) }
+    fun setOtaEnabled(v: Boolean) = viewModelScope.launch { updater.setOtaEnabled(v) }
 
     fun coreAvailable(): Boolean = repo.isCoreAvailable()
     fun openFluxAvailable(): Boolean = OpenFluxRunner.available
