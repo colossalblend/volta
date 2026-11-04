@@ -1,0 +1,310 @@
+name: Windows app
+
+on:
+  push:
+    branches: ['**']
+    # A v… tag (v1.2.0) adds the Windows build to that tag's release, next to the APKs.
+    tags: ['v*']
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/windows.yml'
+      # The Xray core the Android app ships: the Windows build follows its version.
+      - 'app/libs/libv2ray.aar'
+  workflow_dispatch:
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v5
+
+      # Where this build goes, the same way as the APKs (android.yml): a v… tag goes to
+      # the release of that tag, anything else to the branch's rolling pre-release
+      # apk-<branch>. The installer only takes a numeric version, so a branch build is
+      # 1.1.<run number>.
+      - name: Release channel
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            echo "VOLTA_UPDATE_TAG=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
+            echo "VOLTA_VERSION_NAME=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+            echo "VOLTA_STABLE=yes" >> "$GITHUB_ENV"
+          else
+            echo "VOLTA_UPDATE_TAG=apk-${BRANCH//\//-}" >> "$GITHUB_ENV"
+            echo "VOLTA_STABLE=no" >> "$GITHUB_ENV"
+          fi
+          echo "VOLTA_TMP=$(cygpath -m "$RUNNER_TEMP")" >> "$GITHUB_ENV"
+
+      # The very Xray release the Android app runs: its version is read from the core
+      # committed in app/libs/libv2ray.aar (a Go pseudo-version names the commit), the
+      # release tag on that commit is looked up, and the official Windows build of it is
+      # downloaded and checked against the release's own SHA-256. geoip.dat and
+      # geosite.dat come out of the same AAR, so both apps route with the same lists.
+      - name: Xray core
+        id: core
+        run: |
+          set -euo pipefail
+          W="$VOLTA_TMP/core"; mkdir -p "$W"
+          OUT=desktop/resources/windows-x64
+          mkdir -p "$OUT"
+          python - <<'EOF' > "$W/aar-version"
+          import re, zipfile
+          with zipfile.ZipFile('app/libs/libv2ray.aar') as z:
+              data = z.read('jni/arm64-v8a/libgojni.so')
+          m = re.search(rb'dep\tgithub\.com/xtls/xray-core\t(v[^\t\n]+)', data)
+          print(m.group(1).decode() if m else '')
+          EOF
+          AAR_VER=$(tr -d '\r\n' < "$W/aar-version")
+          echo "Android core: ${AAR_VER:-unknown}"
+          REFS=$(git ls-remote --tags https://github.com/XTLS/Xray-core)
+          HASH=""
+          if [[ "$AAR_VER" =~ -([0-9a-f]{12})$ ]]; then
+            HASH="${BASH_REMATCH[1]}"
+          elif [ -n "$AAR_VER" ]; then
+            HASH=$(awk -v t="refs/tags/$AAR_VER" '$2==t || $2==t"^{}" {print substr($1,1,12)}' <<<"$REFS" | tail -1)
+          fi
+          TAG=""
+          if [ -n "$HASH" ]; then
+            TAG=$(awk -v h="$HASH" 'substr($1,1,12)==h {sub("refs/tags/","",$2); sub("\\^\\{\\}","",$2); print $2}' <<<"$REFS" \
+              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -v '^v1\.' | head -1 || true)
+          fi
+          if [ -z "$TAG" ]; then
+            TAG=$(tr -d '[:space:]' < desktop/xray.version)
+            echo "::warning title=Xray version::no release tag on the Android core ($AAR_VER); using $TAG from desktop/xray.version"
+          fi
+          echo "Windows core: $TAG"
+          BASE="https://github.com/XTLS/Xray-core/releases/download/$TAG"
+          curl -fsSL --retry 4 --retry-delay 5 -o "$W/xray.zip" "$BASE/Xray-windows-64.zip"
+          curl -fsSL --retry 4 --retry-delay 5 -o "$W/xray.zip.dgst" "$BASE/Xray-windows-64.zip.dgst"
+          WANT=$(grep -i 'SHA2-256' "$W/xray.zip.dgst" | head -1 | awk -F'= *' '{print tolower($2)}' | tr -d '\r ')
+          GOT=$(sha256sum "$W/xray.zip" | cut -d ' ' -f 1)
+          if [ -z "$WANT" ] || [ "$WANT" != "$GOT" ]; then
+            echo "::error title=Xray download::SHA-256 mismatch (want '$WANT', got '$GOT')"
+            exit 1
+          fi
+          python -c "import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$W/xray.zip" "$W/xray"
+          ls -la "$W/xray"
+          cp "$W/xray/xray.exe" "$OUT/xray.exe"
+          cp "$W/xray/LICENSE" "$OUT/xray-LICENSE.txt" 2>/dev/null || true
+          python - "$OUT" <<'EOF' || { echo "::warning title=Geo lists::not in the AAR, using the release's"; cp "$W/xray/geoip.dat" "$W/xray/geosite.dat" "$OUT/"; }
+          import sys, zipfile
+          out = sys.argv[1]
+          with zipfile.ZipFile('app/libs/libv2ray.aar') as z:
+              for name in ('geoip.dat', 'geosite.dat'):
+                  open(f'{out}/{name}', 'wb').write(z.read(f'assets/{name}'))
+          EOF
+          ls -la "$OUT"
+          "$OUT/xray.exe" version | head -1
+          echo "xray=$TAG" >> "$GITHUB_OUTPUT"
+
+      # Unit tests also write every kind of config Volta builds; the core about to be
+      # shipped must accept each one, or the build stops here.
+      - name: Unit tests and config check
+        working-directory: desktop
+        run: |
+          set -o pipefail
+          export VOLTA_CONFIG_DUMP="$VOLTA_TMP/configs"
+          ./gradlew --no-configuration-cache --stacktrace test 2>&1 | tee "$VOLTA_TMP/gradle.log"
+          XRAY_LOCATION_ASSET=resources/windows-x64
+          export XRAY_LOCATION_ASSET
+          bad=0
+          for f in "$VOLTA_CONFIG_DUMP"/*.json; do
+            [ -e "$f" ] || continue
+            out=$(resources/windows-x64/xray.exe run -test -c "$f" 2>&1) || true
+            if grep -q "Configuration OK" <<<"$out"; then
+              echo "ok   $(basename "$f")"
+            else
+              echo "FAIL $(basename "$f"): $(tail -n 2 <<<"$out")"
+              echo "::error title=Xray refuses $(basename "$f")::$(tail -n 1 <<<"$out")"
+              bad=1
+            fi
+          done
+          exit $bad
+
+      - name: Build installer and portable app
+        working-directory: desktop
+        run: |
+          set -o pipefail
+          ./gradlew --no-configuration-cache --stacktrace createDistributable packageExe 2>&1 | tee -a "$VOLTA_TMP/gradle.log"
+          ls -la build/compose/binaries/main/app/Volta build/compose/binaries/main/exe
+
+      # The packaged app checks itself: the bundled core starts, accepts the configs Volta
+      # builds, carries real traffic through a local test server, the Windows proxy
+      # settings are switched on and restored, and every screen draws (the pictures go
+      # into the artifacts). A broken bundle fails the build here.
+      - name: Self-test of the packaged app
+        shell: pwsh
+        run: |
+          $app = "desktop/build/compose/binaries/main/app/Volta/Volta.exe"
+          $log = Join-Path $env:RUNNER_TEMP "self-test.log"
+          $shots = Join-Path $env:RUNNER_TEMP "screens"
+          New-Item -ItemType Directory -Force -Path $shots | Out-Null
+          $p = Start-Process -FilePath $app -ArgumentList @("--self-test", "`"$log`"", "--shots", "`"$shots`"", "--proxy") -Wait -PassThru
+          if (Test-Path $log) { Get-Content $log }
+          Write-Host "Exit code: $($p.ExitCode)"
+          if ($p.ExitCode -ne 0) { Write-Host "::error title=Self-test failed::exit code $($p.ExitCode)"; exit 1 }
+
+      # The real thing once more: Volta.exe started as a user would, with its window and
+      # tray icon. It must still be running after a while (no crash at start), and a
+      # picture of the desktop goes with the screens.
+      - name: Start the app like a user
+        shell: pwsh
+        run: |
+          $env:APPDATA = Join-Path $env:RUNNER_TEMP "appdata"
+          New-Item -ItemType Directory -Force -Path $env:APPDATA | Out-Null
+          $shots = Join-Path $env:RUNNER_TEMP "screens"
+          New-Item -ItemType Directory -Force -Path $shots | Out-Null
+          $p = Start-Process -FilePath "desktop/build/compose/binaries/main/app/Volta/Volta.exe" -PassThru
+          Start-Sleep -Seconds 15
+          if ($p.HasExited) {
+            Write-Host "::error title=Volta.exe exited at start::exit code $($p.ExitCode)"
+            Get-ChildItem -Recurse (Join-Path $env:APPDATA "Volta") -ErrorAction SilentlyContinue | Select-Object FullName, Length
+            exit 1
+          }
+          try {
+            Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+            $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+            $bmp.Save((Join-Path $shots "desktop.png"))
+            Write-Host "Screen $($b.Width)x$($b.Height) saved"
+          } catch {
+            Write-Host "No screenshot: $_"
+          }
+          Get-ChildItem (Join-Path $env:APPDATA "Volta") -ErrorAction SilentlyContinue | Select-Object Name, Length
+          Stop-Process -Id $p.Id -Force
+
+      - name: Collect files
+        id: files
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          SHORT="${SHA::7}"
+          VERSION="${VOLTA_VERSION_NAME:-1.1.$GITHUB_RUN_NUMBER}"
+          STEM=$([ "$VOLTA_STABLE" = yes ] && echo "volta-$VERSION" || echo "volta-$SHORT")
+          OUT="$VOLTA_TMP/out"; mkdir -p "$OUT"
+          cp desktop/build/compose/binaries/main/exe/*.exe "$OUT/$STEM-windows-x64-setup.exe"
+          (cd desktop/build/compose/binaries/main/app && 7z a -tzip -mx=7 "$(cygpath -w "$OUT/$STEM-windows-x64-portable.zip")" Volta > /dev/null)
+          ls -la "$OUT"
+          echo "stem=$STEM" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "dir=$(cygpath -w "$OUT")" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the app as an artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: volta-windows
+          path: ${{ steps.files.outputs.dir }}
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Upload screens
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v5
+        with:
+          name: volta-windows-screens
+          path: |
+            ${{ runner.temp }}/screens
+            ${{ runner.temp }}/self-test.log
+          retention-days: 14
+          if-no-files-found: ignore
+
+      # Same releases as the APKs. A v… tag: that tag's release (made here if the Android
+      # build hasn't made it yet). A branch: its rolling pre-release apk-<branch>, made as
+      # a pre-release when it doesn't exist. Only the Windows files are touched: older
+      # Windows builds of the branch are replaced, update.json and the APKs never.
+      - name: Publish to GitHub Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          SHA: ${{ github.sha }}
+          XRAY: ${{ steps.core.outputs.xray }}
+          STEM: ${{ steps.files.outputs.stem }}
+          VERSION: ${{ steps.files.outputs.version }}
+        run: |
+          set -euo pipefail
+          TAG="$VOLTA_UPDATE_TAG"
+          SHORT="${SHA::7}"
+          OUT="$VOLTA_TMP/out"
+          NOTES="$VOLTA_TMP/notes.md"
+          cat > "$NOTES" <<EOF_NOTES
+          Volta $VERSION.
+
+          Windows:
+          - **\`$STEM-windows-x64-setup.exe\`** — установщик для Windows 10 и 11 (64 бит), ставьте этот.
+          - \`$STEM-windows-x64-portable.zip\` — без установки: распакуйте и запустите Volta.exe.
+
+          Сборка из коммита $SHA. Ядро: Xray \`${XRAY:-—}\`.
+          EOF_NOTES
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            ASSETS=$(gh release view "$TAG" --json assets --jq '.assets[].name' | tr -d '\r')
+            # Earlier Windows builds of this branch go; nothing else does.
+            OLD=$(grep -E -- '-windows-x64(-setup\.exe|-portable\.zip)$' <<<"$ASSETS" \
+              | grep -v -F -x -e "$STEM-windows-x64-setup.exe" -e "$STEM-windows-x64-portable.zip" || true)
+            for old in $OLD; do gh release delete-asset "$TAG" "$old" --yes || true; done
+            gh release upload "$TAG" "$OUT"/* --clobber
+            # A release only the Windows build fills is named after the latest build; one
+            # the Android build made keeps its own title and notes.
+            if [ "$VOLTA_STABLE" != yes ] && ! grep -q -E '\.(apk|aab)$|^update\.json$' <<<"$ASSETS"; then
+              gh release edit "$TAG" --title "Volta · $BRANCH · $SHORT (тестовая)" --notes-file "$NOTES" || true
+            fi
+          elif [ "$VOLTA_STABLE" = yes ]; then
+            gh release create "$TAG" "$OUT"/* --verify-tag --title "Volta $VERSION" --notes-file "$NOTES" \
+              || gh release upload "$TAG" "$OUT"/* --clobber
+          else
+            gh release create "$TAG" "$OUT"/* --target "$SHA" --prerelease \
+              --title "Volta · $BRANCH · $SHORT (тестовая)" --notes-file "$NOTES" \
+              || gh release upload "$TAG" "$OUT"/* --clobber
+          fi
+          # The self-test's pictures of every screen ride along on test builds, so a design
+          # change can be looked at before anyone installs it.
+          if [ "$VOLTA_STABLE" != yes ] && [ -d "$VOLTA_TMP/screens" ]; then
+            (cd "$VOLTA_TMP" && 7z a -tzip windows-screens.zip screens self-test.log > /dev/null) \
+              && gh release upload "$TAG" "$VOLTA_TMP/windows-screens.zip" --clobber || true
+          fi
+          echo "### Windows: https://github.com/$GH_REPO/releases/tag/$TAG" >> "$GITHUB_STEP_SUMMARY"
+          gh release view "$TAG" --json assets --jq '.assets[].name'
+
+      - name: Report build errors
+        if: failure()
+        run: |
+          LOG="$VOLTA_TMP/gradle.log"
+          [ -f "$LOG" ] || exit 0
+          ERRS=$(grep -E '^e: |error:|What went wrong|FAILED|Exception|> ' "$LOG" | grep -v '^\s*at ' | head -120)
+          ERRS="${ERRS//'%'/'%25'}"
+          ERRS="${ERRS//$'\n'/'%0A'}"
+          echo "::error title=Gradle build failed::${ERRS}"
+
+      - name: Upload test reports
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@v5
+        with:
+          name: windows-test-reports
+          path: desktop/build/reports/
+          retention-days: 7
+          if-no-files-found: ignore

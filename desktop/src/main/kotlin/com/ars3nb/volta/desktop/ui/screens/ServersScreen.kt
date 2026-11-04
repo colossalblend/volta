@@ -1,0 +1,411 @@
+package com.ars3nb.volta.desktop.ui.screens
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.SignalCellularAlt
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.StarBorder
+import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material.icons.rounded.SwapVert
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material.icons.rounded.Wifi
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.ars3nb.volta.core.server.Countries
+import com.ars3nb.volta.core.vpn.ConfigBuilder
+import com.ars3nb.volta.data.model.BalancerScope
+import com.ars3nb.volta.data.model.ServerEntity
+import com.ars3nb.volta.data.model.ServerPool
+import com.ars3nb.volta.data.model.ServerRole
+import com.ars3nb.volta.data.model.matches
+import com.ars3nb.volta.desktop.VoltaController
+import com.ars3nb.volta.desktop.VoltaUiState
+import com.ars3nb.volta.desktop.core.WindowsCompat
+import com.ars3nb.volta.desktop.i18n.Strings
+import com.ars3nb.volta.desktop.ui.LocalLang
+import com.ars3nb.volta.desktop.ui.LocalStrings
+import com.ars3nb.volta.desktop.ui.components.CountryCard
+import com.ars3nb.volta.desktop.ui.components.EmptyState
+import com.ars3nb.volta.desktop.ui.components.PageHeader
+import com.ars3nb.volta.desktop.ui.components.ScrollPage
+import com.ars3nb.volta.desktop.ui.components.SectionHeader
+import com.ars3nb.volta.desktop.ui.components.ServerAction
+import com.ars3nb.volta.desktop.ui.components.ServerRow
+import com.ars3nb.volta.desktop.ui.components.SlidingChoice
+import com.ars3nb.volta.desktop.ui.components.SwitchRow
+import com.ars3nb.volta.desktop.ui.components.VoltaCard
+import com.ars3nb.volta.desktop.ui.components.VoltaChip
+import com.ars3nb.volta.desktop.ui.components.VoltaSearchField
+import com.ars3nb.volta.desktop.ui.components.countryName
+import com.ars3nb.volta.desktop.ui.components.subscriptionColor
+import com.ars3nb.volta.desktop.ui.theme.VoltaTheme
+
+internal enum class ServerSort { BEST, NAME, SUBSCRIPTION }
+
+/** What the server list keeps while the user moves between pages. */
+class ServersViewState {
+    var pool by mutableStateOf(ServerPool.ALL)
+    var query by mutableStateOf("")
+    var byCountry by mutableStateOf(true)
+    var favoritesOnly by mutableStateOf(false)
+    var subscriptionFilter by mutableStateOf<Long?>(null)
+    var openCountries by mutableStateOf<Set<String>?>(null)
+    internal var sort by mutableStateOf(ServerSort.BEST)
+}
+
+/**
+ * Every server of every subscription, as on Android: the three "best in group" pads,
+ * search, group and subscription chips, and the list by country or flat. A click picks
+ * a server; a right click (or ⋮) opens its actions.
+ */
+@Composable
+fun ServersScreen(
+    state: VoltaUiState,
+    controller: VoltaController,
+    view: ServersViewState,
+    onOpenImport: () -> Unit,
+    copyToClipboard: (String) -> Unit
+) {
+    val s = LocalStrings.current
+    val lang = LocalLang.current
+    val subsById = remember(state.subscriptions) { state.subscriptions.associateBy { it.id } }
+    val supported = remember(state.servers) {
+        state.servers.associate { it.id to ConfigBuilder.canDial(WindowsCompat.adapt(it)) }
+    }
+    val balancerCount = remember(state.servers) { state.servers.count { it.role == ServerRole.AUTO } }
+    val hasLte = remember(state.servers) { state.servers.any { it.role == ServerRole.BYPASS_WHITELIST } }
+    val codeOf = remember(state.servers) { state.servers.associate { it.id to Countries.of(it.remark).code } }
+    val hideBalancers = state.settings.hideBalancers
+    var sortMenu by remember { mutableStateOf(false) }
+
+    val visible = remember(state.servers, view.pool, view.query, view.sort, view.favoritesOnly, supported, view.subscriptionFilter, hideBalancers, lang) {
+        state.servers
+            .filter { view.pool.matches(it.role) }
+            .filter { !(hideBalancers && view.pool != ServerPool.AUTO && it.role == ServerRole.AUTO) }
+            .filter { view.subscriptionFilter == null || it.subscriptionId == view.subscriptionFilter }
+            .filter { !view.favoritesOnly || it.isFavorite }
+            .filter {
+                matchesQuery(it, view.query, subsById[it.subscriptionId]?.name.orEmpty(), countryName(codeOf[it.id] ?: Countries.UNKNOWN_CODE, lang, s))
+            }
+            .sortedWith(
+                when (view.sort) {
+                    ServerSort.BEST -> compareBy<ServerEntity> { supported[it.id] == false }
+                        .thenBy { it.failStreak > 0 }
+                        .thenBy { measuredMs(it).let { ms -> if (ms < 0) Long.MAX_VALUE else ms } }
+                    ServerSort.NAME -> compareBy { it.remark.lowercase() }
+                    ServerSort.SUBSCRIPTION -> compareBy<ServerEntity> { it.subscriptionId ?: 0 }.thenBy { it.sortOrder }
+                }
+            )
+    }
+    val countries = remember(visible, lang) {
+        visible.groupBy { codeOf[it.id] ?: Countries.UNKNOWN_CODE }
+            .toList()
+            .map { (code, list) -> Triple(code, countryName(code, lang, s), list) }
+            .sortedWith(compareBy<Triple<String, String, List<ServerEntity>>> { it.first == Countries.UNKNOWN_CODE }.thenBy { it.second })
+    }
+    val currentCode = state.selectedServer?.let { codeOf[it.id] }
+    val open = view.openCountries ?: setOfNotNull(currentCode)
+    val running = state.runtime.runningScope
+
+    fun actionsFor(server: ServerEntity): List<ServerAction> = buildList {
+        add(ServerAction(s.actionConnect, Icons.Rounded.Bolt) { controller.connectTo(server.id) })
+        add(ServerAction(s.actionPing, Icons.Rounded.Speed) { controller.pingServer(server.id) })
+        add(
+            if (server.isFavorite) ServerAction(s.actionUnfavorite, Icons.Rounded.StarBorder) { controller.toggleFavorite(server.id) }
+            else ServerAction(s.actionFavorite, Icons.Rounded.Star) { controller.toggleFavorite(server.id) }
+        )
+        if (server.role != ServerRole.NORMAL) add(ServerAction(s.actionGroupHome, Icons.Rounded.Wifi) { controller.setServerRole(server.id, ServerRole.NORMAL) })
+        if (server.role != ServerRole.BYPASS_WHITELIST) add(ServerAction(s.actionGroupLte, Icons.Rounded.SignalCellularAlt) { controller.setServerRole(server.id, ServerRole.BYPASS_WHITELIST) })
+        if (server.role != ServerRole.AUTO) add(ServerAction(s.actionGroupBalancer, Icons.Rounded.Tune) { controller.setServerRole(server.id, ServerRole.AUTO) })
+        val sub = server.subscriptionId?.let { subsById[it] }
+        if (server.rawLink.isNotBlank() && sub?.urlHidden != true) {
+            add(ServerAction(s.actionCopyLink, Icons.Rounded.ContentCopy) { copyToClipboard(server.rawLink); controller.message(s.linkCopied) })
+        }
+        if (server.subscriptionId == null) add(ServerAction(s.actionDelete, Icons.Rounded.Delete, danger = true) { controller.deleteServer(server.id) })
+    }
+
+    ScrollPage {
+        item(key = "header") {
+            PageHeader(s.navServers) {
+                IconButton(onClick = { controller.pingAll(view.pool) }, enabled = !state.busy && state.servers.isNotEmpty()) {
+                    if (state.busy && running == null) {
+                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.Rounded.Speed, s.pingAll)
+                    }
+                }
+                Box {
+                    IconButton(onClick = { sortMenu = true }) { Icon(Icons.Rounded.SwapVert, s.sort) }
+                    DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                        ServerSort.entries.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(sortLabel(option, s)) },
+                                onClick = { view.sort = option; sortMenu = false },
+                                trailingIcon = { if (view.sort == option) Icon(Icons.Rounded.Check, null) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        item(key = "best") { SectionHeader(s.bestInGroup) }
+        item(key = "pads") {
+            BestPickPads(running = running, enabled = state.servers.isNotEmpty() && !state.busy, hasLte = hasLte, onRun = controller::runBalancer)
+        }
+        item(key = "search") {
+            VoltaSearchField(value = view.query, onValueChange = { view.query = it }, placeholder = s.searchPlaceholder)
+        }
+        item(key = "chips") {
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ServerPool.entries.forEach { option ->
+                    if (option == ServerPool.AUTO && balancerCount == 0) return@forEach
+                    if (option == ServerPool.BYPASS_WHITELIST && !hasLte) return@forEach
+                    VoltaChip(
+                        text = if (option == ServerPool.AUTO) "${poolLabel(option, s)} $balancerCount" else poolLabel(option, s),
+                        selected = view.pool == option,
+                        onClick = { view.pool = option },
+                        accent = poolAccent(option)
+                    )
+                }
+                VoltaChip(text = s.favorites, selected = view.favoritesOnly, onClick = { view.favoritesOnly = !view.favoritesOnly }, icon = Icons.Rounded.Star)
+            }
+        }
+        if (state.subscriptions.size > 1) {
+            item(key = "subs") {
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    VoltaChip(text = s.allSubscriptions, selected = view.subscriptionFilter == null, onClick = { view.subscriptionFilter = null })
+                    state.subscriptions.forEach { sub ->
+                        VoltaChip(
+                            text = sub.name,
+                            selected = view.subscriptionFilter == sub.id,
+                            onClick = { view.subscriptionFilter = if (view.subscriptionFilter == sub.id) null else sub.id },
+                            accent = subscriptionColor(sub)
+                        )
+                    }
+                }
+            }
+        }
+        if (view.pool == ServerPool.AUTO && balancerCount > 0) {
+            item(key = "hide") {
+                VoltaCard(contentPadding = 10) {
+                    SwitchRow(
+                        icon = Icons.Rounded.VisibilityOff,
+                        tint = MaterialTheme.colorScheme.primary,
+                        title = s.hideBalancers,
+                        subtitle = s.hideBalancersHint,
+                        checked = hideBalancers,
+                        onChecked = controller::setHideBalancers
+                    )
+                }
+            }
+        }
+        item(key = "count") {
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        if (view.byCountry) s.serversAndCountries(visible.size, countries.size) else s.servers(visible.size),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    if (visible.isNotEmpty()) {
+                        Text(s.actionsHint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                SlidingChoice(
+                    options = listOf(true, false),
+                    selected = view.byCountry,
+                    onSelect = { view.byCountry = it },
+                    label = { if (it) s.viewCountries else s.viewList },
+                    height = 36.dp,
+                    modifier = Modifier.width(190.dp)
+                )
+            }
+        }
+        if (visible.isEmpty()) {
+            item(key = "empty") {
+                // Typed on purpose: an if/else producing a composable lambda confuses inference.
+                val emptyAction: (@Composable () -> Unit)? = if (state.servers.isEmpty()) {
+                    { FilledTonalButton(onClick = onOpenImport, modifier = Modifier.padding(top = 8.dp)) { Text(s.add) } }
+                } else {
+                    null
+                }
+                EmptyState(
+                    icon = Icons.Rounded.Storage,
+                    title = if (state.servers.isEmpty()) s.noServersYet else s.nothingFound,
+                    subtitle = if (state.servers.isEmpty()) s.addSubOrLink else s.changeFilter,
+                    action = emptyAction
+                )
+            }
+        }
+        if (view.byCountry) {
+            items(countries, key = { "country-${it.first}" }) { (code, name, servers) ->
+                val expanded = view.query.isNotBlank() || code in open
+                CountryCard(
+                    code = code,
+                    name = name,
+                    count = servers.size,
+                    bestMs = servers.map(::measuredMs).filter { it >= 0 }.minOrNull() ?: -1,
+                    expanded = expanded,
+                    current = code == currentCode,
+                    onToggle = { view.openCountries = if (code in open) open - code else open + code }
+                ) {
+                    servers.forEach { server ->
+                        ServerRow(
+                            server = server,
+                            selected = state.selectedServer?.id == server.id,
+                            subscriptionName = subsById[server.subscriptionId]?.name.orEmpty(),
+                            supported = supported[server.id] != false,
+                            onClick = { controller.selectServer(server.id) },
+                            actions = { actionsFor(server) },
+                            inGroup = true
+                        )
+                    }
+                }
+            }
+        } else {
+            items(visible, key = { it.id }) { server ->
+                ServerRow(
+                    server = server,
+                    selected = state.selectedServer?.id == server.id,
+                    subscriptionName = subsById[server.subscriptionId]?.name.orEmpty(),
+                    supported = supported[server.id] != false,
+                    onClick = { controller.selectServer(server.id) },
+                    actions = { actionsFor(server) }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The app's autobalancers as three pads, one per group, in the group's colour.
+ * Home+LTE asks the sites first and then measures whichever group fits.
+ */
+@Composable
+private fun BestPickPads(running: BalancerScope?, enabled: Boolean, hasLte: Boolean, onRun: (BalancerScope) -> Unit) {
+    val palette = VoltaTheme.palette
+    val s = LocalStrings.current
+    val scopes = if (hasLte) BalancerScope.entries else listOf(BalancerScope.NORMAL)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        scopes.forEach { scope ->
+            val tint = when (scope) {
+                BalancerScope.ALL -> MaterialTheme.colorScheme.primary
+                BalancerScope.NORMAL -> palette.home
+                BalancerScope.BYPASS -> palette.lte
+            }
+            val busyHere = running == scope
+            Surface(
+                onClick = { onRun(scope) },
+                enabled = enabled && running == null,
+                shape = RoundedCornerShape(18.dp),
+                color = if (busyHere) tint.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surface,
+                modifier = Modifier.weight(1f)
+            ) {
+                Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(8.dp).clip(CircleShape).background(if (enabled || busyHere) tint else tint.copy(alpha = 0.4f)))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            when (scope) {
+                                BalancerScope.ALL -> s.modeHomeLte
+                                BalancerScope.NORMAL -> s.modeHome
+                                BalancerScope.BYPASS -> s.modeLte
+                            },
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 1
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    if (busyHere) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 1.5.dp, color = tint)
+                            Spacer(Modifier.width(6.dp))
+                            Text(s.searching, style = MaterialTheme.typography.labelMedium, color = tint)
+                        }
+                    } else {
+                        Text(
+                            if (hasLte) s.pickFind else s.pickBest,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun poolAccent(pool: ServerPool): Color = when (pool) {
+    ServerPool.NORMAL -> VoltaTheme.palette.home
+    ServerPool.BYPASS_WHITELIST -> VoltaTheme.palette.lte
+    ServerPool.AUTO -> MaterialTheme.colorScheme.onSurfaceVariant
+    ServerPool.ALL -> MaterialTheme.colorScheme.primary
+}
+
+private fun poolLabel(pool: ServerPool, s: Strings): String = when (pool) {
+    ServerPool.ALL -> s.poolAll
+    ServerPool.NORMAL -> s.modeHome
+    ServerPool.BYPASS_WHITELIST -> s.modeLte
+    ServerPool.AUTO -> s.poolBalancers
+}
+
+private fun sortLabel(sort: ServerSort, s: Strings): String = when (sort) {
+    ServerSort.BEST -> s.sortBest
+    ServerSort.NAME -> s.sortName
+    ServerSort.SUBSCRIPTION -> s.sortSubscription
+}
+
+/** The last measurement, falling back to the smoothed one; -1 when never measured. */
+private fun measuredMs(server: ServerEntity): Long = server.latencyMs.takeIf { it >= 0 } ?: server.ewmaMs
+
+private fun matchesQuery(server: ServerEntity, query: String, subName: String, countryName: String): Boolean {
+    if (query.isBlank()) return true
+    val q = query.trim().lowercase()
+    return server.remark.lowercase().contains(q) ||
+        countryName.lowercase().contains(q) ||
+        server.address.lowercase().contains(q) ||
+        server.protocol.label.lowercase().contains(q) ||
+        subName.lowercase().contains(q) ||
+        server.tags.lowercase().contains(q)
+}
