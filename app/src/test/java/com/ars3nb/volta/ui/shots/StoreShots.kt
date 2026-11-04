@@ -26,16 +26,22 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isFocusable
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onRoot
@@ -335,7 +341,9 @@ abstract class StoreShots(private val lang: String) {
             }
         }
         settle(2_000)
-        runCatching { compose.onAllNodesWithText(text(R.string.share_receive_action))[0].requestFocus() }
+        val row = hasText(text(R.string.share_receive_action), substring = true) and isFocusable()
+        runCatching { compose.onAllNodes(row)[0].requestFocus() }
+            .onFailure { say("focus: ${it.message?.lineSequence()?.firstOrNull()}") }
         settle(800)
         capture("tv-import")
         vm.viewModelScope.cancel()
@@ -356,18 +364,22 @@ abstract class StoreShots(private val lang: String) {
         }
     }
 
-    /** The TV layout of VoltaNav's TvApp: the rail, then the screen at reading width. */
+    /**
+     * The TV layout of VoltaNav's TvApp: the rail (on the tabs), then the screen at reading
+     * width, under a Surface for the content colour as TvApp's Scaffold gives it. The
+     * remote's keys put a real TV in keyboard mode, where rows take focus and show it.
+     */
+    @OptIn(ExperimentalComposeUiApi::class)
     @Composable
     private fun TvFrame(route: String, rail: Boolean = true, content: @Composable () -> Unit) {
-        Row(
-            Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(horizontal = 24.dp, vertical = 12.dp)
-        ) {
-            if (rail) VoltaRail(route) {}
-            Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
-                Box(Modifier.widthIn(max = 720.dp).fillMaxSize()) { content() }
+        val input = LocalInputModeManager.current
+        LaunchedEffect(Unit) { input.requestInputMode(InputMode.Keyboard) }
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Row(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 12.dp)) {
+                if (rail) VoltaRail(route) {}
+                Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
+                    Box(Modifier.widthIn(max = 720.dp).fillMaxSize()) { content() }
+                }
             }
         }
     }
