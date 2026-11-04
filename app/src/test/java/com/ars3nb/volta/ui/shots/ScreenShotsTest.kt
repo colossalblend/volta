@@ -112,7 +112,7 @@ class ScreenShotsTest {
         "home-error",
         base().copy(
             vpnState = VpnConnectionState.ERROR,
-            error = "Сервер не ответил за 10 секунд. Попробуйте другой или проверьте подписку."
+            error = UiText.Raw("Сервер не ответил за 10 секунд. Попробуйте другой или проверьте подписку.")
         )
     )
 

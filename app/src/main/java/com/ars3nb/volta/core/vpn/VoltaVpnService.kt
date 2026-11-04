@@ -3,6 +3,9 @@ package com.ars3nb.volta.core.vpn
 import com.ars3nb.volta.R
 import com.ars3nb.volta.core.helper.ProxyHelper
 import com.ars3nb.volta.core.locale.AppLanguage
+import com.ars3nb.volta.core.locale.UiText
+import com.ars3nb.volta.core.locale.UiTextException
+import com.ars3nb.volta.core.locale.uiText
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.stats.TrafficRecorder
 import android.app.Notification
@@ -81,8 +84,9 @@ class VoltaVpnService : VpnService() {
         private val _serverId = MutableStateFlow(0L)
         val serverId: StateFlow<Long> = _serverId.asStateFlow()
 
-        private val _error = MutableStateFlow<String?>(null)
-        val error: StateFlow<String?> = _error.asStateFlow()
+        /** Why the last attempt failed, read in the screen's language when it is shown. */
+        private val _error = MutableStateFlow<UiText?>(null)
+        val error: StateFlow<UiText?> = _error.asStateFlow()
 
         private val _traffic = MutableStateFlow(TrafficStats())
         val traffic: StateFlow<TrafficStats> = _traffic.asStateFlow()
@@ -273,7 +277,7 @@ class VoltaVpnService : VpnService() {
             lastUnderlying = network
             if (previous != null && previous != network && tunnelActive.get()) {
                 Log.i(TAG, "underlying network changed — re-checking the tunnel")
-                startHealthCheck(getString(R.string.home_vpn_network_changed), initialDelayMs = 6_000)
+                startHealthCheck(UiText.of(R.string.home_vpn_network_changed), initialDelayMs = 6_000)
             }
         }
 
@@ -461,7 +465,7 @@ class VoltaVpnService : VpnService() {
         val provider = autoStartProvider
         scope.launch {
             if (provider == null) {
-                enqueue { fail(getString(R.string.home_vpn_auto_start_failed)) }
+                enqueue { fail(UiText.of(R.string.home_vpn_auto_start_failed)) }
                 return@launch
             }
             // The provider ends in connect(), which arrives here as ACTION_CONNECT.
@@ -474,12 +478,12 @@ class VoltaVpnService : VpnService() {
                 if (wanted == null) enqueue { if (wanted == null) doDisconnect() }
             } catch (e: Exception) {
                 Log.w(TAG, "automatic start failed", e)
-                val message = e.message ?: getString(R.string.home_connect_failed)
+                val message = e.uiText(UiText.of(R.string.home_connect_failed))
                 // Started from a tile or at boot, there is no screen to show the error on.
                 // Posted to the main looper: it must outlive this service's scope.
                 val app = applicationContext
                 android.os.Handler(android.os.Looper.getMainLooper()).post {
-                    Toast.makeText(app, "Volta: $message", Toast.LENGTH_LONG).show()
+                    Toast.makeText(app, "Volta: ${message.resolve(app)}", Toast.LENGTH_LONG).show()
                 }
                 // Only if nothing else took over meanwhile (the user's own connect).
                 if (wanted == null) enqueue { if (wanted == null) fail(message) }
@@ -493,7 +497,7 @@ class VoltaVpnService : VpnService() {
      * on to the next node within seconds, not after the one-minute watchdog.
      */
     @Synchronized
-    private fun startHealthCheck(reason: String, initialDelayMs: Long = 2_500) {
+    private fun startHealthCheck(reason: UiText, initialDelayMs: Long = 2_500) {
         healthJob?.cancel()
         val gen = generation
         healthJob = scope.launch {
@@ -537,7 +541,7 @@ class VoltaVpnService : VpnService() {
     private suspend fun doConnect(plan: ConnectionPlan) {
         val name = plan.serverName
         if (plan.configJson.isBlank()) {
-            fail(getString(R.string.home_server_none))
+            fail(UiText.of(R.string.home_server_none))
             return
         }
         wanted = plan
@@ -591,13 +595,14 @@ class VoltaVpnService : VpnService() {
                 builder.setMetered(false)
             }
 
-            val fd = builder.establish() ?: throw IllegalStateException(getString(R.string.home_vpn_no_interface))
+            val fd = builder.establish()
+                ?: throw UiTextException(UiText.of(R.string.home_vpn_no_interface), this)
             tunFd = fd
             noteAlwaysOn()
 
             val bridge = tun2Socks ?: Tun2Socks(this).also { tun2Socks = it }
             bridge.start(fd.fd, tun.mtu, tun.socksPort).getOrThrow()
-            check(bridge.isRunning()) { getString(R.string.home_vpn_not_started) }
+            if (!bridge.isRunning()) throw UiTextException(UiText.of(R.string.home_vpn_not_started), this)
 
             generation++
             runningTun = tun
@@ -609,7 +614,7 @@ class VoltaVpnService : VpnService() {
 
             watchdogJob?.cancel()
             watchdogJob = scope.launch { watchdog() }
-            startHealthCheck(getString(R.string.home_server_not_responding))
+            startHealthCheck(UiText.of(R.string.home_server_not_responding))
         } catch (e: CancellationException) {
             // The service is going away; its own cleanup takes what was started.
             throw e
@@ -617,10 +622,10 @@ class VoltaVpnService : VpnService() {
             // Turned off meanwhile: the disconnect queued behind this finishes the job.
             if (disconnectsAsked != asked) return
             Log.w(TAG, "node did not come up", e)
-            failOver(e.message ?: getString(R.string.home_connect_failed))
+            failOver(e.uiText(UiText.of(R.string.home_connect_failed)))
         } catch (e: Exception) {
             Log.e(TAG, "connect failed", e)
-            fail(e.message ?: getString(R.string.home_connect_failed))
+            fail(e.uiText(UiText.of(R.string.home_connect_failed)))
         }
     }
 
@@ -667,13 +672,13 @@ class VoltaVpnService : VpnService() {
             _state.value = VpnConnectionState.CONNECTED
             enterForeground(name, connecting = false)
             watchdogJob = scope.launch { watchdog() }
-            startHealthCheck(getString(R.string.home_server_not_responding))
+            startHealthCheck(UiText.of(R.string.home_server_not_responding))
         } catch (e: CancellationException) {
             throw e
         } catch (e: NodeStartException) {
             if (disconnectsAsked != asked) return
             Log.w(TAG, "node did not come up, moving on", e)
-            failOver(e.message ?: getString(R.string.home_connect_failed))
+            failOver(e.uiText(UiText.of(R.string.home_connect_failed)))
         } catch (e: Exception) {
             // The new core refused to start: rebuild the whole tunnel on it, which
             // reports a real failure the usual way.
@@ -721,7 +726,7 @@ class VoltaVpnService : VpnService() {
                         "openflux=${!openFluxDown} helper=${!helperDown}"
                 )
                 // Its own job: recovery restarts the tunnel, which cancels this one.
-                reportBroken(getString(R.string.home_vpn_connection_dropped), gen)
+                reportBroken(UiText.of(R.string.home_vpn_connection_dropped), gen)
                 return
             }
 
@@ -753,7 +758,7 @@ class VoltaVpnService : VpnService() {
                     probeFailures++
                     Log.w(TAG, "tunnel probe failed ($probeFailures)")
                     if (probeFailures >= 2) {
-                        reportBroken(getString(R.string.home_vpn_server_stopped_answering), gen)
+                        reportBroken(UiText.of(R.string.home_vpn_server_stopped_answering), gen)
                         return
                     }
                 } else {
@@ -782,11 +787,11 @@ class VoltaVpnService : VpnService() {
 
     private fun onCoreStoppedItself() {
         if (!tunnelActive.get()) return
-        reportBroken(getString(R.string.home_vpn_core_stopped), generation)
+        reportBroken(UiText.of(R.string.home_vpn_core_stopped), generation)
     }
 
     /** Try the next best node before giving up, so a dead exit is not a dead app. */
-    private fun reportBroken(reason: String, gen: Int) = enqueue {
+    private fun reportBroken(reason: UiText, gen: Int) = enqueue {
         // Already moved to another node, or turned off, since the report was made.
         if (!tunnelActive.get() || gen != generation) return@enqueue
         failOver(reason)
@@ -796,7 +801,7 @@ class VoltaVpnService : VpnService() {
      * Holding the connect lock: the next node the repository picks in place of the one
      * in use (it stays in the group the mode asks for), or the error when there is none.
      */
-    private suspend fun failOver(reason: String) {
+    private suspend fun failOver(reason: UiText) {
         val provider = failoverProvider
         if (provider != null && failoverAttempts < MAX_FAILOVERS) {
             failoverAttempts++
@@ -821,7 +826,7 @@ class VoltaVpnService : VpnService() {
         fail(reason)
     }
 
-    private fun fail(message: String) {
+    private fun fail(message: UiText) {
         _error.value = message
         _state.value = VpnConnectionState.ERROR
         cleanup()

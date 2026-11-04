@@ -59,6 +59,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ars3nb.volta.R
 import com.ars3nb.volta.core.balancer.AutoBalancer
 import com.ars3nb.volta.core.locale.UiText
+import com.ars3nb.volta.core.locale.asString
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.stats.TrafficSummary
 import com.ars3nb.volta.core.update.UpdateState
@@ -274,7 +275,7 @@ fun HomeContent(
                             exit = fadeOut() + shrinkVertically()
                         ) {
                             Text(
-                                state.error.orEmpty(),
+                                state.error?.asString().orEmpty(),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = VoltaTheme.palette.poor,
                                 textAlign = TextAlign.Center,

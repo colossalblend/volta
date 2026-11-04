@@ -68,7 +68,7 @@ data class ConnectionSlice(
     val selectedServer: ServerEntity? = null,
     val traffic: TrafficStats = TrafficStats(),
     val connectedSince: Long = 0,
-    val error: String? = null
+    val error: UiText? = null
 )
 
 data class LocalSlice(
@@ -96,7 +96,8 @@ data class VoltaUiState(
     val busy: Boolean = false,
     /** A snackbar to show, read in the screen's language (see [UiText]). */
     val message: UiText? = null,
-    val error: String? = null
+    /** Why the tunnel failed, read in the screen's language (see [UiText]). */
+    val error: UiText? = null
 ) {
     val isConnected: Boolean get() = vpnState == VpnConnectionState.CONNECTED
     val isBusyConnecting: Boolean
