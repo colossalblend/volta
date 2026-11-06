@@ -201,6 +201,10 @@
     <string name="home_helper_launch_failed">%1$s 未能启动：%2$s</string>
     <string name="home_helper_no_answer">未及时响应</string>
     <string name="home_helper_stopped">已停止</string>
+    <string name="home_traffic_yesterday">昨天</string>
+    <string name="home_traffic_no_traffic">无流量</string>
+    <string name="home_traffic_tap_hint">点按柱条或在上面滑动，查看某一天</string>
+    <string name="home_traffic_day_description">%1$s：%2$s，接收 %3$s，发送 %4$s</string>
 
     <!-- Moving between servers and checking them -->
     <string name="home_state_switching">正在切换</string>

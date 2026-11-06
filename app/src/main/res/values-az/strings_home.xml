@@ -204,6 +204,10 @@
     <string name="home_helper_launch_failed">%1$s başlamadı: %2$s</string>
     <string name="home_helper_no_answer">vaxtında cavab vermədi</string>
     <string name="home_helper_stopped">dayandı</string>
+    <string name="home_traffic_yesterday">Dünən</string>
+    <string name="home_traffic_no_traffic">Trafik yoxdur</string>
+    <string name="home_traffic_tap_hint">Günü görmək üçün zolağa toxunun və ya üzərində sürüşdürün</string>
+    <string name="home_traffic_day_description">%1$s: %2$s, alındı %3$s, göndərildi %4$s</string>
 
     <!-- Moving between servers and checking them -->
     <string name="home_state_switching">Keçid edilir</string>

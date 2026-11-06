@@ -269,7 +269,9 @@ jobs:
             :app:assembleGithubDebug :app:assembleGithubRelease 2>&1 | tee -a "$RUNNER_TEMP/gradle.log"
           # The Play bundle in a run of its own: a bundle can't be built with ABI splits on,
           # and the GitHub APKs above need them (see splits in app/build.gradle.kts).
-          ./gradlew "${GRADLE_ARGS[@]}" :app:bundlePlayRelease 2>&1 | tee -a "$RUNNER_TEMP/gradle.log"
+          # The same run also builds the Play flavour as one plain APK (no ABI splits here):
+          # the Google Play build to install by hand or to check before uploading the bundle.
+          ./gradlew "${GRADLE_ARGS[@]}" :app:bundlePlayRelease :app:assemblePlayRelease 2>&1 | tee -a "$RUNNER_TEMP/gradle.log"
 
       # What R8 must not have renamed or dropped in the release APK (see app/proguard-rules.pro):
       # the JNI bridge, the Xray core reached by reflection, Gson field names, the baseline
@@ -368,6 +370,8 @@ jobs:
             > "$OUT/update.json"
           # The Google Play bundle rides along; it is uploaded to the Play Console by hand.
           cp app/build/outputs/bundle/playRelease/*.aab "$OUT/$STEM-google-play.aab" 2>/dev/null || true
+          PLAY_APK=$(ls app/build/outputs/apk/play/release/*.apk 2>/dev/null | head -1)
+          [ -n "$PLAY_APK" ] && cp "$PLAY_APK" "$OUT/$STEM-google-play.apk"
           ls -la "$OUT"
           cat "$OUT/update.json"
 
@@ -380,6 +384,7 @@ jobs:
           - \`$STEM-universal.apk\` — подходит всем, но весит больше.
           - \`$STEM-x86_64.apk\` — для эмулятора.
           - \`$STEM-google-play.aab\` — пакет для загрузки в Google Play Console.
+          - \`$STEM-google-play.apk\` — та же версия для Google Play одним файлом (без самообновления).
 
           Уже установленное приложение найдёт эту версию само: Настройки → О приложении.
           Инструкции: https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/

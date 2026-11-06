@@ -205,6 +205,10 @@
     <string name="home_helper_launch_failed">%1$s didn\'t start: %2$s</string>
     <string name="home_helper_no_answer">didn\'t answer in time</string>
     <string name="home_helper_stopped">stopped</string>
+    <string name="home_traffic_yesterday">Yesterday</string>
+    <string name="home_traffic_no_traffic">No traffic</string>
+    <string name="home_traffic_tap_hint">Tap a bar or slide along them to see a day</string>
+    <string name="home_traffic_day_description">%1$s: %2$s, received %3$s, sent %4$s</string>
 
     <!-- Moving between servers and checking them -->
     <string name="home_state_switching">Switching</string>

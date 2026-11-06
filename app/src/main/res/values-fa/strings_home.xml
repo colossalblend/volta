@@ -204,6 +204,10 @@
     <string name="home_helper_launch_failed">%1$s راه‌اندازی نشد: %2$s</string>
     <string name="home_helper_no_answer">به‌موقع پاسخ نداد</string>
     <string name="home_helper_stopped">متوقف شد</string>
+    <string name="home_traffic_yesterday">دیروز</string>
+    <string name="home_traffic_no_traffic">بدون ترافیک</string>
+    <string name="home_traffic_tap_hint">برای دیدن یک روز روی ستون بزنید یا انگشت را روی ستون‌ها بکشید</string>
+    <string name="home_traffic_day_description">%1$s: %2$s، دریافت %3$s، ارسال %4$s</string>
 
     <!-- Moving between servers and checking them -->
     <string name="home_state_switching">در حال جابه‌جایی</string>

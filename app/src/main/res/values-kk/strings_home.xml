@@ -204,6 +204,10 @@
     <string name="home_helper_launch_failed">%1$s іске қосылмады: %2$s</string>
     <string name="home_helper_no_answer">уақытында жауап бермеді</string>
     <string name="home_helper_stopped">тоқтады</string>
+    <string name="home_traffic_yesterday">Кеше</string>
+    <string name="home_traffic_no_traffic">Трафик жоқ</string>
+    <string name="home_traffic_tap_hint">Күнді көру үшін бағанды басыңыз немесе бойымен сырғытыңыз</string>
+    <string name="home_traffic_day_description">%1$s: %2$s, алынды %3$s, жіберілді %4$s</string>
 
     <!-- Moving between servers and checking them -->
     <string name="home_state_switching">Ауысу</string>

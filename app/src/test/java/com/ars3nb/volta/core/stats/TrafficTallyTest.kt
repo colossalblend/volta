@@ -53,6 +53,20 @@ class TrafficTallyTest {
     }
 
     @Test
+    fun eachBarKnowsItsDayAndBothDirections() {
+        val today = LocalDate.of(2026, 11, 6)
+        val s = TrafficTally.summarize(listOf(day(today, 30, 270), day(today.minusDays(13), 4, 6)), today)
+        assertEquals(today.minusDays(13).toEpochDay(), s.firstDay)
+        assertEquals(270L, s.recentDown.last())
+        assertEquals(30L, s.recentUp.last())
+        assertEquals(6L, s.recentDown.first())
+        assertEquals(4L, s.recentUp.first())
+        assertEquals(TrafficTally.RECENT_DAYS, s.recentDown.size)
+        assertEquals(TrafficTally.RECENT_DAYS, s.recentUp.size)
+        s.recent.indices.forEach { assertEquals(s.recent[it], s.recentDown[it] + s.recentUp[it]) }
+    }
+
+    @Test
     fun aDayAfterTodayCountsNowhere() {
         val today = LocalDate.of(2026, 11, 4)
         val s = TrafficTally.summarize(listOf(day(today.plusDays(1), 10, 10)), today)
