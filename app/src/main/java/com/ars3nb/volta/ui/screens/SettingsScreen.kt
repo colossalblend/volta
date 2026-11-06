@@ -39,6 +39,7 @@ import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Science
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.SyncAlt
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.TouchApp
@@ -131,6 +132,7 @@ fun SettingsScreen(vm: VoltaViewModel) {
     val update by vm.updateState.collectAsStateWithLifecycle()
     val updateAutoCheck by vm.updateAutoCheck.collectAsStateWithLifecycle()
     val updateBeta by vm.updateBeta.collectAsStateWithLifecycle()
+    val liteMode by vm.liteMode.collectAsStateWithLifecycle()
     val alwaysOn by vm.alwaysOn.collectAsStateWithLifecycle()
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
@@ -324,6 +326,15 @@ fun SettingsScreen(vm: VoltaViewModel) {
                         Spacer(Modifier.height(12.dp))
                         AppIconPicker()
                     }
+                    Spacer(Modifier.height(8.dp))
+                    SwitchRow(
+                        icon = Icons.Rounded.Speed,
+                        tint = MaterialTheme.colorScheme.primary,
+                        title = stringResource(R.string.settings_lite_mode),
+                        subtitle = stringResource(R.string.settings_lite_mode_hint),
+                        checked = liteMode,
+                        onChecked = vm::setLiteMode
+                    )
                 }
             }
             item {

@@ -1,5 +1,7 @@
 package com.ars3nb.volta.ui.components
 
+import com.ars3nb.volta.ui.theme.rememberReducedMotion
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -81,19 +83,23 @@ fun SpeedGraph(history: SpeedHistory, modifier: Modifier = Modifier, totals: Tra
     // The scale eases to a new peak instead of snapping, so a burst doesn't jolt the curve.
     val scale by animateFloatAsState(peak * 1.15f, tween(700, easing = FastOutSlowInEasing), label = "scale")
 
+    val still = rememberReducedMotion()
     val slide = remember { Animatable(0f) }
     LaunchedEffect(history.version) {
+        if (still) return@LaunchedEffect
         slide.snapTo(1f)
         slide.animateTo(0f, tween(1_900, easing = LinearEasing))
     }
 
+    // The live dot pulses; with «Lite» or "remove animations" it simply stays lit.
     val pulse = rememberInfiniteTransition(label = "pulse")
-    val dot by pulse.animateFloat(
+    val pulsing by pulse.animateFloat(
         initialValue = 0.35f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
         label = "dot"
     )
+    val dot = if (still) 1f else pulsing
 
     val res = screenResources()
     VoltaCard(modifier = modifier) {

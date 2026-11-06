@@ -34,6 +34,7 @@ class AppPreferences(private val context: Context) {
 
     private object Keys {
         val designTheme = stringPreferencesKey("design_theme")
+        val liteMode = booleanPreferencesKey("lite_mode")
         val autoFailover = booleanPreferencesKey("auto_failover")
         val perAppMode = stringPreferencesKey("per_app_mode")
         val perAppPackages = stringSetPreferencesKey("per_app_packages")
@@ -260,6 +261,13 @@ class AppPreferences(private val context: Context) {
     val mtu: Flow<Int> = context.dataStore.data.map { (it[Keys.mtu] ?: 1420).coerceIn(1280, 9000) }
     val networkRegime: Flow<String> = context.dataStore.data.map {
         it[Keys.networkRegime] ?: "UNKNOWN"
+    }
+
+    /** «Lite-оформление»: fewer animations, for slower phones. */
+    val liteMode: Flow<Boolean> = context.dataStore.data.map { it[Keys.liteMode] ?: false }
+
+    suspend fun setLiteMode(on: Boolean) {
+        context.dataStore.edit { it[Keys.liteMode] = on }
     }
 
     suspend fun setDesignTheme(theme: DesignTheme) {

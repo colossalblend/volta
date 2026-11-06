@@ -264,6 +264,8 @@
     <string name="settings_link_crypt_unknown_key">El enlace está cifrado con una clave que esta versión de Volta no tiene</string>
     <string name="settings_link_crypt_failed">No se pudo descifrar el enlace: está dañado o no es para Volta</string>
     <string name="settings_link_damaged">El enlace está dañado</string>
+    <string name="settings_lite_mode">Diseño Lite</string>
+    <string name="settings_lite_mode_hint">Menos animaciones, para teléfonos más lentos</string>
 
     <!-- Auto by subscription -->
     <string name="settings_auto_by_subscription_title">Auto por suscripción</string>
