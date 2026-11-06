@@ -13,7 +13,7 @@ class GeminiStoreTest {
         val now = 1_700_000_000_000L
         val results = mapOf(
             1L to GeminiResult(GeminiStatus.AVAILABLE, GeminiReason.FLAG_ON, "USA", 200, now - 1_000),
-            2L to GeminiResult(GeminiStatus.UNSUPPORTED_REGION, GeminiReason.FLAG_OFF, "RUS", 200, now - 2_000),
+            2L to GeminiResult(GeminiStatus.UNSUPPORTED_REGION, GeminiReason.UNSUPPORTED_REGION_LIST, "RUS", 200, now - 2_000),
             3L to GeminiResult(GeminiStatus.BLOCKED_OR_ERROR, GeminiReason.TIMEOUT, null, 0, now - 3_000)
         )
         assertEquals(results, GeminiChecks.decode(GeminiChecks.encode(results, now)))
