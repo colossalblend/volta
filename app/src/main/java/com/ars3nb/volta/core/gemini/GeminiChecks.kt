@@ -181,7 +181,16 @@ class GeminiChecks(
                         checkedAt = o.get("at").asLong
                     )
                 }.getOrNull()
-            }.toMap()
+            }
+                // Verdicts made by the first rules (1.1.122), which read Gemini's other
+                // feature strings and an off switch with no country as "doesn't work":
+                // dropped, so the server is checked again with today's rules.
+                .filterNot { (_, r) ->
+                    r.status == GeminiStatus.UNSUPPORTED_REGION &&
+                        (r.reason == GeminiReason.FLAG_OFF ||
+                            (r.reason == GeminiReason.NOT_AVAILABLE_TEXT && r.region == null))
+                }
+                .toMap()
         }
     }
 }

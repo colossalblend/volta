@@ -68,17 +68,19 @@ object GeminiMarkers {
     /** The country Google placed the request in, ISO 3166-1 alpha-3 ("USA"). */
     val REGION = Regex(""",2,1,200,(?:\\*"|\\u0022)([A-Z]{3})(?:\\*"|\\u0022)""")
 
-    /** What Gemini says, in English, where it is not offered. Matched in lower case. */
+    /**
+     * What Gemini says, in English, where it is not offered. Matched in lower case. Only
+     * sentences that name Gemini itself: the page carries plenty of strings for its other
+     * features ("…not available in your country"), and matching those made a working
+     * server read as "doesn't work" (seen on a German exit, November 2026).
+     */
     val NOT_AVAILABLE_TEXT = listOf(
         "gemini isn't available in your country",
         "gemini is not available in your country",
         "gemini isn't currently supported in your country",
         "gemini is not currently supported in your country",
         "gemini isn't available in your region",
-        "gemini is not available in your region",
-        "isn't currently supported in your country",
-        "not available in your country",
-        "not available in your region"
+        "gemini is not available in your region"
     )
 
     /** Regions (alpha-3) where the web app is not offered: a fallback when no switch is found. */

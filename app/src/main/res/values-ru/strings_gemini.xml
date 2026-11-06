@@ -21,4 +21,10 @@
     <string name="gemini_reason_cannot_dial">Этот сервер нельзя проверить в этой сборке</string>
     <string name="gemini_settings_title">Проверять Gemini после подключения</string>
     <string name="gemini_settings_text">После подключения открывает gemini.google.com через сервер (около 30 КБ) и показывает на главной, работает ли там Gemini</string>
+    <string name="gemini_reason_flag_on">У Gemini включён доступ для этого адреса</string>
+    <string name="gemini_reason_supported_region">Google определил страну сервера, где Gemini работает</string>
+    <string name="gemini_reason_region_list">Google определил страну сервера, где Gemini нет</string>
+    <string name="gemini_reason_text">Gemini сам написал, что здесь недоступен</string>
+    <string name="gemini_reason_flag_off">У Gemini выключен доступ для этого адреса</string>
+    <string name="gemini_reason_unsure">Google не дал точного ответа — откройте gemini.google.com, чтобы убедиться</string>
 </resources>

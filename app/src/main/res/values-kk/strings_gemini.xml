@@ -21,4 +21,10 @@
     <string name="gemini_reason_cannot_dial">Бұл серверді осы нұсқада тексеру мүмкін емес</string>
     <string name="gemini_settings_title">Қосылғаннан кейін Gemini-ді тексеру</string>
     <string name="gemini_settings_text">Қосылғаннан кейін gemini.google.com сайтын сервер арқылы ашады (шамамен 30 КБ) және Gemini онда жұмыс істей ме, басты бетте көрсетеді</string>
+    <string name="gemini_reason_flag_on">Gemini бұл мекенжай үшін қосулы</string>
+    <string name="gemini_reason_supported_region">Google серверді Gemini жұмыс істейтін елге жатқызды</string>
+    <string name="gemini_reason_region_list">Google серверді Gemini жоқ елге жатқызды</string>
+    <string name="gemini_reason_text">Gemini мұнда қолжетімсіз екенін жазды</string>
+    <string name="gemini_reason_flag_off">Gemini бұл мекенжай үшін өшірулі</string>
+    <string name="gemini_reason_unsure">Google нақты жауап бермеді — тексеру үшін gemini.google.com ашыңыз</string>
 </resources>

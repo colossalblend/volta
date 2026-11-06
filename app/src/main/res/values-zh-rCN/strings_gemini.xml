@@ -21,4 +21,10 @@
     <string name="gemini_reason_cannot_dial">此版本无法检查此服务器</string>
     <string name="gemini_settings_title">连接后检查 Gemini</string>
     <string name="gemini_settings_text">连接后通过服务器打开 gemini.google.com（约 30 KB），并在主页显示 Gemini 在那里是否可用</string>
+    <string name="gemini_reason_flag_on">Gemini 已为此地址开启</string>
+    <string name="gemini_reason_supported_region">Google 将服务器判定在提供 Gemini 的国家</string>
+    <string name="gemini_reason_region_list">Google 将服务器判定在不提供 Gemini 的国家</string>
+    <string name="gemini_reason_text">Gemini 表示此处不可用</string>
+    <string name="gemini_reason_flag_off">Gemini 已为此地址关闭</string>
+    <string name="gemini_reason_unsure">Google 未给出明确结果——请打开 gemini.google.com 确认</string>
 </resources>

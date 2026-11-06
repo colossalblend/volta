@@ -21,4 +21,10 @@
     <string name="gemini_reason_cannot_dial">این سرور در این نسخه قابل بررسی نیست</string>
     <string name="gemini_settings_title">بررسی Gemini پس از اتصال</string>
     <string name="gemini_settings_text">پس از اتصال، gemini.google.com را از طریق سرور باز می‌کند (حدود ۳۰ کیلوبایت) و در صفحهٔ اصلی نشان می‌دهد که Gemini آنجا کار می‌کند یا نه</string>
+    <string name="gemini_reason_flag_on">دسترسی Gemini برای این نشانی روشن است</string>
+    <string name="gemini_reason_supported_region">Google سرور را در کشوری قرار داد که Gemini در آن ارائه می‌شود</string>
+    <string name="gemini_reason_region_list">Google سرور را در کشوری قرار داد که Gemini در آن ارائه نمی‌شود</string>
+    <string name="gemini_reason_text">Gemini گفت اینجا در دسترس نیست</string>
+    <string name="gemini_reason_flag_off">دسترسی Gemini برای این نشانی خاموش است</string>
+    <string name="gemini_reason_unsure">Google پاسخ قطعی نداد — برای اطمینان gemini.google.com را باز کنید</string>
 </resources>

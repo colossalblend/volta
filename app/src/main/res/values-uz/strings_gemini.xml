@@ -21,4 +21,10 @@
     <string name="gemini_reason_cannot_dial">Bu serverni ushbu versiyada tekshirib boʻlmaydi</string>
     <string name="gemini_settings_title">Ulangandan keyin Geminiʼni tekshirish</string>
     <string name="gemini_settings_text">Ulangandan soʻng gemini.google.com saytini server orqali ochadi (taxminan 30 KB) va Gemini u yerda ishlashini bosh sahifada koʻrsatadi</string>
+    <string name="gemini_reason_flag_on">Gemini bu manzil uchun yoqilgan</string>
+    <string name="gemini_reason_supported_region">Google serverni Gemini ishlaydigan davlatga joylashtirdi</string>
+    <string name="gemini_reason_region_list">Google serverni Gemini yoʻq davlatga joylashtirdi</string>
+    <string name="gemini_reason_text">Gemini bu yerda mavjud emasligini yozdi</string>
+    <string name="gemini_reason_flag_off">Gemini bu manzil uchun oʻchirilgan</string>
+    <string name="gemini_reason_unsure">Google aniq javob bermadi — ishonch hosil qilish uchun gemini.google.com ni oching</string>
 </resources>

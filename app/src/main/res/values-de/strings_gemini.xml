@@ -21,4 +21,10 @@
     <string name="gemini_reason_cannot_dial">Dieser Server lässt sich in diesem Build nicht prüfen</string>
     <string name="gemini_settings_title">Gemini nach dem Verbinden prüfen</string>
     <string name="gemini_settings_text">Öffnet nach dem Verbinden gemini.google.com über den Server (etwa 30 KB) und zeigt auf der Startseite, ob Gemini dort funktioniert</string>
+    <string name="gemini_reason_flag_on">Gemini ist für diese Adresse freigeschaltet</string>
+    <string name="gemini_reason_supported_region">Google hat den Server einem Land zugeordnet, in dem Gemini angeboten wird</string>
+    <string name="gemini_reason_region_list">Google hat den Server einem Land zugeordnet, in dem Gemini nicht angeboten wird</string>
+    <string name="gemini_reason_text">Gemini meldet, hier nicht verfügbar zu sein</string>
+    <string name="gemini_reason_flag_off">Gemini ist für diese Adresse abgeschaltet</string>
+    <string name="gemini_reason_unsure">Google hat keine eindeutige Antwort gegeben – öffnen Sie gemini.google.com, um sicherzugehen</string>
 </resources>

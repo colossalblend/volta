@@ -21,4 +21,10 @@
     <string name="gemini_reason_cannot_dial">لا يمكن فحص هذا الخادم في هذا الإصدار</string>
     <string name="gemini_settings_title">فحص Gemini بعد الاتصال</string>
     <string name="gemini_settings_text">بعد الاتصال يفتح gemini.google.com عبر الخادم (نحو 30 كيلوبايت) ويعرض في الرئيسية هل يعمل Gemini هناك</string>
+    <string name="gemini_reason_flag_on">وصول Gemini مفعّل لهذا العنوان</string>
+    <string name="gemini_reason_supported_region">وضع Google الخادم في بلد يتوفر فيه Gemini</string>
+    <string name="gemini_reason_region_list">وضع Google الخادم في بلد لا يتوفر فيه Gemini</string>
+    <string name="gemini_reason_text">قال Gemini إنه غير متاح هنا</string>
+    <string name="gemini_reason_flag_off">وصول Gemini معطّل لهذا العنوان</string>
+    <string name="gemini_reason_unsure">لم يعطِ Google إجابة حاسمة — افتح gemini.google.com للتأكد</string>
 </resources>

@@ -20,6 +20,12 @@ enum class GeminiReason {
     FLAG_OFF,
     NOT_AVAILABLE_TEXT,
     UNSUPPORTED_REGION_LIST,
+
+    /** No switch, but Google placed the request in a country where Gemini is offered. */
+    SUPPORTED_REGION,
+
+    /** The switch was off but the page named no country: not enough to say "doesn't work". */
+    UNSURE,
     LEGAL_BLOCK,
     CONSENT,
     CAPTCHA,
@@ -85,15 +91,25 @@ object GeminiPage {
             return result(GeminiStatus.BLOCKED_OR_ERROR, GeminiReason.CONSENT)
         }
 
+        // The country Google put the request in outweighs everything but the switch on:
+        // that is what "works through this server" means. A "doesn't work" needs a sign
+        // that cannot come from anything else on the page.
+        val supported = region != null && region !in GeminiMarkers.UNSUPPORTED_REGIONS &&
+            GeminiMarkers.GEMINI_PAGE_TEXT.any { it in body }
+        val flagOff = GeminiMarkers.FLAG_OFF.containsMatchIn(body)
         return when {
             flagOn ->
                 result(GeminiStatus.AVAILABLE, GeminiReason.FLAG_ON)
-            GeminiMarkers.FLAG_OFF.containsMatchIn(body) ->
-                result(GeminiStatus.UNSUPPORTED_REGION, GeminiReason.FLAG_OFF)
-            GeminiMarkers.NOT_AVAILABLE_TEXT.any { it in lower } ->
-                result(GeminiStatus.UNSUPPORTED_REGION, GeminiReason.NOT_AVAILABLE_TEXT)
             region != null && region in GeminiMarkers.UNSUPPORTED_REGIONS ->
                 result(GeminiStatus.UNSUPPORTED_REGION, GeminiReason.UNSUPPORTED_REGION_LIST)
+            GeminiMarkers.NOT_AVAILABLE_TEXT.any { it in lower } && !supported ->
+                result(GeminiStatus.UNSUPPORTED_REGION, GeminiReason.NOT_AVAILABLE_TEXT)
+            // The switch off in a country Gemini is offered in, or with no country at all:
+            // seen on a German exit where Gemini opened fine. Not a "doesn't work".
+            flagOff ->
+                result(GeminiStatus.BLOCKED_OR_ERROR, GeminiReason.UNSURE)
+            supported ->
+                result(GeminiStatus.AVAILABLE, GeminiReason.SUPPORTED_REGION)
             GeminiMarkers.FALLBACK_ON.containsMatchIn(body) ->
                 result(GeminiStatus.AVAILABLE, GeminiReason.FLAG_ON)
             else -> result(GeminiStatus.BLOCKED_OR_ERROR, GeminiReason.UNRECOGNIZED)

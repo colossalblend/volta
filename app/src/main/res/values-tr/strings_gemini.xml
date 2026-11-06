@@ -21,4 +21,10 @@
     <string name="gemini_reason_cannot_dial">Bu sunucu bu sürümde kontrol edilemez</string>
     <string name="gemini_settings_title">Bağlandıktan sonra Gemini\'yi kontrol et</string>
     <string name="gemini_settings_text">Bağlantı kurulunca gemini.google.com\'u sunucu üzerinden açar (yaklaşık 30 KB) ve Gemini\'nin orada çalışıp çalışmadığını ana ekranda gösterir</string>
+    <string name="gemini_reason_flag_on">Gemini bu adres için açık</string>
+    <string name="gemini_reason_supported_region">Google sunucuyu Gemini\'nin sunulduğu bir ülkeye yerleştirdi</string>
+    <string name="gemini_reason_region_list">Google sunucuyu Gemini\'nin sunulmadığı bir ülkeye yerleştirdi</string>
+    <string name="gemini_reason_text">Gemini burada sunulmadığını söyledi</string>
+    <string name="gemini_reason_flag_off">Gemini bu adres için kapalı</string>
+    <string name="gemini_reason_unsure">Google kesin yanıt vermedi — emin olmak için gemini.google.com\'u açın</string>
 </resources>

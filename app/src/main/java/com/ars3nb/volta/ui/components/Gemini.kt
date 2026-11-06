@@ -108,6 +108,12 @@ private fun reasonText(result: GeminiResult): String? = when (result.reason) {
     GeminiReason.CONSENT -> stringResource(R.string.gemini_reason_consent)
     GeminiReason.HTTP_ERROR -> stringResource(R.string.gemini_reason_http, result.httpCode)
     GeminiReason.UNRECOGNIZED -> stringResource(R.string.gemini_reason_unrecognized)
+    GeminiReason.FLAG_ON -> stringResource(R.string.gemini_reason_flag_on)
+    GeminiReason.SUPPORTED_REGION -> stringResource(R.string.gemini_reason_supported_region)
+    GeminiReason.UNSUPPORTED_REGION_LIST -> stringResource(R.string.gemini_reason_region_list)
+    GeminiReason.NOT_AVAILABLE_TEXT -> stringResource(R.string.gemini_reason_text)
+    GeminiReason.FLAG_OFF -> stringResource(R.string.gemini_reason_flag_off)
+    GeminiReason.UNSURE -> stringResource(R.string.gemini_reason_unsure)
     GeminiReason.NEEDS_CONNECTION -> stringResource(R.string.gemini_reason_needs_connection)
     GeminiReason.CANNOT_DIAL -> stringResource(R.string.gemini_reason_cannot_dial)
     else -> null
@@ -163,7 +169,8 @@ private fun GeminiPill(shown: GeminiShown, home: Boolean, modifier: Modifier = M
                     words
                 },
                 color = geminiColor(result.status),
-                icon = geminiIcon(result.status)
+                icon = geminiIcon(result.status),
+                maxLines = 2
             )
         }
     }

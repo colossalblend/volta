@@ -21,4 +21,10 @@
     <string name="gemini_reason_cannot_dial">Гэты сервер нельга праверыць у гэтай зборцы</string>
     <string name="gemini_settings_title">Правяраць Gemini пасля падключэння</string>
     <string name="gemini_settings_text">Пасля падключэння адкрывае gemini.google.com праз сервер (каля 30 КБ) і паказвае на галоўнай, ці працуе там Gemini</string>
+    <string name="gemini_reason_flag_on">У Gemini уключаны доступ для гэтага адраса</string>
+    <string name="gemini_reason_supported_region">Google вызначыў краіну сервера, дзе Gemini працуе</string>
+    <string name="gemini_reason_region_list">Google вызначыў краіну сервера, дзе Gemini няма</string>
+    <string name="gemini_reason_text">Gemini сам напісаў, што тут недаступны</string>
+    <string name="gemini_reason_flag_off">У Gemini выключаны доступ для гэтага адраса</string>
+    <string name="gemini_reason_unsure">Google не даў дакладнага адказу — адкрыйце gemini.google.com, каб пераканацца</string>
 </resources>

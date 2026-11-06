@@ -70,9 +70,10 @@ class GeminiPageTest {
             GeminiStatus.AVAILABLE,
             GeminiPage.evaluate(200, home, page("\"a\":\"[[45617354,null,true]]\"", region = null)).status
         )
+        // The main switch off in a country Gemini is offered in: no verdict either way.
         assertEquals(
-            GeminiStatus.UNSUPPORTED_REGION,
-            GeminiPage.evaluate(200, home, page("\"a\":\"[[45617354,null,true],[45631641,null,false]]\"")).status
+            GeminiReason.UNSURE,
+            GeminiPage.evaluate(200, home, page("\"a\":\"[[45617354,null,true],[45631641,null,false]]\"")).reason
         )
     }
 
@@ -82,7 +83,7 @@ class GeminiPageTest {
     fun switchOffIsUnsupportedRegion() {
         val r = GeminiPage.evaluate(200, home, page("\"nQyAE\":{\\\"45631641\\\":false}", region = "RUS"))
         assertEquals(GeminiStatus.UNSUPPORTED_REGION, r.status)
-        assertEquals(GeminiReason.FLAG_OFF, r.reason)
+        assertEquals(GeminiReason.UNSUPPORTED_REGION_LIST, r.reason)
         assertEquals("RU", r.regionAlpha2)
     }
 
@@ -90,7 +91,7 @@ class GeminiPageTest {
     fun arrayFormSwitchOffIsUnsupportedRegion() {
         val r = GeminiPage.evaluate(200, home, page("\"x\":\"[[45631641,null,false]]\"", region = "CHN"))
         assertEquals(GeminiStatus.UNSUPPORTED_REGION, r.status)
-        assertEquals(GeminiReason.FLAG_OFF, r.reason)
+        assertEquals(GeminiReason.UNSUPPORTED_REGION_LIST, r.reason)
     }
 
     @Test
@@ -117,11 +118,45 @@ class GeminiPageTest {
     // ------------------------------------------------------------------ couldn't check
 
     @Test
-    fun noSwitchInASupportedRegionIsNotAGuess() {
+    fun noSwitchOnGeminisPageInASupportedRegionWorks() {
         val r = GeminiPage.evaluate(200, home, page("\"z\":1", region = "NLD"))
-        assertEquals(GeminiStatus.BLOCKED_OR_ERROR, r.status)
-        assertEquals(GeminiReason.UNRECOGNIZED, r.reason)
+        assertEquals(GeminiStatus.AVAILABLE, r.status)
+        assertEquals(GeminiReason.SUPPORTED_REGION, r.reason)
         assertEquals("NLD", r.region)
+    }
+
+    @Test
+    fun aRegionOnAPageThatIsNotGeminisIsNotAVerdict() {
+        val r = GeminiPage.evaluate(200, home, "<html>,2,1,200,\"DEU\"</html>")
+        assertEquals(GeminiStatus.BLOCKED_OR_ERROR, r.status)
+    }
+
+    // The false "doesn't work" seen on a German exit where Gemini opened in the browser.
+    @Test
+    fun anOtherFeaturesNotAvailableStringIsNotAVerdict() {
+        val body = page("\"z\":1", region = null) + "<p>This feature is not available in your country</p>"
+        assertEquals(GeminiStatus.BLOCKED_OR_ERROR, GeminiPage.evaluate(200, home, body).status)
+        val inGermany = page("\"z\":1", region = "DEU") + "<p>Gemini isn't available in your country</p>"
+        assertEquals(GeminiStatus.AVAILABLE, GeminiPage.evaluate(200, home, inGermany).status)
+    }
+
+    @Test
+    fun switchOffWithNoCountryIsUnsureNotUnsupported() {
+        val r = GeminiPage.evaluate(200, home, page("\"nQyAE\":{\\\"45631641\\\":false}", region = null))
+        assertEquals(GeminiStatus.BLOCKED_OR_ERROR, r.status)
+        assertEquals(GeminiReason.UNSURE, r.reason)
+    }
+
+    @Test
+    fun verdictsOfTheFirstRulesAreForgotten() {
+        val json = GeminiChecks.encode(
+            mapOf(
+                1L to GeminiResult(GeminiStatus.UNSUPPORTED_REGION, GeminiReason.FLAG_OFF, null, 200, 5),
+                2L to GeminiResult(GeminiStatus.AVAILABLE, GeminiReason.FLAG_ON, "USA", 200, 5)
+            ),
+            now = 10
+        )
+        assertEquals(setOf(2L), GeminiChecks.decode(json).keys)
     }
 
     @Test
