@@ -210,4 +210,8 @@
     <string name="home_helper_launch_failed">%1$s не запустився: %2$s</string>
     <string name="home_helper_no_answer">не відповів вчасно</string>
     <string name="home_helper_stopped">зупинився</string>
+    <string name="home_traffic_yesterday">Учора</string>
+    <string name="home_traffic_no_traffic">Немає трафіку</string>
+    <string name="home_traffic_tap_hint">Натисніть на смужку або проведіть по них, щоб побачити день</string>
+    <string name="home_traffic_day_description">%1$s: %2$s, отримано %3$s, надіслано %4$s</string>
 </resources>

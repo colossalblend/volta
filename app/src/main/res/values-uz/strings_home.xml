@@ -204,4 +204,8 @@
     <string name="home_helper_launch_failed">%1$s ishga tushmadi: %2$s</string>
     <string name="home_helper_no_answer">oʻz vaqtida javob bermadi</string>
     <string name="home_helper_stopped">toʻxtadi</string>
+    <string name="home_traffic_yesterday">Kecha</string>
+    <string name="home_traffic_no_traffic">Trafik yoʻq</string>
+    <string name="home_traffic_tap_hint">Kunni koʻrish uchun ustunchaga bosing yoki ular boʻylab suring</string>
+    <string name="home_traffic_day_description">%1$s: %2$s, olindi %3$s, yuborildi %4$s</string>
 </resources>

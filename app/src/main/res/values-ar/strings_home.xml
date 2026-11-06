@@ -216,4 +216,8 @@
     <string name="home_helper_launch_failed">لم يبدأ %1$s: %2$s</string>
     <string name="home_helper_no_answer">لم يستجب في الوقت المناسب</string>
     <string name="home_helper_stopped">توقّف</string>
+    <string name="home_traffic_yesterday">أمس</string>
+    <string name="home_traffic_no_traffic">لا توجد حركة بيانات</string>
+    <string name="home_traffic_tap_hint">اضغط على عمود أو اسحب عليها لرؤية يوم</string>
+    <string name="home_traffic_day_description">%1$s: %2$s، المستلم %3$s، المرسل %4$s</string>
 </resources>

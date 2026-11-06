@@ -204,4 +204,8 @@
     <string name="home_helper_launch_failed">%1$s ist nicht gestartet: %2$s</string>
     <string name="home_helper_no_answer">hat nicht rechtzeitig geantwortet</string>
     <string name="home_helper_stopped">wurde beendet</string>
+    <string name="home_traffic_yesterday">Gestern</string>
+    <string name="home_traffic_no_traffic">Kein Datenverkehr</string>
+    <string name="home_traffic_tap_hint">Tippen Sie auf einen Balken oder wischen Sie darüber, um einen Tag zu sehen</string>
+    <string name="home_traffic_day_description">%1$s: %2$s, empfangen %3$s, gesendet %4$s</string>
 </resources>
