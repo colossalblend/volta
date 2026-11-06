@@ -64,10 +64,13 @@ fun SimpleHomeScreen(vm: VoltaViewModel, modifier: Modifier = Modifier) {
     val palette = VoltaTheme.palette
     var askLeave by remember { mutableStateOf(false) }
 
+    val switching by vm.switching.collectAsStateWithLifecycle()
     val working = phase != ConnectPhase.IDLE
     val vpn = state.vpnState
-    val on = state.isConnected && !working
-    val starting = working || vpn == VpnConnectionState.CONNECTING
+    // The guard moving the tunnel to another node: it stays on all the while.
+    val moving = switching != null && (vpn == VpnConnectionState.CONNECTED || vpn == VpnConnectionState.CONNECTING)
+    val on = (state.isConnected || moving) && !working
+    val starting = !moving && (working || vpn == VpnConnectionState.CONNECTING)
     val noServers = state.servers.isEmpty() && !state.isConnected
 
     // On a TV the remote starts on the button (once there are servers to connect to).
@@ -119,6 +122,7 @@ fun SimpleHomeScreen(vm: VoltaViewModel, modifier: Modifier = Modifier) {
                         enabled = !noServers,
                         onClick = vm::toggleConnect,
                         size = buttonSize,
+                        switching = moving,
                         modifier = Modifier.focusRequester(startFocus)
                     )
                     Spacer(Modifier.height(20.dp))

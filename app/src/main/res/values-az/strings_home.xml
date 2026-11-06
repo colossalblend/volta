@@ -204,4 +204,11 @@
     <string name="home_helper_launch_failed">%1$s başlamadı: %2$s</string>
     <string name="home_helper_no_answer">vaxtında cavab vermədi</string>
     <string name="home_helper_stopped">dayandı</string>
+
+    <!-- Moving between servers and checking them -->
+    <string name="home_state_switching">Keçid edilir</string>
+    <string name="home_caption_switching_to">%1$s serverinə keçirik</string>
+    <string name="home_switch_back">«%1$s» cavab vermədi, «%2$s» serverinə qayıtdıq</string>
+    <string name="home_switch_moved">«%1$s» cavab vermir, «%2$s» serverinə keçdik</string>
+    <string name="home_switch_kept">«%1$s» serverinə keçmək olmadı, «%2$s» serverində qalırıq</string>
 </resources>

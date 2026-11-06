@@ -152,4 +152,12 @@
         <item quantity="one">%1$s, %2$d ölkə</item>
         <item quantity="other">%1$s, %2$d ölkə</item>
     </plurals>
+
+    <!-- Check all, one server's check, why the connect-time pick took its node -->
+    <string name="servers_check_progress">%2$d serverdən %1$d yoxlanıldı</string>
+    <string name="servers_check_stop">Dayandır</string>
+    <string name="servers_check_stopped">Yoxlama dayandırıldı: %2$d serverdən %1$d yoxlanıldı</string>
+    <string name="servers_check_running">Yoxlanılır…</string>
+    <string name="servers_pick_why_remembered">«%1$s» keçən dəfə bu şəbəkədə işləyib, cavabı %2$d ms</string>
+    <string name="servers_pick_why_race">«%1$s» %2$d server arasında ilk cavab verdi, %3$d ms</string>
 </resources>

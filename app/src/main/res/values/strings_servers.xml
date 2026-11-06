@@ -152,4 +152,12 @@
         <item quantity="one">%1$s, %2$d country</item>
         <item quantity="other">%1$s, %2$d countries</item>
     </plurals>
+
+    <!-- Check all, one server's check, why the connect-time pick took its node -->
+    <string name="servers_check_progress">Checked %1$d of %2$d</string>
+    <string name="servers_check_stop">Stop</string>
+    <string name="servers_check_stopped">Check stopped: %1$d of %2$d checked</string>
+    <string name="servers_check_running">Checking…</string>
+    <string name="servers_pick_why_remembered">“%1$s” worked on this network last time and answers in %2$d ms</string>
+    <string name="servers_pick_why_race">“%1$s” answered first of %2$d, in %3$d ms</string>
 </resources>

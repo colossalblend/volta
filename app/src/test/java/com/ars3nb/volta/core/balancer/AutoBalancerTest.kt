@@ -306,4 +306,49 @@ class AutoBalancerTest {
         assertEquals(null, AutoBalancer.groupOf(BalancerScope.ALL, NetworkRegime.BLOCKED))
         assertEquals(BalancerScope.BYPASS, AutoBalancer.groupOf(BalancerScope.BYPASS, NetworkRegime.UNKNOWN))
     }
+
+    // ------------------------------------------------------------------ connect-time race
+
+    @Test
+    fun theRaceStartsWithTheRememberedNodeThenTheBestRecentOnes() {
+        val now = 100 * 60 * 60_000L
+        val recentFast = server(1, ewma = 40).copy(latencyMs = 40, lastPingAt = now - 60_000)
+        val recentSlow = server(2, ewma = 90).copy(latencyMs = 90, lastPingAt = now - 60_000)
+        val staleFastest = server(3, ewma = 20).copy(latencyMs = 20, lastPingAt = now - AutoBalancer.RECENT_MS - 1)
+        val holder = server(4, ewma = 150).copy(latencyMs = 150, lastPingAt = now - 60_000)
+        val never = server(5)
+        val pool = listOf(recentFast, recentSlow, staleFastest, holder, never)
+
+        val contenders = AutoBalancer.raceContenders(pool, holder, now)
+
+        // The node that worked here last, then recent before stale, each by its record;
+        // a node never measured has nothing to race on.
+        assertEquals(listOf(4L, 1L, 2L, 3L), contenders.map { it.id })
+    }
+
+    @Test
+    fun theRaceIsSmallAndLeavesOutFailingAndGuessedNodes() {
+        val now = 100 * 60 * 60_000L
+        fun measured(id: Long, ms: Long) = server(id, ewma = ms).copy(latencyMs = ms, lastPingAt = now)
+        val pool = (1L..8L).map { measured(it, 10 * it) } +
+            measured(20, 5).copy(failStreak = 1) +
+            measured(21, 5).copy(protocol = ProtocolType.OPENFLUX)
+        val failingHolder = measured(30, 50).copy(failStreak = AutoBalancer.INSTANT_MAX_FAILS)
+
+        val contenders = AutoBalancer.raceContenders(pool + failingHolder, failingHolder, now)
+
+        assertEquals(AutoBalancer.RACE_SIZE, contenders.size)
+        assertEquals(listOf(1L, 2L, 3L, 4L), contenders.map { it.id })
+    }
+
+    @Test
+    fun anOpenFluxHolderStillRacesAndAHolderOutsideThePoolDoesNot() {
+        val now = 1_000L
+        val pool = listOf(server(1, ewma = 40).copy(latencyMs = 40, lastPingAt = now))
+        val openFlux = server(2).copy(protocol = ProtocolType.OPENFLUX)
+
+        assertEquals(listOf(2L, 1L), AutoBalancer.raceContenders(pool + openFlux, openFlux, now).map { it.id })
+        assertEquals(listOf(1L), AutoBalancer.raceContenders(pool, openFlux, now).map { it.id })
+        assertTrue(AutoBalancer.raceContenders(listOf(server(9)), null, now).isEmpty())
+    }
 }

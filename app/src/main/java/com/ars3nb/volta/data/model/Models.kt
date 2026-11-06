@@ -434,3 +434,9 @@ data class SubscriptionImportResult(
     /** Links the parser recognised but the core cannot dial (tuic://, ssr://…). */
     val skipped: List<String> = emptyList()
 )
+
+/** One server's new measurement, written together with others (ServerDao.updateHealthAll). */
+data class HealthUpdate(val id: Long, val latency: Long, val ewma: Long, val failStreak: Int)
+
+/** Where a live tunnel is on its way to, as the screen names it. */
+data class SwitchTarget(val serverId: Long, val name: String)

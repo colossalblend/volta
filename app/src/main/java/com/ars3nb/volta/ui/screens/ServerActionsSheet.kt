@@ -1,6 +1,16 @@
 package com.ars3nb.volta.ui.screens
 
 import android.content.Intent
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +32,7 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -34,11 +45,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ars3nb.volta.R
+import com.ars3nb.volta.core.locale.asString
+import com.ars3nb.volta.ui.ServerCheck
+import com.ars3nb.volta.ui.components.SignalBars
+import com.ars3nb.volta.ui.theme.Motion
+import com.ars3nb.volta.ui.theme.rememberReducedMotion
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.ServerRole
 import com.ars3nb.volta.ui.components.Hint
@@ -65,7 +84,9 @@ fun ServerActionsSheet(
     onDelete: (() -> Unit)?,
     onCopied: () -> Unit,
     /** «Отправить по Bluetooth»; null where the device has no Bluetooth LE. */
-    onSendBluetooth: (() -> Unit)? = null
+    onSendBluetooth: (() -> Unit)? = null,
+    /** This server's check, started here: shown in place, the sheet stays open. */
+    check: ServerCheck? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val clipboard = LocalClipboardManager.current
@@ -108,8 +129,15 @@ fun ServerActionsSheet(
             SheetAction(
                 icon = Icons.Rounded.Speed,
                 title = stringResource(R.string.servers_check_response),
-                onClick = { onPing(); onDismiss() }
+                onClick = { if (check?.running != true) onPing() }
             )
+            AnimatedVisibility(
+                visible = check != null,
+                enter = fadeIn(Motion.settle()) + expandVertically(Motion.settle()),
+                exit = fadeOut(Motion.settle()) + shrinkVertically(Motion.settle())
+            ) {
+                CheckAnswer(check)
+            }
             SheetAction(
                 icon = if (server.isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
                 title = stringResource(
@@ -190,6 +218,56 @@ fun ServerActionsSheet(
                     title = stringResource(R.string.servers_delete),
                     onClick = { onDelete(); onDismiss() },
                     danger = true
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The answer of a check started in the sheet, under its action: a ring and «Проверяем…»
+ * while it runs, then the time in its colour or why there is none.
+ */
+@Composable
+private fun CheckAnswer(check: ServerCheck?) {
+    val palette = VoltaTheme.palette
+    val scheme = MaterialTheme.colorScheme
+    val still = rememberReducedMotion()
+    AnimatedContent(
+        targetState = check,
+        contentKey = { it?.running },
+        transitionSpec = {
+            if (still) {
+                EnterTransition.None togetherWith ExitTransition.None
+            } else {
+                (scaleIn(Motion.press(), initialScale = 0.85f) + fadeIn(Motion.settle())) togetherWith
+                    fadeOut(Motion.settle())
+            }
+        },
+        label = "checkAnswer",
+        modifier = Modifier.padding(start = 62.dp, end = 8.dp, bottom = 8.dp)
+    ) { shown ->
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+        ) {
+            if (shown == null || shown.running) {
+                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    stringResource(R.string.servers_check_running),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = scheme.onSurfaceVariant
+                )
+            } else {
+                if (shown.ok && shown.latencyMs >= 0) {
+                    SignalBars(shown.latencyMs)
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(
+                    shown.text?.asString().orEmpty(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (shown.ok) palette.latency(shown.latencyMs) else palette.poor
                 )
             }
         }

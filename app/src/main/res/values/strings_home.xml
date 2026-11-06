@@ -205,4 +205,11 @@
     <string name="home_helper_launch_failed">%1$s didn\'t start: %2$s</string>
     <string name="home_helper_no_answer">didn\'t answer in time</string>
     <string name="home_helper_stopped">stopped</string>
+
+    <!-- Moving between servers and checking them -->
+    <string name="home_state_switching">Switching</string>
+    <string name="home_caption_switching_to">Moving to %1$s</string>
+    <string name="home_switch_back">“%1$s” didn\'t answer, back on “%2$s”</string>
+    <string name="home_switch_moved">“%1$s” stopped answering, moved to “%2$s”</string>
+    <string name="home_switch_kept">Couldn\'t switch to “%1$s”, staying on “%2$s”</string>
 </resources>

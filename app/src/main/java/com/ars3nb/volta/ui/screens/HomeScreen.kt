@@ -2,6 +2,8 @@ package com.ars3nb.volta.ui.screens
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -34,6 +36,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -72,7 +75,9 @@ import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.NetworkRegime
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.SubscriptionEntity
+import com.ars3nb.volta.data.model.SwitchTarget
 import com.ars3nb.volta.data.model.TrafficStats
+import com.ars3nb.volta.data.model.VpnConnectionState
 import com.ars3nb.volta.ui.ConnectPhase
 import com.ars3nb.volta.ui.PickSummary
 import com.ars3nb.volta.ui.SpeedHistory
@@ -101,8 +106,10 @@ import com.ars3nb.volta.ui.components.groupLabel
 import com.ars3nb.volta.ui.components.offersInstall
 import com.ars3nb.volta.ui.components.rememberInternetStatus
 import com.ars3nb.volta.ui.components.trafficActivity
+import com.ars3nb.volta.ui.theme.Motion
 import com.ars3nb.volta.ui.theme.TABULAR
 import com.ars3nb.volta.ui.theme.VoltaTheme
+import com.ars3nb.volta.ui.theme.rememberReducedMotion
 import com.ars3nb.volta.ui.share.BleReceiveSheet
 import com.ars3nb.volta.ui.share.rememberBleShareAvailable
 import com.ars3nb.volta.ui.tv.LocalTv
@@ -129,6 +136,7 @@ fun HomeScreen(
     val update by vm.updateState.collectAsStateWithLifecycle()
     val openFlux by vm.openFluxStatus.collectAsStateWithLifecycle()
     val traffic by vm.trafficSummary.collectAsStateWithLifecycle()
+    val switching by vm.switching.collectAsStateWithLifecycle()
     val internet by rememberInternetStatus()
     // On a TV with nothing set up yet, a phone nearby can send the subscription.
     val bluetooth = rememberBleShareAvailable()
@@ -145,6 +153,7 @@ fun HomeScreen(
         openFlux = openFlux,
         traffic = traffic,
         internet = internet,
+        switching = switching,
         onToggle = vm::toggleConnect,
         onSelectMode = vm::setConnectMode,
         onOpenServers = onOpenServers,
@@ -196,7 +205,9 @@ fun HomeContent(
     onInstallUpdate: () -> Unit,
     onLteMissing: () -> Unit = {},
     /** «Получить по Bluetooth» under «add a subscription» (on a TV); null hides it. */
-    onReceiveBluetooth: (() -> Unit)? = null
+    onReceiveBluetooth: (() -> Unit)? = null,
+    /** A live tunnel on its way to another node (see VoltaViewModel.switching). */
+    switching: SwitchTarget? = null
 ) {
     val selected = state.selectedServer
     val subscriptionOf = remember(state.subscriptions) { state.subscriptions.associateBy { it.id } }
@@ -211,6 +222,10 @@ fun HomeContent(
         AutoBalancer.poolFor(state.servers, BalancerScope.ALL).size
     }
     val working = phase != ConnectPhase.IDLE
+    // A live tunnel never looks off while it moves: a pick by hand, the guard, or the
+    // auto pick choosing again after a mode change all show as "switching".
+    val moving = state.isConnected && (switching != null || working) ||
+        (switching != null && state.vpnState == VpnConnectionState.CONNECTING)
     val hasServers = state.servers.isNotEmpty()
     // Must stay tappable while connected, otherwise a server that vanished under the
     // tunnel leaves no way to turn the VPN off.
@@ -261,11 +276,12 @@ fun HomeContent(
                     ) {
                         PowerButton(
                             state = state.vpnState,
-                            working = working,
+                            working = working && !moving,
                             enabled = discEnabled,
                             onClick = onToggle,
                             size = discSize,
                             activity = trafficActivity(state.traffic),
+                            switching = moving,
                             modifier = if (discEnabled) Modifier.focusRequester(startFocus) else Modifier
                         )
                         ConnectionHeadline(
@@ -276,10 +292,12 @@ fun HomeContent(
                                 stringResource(R.string.home_tap_disc)
                             } else {
                                 stringResource(R.string.home_add_subscription_first)
-                            }
+                            },
+                            switchingTo = if (moving) switching?.let { shownServerName(it.name) }.orEmpty() else null
                         )
                         AnimatedVisibility(
-                            visible = state.isConnected && !working,
+                            // Up while it switches: the tunnel and its clock carry on.
+                            visible = state.isConnected && (!working || moving),
                             enter = fadeIn() + expandVertically(),
                             exit = fadeOut() + shrinkVertically()
                         ) {
@@ -313,7 +331,8 @@ fun HomeContent(
                                 server = selected,
                                 subscription = selected?.subscriptionId?.let { subscriptionOf[it] },
                                 manual = mode == ConnectMode.MANUAL,
-                                onClick = onOpenServers
+                                onClick = onOpenServers,
+                                switching = moving
                             )
                             ModeSelector(
                                 mode = mode,
@@ -491,10 +510,12 @@ private fun ServerCapsule(
     server: ServerEntity?,
     subscription: SubscriptionEntity?,
     manual: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    switching: Boolean = false
 ) {
     val palette = VoltaTheme.palette
     val scheme = MaterialTheme.colorScheme
+    val still = rememberReducedMotion()
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(28.dp),
@@ -510,8 +531,12 @@ private fun ServerCapsule(
                 targetState = server,
                 contentKey = { it?.id },
                 transitionSpec = {
-                    (slideInVertically { it } + fadeIn()) togetherWith
-                        (slideOutVertically { -it } + fadeOut())
+                    if (still) {
+                        EnterTransition.None togetherWith ExitTransition.None
+                    } else {
+                        (slideInVertically(Motion.settle()) { it } + fadeIn(Motion.settle())) togetherWith
+                            (slideOutVertically(Motion.settle()) { -it } + fadeOut(Motion.settle()))
+                    }
                 },
                 modifier = Modifier.weight(1f),
                 label = "server"
@@ -519,14 +544,30 @@ private fun ServerCapsule(
                 ServerIdentity(shown, subscription, manual)
             }
             val ms = server?.let { it.ewmaMs.takeIf { v -> v >= 0 } ?: it.latencyMs } ?: -1
-            if (ms >= 0) {
-                Column(horizontalAlignment = Alignment.End) {
-                    SignalBars(ms)
-                    Text(
-                        formatLatency(screenResources(), ms),
-                        style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = TABULAR),
-                        color = palette.latency(ms)
+            // While the tunnel moves, a small ring stands where the figure will be.
+            AnimatedContent(
+                targetState = if (switching) -2L else ms,
+                transitionSpec = {
+                    if (still) EnterTransition.None togetherWith ExitTransition.None
+                    else fadeIn(Motion.settle()) togetherWith fadeOut(Motion.settle())
+                },
+                label = "capsuleFigure"
+            ) { figure ->
+                when {
+                    figure == -2L -> CircularProgressIndicator(
+                        Modifier.padding(horizontal = 6.dp).size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = scheme.primary
                     )
+                    figure >= 0 -> Column(horizontalAlignment = Alignment.End) {
+                        SignalBars(figure)
+                        Text(
+                            formatLatency(screenResources(), figure),
+                            style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = TABULAR),
+                            color = palette.latency(figure)
+                        )
+                    }
+                    else -> Spacer(Modifier.size(0.dp))
                 }
             }
             Icon(

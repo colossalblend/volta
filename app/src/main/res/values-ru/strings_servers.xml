@@ -156,4 +156,12 @@
         <item quantity="many">%1$s, стран: %2$d</item>
         <item quantity="other">%1$s, стран: %2$d</item>
     </plurals>
+
+    <!-- Check all, one server's check, why the connect-time pick took its node -->
+    <string name="servers_check_progress">Проверено %1$d из %2$d</string>
+    <string name="servers_check_stop">Остановить</string>
+    <string name="servers_check_stopped">Проверка остановлена: проверено %1$d из %2$d</string>
+    <string name="servers_check_running">Проверяем…</string>
+    <string name="servers_pick_why_remembered">«%1$s» работал в этой сети в прошлый раз и отвечает за %2$d мс</string>
+    <string name="servers_pick_why_race">«%1$s» ответил первым из %2$d, за %3$d мс</string>
 </resources>

@@ -201,4 +201,11 @@
     <string name="home_helper_launch_failed">%1$s 未能启动：%2$s</string>
     <string name="home_helper_no_answer">未及时响应</string>
     <string name="home_helper_stopped">已停止</string>
+
+    <!-- Moving between servers and checking them -->
+    <string name="home_state_switching">正在切换</string>
+    <string name="home_caption_switching_to">正在切换到 %1$s</string>
+    <string name="home_switch_back">“%1$s”没有响应，已切回“%2$s”</string>
+    <string name="home_switch_moved">“%1$s”不再响应，已切换到“%2$s”</string>
+    <string name="home_switch_kept">无法切换到“%1$s”，继续使用“%2$s”</string>
 </resources>

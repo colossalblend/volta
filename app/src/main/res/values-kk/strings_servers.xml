@@ -152,4 +152,12 @@
         <item quantity="one">%1$s, %2$d ел</item>
         <item quantity="other">%1$s, %2$d ел</item>
     </plurals>
+
+    <!-- Check all, one server's check, why the connect-time pick took its node -->
+    <string name="servers_check_progress">%2$d ішінен %1$d тексерілді</string>
+    <string name="servers_check_stop">Тоқтату</string>
+    <string name="servers_check_stopped">Тексеру тоқтатылды: %2$d ішінен %1$d тексерілді</string>
+    <string name="servers_check_running">Тексеріп жатырмыз…</string>
+    <string name="servers_pick_why_remembered">«%1$s» өткен жолы осы желіде жұмыс істеді, жауабы %2$d мс</string>
+    <string name="servers_pick_why_race">«%1$s» %2$d сервердің ішінде бірінші жауап берді, %3$d мс</string>
 </resources>

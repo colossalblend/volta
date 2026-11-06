@@ -152,4 +152,12 @@
         <item quantity="one">%1$s, %2$d país</item>
         <item quantity="other">%1$s, %2$d países</item>
     </plurals>
+
+    <!-- Check all, one server's check, why the connect-time pick took its node -->
+    <string name="servers_check_progress">%1$d de %2$d verificados</string>
+    <string name="servers_check_stop">Parar</string>
+    <string name="servers_check_stopped">Verificação interrompida: %1$d de %2$d verificados</string>
+    <string name="servers_check_running">Verificando…</string>
+    <string name="servers_pick_why_remembered">“%1$s” funcionou nesta rede da última vez e responde em %2$d ms</string>
+    <string name="servers_pick_why_race">“%1$s” respondeu primeiro entre %2$d, em %3$d ms</string>
 </resources>

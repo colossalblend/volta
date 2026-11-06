@@ -1,6 +1,28 @@
 package com.ars3nb.volta.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.key
+import com.ars3nb.volta.core.ping.SweepBoard
+import com.ars3nb.volta.ui.theme.Motion
+import com.ars3nb.volta.ui.theme.TABULAR
+import com.ars3nb.volta.ui.theme.rememberReducedMotion
+import com.ars3nb.volta.ui.tv.focusRing
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -101,6 +123,9 @@ fun ServersScreen(
     val query by vm.query.collectAsStateWithLifecycle()
     val runningScope by vm.runningScope.collectAsStateWithLifecycle()
     val hideBalancers by vm.hideBalancers.collectAsStateWithLifecycle()
+    // Only whether a sweep runs: its progress is read by the strip and the rows alone, so
+    // an answer redraws one row and the counter, not this whole screen.
+    val sweeping by vm.sweepRunning.collectAsStateWithLifecycle()
     var sort by remember { mutableStateOf(ServerSort.BEST) }
     var sortMenu by remember { mutableStateOf(false) }
     var byCountry by remember { mutableStateOf(true) }
@@ -183,44 +208,64 @@ fun ServersScreen(
     }
     val currentCountry = state.selectedServer?.let { countryOf[it.id]?.code }
     val open = openCountries ?: setOfNotNull(currentCountry)
+    // How old the stored figures are is judged against the time the list last changed.
+    val now = remember(state.servers) { System.currentTimeMillis() }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                colors = barColors(),
-                title = { Text(stringResource(R.string.servers_title), fontWeight = FontWeight.SemiBold) },
-                actions = {
-                    IconButton(
-                        onClick = { vm.pingAll(pool = pool) },
-                        enabled = !state.busy && state.servers.isNotEmpty()
-                    ) {
-                        if (state.busy && runningScope == null) {
-                            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                        } else {
-                            Icon(Icons.Rounded.Speed, stringResource(R.string.servers_ping_all))
+            Column {
+                TopAppBar(
+                    colors = barColors(),
+                    title = { Text(stringResource(R.string.servers_title), fontWeight = FontWeight.SemiBold) },
+                    actions = {
+                        // One button: starts the check, and stops it while it runs.
+                        IconButton(
+                            onClick = { if (sweeping) vm.cancelPingAll() else vm.pingAll(pool = pool) },
+                            enabled = sweeping || (!state.busy && runningScope == null && state.servers.isNotEmpty())
+                        ) {
+                            AnimatedContent(
+                                targetState = sweeping,
+                                transitionSpec = {
+                                    (scaleIn(Motion.press(), initialScale = 0.7f) + fadeIn()) togetherWith fadeOut()
+                                },
+                                label = "pingAll"
+                            ) { running ->
+                                if (running) {
+                                    Icon(Icons.Rounded.Close, stringResource(R.string.servers_check_stop))
+                                } else {
+                                    Icon(Icons.Rounded.Speed, stringResource(R.string.servers_ping_all))
+                                }
+                            }
                         }
-                    }
-                    Box {
-                        IconButton(onClick = { sortMenu = true }) {
-                            Icon(Icons.Rounded.SwapVert, stringResource(R.string.servers_sort))
-                        }
-                        DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
-                            ServerSort.entries.forEach { option ->
-                                DropdownMenuItem(
-                                    text = { Text(sortLabel(option)) },
-                                    onClick = {
-                                        sort = option
-                                        sortMenu = false
-                                    },
-                                    trailingIcon = {
-                                        if (sort == option) Icon(Icons.Rounded.Check, null)
-                                    }
-                                )
+                        Box {
+                            IconButton(onClick = { sortMenu = true }) {
+                                Icon(Icons.Rounded.SwapVert, stringResource(R.string.servers_sort))
+                            }
+                            DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                                ServerSort.entries.forEach { option ->
+                                    DropdownMenuItem(
+                                        text = { Text(sortLabel(option)) },
+                                        onClick = {
+                                            sort = option
+                                            sortMenu = false
+                                        },
+                                        trailingIcon = {
+                                            if (sort == option) Icon(Icons.Rounded.Check, null)
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
+                )
+                AnimatedVisibility(
+                    visible = sweeping,
+                    enter = fadeIn() + expandVertically(Motion.settle()),
+                    exit = fadeOut() + shrinkVertically(Motion.settle())
+                ) {
+                    SweepStrip(vm.sweep, onStop = vm::cancelPingAll)
                 }
-            )
+            }
         }
     ) { padding ->
         LazyColumn(
@@ -232,7 +277,7 @@ fun ServersScreen(
             item {
                 BestPickPads(
                     running = runningScope,
-                    enabled = state.servers.isNotEmpty() && !state.busy,
+                    enabled = state.servers.isNotEmpty() && !state.busy && !sweeping,
                     hasLte = hasLte,
                     onRun = vm::runBalancer
                 )
@@ -379,27 +424,35 @@ fun ServersScreen(
                         }
                     ) {
                         servers.forEach { server ->
-                            ServerRow(
-                                server = server,
-                                selected = state.selectedServer?.id == server.id,
-                                subscriptionName = subsById[server.subscriptionId]?.let { shownSubscriptionName(it) }.orEmpty(),
-                                supported = supported[server.id] != false,
-                                onClick = { vm.selectServer(server.id) },
-                                onLongClick = { sheetServer = server },
-                                inGroup = true
-                            )
+                            key(server.id) {
+                                LiveServerRow(
+                                    sweep = vm.sweep,
+                                    server = server,
+                                    selected = state.selectedServer?.id == server.id,
+                                    subscriptionName = subsById[server.subscriptionId]?.let { shownSubscriptionName(it) }.orEmpty(),
+                                    supported = supported[server.id] != false,
+                                    onClick = { vm.selectServer(server.id) },
+                                    onLongClick = { sheetServer = server },
+                                    now = now,
+                                    inGroup = true
+                                )
+                            }
                         }
                     }
                 }
             } else {
                 items(visible, key = { it.id }) { server ->
-                    ServerRow(
+                    LiveServerRow(
+                        sweep = vm.sweep,
                         server = server,
                         selected = state.selectedServer?.id == server.id,
                         subscriptionName = subsById[server.subscriptionId]?.let { shownSubscriptionName(it) }.orEmpty(),
                         supported = supported[server.id] != false,
                         onClick = { vm.selectServer(server.id) },
-                        onLongClick = { sheetServer = server }
+                        onLongClick = { sheetServer = server },
+                        now = now,
+                        // The order changes once, when a sweep's results are in: rows glide there.
+                        modifier = Modifier.animateItem()
                     )
                 }
             }
@@ -410,10 +463,15 @@ fun ServersScreen(
 
     sheetServer?.let { server ->
         val payload = SharePayload.server(server.rawLink, server.rawJson)
+        val check by vm.serverCheck.collectAsStateWithLifecycle()
         ServerActionsSheet(
             server = server,
-            onDismiss = { sheetServer = null },
+            onDismiss = {
+                sheetServer = null
+                vm.clearServerCheck()
+            },
             onPing = { vm.pingServer(server.id) },
+            check = check?.takeIf { it.serverId == server.id },
             onToggleFavorite = { vm.toggleFavorite(server.id) },
             onSetRole = { role -> vm.setServerRole(server.id, role) },
             onDelete = if (server.subscriptionId == null) {
@@ -426,6 +484,68 @@ fun ServersScreen(
         )
     }
     bleSend?.let { payload -> BleSendSheet(payload, onDismiss = { bleSend = null }) }
+}
+
+/**
+ * A server row that follows its own entry of a running sweep: an answer redraws this
+ * row only. Outside a sweep it is the plain row with the stored figure.
+ */
+@Composable
+private fun LiveServerRow(
+    sweep: StateFlow<SweepBoard>,
+    server: ServerEntity,
+    selected: Boolean,
+    subscriptionName: String,
+    supported: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    now: Long,
+    modifier: Modifier = Modifier,
+    inGroup: Boolean = false
+) {
+    val cell = remember(sweep, server.id) { sweep.map { it.cell(server.id) }.distinctUntilChanged() }
+    val live by cell.collectAsStateWithLifecycle(initialValue = sweep.value.cell(server.id))
+    ServerRow(
+        server = server,
+        selected = selected,
+        subscriptionName = subscriptionName,
+        supported = supported,
+        onClick = onClick,
+        onLongClick = onLongClick,
+        modifier = modifier,
+        inGroup = inGroup,
+        live = live,
+        now = now
+    )
+}
+
+/** «Проверено N из M», a bar, and a way to stop: under the top bar while a sweep runs. */
+@Composable
+private fun SweepStrip(sweep: StateFlow<SweepBoard>, onStop: () -> Unit) {
+    val board by sweep.collectAsStateWithLifecycle()
+    val still = rememberReducedMotion()
+    val progress by animateFloatAsState(
+        board.fraction,
+        if (still) snap() else Motion.slide(),
+        label = "sweepProgress"
+    )
+    Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, bottom = 6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.servers_check_progress, board.done, board.total),
+                style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = TABULAR),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(onClick = onStop, modifier = Modifier.focusRing(RoundedCornerShape(20.dp))) {
+                Text(stringResource(R.string.servers_check_stop))
+            }
+        }
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier.fillMaxWidth().padding(end = 8.dp).height(4.dp).clip(CircleShape)
+        )
+    }
 }
 
 /**

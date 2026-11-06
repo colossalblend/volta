@@ -39,11 +39,69 @@ internal object TunnelRequests {
         wanted: VoltaVpnService.ConnectionPlan?
     ): Boolean =
         (state == VpnConnectionState.CONNECTING || state == VpnConnectionState.CONNECTED) &&
-            incoming == wanted
+            wanted != null &&
+            // Who asked (a tap, the guard) changes nothing about the tunnel itself.
+            incoming.copy(origin = wanted.origin) == wanted
 
-    /** The running interface fits [next]: only the core (and its helpers) is replaced. */
-    fun canSwapCore(running: TunSpec?, coreUp: Boolean, next: TunSpec): Boolean =
-        coreUp && running != null && running == next
+    /**
+     * The running interface fits [next]: only the core (and its helpers) is replaced.
+     * [tunUp]: the VPN interface and its bridge are up. The core itself may be missing
+     * (a node that just failed to start in a swap): the next one takes its place all the
+     * same, and apps never see the interface go.
+     */
+    fun canSwapCore(running: TunSpec?, tunUp: Boolean, next: TunSpec): Boolean =
+        tunUp && running != null && running == next
+
+    /**
+     * What happens when the node a live tunnel was moved to doesn't carry traffic. A pick
+     * by hand goes back to the node that worked before it ([lastGoodId]): the user chose,
+     * and silently ending up somewhere else would be a surprise. Anything else (the auto
+     * pick, the guard, a way back that failed too) moves on to the next best node.
+     */
+    fun fallbackFor(origin: SwitchOrigin, failedId: Long, lastGoodId: Long?): Fallback =
+        if (origin == SwitchOrigin.MANUAL && lastGoodId != null && lastGoodId > 0 && lastGoodId != failedId) {
+            Fallback.BACK
+        } else {
+            Fallback.NEXT
+        }
+
+    /**
+     * What the screen says while a connect for [next] waits its turn on a live tunnel
+     * (on [liveId]): moving there, or, when [next] is the live node itself while a move
+     * elsewhere was under way ([moving]), moving back. Null: nothing moves.
+     */
+    fun switchingFor(
+        liveId: Long,
+        liveName: String,
+        moving: VoltaVpnService.Switching?,
+        next: VoltaVpnService.ConnectionPlan
+    ): VoltaVpnService.Switching? = when {
+        liveId != 0L && next.serverId != liveId ->
+            VoltaVpnService.Switching(liveId, liveName, next.serverId, next.serverName)
+        moving != null && moving.toId != next.serverId ->
+            VoltaVpnService.Switching(moving.toId, moving.toName, next.serverId, next.serverName)
+        else -> moving
+    }
+}
+
+/** Who moved the tunnel to a node: decides where it goes when that node fails. */
+enum class SwitchOrigin {
+    /** The user picked the node. */
+    MANUAL,
+
+    /** The auto pick, the guard, a failover or new settings. */
+    AUTO,
+
+    /** The way back after a manual pick failed; failing again moves on. */
+    FALLBACK
+}
+
+enum class Fallback {
+    /** Back to the node that worked before. */
+    BACK,
+
+    /** On to the next best node (or the error, when there is none). */
+    NEXT
 }
 
 /**

@@ -58,6 +58,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ars3nb.volta.R
+import com.ars3nb.volta.core.locale.asString
 import com.ars3nb.volta.ui.PickSummary
 import com.ars3nb.volta.ui.SpeedHistory
 import com.ars3nb.volta.data.model.TrafficStats
@@ -267,61 +268,68 @@ fun AutoPickCard(summary: PickSummary, modifier: Modifier = Modifier) {
 
     VoltaCard(modifier = modifier) {
         Text(stringResource(R.string.home_pick_title), style = MaterialTheme.typography.titleSmall)
-        Text(
-            stringResource(R.string.home_pick_counts, summary.measured, summary.alive),
-            style = MaterialTheme.typography.bodySmall,
-            color = scheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(10.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            summary.rows.forEachIndexed { index, row ->
-                val grow = remember(summary.at, row.serverId) { Animatable(0f) }
-                LaunchedEffect(summary.at, row.serverId) {
-                    grow.animateTo(1f, tween(650, delayMillis = 120 * index, easing = FastOutSlowInEasing))
-                }
-                val share = (row.medianMs.toFloat() / worst).coerceIn(0.08f, 1f)
-                val barColor = if (row.chosen) palette.latency(row.medianMs) else scheme.outline
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(flagOf(row.name), modifier = Modifier.padding(end = 6.dp))
-                        Text(
-                            shownServerName(row.name),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = if (row.chosen) FontWeight.SemiBold else FontWeight.Normal,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text(
-                            formatLatency(screenResources(), row.medianMs),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (row.chosen) palette.latency(row.medianMs) else scheme.onSurfaceVariant
-                        )
-                        if (row.chosen) {
-                            Spacer(Modifier.width(6.dp))
-                            Icon(
-                                Icons.Rounded.CheckCircle,
-                                contentDescription = stringResource(R.string.home_pick_chosen),
-                                tint = palette.good,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
+        // Which node and why, in a sentence; a quick pick has only this, no table yet.
+        val reason = summary.reason.asString()
+        if (reason.isNotBlank()) {
+            Text(reason, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp))
+        }
+        if (summary.rows.isNotEmpty()) {
+            Text(
+                stringResource(R.string.home_pick_counts, summary.measured, summary.alive),
+                style = MaterialTheme.typography.bodySmall,
+                color = scheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(10.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                summary.rows.forEachIndexed { index, row ->
+                    val grow = remember(summary.at, row.serverId) { Animatable(0f) }
+                    LaunchedEffect(summary.at, row.serverId) {
+                        grow.animateTo(1f, tween(650, delayMillis = 120 * index, easing = FastOutSlowInEasing))
                     }
-                    Spacer(Modifier.height(4.dp))
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(5.dp)
-                            .clip(CircleShape)
-                            .background(scheme.surfaceVariant)
-                    ) {
+                    val share = (row.medianMs.toFloat() / worst).coerceIn(0.08f, 1f)
+                    val barColor = if (row.chosen) palette.latency(row.medianMs) else scheme.outline
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(flagOf(row.name), modifier = Modifier.padding(end = 6.dp))
+                            Text(
+                                shownServerName(row.name),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (row.chosen) FontWeight.SemiBold else FontWeight.Normal,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                formatLatency(screenResources(), row.medianMs),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (row.chosen) palette.latency(row.medianMs) else scheme.onSurfaceVariant
+                            )
+                            if (row.chosen) {
+                                Spacer(Modifier.width(6.dp))
+                                Icon(
+                                    Icons.Rounded.CheckCircle,
+                                    contentDescription = stringResource(R.string.home_pick_chosen),
+                                    tint = palette.good,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(4.dp))
                         Box(
                             Modifier
-                                .fillMaxWidth(share * grow.value)
-                                .fillMaxHeight()
+                                .fillMaxWidth()
+                                .height(5.dp)
                                 .clip(CircleShape)
-                                .background(barColor)
-                        )
+                                .background(scheme.surfaceVariant)
+                        ) {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth(share * grow.value)
+                                    .fillMaxHeight()
+                                    .clip(CircleShape)
+                                    .background(barColor)
+                            )
+                        }
                     }
                 }
             }

@@ -210,4 +210,11 @@
     <string name="home_helper_launch_failed">%1$s не запустився: %2$s</string>
     <string name="home_helper_no_answer">не відповів вчасно</string>
     <string name="home_helper_stopped">зупинився</string>
+
+    <!-- Moving between servers and checking them -->
+    <string name="home_state_switching">Перемикання</string>
+    <string name="home_caption_switching_to">Переходимо на %1$s</string>
+    <string name="home_switch_back">«%1$s» не відповів, повернулися на «%2$s»</string>
+    <string name="home_switch_moved">«%1$s» перестав відповідати, перейшли на «%2$s»</string>
+    <string name="home_switch_kept">Не вдалося перейти на «%1$s», залишаємося на «%2$s»</string>
 </resources>

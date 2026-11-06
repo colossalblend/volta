@@ -20,6 +20,7 @@ import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.routing.RoutingEngine
 import com.ars3nb.volta.core.balancer.AutoBalancer
 import com.ars3nb.volta.core.backup.BackupCodec
+import com.ars3nb.volta.core.ping.SweepBoard
 import com.ars3nb.volta.data.backup.BackupManager
 import com.ars3nb.volta.core.stats.TrafficSummary
 import com.ars3nb.volta.core.stats.TrafficTally
@@ -38,6 +39,7 @@ import com.ars3nb.volta.data.model.ServerPool
 import com.ars3nb.volta.data.model.ServerRole
 import com.ars3nb.volta.data.model.SiteProbeResult
 import com.ars3nb.volta.data.model.SubscriptionEntity
+import com.ars3nb.volta.data.model.SwitchTarget
 import com.ars3nb.volta.data.model.TrafficStats
 import com.ars3nb.volta.data.model.VpnConnectionState
 import com.ars3nb.volta.data.prefs.DesignTheme
@@ -60,6 +62,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
@@ -207,6 +211,24 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     ) { days, today -> TrafficTally.summarize(days, today) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TrafficSummary())
 
+    /**
+     * A live tunnel on its way to another node: from the tap (or the guard's decision)
+     * until the new node carried a page. The tunnel stays up meanwhile.
+     */
+    val switching: StateFlow<SwitchTarget?> = repo.switching
+
+    /** "Check all" as it goes; rows read their own entry ([SweepBoard.cell]). */
+    val sweep: StateFlow<SweepBoard> = repo.sweep
+
+    /** Only whether a sweep runs, for the buttons: changes twice per sweep, not per row. */
+    val sweepRunning: StateFlow<Boolean> = repo.sweep.map { it.running }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    private val _serverCheck = MutableStateFlow<ServerCheck?>(null)
+
+    /** The one-server check started from its actions sheet, while the sheet shows it. */
+    val serverCheck: StateFlow<ServerCheck?> = _serverCheck.asStateFlow()
+
     /** Why the auto mode picked what it picked: the best few with their numbers. */
     val pickSummary: StateFlow<PickSummary?> = repo.lastDecision
         .map { decision -> decision?.let(PickSummary::of) }
@@ -324,6 +346,8 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
             launch { runCatching { updater.checkOnLaunch() } }
             launch { followExitAddress() }
             launch { stopConnectWithoutInternet() }
+            // A failed switch went back, the guard moved on: said in a line.
+            launch { repo.notices.collect { _message.value = it } }
             if (repo.pingOnStart.first()) runStartupProbes()
             // Happ-style: subscriptions and their routing are pulled on every launch.
             if (repo.refreshOnLaunch.first()) {
@@ -542,10 +566,24 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------------------------------------------------------------- servers
 
-    /** Choosing a server by hand switches the button to "Your server" (manual mode). */
-    fun selectServer(id: Long) = viewModelScope.launch {
-        repo.setConnectMode(ConnectMode.MANUAL)
-        repo.selectServer(id)
+    /** Taps on servers, in the order they came; a newer one makes older ones moot. */
+    private val selectLock = Mutex()
+    private var selectSeq = 0L
+
+    /**
+     * Choosing a server by hand switches the button to "Your server" (manual mode). Taps
+     * are taken in order and only the last one counts: the repository then moves a live
+     * tunnel once the taps settle.
+     */
+    fun selectServer(id: Long) {
+        val mine = ++selectSeq
+        viewModelScope.launch {
+            selectLock.withLock {
+                if (mine != selectSeq) return@withLock
+                repo.setConnectMode(ConnectMode.MANUAL)
+                repo.selectServer(id)
+            }
+        }
     }
     fun toggleFavorite(id: Long) = viewModelScope.launch { repo.toggleFavorite(id) }
     fun setServerRole(id: Long, role: ServerRole) =
@@ -561,12 +599,16 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
         _query.value = value
     }
 
+    /**
+     * Checks one server. The actions sheet that asked shows the answer in place
+     * ([serverCheck]); closed meanwhile, the answer comes as a message instead.
+     */
     fun pingServer(id: Long) {
         viewModelScope.launch {
-            _busy.value = true
-            try {
+            _serverCheck.value = ServerCheck(id, running = true)
+            val done = try {
                 val result = repo.pingServer(id)
-                _message.value = if (result.success && result.estimate) {
+                val text = if (result.success && result.estimate) {
                     // OpenFlux judged from outside: its carrier answered, the exit is
                     // measured for real once traffic goes through it.
                     val channel = result.message.takeIf { it.isNotBlank() }
@@ -581,26 +623,52 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
                     result.message.takeIf { it.isNotBlank() }?.let(UiText::Raw)
                         ?: UiText.of(R.string.home_server_not_responding)
                 }
+                ServerCheck(id, running = false, text = text, ok = result.success, latencyMs = result.latencyMs)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                _message.value = e.uiText(UiText.of(R.string.home_ping_failed))
-            } finally {
-                _busy.value = false
+                ServerCheck(id, running = false, text = e.uiText(UiText.of(R.string.home_ping_failed)))
+            }
+            if (_serverCheck.value?.serverId == id) {
+                _serverCheck.value = done
+            } else {
+                done.text?.let { _message.value = it }
             }
         }
     }
 
+    /** The sheet showing a check closed: a late answer goes to a message. */
+    fun clearServerCheck() {
+        _serverCheck.value = null
+    }
+
+    private var sweepJob: Job? = null
+
+    /**
+     * Checks every server in [pool]. Results stream into [sweep]; the list re-sorts once
+     * at the end. [cancelPingAll] stops it and keeps what was measured.
+     */
     fun pingAll(type: PingType? = null, pool: ServerPool = _serverPool.value) {
-        viewModelScope.launch {
-            _busy.value = true
+        if (sweepJob?.isActive == true) return
+        sweepJob = viewModelScope.launch {
             try {
                 val ok = repo.pingAll(type, pool)
                 _message.value = UiText.plural(R.plurals.home_servers_answered, ok)
+            } catch (e: CancellationException) {
+                val board = repo.sweep.value
+                if (board.total > 0) {
+                    _message.value = UiText.of(R.string.servers_check_stopped, board.done, board.total)
+                }
+                throw e
             } catch (e: Exception) {
                 _message.value = e.uiText(UiText.of(R.string.home_check_failed))
-            } finally {
-                _busy.value = false
             }
         }
+    }
+
+    fun cancelPingAll() {
+        sweepJob?.cancel()
+        sweepJob = null
     }
 
     /**
@@ -1162,6 +1230,15 @@ data class SpeedHistory(
     }
 }
 
+/** A one-server check from the actions sheet: running, then its answer in words. */
+data class ServerCheck(
+    val serverId: Long,
+    val running: Boolean,
+    val text: UiText? = null,
+    val ok: Boolean = false,
+    val latencyMs: Long = -1
+)
+
 /** One finalist of an auto pick, as the "why this node" card shows it. */
 data class PickRow(
     val serverId: Long,
@@ -1182,7 +1259,17 @@ data class PickSummary(
     companion object {
         fun of(decision: AutoBalancer.Decision): PickSummary? {
             val alive = decision.ranked.filter { it.ok }
-            if (alive.isEmpty()) return null
+            if (alive.isEmpty()) {
+                // A quick pick has no table yet, only its reason: which node and why.
+                if (!decision.quick || decision.selected == null) return null
+                return PickSummary(
+                    reason = decision.reason,
+                    rows = emptyList(),
+                    measured = 0,
+                    alive = 0,
+                    at = System.currentTimeMillis()
+                )
+            }
             val chosenId = decision.selected?.id
             val top = alive.take(3).toMutableList()
             alive.firstOrNull { it.server.id == chosenId }

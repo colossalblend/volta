@@ -6,6 +6,7 @@ import com.ars3nb.volta.R
 import com.ars3nb.volta.core.HwidProvider
 import com.ars3nb.volta.core.balancer.AutoBalancer
 import com.ars3nb.volta.core.balancer.GuardPolicy
+import com.ars3nb.volta.core.balancer.LastWins
 import com.ars3nb.volta.core.locale.UiText
 import com.ars3nb.volta.core.locale.UiTextException
 import com.ars3nb.volta.core.openflux.OpenFluxLink
@@ -15,6 +16,7 @@ import com.ars3nb.volta.core.server.ServerMarkup
 import com.ars3nb.volta.core.ping.IpChecker
 import com.ars3nb.volta.core.ping.NetworkProbe
 import com.ars3nb.volta.core.ping.PingEngine
+import com.ars3nb.volta.core.ping.SweepBoard
 import com.ars3nb.volta.core.routing.GeoDataManager
 import com.ars3nb.volta.core.routing.GeoNames
 import com.ars3nb.volta.core.routing.HappRoutingParser
@@ -24,11 +26,14 @@ import com.ars3nb.volta.core.routing.RoutingResolver
 import com.ars3nb.volta.core.server.ServerClassifier
 import com.ars3nb.volta.core.vpn.CertPins
 import com.ars3nb.volta.core.vpn.ConfigBuilder
+import com.ars3nb.volta.core.vpn.SwitchOrigin
 import com.ars3nb.volta.core.vpn.VoltaVpnService
 import com.ars3nb.volta.data.db.VoltaDatabase
 import com.ars3nb.volta.data.model.AdBlockMode
 import com.ars3nb.volta.data.model.BalancerScope
 import com.ars3nb.volta.data.model.ConnectMode
+import com.ars3nb.volta.data.model.HealthUpdate
+import com.ars3nb.volta.data.model.SwitchTarget
 import com.ars3nb.volta.data.model.IpInfo
 import com.ars3nb.volta.data.model.NetworkRegime
 import com.ars3nb.volta.data.model.PerAppMode
@@ -53,17 +58,25 @@ import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -183,6 +196,8 @@ class VoltaRepository(private val context: Context) {
         }
         // A node that passed the post-connect check is remembered for its group.
         VoltaVpnService.healthyListener = { id -> rememberHealthy(id) }
+        // A node picked by hand that didn't carry traffic: back to the one before it.
+        VoltaVpnService.revertProvider = { failedId, backId -> planForRevert(failedId, backId) }
     }
 
     fun hwid(): String = HwidProvider.getHwid(context)
@@ -552,15 +567,89 @@ class VoltaRepository(private val context: Context) {
     }
 
     /**
-     * Selecting a server while the tunnel is up rebuilds it, otherwise the UI and the
-     * notification would name a server that carries no traffic.
+     * The user picks a server. The list marks it at once; a live tunnel follows it once
+     * the taps settle ([switcher]: tapping through five servers moves the tunnel once, to
+     * the last one), and the screen says "switching to …" from the first tap on.
      */
     suspend fun selectServer(id: Long) = withContext(Dispatchers.IO) {
         serverDao.selectServer(id)
-        if (isConnected() && VoltaVpnService.serverId.value != id) {
-            runCatching { connectSelected() }
+        if (isConnected() && (VoltaVpnService.serverId.value != id || VoltaVpnService.switching.value != null)) {
+            val server = serverDao.getById(id)
+            _pendingSwitch.value = server?.let { SwitchTarget(it.id, OpenFluxLink.shownRemark(context, it.remark)) }
+            switcher.submit(id)
+        } else {
+            switcher.cancel()
+            _pendingSwitch.value = null
         }
     }
+
+    /**
+     * Moves a live tunnel to [id] by hand, the taps having settled. A node that can't be
+     * dialled leaves the tunnel where it is, and the list goes back to the node in use.
+     */
+    private suspend fun switchByHand(id: Long) = withContext(Dispatchers.IO) {
+        var sent = false
+        try {
+            connectMutex.withLock {
+                if (!isConnected() || serverDao.getSelected()?.id != id) return@withLock
+                val liveId = VoltaVpnService.serverId.value
+                if (liveId == id && VoltaVpnService.switching.value == null) return@withLock
+                try {
+                    connectSelected(SwitchOrigin.MANUAL)
+                    sent = true
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    val wantedName = serverDao.getById(id)?.remark.orEmpty()
+                    val live = serverDao.getById(liveId)
+                    if (live != null) serverDao.selectServer(live.id)
+                    _notices.tryEmit(
+                        UiText.of(
+                            R.string.home_switch_kept,
+                            OpenFluxLink.shownRemark(context, wantedName),
+                            OpenFluxLink.shownRemark(context, live?.remark.orEmpty())
+                        )
+                    )
+                }
+            }
+        } finally {
+            if (!sent) {
+                clearPending(id)
+            } else {
+                // The service shows the move as soon as the request reaches it (and
+                // the watcher in init hands over); this only makes sure the mark never
+                // outlives a move that was over before anyone looked.
+                background.launch {
+                    delay(PENDING_HANDOVER_MS)
+                    clearPending(id)
+                }
+            }
+        }
+    }
+
+    private fun clearPending(id: Long) {
+        _pendingSwitch.value?.takeIf { it.serverId == id }?.let { _pendingSwitch.compareAndSet(it, null) }
+    }
+
+    /** An automatic move (the auto pick, the guard): straight away, no settling. */
+    private suspend fun moveTunnelTo(id: Long) {
+        serverDao.selectServer(id)
+        if (isConnected() && VoltaVpnService.serverId.value != id) {
+            runCatching { connectSelected(SwitchOrigin.AUTO) }
+        }
+    }
+
+    /**
+     * The node a failed manual switch goes back to: the failure is noted, [backId] is
+     * selected again and its plan built with today's settings. Null when it is gone.
+     */
+    private suspend fun planForRevert(failedId: Long, backId: Long): VoltaVpnService.ConnectionPlan? =
+        withContext(Dispatchers.IO) {
+            serverDao.getById(failedId)?.let { failed -> persist(failed, PingResult(failed.remark, PingType.REAL_DELAY, -1, false)) }
+            serverDao.getById(backId) ?: return@withContext null
+            serverDao.selectServer(backId)
+            runCatching { buildConnectionPlan(origin = SwitchOrigin.FALLBACK) }.getOrNull()
+        }
 
     /** Keeps the tunnel honest after the library changed under it. */
     private suspend fun reconcileTunnel() {
@@ -612,23 +701,48 @@ class VoltaRepository(private val context: Context) {
         result
     }
 
+    private val _sweep = MutableStateFlow(SweepBoard.IDLE)
+
+    /** "Check all" as it goes; each row reads its own entry (see [SweepBoard]). */
+    val sweep: StateFlow<SweepBoard> = _sweep.asStateFlow()
+
+    /**
+     * Checks every server of [pool]. Results land in [sweep] as they come, so the list
+     * fills in row by row; the database gets them all at once at the end (one write,
+     * one new list), so a list sorted by speed is re-sorted once, not with every
+     * answer, and nothing jumps under the finger. A stopped sweep keeps what it measured.
+     */
     suspend fun pingAll(type: PingType? = null, pool: ServerPool = ServerPool.ALL): Int =
         withContext(Dispatchers.IO) {
-            val engine = PingEngine(context, batterySaver = prefs.batterySaver.first())
+            val battery = prefs.batterySaver.first()
+            val engine = PingEngine(context, batterySaver = battery, sweep = true)
             val pingType = type ?: prefs.defaultPingType.first()
             val all = serverDao.getAll().filter { pool.matches(it.role) }
             if (all.isEmpty()) return@withContext 0
             val byId = all.associateBy { it.id }
-            // Someone is watching the list, so this sweep is wider than the background
-            // ones, gives up on a node sooner and writes each result as it lands.
-            val results = engine.pingServers(
-                servers = all,
-                type = pingType,
-                maxParallel = PingEngine.TCP_PARALLEL * 2,
-                heavyParallel = PingEngine.HEAVY_PARALLEL + 4,
-                realDelayTimeoutMs = PingEngine.SWEEP_TIMEOUT_MS
-            ) { id, r -> byId[id]?.let { persist(it, r) } }
-            results.count { it.second.success }
+            val landed = java.util.concurrent.ConcurrentHashMap<Long, PingResult>()
+            _sweep.value = SweepBoard.IDLE.start(all.map { it.id })
+            try {
+                // A handful at a time: more only queue in the radio and spoil each
+                // other's figures. Real round trips each start a small core: fewer.
+                engine.pingServers(
+                    servers = all,
+                    type = pingType,
+                    maxParallel = PingEngine.SWEEP_PARALLEL,
+                    heavyParallel = if (battery) PingEngine.HEAVY_PARALLEL - 2 else PingEngine.HEAVY_PARALLEL,
+                    realDelayTimeoutMs = PingEngine.SWEEP_TIMEOUT_MS
+                ) { id, r ->
+                    landed[id] = r
+                    _sweep.update { it.record(id, r) }
+                }
+                landed.count { it.value.success }
+            } finally {
+                withContext(NonCancellable) {
+                    val rows = landed.mapNotNull { (id, r) -> byId[id]?.let { healthOf(it, r) } }
+                    if (rows.isNotEmpty()) serverDao.updateHealthAll(rows)
+                    _sweep.update { it.finish() }
+                }
+            }
         }
 
     /**
@@ -637,8 +751,13 @@ class VoltaRepository(private val context: Context) {
      * round trips.
      */
     private suspend fun persist(server: ServerEntity, result: PingResult) {
+        val row = healthOf(server, result)
+        serverDao.updateHealth(id = row.id, latency = row.latency, ewma = row.ewma, failStreak = row.failStreak)
+    }
+
+    private fun healthOf(server: ServerEntity, result: PingResult): HealthUpdate {
         val ok = result.success && result.latencyMs >= 0
-        serverDao.updateHealth(
+        return HealthUpdate(
             id = server.id,
             latency = if (ok) result.latencyMs else -1,
             ewma = if (ok && !result.estimate) {
@@ -898,7 +1017,11 @@ class VoltaRepository(private val context: Context) {
                 )
             }
         }
-        if (decision.ranked.isNotEmpty()) _lastDecision.value = decision
+        // A quick pick says why it took its node (remembered, or first to answer) until
+        // the full comparison after connecting has numbers to show.
+        if (decision.ranked.isNotEmpty() || (decision.quick && decision.selected != null)) {
+            _lastDecision.value = decision
+        }
         if (select) commitPick(decision, exclude)
         decision
     }
@@ -910,7 +1033,7 @@ class VoltaRepository(private val context: Context) {
         val next = decision.selected?.takeIf { pick ->
             exclude == null || decision.ranked.any { it.ok && it.server.id == pick.id }
         } ?: return
-        if (next.id != serverDao.getSelected()?.id) selectServer(next.id)
+        if (next.id != serverDao.getSelected()?.id) moveTunnelTo(next.id)
     }
 
     /**
@@ -927,7 +1050,8 @@ class VoltaRepository(private val context: Context) {
      * @param excludeServerId node that has just failed and must not be chosen again.
      */
     suspend fun buildConnectionPlan(
-        excludeServerId: Long? = null
+        excludeServerId: Long? = null,
+        origin: SwitchOrigin = SwitchOrigin.AUTO
     ): VoltaVpnService.ConnectionPlan = withContext(Dispatchers.IO) {
         // Without the native core a "connection" would be a lie: the TUN would come up
         // with nothing behind it and the app would claim CONNECTED.
@@ -967,7 +1091,8 @@ class VoltaRepository(private val context: Context) {
             perAppMode = prefs.perAppMode.first(),
             perAppPackages = prefs.perAppPackages.first(),
             openFluxLink = if (server.protocol == ProtocolType.OPENFLUX) server.rawLink else "",
-            helper = ConfigBuilder.helperSpec(server)
+            helper = ConfigBuilder.helperSpec(server),
+            origin = origin
         )
     }
 
@@ -996,8 +1121,8 @@ class VoltaRepository(private val context: Context) {
             }.getOrNull()
         }
 
-    suspend fun connectSelected() = withContext(Dispatchers.IO) {
-        val plan = buildConnectionPlan()
+    suspend fun connectSelected(origin: SwitchOrigin = SwitchOrigin.AUTO) = withContext(Dispatchers.IO) {
+        val plan = buildConnectionPlan(origin = origin)
         VoltaVpnService.connect(context, plan)
     }
 
@@ -1123,6 +1248,43 @@ class VoltaRepository(private val context: Context) {
 
     private val background = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var refineJob: Job? = null
+
+    /** Manual picks on a live tunnel, settled: the last tap wins (see [selectServer]). */
+    private val switcher = LastWins<Long>(background, SWITCH_SETTLE_MS) { id -> switchByHand(id) }
+
+    /** A pick by hand still settling, before the service takes the move over. */
+    private val _pendingSwitch = MutableStateFlow<SwitchTarget?>(null)
+
+    /**
+     * The node a live tunnel is on its way to, from the tap until the new node carried a
+     * page (or the move was given up): the screen shows "switching", not "off".
+     */
+    val switching: StateFlow<SwitchTarget?> = combine(_pendingSwitch, VoltaVpnService.switching) { pending, moving ->
+        // The latest tap first: the service may still be on its way to an earlier one.
+        pending ?: moving?.let { SwitchTarget(it.toId, it.toName) }
+    }.distinctUntilChanged().stateIn(background, SharingStarted.Eagerly, null)
+
+    private val _notices = MutableSharedFlow<UiText>(extraBufferCapacity = 8)
+
+    /** Things the user should hear about that no button press answers: a way back, a move. */
+    val notices: Flow<UiText> = merge(_notices, VoltaVpnService.notices)
+
+    init {
+        background.launch {
+            // The service took the move over: its own mark says where it goes.
+            launch {
+                VoltaVpnService.switching.collect { moving ->
+                    if (moving != null) clearPending(moving.toId)
+                }
+            }
+            // The tunnel went down meanwhile: nothing is moving any more.
+            vpnState.collect { state ->
+                if (state != VpnConnectionState.CONNECTED && state != VpnConnectionState.CONNECTING) {
+                    _pendingSwitch.value = null
+                }
+            }
+        }
+    }
 
     /** A background comparison still measuring; a connect cancels it. */
     @Volatile
@@ -1561,6 +1723,12 @@ class VoltaRepository(private val context: Context) {
 
         /** A tunnel not up by then failed; the comparison is not needed. */
         private const val REFINE_WAIT_FOR_TUNNEL_MS = 30_000L
+
+        /** Taps on servers closer together than this move a live tunnel once, to the last. */
+        const val SWITCH_SETTLE_MS = 350L
+
+        /** A tap's "switching" mark gives way to the service's within this long at most. */
+        private const val PENDING_HANDOVER_MS = 5_000L
 
         private val TUNNEL_PROBE_URLS = listOf(
             "https://www.gstatic.com/generate_204",

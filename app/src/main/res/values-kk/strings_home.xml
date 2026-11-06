@@ -204,4 +204,11 @@
     <string name="home_helper_launch_failed">%1$s іске қосылмады: %2$s</string>
     <string name="home_helper_no_answer">уақытында жауап бермеді</string>
     <string name="home_helper_stopped">тоқтады</string>
+
+    <!-- Moving between servers and checking them -->
+    <string name="home_state_switching">Ауысу</string>
+    <string name="home_caption_switching_to">%1$s серверіне ауысып жатырмыз</string>
+    <string name="home_switch_back">«%1$s» жауап бермеді, «%2$s» серверіне қайттық</string>
+    <string name="home_switch_moved">«%1$s» жауап беруді тоқтатты, «%2$s» серверіне ауыстық</string>
+    <string name="home_switch_kept">«%1$s» серверіне ауысу мүмкін болмады, «%2$s» серверінде қаламыз</string>
 </resources>

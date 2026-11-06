@@ -63,6 +63,34 @@ class AutoBalancer(
         /** Each recent failure in a row adds this to a node's figure. */
         const val FAIL_STREAK_PENALTY_MS = 40L
 
+        /** How many of the best-known nodes the connect-time race starts with. */
+        const val RACE_SIZE = 4
+
+        /** A measurement younger than this counts as recent for the connect-time race. */
+        const val RECENT_MS = 12 * 60 * 60_000L
+
+        /**
+         * Who races at connect time, best first: the node that worked last time in this
+         * group (unless it keeps failing), then the healthy measured ones by their record,
+         * recently measured before stale. OpenFlux nodes only as that remembered node:
+         * their handshake reaches a carrier, not the exit ([raceTiers]). Empty when
+         * nothing was ever measured: then the whole group races.
+         */
+        fun raceContenders(
+            pool: List<ServerEntity>,
+            holder: ServerEntity?,
+            now: Long,
+            size: Int = RACE_SIZE,
+            recentMs: Long = RECENT_MS
+        ): List<ServerEntity> {
+            val first = holder?.takeIf { h -> h.failStreak < INSTANT_MAX_FAILS && pool.any { it.id == h.id } }
+            val known = pool
+                .filter { it.id != first?.id && it.protocol != ProtocolType.OPENFLUX }
+                .filter { it.isHealthy && it.latencyMs > 0 }
+                .sortedWith(compareBy<ServerEntity> { now - it.lastPingAt > recentMs }.thenBy { it.score })
+            return (listOfNotNull(first) + known).take(size)
+        }
+
         /** Folds a node's samples (-1 = no answer) into median, spread and loss. */
         fun quality(samples: List<Long>): Quality {
             val good = samples.filter { it > 0 }.sorted()
@@ -312,35 +340,37 @@ class AutoBalancer(
         val holder = current?.takeIf { c -> pool.any { it.id == c.id } }
             ?: remembered[group]?.let { id -> pool.firstOrNull { it.id == id } }
 
-        // Connect-time fast path: no measuring before the tunnel is up. The node that
-        // worked last time in this group goes first, else the best one on record, else
-        // whichever answers first. The health check right after connecting vouches for
-        // it (and fails over if it doesn't), and the full comparison runs once the
-        // tunnel is up and moves it to the fastest node — the user doesn't sit through it.
+        // Connect-time fast path: no full measuring before the tunnel is up. The node that
+        // worked last time in this group and the best ones on record race each other
+        // (a handshake each, all at once); the first to answer is taken, the remembered
+        // one winning a near tie. Only when none of them answers does the whole group
+        // race. The health check right after connecting vouches for the winner (and
+        // fails over if it doesn't), and the full comparison runs once the tunnel is up
+        // and moves it to the fastest node: the user doesn't sit through it.
         if (quick && instant) {
-            val known = holder?.takeIf { it.failStreak < INSTANT_MAX_FAILS }
-                ?: pool.filter { it.isHealthy && it.latencyMs > 0 }.minByOrNull { it.score }
-            val pick = known ?: run {
+            val contenders = raceContenders(pool, holder, System.currentTimeMillis())
+            if (contenders.isNotEmpty()) {
                 onPhase(Phase.MEASURING)
-                var winner: ServerEntity? = null
-                for (tier in raceTiers(pool)) {
-                    winner = pingEngine.firstToAnswer(tier)
-                    if (winner != null) break
+                val race = pingEngine.raceRanked(contenders)
+                race.winner?.let { pick ->
+                    val why = if (pick.id == holder?.id) {
+                        text(R.string.servers_pick_why_remembered, pick.remark, race.latencyMs)
+                    } else {
+                        text(R.string.servers_pick_why_race, pick.remark, race.asked, race.latencyMs)
+                    }
+                    return quickDecision(scope, regime, pick, current, probes, why)
                 }
-                winner
             }
-            if (pick != null) {
-                return Decision(
-                    scope = scope,
-                    regime = regime,
-                    selected = pick,
-                    previous = current,
-                    switched = pick.id != current?.id,
-                    ranked = emptyList(),
-                    probes = probes,
-                    reason = text(R.string.servers_balancer_connecting, pick.remark),
-                    quick = true
-                )
+            onPhase(Phase.MEASURING)
+            for (tier in raceTiers(pool)) {
+                val race = pingEngine.firstToAnswer(tier)
+                val pick = race.winner ?: continue
+                val why = if (race.latencyMs > 0) {
+                    text(R.string.servers_pick_why_race, pick.remark, race.asked, race.latencyMs)
+                } else {
+                    text(R.string.servers_balancer_connecting, pick.remark)
+                }
+                return quickDecision(scope, regime, pick, current, probes, why)
             }
         }
 
@@ -419,6 +449,25 @@ class AutoBalancer(
             quick = quick
         )
     }
+
+    private fun quickDecision(
+        scope: BalancerScope,
+        regime: NetworkRegime,
+        pick: ServerEntity,
+        current: ServerEntity?,
+        probes: List<SiteProbeResult>,
+        why: UiText
+    ) = Decision(
+        scope = scope,
+        regime = regime,
+        selected = pick,
+        previous = current,
+        switched = pick.id != current?.id,
+        ranked = emptyList(),
+        probes = probes,
+        reason = why,
+        quick = true
+    )
 
     private fun empty(
         scope: BalancerScope,

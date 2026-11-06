@@ -7,6 +7,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
+import com.ars3nb.volta.data.model.HealthUpdate
 import com.ars3nb.volta.data.model.RoutingProfileEntity
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.ServerRole
@@ -131,6 +132,13 @@ interface ServerDao {
         failStreak: Int,
         at: Long = System.currentTimeMillis()
     )
+
+    /** Many measurements in one write: the server list is re-read once, not per row. */
+    @Transaction
+    suspend fun updateHealthAll(rows: List<HealthUpdate>) {
+        val at = System.currentTimeMillis()
+        rows.forEach { updateHealth(it.id, it.latency, it.ewma, it.failStreak, at) }
+    }
 
     @Query("UPDATE servers SET role = :role, roleManual = 1 WHERE id = :id")
     suspend fun updateRole(id: Long, role: ServerRole)

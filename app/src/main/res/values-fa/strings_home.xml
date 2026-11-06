@@ -204,4 +204,11 @@
     <string name="home_helper_launch_failed">%1$s راه‌اندازی نشد: %2$s</string>
     <string name="home_helper_no_answer">به‌موقع پاسخ نداد</string>
     <string name="home_helper_stopped">متوقف شد</string>
+
+    <!-- Moving between servers and checking them -->
+    <string name="home_state_switching">در حال جابه‌جایی</string>
+    <string name="home_caption_switching_to">در حال رفتن به %1$s</string>
+    <string name="home_switch_back">«%1$s» پاسخ نداد، به «%2$s» برگشتیم</string>
+    <string name="home_switch_moved">«%1$s» دیگر پاسخ نمی‌دهد، به «%2$s» رفتیم</string>
+    <string name="home_switch_kept">رفتن به «%1$s» ممکن نشد، روی «%2$s» می‌مانیم</string>
 </resources>

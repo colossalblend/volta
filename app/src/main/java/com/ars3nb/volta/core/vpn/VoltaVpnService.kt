@@ -32,19 +32,28 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
+import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.coroutines.resume
 
 class VoltaVpnService : VpnService() {
 
@@ -70,10 +79,23 @@ class VoltaVpnService : VpnService() {
         const val EXTRA_OPENFLUX_LINK = "openflux_link"
         const val EXTRA_HELPER_KIND = "helper_kind"
         const val EXTRA_HELPER_CONFIG = "helper_config"
+        const val EXTRA_ORIGIN = "origin"
 
         private const val SOCKS_PORT_DEFAULT = 10808
         private const val HEALTH_ATTEMPTS = 3
         private const val MAX_FAILOVERS = 4
+
+        /**
+         * After a core swap the new node is checked at once, briefly: the core is
+         * already up, so the first look comes after a moment, and a node that can't load
+         * a page within a few seconds is no node to stay on while the user watches.
+         */
+        private const val SWITCH_FIRST_PROBE_MS = 300L
+        private const val SWITCH_ATTEMPTS = 3
+        private const val SWITCH_RETRY_PAUSE_MS = 700L
+
+        /** One retry of a core that refused to start in a swap (its port still closing). */
+        private const val SWAP_RETRY_PAUSE_MS = 400L
 
         private val _state = MutableStateFlow(VpnConnectionState.DISCONNECTED)
         val state: StateFlow<VpnConnectionState> = _state.asStateFlow()
@@ -93,6 +115,20 @@ class VoltaVpnService : VpnService() {
 
         private val _connectedSince = MutableStateFlow(0L)
         val connectedSince: StateFlow<Long> = _connectedSince.asStateFlow()
+
+        private val _switching = MutableStateFlow<Switching?>(null)
+
+        /**
+         * A live tunnel moving to another node, from the moment it is asked for until the
+         * new node has carried a page (or the move was given up). The tunnel stays up the
+         * whole time: the screen shows "switching", never "off".
+         */
+        val switching: StateFlow<Switching?> = _switching.asStateFlow()
+
+        private val _notices = MutableSharedFlow<UiText>(extraBufferCapacity = 8)
+
+        /** What the tunnel did by itself that the user should hear about (a way back). */
+        val notices: SharedFlow<UiText> = _notices.asSharedFlow()
 
         private val _alwaysOn = MutableStateFlow<AlwaysOn?>(null)
 
@@ -122,6 +158,14 @@ class VoltaVpnService : VpnService() {
         @Volatile
         var healthyListener: (suspend (serverId: Long) -> Unit)? = null
 
+        /**
+         * Set by the repository: the node picked by hand ([failedId]) didn't carry
+         * traffic, and the tunnel goes back to [backId]. Notes the failure, selects
+         * [backId] again and builds its plan with today's settings; null keeps the old one.
+         */
+        @Volatile
+        var revertProvider: (suspend (failedId: Long, backId: Long) -> ConnectionPlan?)? = null
+
         fun connect(context: Context, plan: ConnectionPlan) {
             val i = Intent(context, VoltaVpnService::class.java).apply {
                 action = ACTION_CONNECT
@@ -135,6 +179,7 @@ class VoltaVpnService : VpnService() {
                 putExtra(EXTRA_OPENFLUX_LINK, plan.openFluxLink)
                 putExtra(EXTRA_HELPER_KIND, plan.helper?.kind)
                 putExtra(EXTRA_HELPER_CONFIG, plan.helper?.config)
+                putExtra(EXTRA_ORIGIN, plan.origin.name)
             }
             startInForeground(context, i)
         }
@@ -194,6 +239,9 @@ class VoltaVpnService : VpnService() {
     /** Always-on VPN is set to Volta; [lockdown]: no internet at all without the VPN. */
     data class AlwaysOn(val on: Boolean, val lockdown: Boolean)
 
+    /** A live tunnel on its way from one node to another. */
+    data class Switching(val fromId: Long, val fromName: String, val toId: Long, val toName: String)
+
     /** Everything the service needs to raise a tunnel, built by the repository. */
     data class ConnectionPlan(
         val serverId: Long,
@@ -207,7 +255,9 @@ class VoltaVpnService : VpnService() {
         /** An OpenFlux server: the helper is started on this link before the core. */
         val openFluxLink: String = "",
         /** AmneziaWG or Hysteria v1: the voltaproxy helper runs this before the core. */
-        val helper: ProxyHelper.Spec? = null
+        val helper: ProxyHelper.Spec? = null,
+        /** Who asked for this node; decides where a failed switch goes ([TunnelRequests.fallbackFor]). */
+        val origin: SwitchOrigin = SwitchOrigin.AUTO
     )
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -228,6 +278,13 @@ class VoltaVpnService : VpnService() {
     /** What the VPN interface that is up right now was built from; null while down. */
     @Volatile
     private var runningTun: TunSpec? = null
+
+    /**
+     * The last plan that proved it carries traffic (passed its check) in this run of the
+     * tunnel: where a failed manual switch goes back to. Forgotten when the tunnel goes.
+     */
+    @Volatile
+    private var lastGoodPlan: ConnectionPlan? = null
 
     /**
      * Bumped by every connect and disconnect the user asks for. A queued connect that is
@@ -288,9 +345,17 @@ class VoltaVpnService : VpnService() {
 
     private val probeClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(6, TimeUnit.SECONDS)
-            .callTimeout(8, TimeUnit.SECONDS)
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .callTimeout(6, TimeUnit.SECONDS)
             .retryOnConnectionFailure(false)
+            .build()
+    }
+
+    /** The check right after a switch: short, since the user is watching it. */
+    private val switchProbeClient by lazy {
+        probeClient.newBuilder()
+            .connectTimeout(3, TimeUnit.SECONDS)
+            .callTimeout(3_500, TimeUnit.MILLISECONDS)
             .build()
     }
 
@@ -321,6 +386,11 @@ class VoltaVpnService : VpnService() {
                         _state.value = VpnConnectionState.CONNECTING
                         _serverName.value = plan.serverName
                         _serverId.value = plan.serverId
+                    } else {
+                        // Shown at once, before the queue gets to it: the tunnel stays up.
+                        _switching.value = TunnelRequests.switchingFor(
+                            _serverId.value, _serverName.value, _switching.value, plan
+                        )
                     }
                     enqueue {
                         // A newer connect or a disconnect came in meanwhile: theirs stands.
@@ -386,7 +456,9 @@ class VoltaVpnService : VpnService() {
         }.getOrDefault(PerAppMode.OFF),
         perAppPackages = intent.getStringArrayExtra(EXTRA_PER_APP_PACKAGES)?.toSet().orEmpty(),
         openFluxLink = intent.getStringExtra(EXTRA_OPENFLUX_LINK).orEmpty(),
-        helper = helperOf(intent)
+        helper = helperOf(intent),
+        origin = runCatching { SwitchOrigin.valueOf(intent.getStringExtra(EXTRA_ORIGIN).orEmpty()) }
+            .getOrDefault(SwitchOrigin.AUTO)
     )
 
     /**
@@ -510,6 +582,7 @@ class VoltaVpnService : VpnService() {
     private fun startHealthCheck(reason: UiText, initialDelayMs: Long = 2_500) {
         healthJob?.cancel()
         val gen = generation
+        val plan = wanted
         healthJob = scope.launch {
             delay(initialDelayMs)
             repeat(HEALTH_ATTEMPTS) { attempt ->
@@ -519,6 +592,7 @@ class VoltaVpnService : VpnService() {
                 if (!hasUnderlyingNetwork()) return@launch
                 if (probeThroughTunnel()) {
                     failoverAttempts = 0
+                    if (gen == generation) plan?.let { lastGoodPlan = it }
                     val id = _serverId.value
                     healthyListener?.let { listener -> runCatching { listener(id) } }
                     return@launch
@@ -538,12 +612,14 @@ class VoltaVpnService : VpnService() {
      */
     private suspend fun moveTo(plan: ConnectionPlan) {
         val next = TunnelRequests.tunOf(plan)
-        val coreUp = tunnelActive.get() && xray != null
-        if (TunnelRequests.canSwapCore(runningTun, coreUp, next)) {
+        // The interface and its bridge are what apps see; the core behind them may be
+        // missing for a moment (a swap whose node failed to start), and is replaced anyway.
+        val tunUp = tunnelActive.get() && tunFd != null && tun2Socks?.isRunning() == true
+        if (TunnelRequests.canSwapCore(runningTun, tunUp, next)) {
             Log.i(TAG, "Swapping the core onto a new node")
             swapCore(plan)
         } else {
-            if (coreUp) Log.i(TAG, "Reconnecting onto a new config")
+            if (tunUp) Log.i(TAG, "Reconnecting onto a new config")
             doConnect(plan)
         }
     }
@@ -646,9 +722,13 @@ class VoltaVpnService : VpnService() {
      */
     private suspend fun swapCore(plan: ConnectionPlan) {
         val name = plan.serverName
+        val fromId = _serverId.value
+        if (fromId != 0L && fromId != plan.serverId) {
+            _switching.value = Switching(fromId, _serverName.value, plan.serverId, name)
+        }
         wanted = plan
         watchdogJob?.cancel()
-        healthJob?.cancel()
+        synchronized(this) { healthJob?.cancel() }
         runCatching { xray?.stop() }
         xray = null
         val asked = disconnectsAsked
@@ -674,26 +754,113 @@ class VoltaVpnService : VpnService() {
             val helper = plan.helper
             if (helper != null) ProxyHelper.start(this, helper).getOrThrow() else ProxyHelper.stop()
             currentCoroutineContext().ensureActive()
-            val core = newCore().also { xray = it }
-            core.start(plan.configJson, tunFd = 0).getOrThrow()
+            startSwappedCore(plan.configJson)
             generation++
             _serverName.value = name
             _serverId.value = plan.serverId
             _state.value = VpnConnectionState.CONNECTED
             enterForeground(name, connecting = false)
             watchdogJob = scope.launch { watchdog() }
-            startHealthCheck(UiText.of(R.string.home_server_not_responding))
+            startSwitchCheck(plan)
         } catch (e: CancellationException) {
             throw e
-        } catch (e: NodeStartException) {
-            if (disconnectsAsked != asked) return
-            Log.w(TAG, "node did not come up, moving on", e)
-            failOver(e.uiText(UiText.of(R.string.home_connect_failed)))
         } catch (e: Exception) {
-            // The new core refused to start: rebuild the whole tunnel on it, which
-            // reports a real failure the usual way.
-            Log.w(TAG, "core swap failed, reconnecting", e)
-            doConnect(plan)
+            // Turned off meanwhile: the disconnect queued behind this finishes the job.
+            if (disconnectsAsked != asked) return
+            Log.w(TAG, "node did not come up in a swap", e)
+            switchFailed(plan, e.uiText(UiText.of(R.string.home_connect_failed)))
+        }
+    }
+
+    /**
+     * The core of a swap. The one before it has only just let go of the local ports, so
+     * a refusal gets one more try after a pause before the node is called a failure.
+     */
+    private suspend fun startSwappedCore(configJson: String) {
+        val first = newCore().also { xray = it }
+        val started = first.start(configJson, tunFd = 0)
+        if (started.isSuccess) return
+        Log.w(TAG, "core refused to start, once more", started.exceptionOrNull())
+        runCatching { first.stop() }
+        xray = null
+        delay(SWAP_RETRY_PAUSE_MS)
+        currentCoroutineContext().ensureActive()
+        val second = newCore().also { xray = it }
+        second.start(configJson, tunFd = 0).getOrThrow()
+    }
+
+    /**
+     * Right after a swap: does a page load through the new node? Short tries, both probe
+     * hosts at once, so a working node is confirmed in about a second and a dead one is
+     * given up within [SWITCH_ATTEMPTS] tries (about ten seconds at worst) instead of
+     * the half-minute of the ordinary check. No network at all says nothing about the
+     * node: the switch is settled and the network callback checks again later.
+     */
+    @Synchronized
+    private fun startSwitchCheck(plan: ConnectionPlan) {
+        healthJob?.cancel()
+        val gen = generation
+        healthJob = scope.launch {
+            delay(SWITCH_FIRST_PROBE_MS)
+            var verdict: Boolean? = null
+            for (attempt in 0 until SWITCH_ATTEMPTS) {
+                if (!tunnelActive.get() || gen != generation) return@launch
+                if (!hasUnderlyingNetwork()) {
+                    verdict = null
+                    break
+                }
+                if (probeThroughTunnel(switchProbeClient)) {
+                    verdict = true
+                    break
+                }
+                verdict = false
+                Log.w(TAG, "switch check ${attempt + 1}/$SWITCH_ATTEMPTS failed")
+                if (attempt < SWITCH_ATTEMPTS - 1) delay(SWITCH_RETRY_PAUSE_MS)
+            }
+            if (!tunnelActive.get() || gen != generation) return@launch
+            if (verdict == false) {
+                enqueue {
+                    if (gen == generation && tunnelActive.get()) {
+                        switchFailed(plan, UiText.of(R.string.home_server_not_responding))
+                    }
+                }
+                return@launch
+            }
+            // Only this switch's own mark: a newer one may already be on its way.
+            _switching.value?.takeIf { it.toId == plan.serverId }?.let { _switching.compareAndSet(it, null) }
+            if (verdict == true) {
+                failoverAttempts = 0
+                lastGoodPlan = plan
+                healthyListener?.let { listener -> runCatching { listener(plan.serverId) } }
+            }
+        }
+    }
+
+    /**
+     * Holding the connect lock: the node the tunnel was just moved to didn't come up or
+     * doesn't carry traffic. A pick by hand goes back to the node that worked before
+     * (and says so); anything else moves on to the next best node.
+     */
+    private suspend fun switchFailed(plan: ConnectionPlan, reason: UiText) {
+        val back = lastGoodPlan
+        when (TunnelRequests.fallbackFor(plan.origin, plan.serverId, back?.serverId)) {
+            Fallback.BACK -> {
+                val home = back ?: return failOver(reason)
+                val fresh = try {
+                    revertProvider?.invoke(plan.serverId, home.serverId)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w(TAG, "no fresh plan for the way back", e)
+                    null
+                }
+                val target = (fresh ?: home).copy(origin = SwitchOrigin.FALLBACK)
+                Log.i(TAG, "switch to ${plan.serverName} failed, back to ${target.serverName}")
+                _notices.tryEmit(UiText.of(R.string.home_switch_back, plan.serverName, target.serverName))
+                moveTo(target)
+            }
+
+            Fallback.NEXT -> failOver(reason)
         }
     }
 
@@ -783,17 +950,42 @@ class VoltaVpnService : VpnService() {
      * Any HTTP answer through the local proxy proves the exit works. Two unrelated
      * hosts, so one CDN having a bad minute does not trigger a server switch.
      */
-    private suspend fun probeThroughTunnel(): Boolean = withContext(Dispatchers.IO) {
-        val client = probeClient.newBuilder()
+    private suspend fun probeThroughTunnel(base: OkHttpClient = probeClient): Boolean {
+        val client = base.newBuilder()
             .proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", socksPort)))
             .build()
-        PROBE_URLS.any { url ->
-            runCatching {
-                client.newCall(Request.Builder().url(url).head().build())
-                    .execute().use { it.code in 100..599 }
-            }.getOrDefault(false)
-        }
+        return anyAnswers(client, PROBE_URLS)
     }
+
+    /**
+     * Both hosts at once, the first answer wins and the other call is cancelled: one
+     * slow host no longer doubles the wait (one after the other, a dead node cost both
+     * timeouts). Asynchronous calls, so a cancelled check lets go of its sockets at once.
+     */
+    private suspend fun anyAnswers(client: OkHttpClient, urls: List<String>): Boolean =
+        suspendCancellableCoroutine { cont ->
+            val calls = urls.map { client.newCall(Request.Builder().url(it).head().build()) }
+            val failures = AtomicInteger(0)
+            val settled = AtomicBoolean(false)
+            fun settle(value: Boolean) {
+                if (!settled.compareAndSet(false, true)) return
+                calls.forEach { it.cancel() }
+                cont.resume(value)
+            }
+            cont.invokeOnCancellation { calls.forEach { it.cancel() } }
+            calls.forEach { call ->
+                call.enqueue(object : Callback {
+                    override fun onResponse(call: Call, response: Response) {
+                        response.close()
+                        settle(true)
+                    }
+
+                    override fun onFailure(call: Call, e: IOException) {
+                        if (failures.incrementAndGet() == calls.size) settle(false)
+                    }
+                })
+            }
+        }
 
     private fun onCoreStoppedItself() {
         if (!tunnelActive.get()) return
@@ -817,9 +1009,15 @@ class VoltaVpnService : VpnService() {
             failoverAttempts++
             // Short backoff so a flapping network is not hammered with reconnects.
             delay(700L * failoverAttempts)
-            _state.value = VpnConnectionState.CONNECTING
-            enterForeground(serverLabel, connecting = true)
+            // A live tunnel keeps its interface: the next node takes over the core only
+            // (moveTo), and the screen says "switching" instead of going back to "connecting".
+            val live = tunnelActive.get()
+            if (!live) {
+                _state.value = VpnConnectionState.CONNECTING
+                enterForeground(serverLabel, connecting = true)
+            }
             val failedId = wanted?.serverId ?: _serverId.value
+            val failedName = wanted?.serverName ?: _serverName.value
             val plan = try {
                 provider(failedId)
             } catch (e: CancellationException) {
@@ -829,7 +1027,10 @@ class VoltaVpnService : VpnService() {
             }
             if (plan != null) {
                 Log.i(TAG, "failover #$failoverAttempts -> ${plan.serverName}")
-                doConnect(plan)
+                if (live && plan.serverId != failedId) {
+                    _notices.tryEmit(UiText.of(R.string.home_switch_moved, failedName, plan.serverName))
+                }
+                moveTo(plan.copy(origin = SwitchOrigin.AUTO))
                 return
             }
         }
@@ -839,12 +1040,14 @@ class VoltaVpnService : VpnService() {
     private fun fail(message: UiText) {
         _error.value = message
         _state.value = VpnConnectionState.ERROR
+        lastGoodPlan = null
         cleanup()
         stopUnlessMoreQueued()
     }
 
     private fun doDisconnect() {
         _state.value = VpnConnectionState.DISCONNECTING
+        lastGoodPlan = null
         cleanup()
         _state.value = VpnConnectionState.DISCONNECTED
         stopUnlessMoreQueued()
@@ -871,6 +1074,7 @@ class VoltaVpnService : VpnService() {
         TrafficRecorder.flush()
         tunnelActive.set(false)
         runningTun = null
+        _switching.value = null
         _connectedSince.value = 0
         _traffic.value = TrafficStats()
         runCatching { tun2Socks?.stop() }

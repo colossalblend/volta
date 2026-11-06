@@ -216,4 +216,11 @@
     <string name="home_helper_launch_failed">لم يبدأ %1$s: %2$s</string>
     <string name="home_helper_no_answer">لم يستجب في الوقت المناسب</string>
     <string name="home_helper_stopped">توقّف</string>
+
+    <!-- Moving between servers and checking them -->
+    <string name="home_state_switching">جارٍ التبديل</string>
+    <string name="home_caption_switching_to">الانتقال إلى %1$s</string>
+    <string name="home_switch_back">لم يستجب «%1$s»، عدنا إلى «%2$s»</string>
+    <string name="home_switch_moved">توقّف «%1$s» عن الاستجابة، انتقلنا إلى «%2$s»</string>
+    <string name="home_switch_kept">تعذّر الانتقال إلى «%1$s»، نبقى على «%2$s»</string>
 </resources>

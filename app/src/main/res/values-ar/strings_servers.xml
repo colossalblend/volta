@@ -160,4 +160,12 @@
         <item quantity="many">%1$s، %2$d بلدًا</item>
         <item quantity="other">%1$s، %2$d بلد</item>
     </plurals>
+
+    <!-- Check all, one server's check, why the connect-time pick took its node -->
+    <string name="servers_check_progress">تم فحص %1$d من %2$d</string>
+    <string name="servers_check_stop">إيقاف</string>
+    <string name="servers_check_stopped">توقّف الفحص: تم فحص %1$d من %2$d</string>
+    <string name="servers_check_running">جارٍ الفحص…</string>
+    <string name="servers_pick_why_remembered">عمل «%1$s» على هذه الشبكة في المرة السابقة ويستجيب خلال %2$d ms</string>
+    <string name="servers_pick_why_race">استجاب «%1$s» أولًا من بين %2$d، خلال %3$d ms</string>
 </resources>

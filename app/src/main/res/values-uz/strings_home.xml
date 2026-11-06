@@ -204,4 +204,11 @@
     <string name="home_helper_launch_failed">%1$s ishga tushmadi: %2$s</string>
     <string name="home_helper_no_answer">oʻz vaqtida javob bermadi</string>
     <string name="home_helper_stopped">toʻxtadi</string>
+
+    <!-- Moving between servers and checking them -->
+    <string name="home_state_switching">Almashtirilmoqda</string>
+    <string name="home_caption_switching_to">%1$s serveriga o‘tmoqdamiz</string>
+    <string name="home_switch_back">«%1$s» javob bermadi, «%2$s» serveriga qaytdik</string>
+    <string name="home_switch_moved">«%1$s» javob bermay qo‘ydi, «%2$s» serveriga o‘tdik</string>
+    <string name="home_switch_kept">«%1$s» serveriga o‘tib bo‘lmadi, «%2$s» serverida qolamiz</string>
 </resources>
