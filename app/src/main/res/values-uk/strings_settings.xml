@@ -270,4 +270,6 @@
     <string name="settings_link_crypt_unknown_key">Посилання зашифровано ключем, якого немає в цій версії Volta</string>
     <string name="settings_link_crypt_failed">Не вдалося розшифрувати посилання: воно пошкоджене або не для Volta</string>
     <string name="settings_link_damaged">Посилання пошкоджене</string>
+    <string name="settings_lite_mode">Lite-оформлення</string>
+    <string name="settings_lite_mode_hint">Менше анімацій — для слабких телефонів</string>
 </resources>

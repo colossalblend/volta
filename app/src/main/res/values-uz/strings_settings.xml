@@ -258,4 +258,6 @@
     <string name="settings_link_crypt_unknown_key">Havola Voltaning bu versiyasida yoʻq kalit bilan shifrlangan</string>
     <string name="settings_link_crypt_failed">Havolani deshifrlab boʻlmadi: u buzilgan yoki Volta uchun emas</string>
     <string name="settings_link_damaged">Havola buzilgan</string>
+    <string name="settings_lite_mode">Lite koʻrinish</string>
+    <string name="settings_lite_mode_hint">Kamroq animatsiya — kuchsiz telefonlar uchun</string>
 </resources>

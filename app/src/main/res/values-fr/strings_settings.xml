@@ -264,4 +264,6 @@
     <string name="settings_link_crypt_unknown_key">Le lien est chiffré avec une clé que cette version de Volta n\'a pas</string>
     <string name="settings_link_crypt_failed">Impossible de déchiffrer le lien : il est endommagé ou n\'est pas destiné à Volta</string>
     <string name="settings_link_damaged">Le lien est endommagé</string>
+    <string name="settings_lite_mode">Apparence Lite</string>
+    <string name="settings_lite_mode_hint">Moins d\'animations, pour les téléphones plus lents</string>
 </resources>

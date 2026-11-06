@@ -130,6 +130,8 @@ class VoltaRepository(private val context: Context) {
     fun trafficSince(fromDay: Long): Flow<List<TrafficDayEntity>> = db.trafficDao().observeSince(fromDay)
 
     val designTheme = prefs.designTheme
+    val liteMode = prefs.liteMode
+    suspend fun setLiteMode(on: Boolean) = prefs.setLiteMode(on)
     val autoFailover = prefs.autoFailover
     val perAppMode = prefs.perAppMode
     val perAppPackages = prefs.perAppPackages

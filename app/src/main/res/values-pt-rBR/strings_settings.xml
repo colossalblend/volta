@@ -264,4 +264,6 @@
     <string name="settings_link_crypt_unknown_key">O link foi criptografado com uma chave que esta versão do Volta não tem</string>
     <string name="settings_link_crypt_failed">Não foi possível descriptografar o link: ele está danificado ou não é para o Volta</string>
     <string name="settings_link_damaged">O link está danificado</string>
+    <string name="settings_lite_mode">Visual Lite</string>
+    <string name="settings_lite_mode_hint">Menos animações, para celulares mais lentos</string>
 </resources>

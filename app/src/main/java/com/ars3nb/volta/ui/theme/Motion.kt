@@ -6,6 +6,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 
 /**
@@ -24,11 +25,18 @@ object Motion {
     fun <T> settle(): FiniteAnimationSpec<T> = spring(dampingRatio = 1f, stiffness = Spring.StiffnessMediumLow)
 }
 
-/** The system's "remove animations" switch: then nothing loops and changes are instant. */
+/** «Lite-оформление» in Settings: fewer animations, for slower phones. */
+val LocalLiteMode = staticCompositionLocalOf { false }
+
+/**
+ * The system's "remove animations" switch, or Volta's own «Lite-оформление»: then
+ * nothing loops and changes are instant.
+ */
 @Composable
 fun rememberReducedMotion(): Boolean {
     val context = LocalContext.current
-    return remember(context) {
+    val lite = LocalLiteMode.current
+    return lite || remember(context) {
         runCatching {
             Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
         }.getOrDefault(false)

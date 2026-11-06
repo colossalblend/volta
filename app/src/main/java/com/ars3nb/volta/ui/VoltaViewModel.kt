@@ -261,6 +261,9 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val designTheme = repo.designTheme
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DesignTheme.VOLTA)
+    val liteMode = repo.liteMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    fun setLiteMode(on: Boolean) = viewModelScope.launch { repo.setLiteMode(on) }
     val perAppMode = repo.perAppMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PerAppMode.OFF)
     val perAppPackages = repo.perAppPackages
