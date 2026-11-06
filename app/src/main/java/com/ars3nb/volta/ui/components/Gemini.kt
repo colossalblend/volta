@@ -187,6 +187,7 @@ fun GeminiSheetRow(server: ServerEntity, vm: GeminiViewModel) {
     val canCheck = route != GeminiProbe.Route.ONLY_WHEN_CONNECTED
     val scheme = MaterialTheme.colorScheme
     val ink = if (canCheck) scheme.onSurface else scheme.onSurfaceVariant
+    val still = rememberReducedMotion()
 
     Column {
         Row(
@@ -216,8 +217,8 @@ fun GeminiSheetRow(server: ServerEntity, vm: GeminiViewModel) {
         }
         AnimatedVisibility(
             visible = busy || result != null,
-            enter = fadeIn(Motion.settle()) + expandVertically(Motion.settle()),
-            exit = fadeOut(Motion.settle()) + shrinkVertically(Motion.settle())
+            enter = arrive(still),
+            exit = leave(still)
         ) {
             Column(Modifier.padding(start = 62.dp, end = 8.dp, bottom = 8.dp)) {
                 GeminiPill(GeminiShown(result, busy), home = false)
@@ -246,10 +247,11 @@ fun GeminiHomeLine(vm: GeminiViewModel, modifier: Modifier = Modifier) {
     val id = liveId
     val result = id?.let { results[it] }
     val busy = id != null && id in running
+    val still = rememberReducedMotion()
     AnimatedVisibility(
         visible = id != null && (busy || result != null),
-        enter = fadeIn(Motion.settle()) + expandVertically(Motion.settle()),
-        exit = fadeOut(Motion.settle()) + shrinkVertically(Motion.settle()),
+        enter = arrive(still),
+        exit = leave(still),
         modifier = modifier
     ) {
         val again = stringResource(R.string.gemini_check_again)
@@ -267,6 +269,13 @@ fun GeminiHomeLine(vm: GeminiViewModel, modifier: Modifier = Modifier) {
         }
     }
 }
+
+/** A line opening up under its row; at once with animations off. */
+private fun arrive(still: Boolean): EnterTransition =
+    if (still) EnterTransition.None else fadeIn(Motion.settle()) + expandVertically(Motion.settle())
+
+private fun leave(still: Boolean): ExitTransition =
+    if (still) ExitTransition.None else fadeOut(Motion.settle()) + shrinkVertically(Motion.settle())
 
 /** «2 min. ago» in the system's words; null for a verdict with no time. */
 @Composable

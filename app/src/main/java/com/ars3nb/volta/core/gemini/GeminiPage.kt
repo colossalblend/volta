@@ -112,7 +112,7 @@ object GeminiPage {
 
     private val alpha3To2: Map<String, String> by lazy {
         Locale.getISOCountries().mapNotNull { code ->
-            runCatching { Locale("", code).isO3Country }.getOrNull()
+            runCatching { Locale.Builder().setRegion(code).build().isO3Country }.getOrNull()
                 ?.takeIf { it.length == 3 }
                 ?.let { it.uppercase(Locale.ROOT) to code }
         }.toMap()
