@@ -86,7 +86,9 @@ fun ServerActionsSheet(
     /** «Отправить по Bluetooth»; null where the device has no Bluetooth LE. */
     onSendBluetooth: (() -> Unit)? = null,
     /** This server's check, started here: shown in place, the sheet stays open. */
-    check: ServerCheck? = null
+    check: ServerCheck? = null,
+    /** «Проверить Gemini» with its verdict (GeminiSheetRow); null leaves it out. */
+    geminiRow: (@Composable () -> Unit)? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val clipboard = LocalClipboardManager.current
@@ -181,6 +183,7 @@ fun ServerActionsSheet(
                     )
                 }
             }
+            geminiRow?.invoke()
 
             Spacer(Modifier.height(16.dp))
             Column(Modifier.padding(horizontal = 8.dp)) {

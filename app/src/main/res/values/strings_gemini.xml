@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Gemini check: does gemini.google.com work through a server. English is the default. -->
+<resources>
+    <string name="gemini_check_action">Check Gemini</string>
+    <string name="gemini_check_action_text">Opens gemini.google.com through this server</string>
+    <string name="gemini_checking">Checking Gemini…</string>
+    <string name="gemini_available">Gemini works</string>
+    <string name="gemini_unsupported">Gemini doesn\'t work in the server\'s country</string>
+    <string name="gemini_failed">Couldn\'t check</string>
+    <string name="gemini_home_checking">Gemini: checking…</string>
+    <string name="gemini_home_available">Gemini: works</string>
+    <string name="gemini_home_unsupported">Gemini: doesn\'t work (country not supported)</string>
+    <string name="gemini_home_failed">Gemini: couldn\'t check</string>
+    <string name="gemini_check_again">Check Gemini again</string>
+    <string name="gemini_checked_at">Checked %1$s</string>
+    <string name="gemini_reason_no_answer">No answer through the server</string>
+    <string name="gemini_reason_blocked">Google refused this server\'s address</string>
+    <string name="gemini_reason_consent">Google showed its cookie page instead of Gemini</string>
+    <string name="gemini_reason_http">Google answered with error %1$d</string>
+    <string name="gemini_reason_unrecognized">The page didn\'t look like Gemini\'s</string>
+    <string name="gemini_reason_needs_connection">Connect to this server to check it</string>
+    <string name="gemini_reason_cannot_dial">This server can\'t be checked in this build</string>
+    <string name="gemini_settings_title">Check Gemini after connecting</string>
+    <string name="gemini_settings_text">Once connected, opens gemini.google.com through the server (about 30 KB) and shows on Home whether Gemini works there</string>
+</resources>

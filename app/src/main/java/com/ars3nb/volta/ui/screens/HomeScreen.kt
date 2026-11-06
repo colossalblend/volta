@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ars3nb.volta.R
 import com.ars3nb.volta.core.balancer.AutoBalancer
 import com.ars3nb.volta.core.balancer.SubscriptionScope
@@ -85,6 +86,7 @@ import com.ars3nb.volta.ui.ConnectPhase
 import com.ars3nb.volta.ui.PickSummary
 import com.ars3nb.volta.ui.SpeedHistory
 import com.ars3nb.volta.ui.VoltaUiState
+import com.ars3nb.volta.ui.GeminiViewModel
 import com.ars3nb.volta.ui.VoltaViewModel
 import com.ars3nb.volta.ui.components.AutoPickCard
 import com.ars3nb.volta.ui.components.CardShape
@@ -101,6 +103,7 @@ import com.ars3nb.volta.ui.components.TrafficCard
 import com.ars3nb.volta.ui.components.UpdateBanner
 import com.ars3nb.volta.ui.components.VoltaChip
 import com.ars3nb.volta.ui.components.subscriptionColor
+import com.ars3nb.volta.ui.components.GeminiHomeLine
 import com.ars3nb.volta.ui.components.InternetBanner
 import com.ars3nb.volta.ui.components.flagOf
 import com.ars3nb.volta.ui.components.formatDuration
@@ -149,6 +152,7 @@ fun HomeScreen(
     val bluetooth = rememberBleShareAvailable()
     val receiveOnTv = LocalTv.current && bluetooth
     var receiving by remember { mutableStateOf(false) }
+    val gemini = viewModel<GeminiViewModel>()
 
     HomeContent(
         state = state,
@@ -176,7 +180,8 @@ fun HomeScreen(
         },
         onReceiveBluetooth = if (receiveOnTv) {
             { receiving = true }
-        } else null
+        } else null,
+        gemini = { GeminiHomeLine(gemini) }
     )
     if (receiving) {
         BleReceiveSheet(
@@ -222,7 +227,9 @@ fun HomeContent(
     autoBySubscription: Boolean = false,
     /** The subscription the auto modes pick from; 0: all of them. */
     autoSubscription: Long = 0,
-    onAutoSubscription: (Long) -> Unit = {}
+    onAutoSubscription: (Long) -> Unit = {},
+    /** The Gemini line for the server in use (GeminiHomeLine); null leaves it out. */
+    gemini: (@Composable () -> Unit)? = null
 ) {
     val selected = state.selectedServer
     val subscriptionOf = remember(state.subscriptions) { state.subscriptions.associateBy { it.id } }
@@ -334,6 +341,7 @@ fun HomeContent(
                                 modifier = Modifier.padding(top = 12.dp)
                             )
                         }
+                        gemini?.invoke()
                         AnimatedVisibility(
                             visible = state.error != null && !state.isConnected && !working,
                             enter = fadeIn() + expandVertically(),

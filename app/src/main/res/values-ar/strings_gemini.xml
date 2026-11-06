@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gemini_check_action">فحص Gemini</string>
+    <string name="gemini_check_action_text">يفتح gemini.google.com عبر هذا الخادم</string>
+    <string name="gemini_checking">جارٍ فحص Gemini…</string>
+    <string name="gemini_available">Gemini يعمل</string>
+    <string name="gemini_unsupported">Gemini لا يعمل في بلد الخادم</string>
+    <string name="gemini_failed">تعذّر الفحص</string>
+    <string name="gemini_home_checking">Gemini: جارٍ الفحص…</string>
+    <string name="gemini_home_available">Gemini: يعمل</string>
+    <string name="gemini_home_unsupported">Gemini: لا يعمل (البلد غير مدعوم)</string>
+    <string name="gemini_home_failed">Gemini: تعذّر الفحص</string>
+    <string name="gemini_check_again">فحص Gemini مجددًا</string>
+    <string name="gemini_checked_at">تم الفحص %1$s</string>
+    <string name="gemini_reason_no_answer">لا ردّ عبر الخادم</string>
+    <string name="gemini_reason_blocked">رفضت Google عنوان هذا الخادم</string>
+    <string name="gemini_reason_consent">عرضت Google صفحة الموافقة بدلًا من Gemini</string>
+    <string name="gemini_reason_http">ردّت Google بالخطأ %1$d</string>
+    <string name="gemini_reason_unrecognized">الصفحة لا تشبه صفحة Gemini</string>
+    <string name="gemini_reason_needs_connection">اتصل بهذا الخادم لفحصه</string>
+    <string name="gemini_reason_cannot_dial">لا يمكن فحص هذا الخادم في هذا الإصدار</string>
+    <string name="gemini_settings_title">فحص Gemini بعد الاتصال</string>
+    <string name="gemini_settings_text">بعد الاتصال يفتح gemini.google.com عبر الخادم (نحو 30 كيلوبايت) ويعرض في الرئيسية هل يعمل Gemini هناك</string>
+</resources>

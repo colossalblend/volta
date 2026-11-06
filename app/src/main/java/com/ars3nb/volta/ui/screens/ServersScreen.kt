@@ -41,6 +41,7 @@ import com.ars3nb.volta.core.balancer.GuardPolicy
 import com.ars3nb.volta.core.locale.UiText
 import java.text.Collator
 import java.util.Locale
+import com.ars3nb.volta.ui.components.GeminiSheetRow
 import com.ars3nb.volta.ui.components.SlidingChoice
 import com.ars3nb.volta.ui.components.SwitchRow
 import com.ars3nb.volta.ui.components.VoltaChip
@@ -92,6 +93,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ars3nb.volta.core.share.SharePayload
 import com.ars3nb.volta.core.vpn.ConfigBuilder
 import com.ars3nb.volta.data.model.BalancerScope
@@ -100,6 +102,7 @@ import com.ars3nb.volta.data.model.ServerPool
 import com.ars3nb.volta.data.model.ServerRole
 import com.ars3nb.volta.data.model.ServerSort
 import com.ars3nb.volta.data.model.matches
+import com.ars3nb.volta.ui.GeminiViewModel
 import com.ars3nb.volta.ui.VoltaViewModel
 import com.ars3nb.volta.ui.collectQuietState
 import com.ars3nb.volta.ui.components.EmptyState
@@ -141,6 +144,7 @@ fun ServersScreen(
     // Only whether a sweep runs: its progress is read by the strip and the rows alone, so
     // an answer redraws one row and the counter, not this whole screen.
     val sweeping by vm.sweepRunning.collectAsStateWithLifecycle()
+    val gemini = viewModel<GeminiViewModel>()
     var sortMenu by remember { mutableStateOf(false) }
     var sheetServer by remember { mutableStateOf<ServerEntity?>(null) }
     val bluetooth = rememberBleShareAvailable()
@@ -492,7 +496,8 @@ fun ServersScreen(
             onCopied = { vm.showMessage(UiText.of(R.string.servers_link_copied)) },
             onSendBluetooth = if (bluetooth && payload != null) {
                 { bleSend = payload }
-            } else null
+            } else null,
+            geminiRow = { GeminiSheetRow(server, gemini) }
         )
     }
     bleSend?.let { payload -> BleSendSheet(payload, onDismiss = { bleSend = null }) }

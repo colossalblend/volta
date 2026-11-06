@@ -73,6 +73,8 @@ class AppPreferences(private val context: Context) {
         val serversSubscription = longPreferencesKey("servers_subscription")
         val serversOpen = stringSetPreferencesKey("servers_open_countries")
         val serversOpenTouched = booleanPreferencesKey("servers_open_touched")
+        val geminiAfterConnect = booleanPreferencesKey("gemini_after_connect")
+        val geminiResults = stringPreferencesKey("gemini_results")
     }
 
     /**
@@ -116,6 +118,20 @@ class AppPreferences(private val context: Context) {
             it[Keys.serversOpenTouched] = view.openCountries != null
             it[Keys.serversOpen] = view.openCountries.orEmpty()
         }
+    }
+
+    /** Open gemini.google.com through each server once it connects. Off: it costs traffic. */
+    val geminiAfterConnect: Flow<Boolean> = context.dataStore.data.map { it[Keys.geminiAfterConnect] ?: false }
+
+    suspend fun setGeminiAfterConnect(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.geminiAfterConnect] = enabled }
+    }
+
+    /** The last Gemini verdict per server, as GeminiChecks writes it (JSON). */
+    val geminiResults: Flow<String> = context.dataStore.data.map { it[Keys.geminiResults].orEmpty() }
+
+    suspend fun setGeminiResults(json: String) {
+        context.dataStore.edit { it[Keys.geminiResults] = json }
     }
 
     /**
@@ -340,7 +356,7 @@ class AppPreferences(private val context: Context) {
     private val backupBooleans = listOf(
         Keys.autoFailover, Keys.pingOnStart, Keys.localDns, Keys.blockTorrents, Keys.sendHwid,
         Keys.batterySaver, Keys.autoConnect, Keys.refreshOnLaunch, Keys.followNetwork,
-        Keys.autoRecheck, Keys.hideBalancers, Keys.simpleMode, Keys.autoBySubscription
+        Keys.autoRecheck, Keys.hideBalancers, Keys.simpleMode, Keys.autoBySubscription, Keys.geminiAfterConnect
     )
     private val backupStrings = listOf(
         Keys.designTheme, Keys.perAppMode, Keys.defaultPingType, Keys.adBlock, Keys.connectMode

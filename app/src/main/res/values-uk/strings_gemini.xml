@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gemini_check_action">Перевірити Gemini</string>
+    <string name="gemini_check_action_text">Відкриває gemini.google.com через цей сервер</string>
+    <string name="gemini_checking">Перевіряємо Gemini…</string>
+    <string name="gemini_available">Gemini працює</string>
+    <string name="gemini_unsupported">Gemini не працює в країні сервера</string>
+    <string name="gemini_failed">Не вдалося перевірити</string>
+    <string name="gemini_home_checking">Gemini: перевіряємо…</string>
+    <string name="gemini_home_available">Gemini: працює</string>
+    <string name="gemini_home_unsupported">Gemini: не працює (країна не підтримується)</string>
+    <string name="gemini_home_failed">Gemini: не вдалося перевірити</string>
+    <string name="gemini_check_again">Перевірити Gemini ще раз</string>
+    <string name="gemini_checked_at">Перевірено %1$s</string>
+    <string name="gemini_reason_no_answer">Немає відповіді через сервер</string>
+    <string name="gemini_reason_blocked">Google не пускає адресу цього сервера</string>
+    <string name="gemini_reason_consent">Google показав сторінку згоди замість Gemini</string>
+    <string name="gemini_reason_http">Google відповів помилкою %1$d</string>
+    <string name="gemini_reason_unrecognized">Сторінка не схожа на Gemini</string>
+    <string name="gemini_reason_needs_connection">Підключіться до цього сервера, щоб перевірити</string>
+    <string name="gemini_reason_cannot_dial">Цей сервер не можна перевірити в цій збірці</string>
+    <string name="gemini_settings_title">Перевіряти Gemini після підключення</string>
+    <string name="gemini_settings_text">Після підключення відкриває gemini.google.com через сервер (близько 30 КБ) і показує на головній, чи працює там Gemini</string>
+</resources>

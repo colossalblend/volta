@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gemini_check_action">Праверыць Gemini</string>
+    <string name="gemini_check_action_text">Адкрывае gemini.google.com праз гэты сервер</string>
+    <string name="gemini_checking">Правяраем Gemini…</string>
+    <string name="gemini_available">Gemini працуе</string>
+    <string name="gemini_unsupported">Gemini не працуе ў краіне сервера</string>
+    <string name="gemini_failed">Не ўдалося праверыць</string>
+    <string name="gemini_home_checking">Gemini: правяраем…</string>
+    <string name="gemini_home_available">Gemini: працуе</string>
+    <string name="gemini_home_unsupported">Gemini: не працуе (краіна не падтрымліваецца)</string>
+    <string name="gemini_home_failed">Gemini: не ўдалося праверыць</string>
+    <string name="gemini_check_again">Праверыць Gemini яшчэ раз</string>
+    <string name="gemini_checked_at">Праверана %1$s</string>
+    <string name="gemini_reason_no_answer">Няма адказу праз сервер</string>
+    <string name="gemini_reason_blocked">Google не пускае адрас гэтага сервера</string>
+    <string name="gemini_reason_consent">Google паказаў старонку згоды замест Gemini</string>
+    <string name="gemini_reason_http">Google адказаў памылкай %1$d</string>
+    <string name="gemini_reason_unrecognized">Старонка не падобная на Gemini</string>
+    <string name="gemini_reason_needs_connection">Падключыцеся да гэтага сервера, каб праверыць</string>
+    <string name="gemini_reason_cannot_dial">Гэты сервер нельга праверыць у гэтай зборцы</string>
+    <string name="gemini_settings_title">Правяраць Gemini пасля падключэння</string>
+    <string name="gemini_settings_text">Пасля падключэння адкрывае gemini.google.com праз сервер (каля 30 КБ) і паказвае на галоўнай, ці працуе там Gemini</string>
+</resources>
