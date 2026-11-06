@@ -215,4 +215,7 @@
     <string name="home_switch_back">“%1$s” yanıt vermedi, “%2$s” sunucusuna geri dönüldü</string>
     <string name="home_switch_moved">“%1$s” yanıt vermeyi bıraktı, “%2$s” sunucusuna geçildi</string>
     <string name="home_switch_kept">“%1$s” sunucusuna geçilemedi, “%2$s” üzerinde kalınıyor</string>
+
+    <!-- Auto by subscription -->
+    <string name="home_auto_scope_label">Şuradan seç</string>
 </resources>

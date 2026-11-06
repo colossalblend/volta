@@ -258,4 +258,8 @@
     <string name="settings_link_crypt_unknown_key">Keçid Volta-nın bu versiyasında olmayan açarla şifrələnib</string>
     <string name="settings_link_crypt_failed">Keçidin şifrəsini açmaq alınmadı: o zədələnib və ya Volta üçün deyil</string>
     <string name="settings_link_damaged">Keçid zədələnib</string>
+
+    <!-- Auto by subscription -->
+    <string name="settings_auto_by_subscription_title">Abunəyə görə avto</string>
+    <string name="settings_auto_by_subscription_text">Əsas ekranda rejimin altında: avtomatik rejimlər yalnız bir abunənin serverlərindən seçə bilər</string>
 </resources>

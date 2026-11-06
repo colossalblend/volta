@@ -13,6 +13,9 @@ import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.AdBlockMode
 import com.ars3nb.volta.data.model.PerAppMode
 import com.ars3nb.volta.data.model.PingType
+import com.ars3nb.volta.data.model.ServerPool
+import com.ars3nb.volta.data.model.ServerSort
+import com.ars3nb.volta.data.model.ServersView
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -59,6 +62,59 @@ class AppPreferences(private val context: Context) {
         val updateLastCheck = longPreferencesKey("update_last_check")
         val updateNotified = intPreferencesKey("update_notified")
         val reconnectAfterUpdate = booleanPreferencesKey("reconnect_after_update")
+        val autoBySubscription = booleanPreferencesKey("auto_by_subscription")
+        val autoSubscription = longPreferencesKey("auto_subscription")
+        val serversPool = stringPreferencesKey("servers_pool")
+        val serversQuery = stringPreferencesKey("servers_query")
+        val serversSort = stringPreferencesKey("servers_sort")
+        val serversByCountry = booleanPreferencesKey("servers_by_country")
+        val serversFavorites = booleanPreferencesKey("servers_favorites")
+        val serversSubscription = longPreferencesKey("servers_subscription")
+        val serversOpen = stringSetPreferencesKey("servers_open_countries")
+        val serversOpenTouched = booleanPreferencesKey("servers_open_touched")
+    }
+
+    /**
+     * «Авто по подпискам»: the auto modes may be limited to one subscription's servers
+     * (the choice under the mode selector). Off hides that choice and ignores it.
+     */
+    val autoBySubscription: Flow<Boolean> = context.dataStore.data.map { it[Keys.autoBySubscription] ?: true }
+
+    suspend fun setAutoBySubscription(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.autoBySubscription] = enabled }
+    }
+
+    /** The subscription the auto modes pick from; 0: every subscription. */
+    val autoSubscription: Flow<Long> = context.dataStore.data.map { it[Keys.autoSubscription] ?: 0L }
+
+    suspend fun setAutoSubscription(subscriptionId: Long) {
+        context.dataStore.edit { it[Keys.autoSubscription] = subscriptionId.coerceAtLeast(0) }
+    }
+
+    /** The server list as it was left (see [ServersView]). */
+    val serversView: Flow<ServersView> = context.dataStore.data.map { p ->
+        ServersView(
+            pool = runCatching { ServerPool.valueOf(p[Keys.serversPool].orEmpty()) }.getOrDefault(ServerPool.ALL),
+            query = p[Keys.serversQuery].orEmpty(),
+            sort = runCatching { ServerSort.valueOf(p[Keys.serversSort].orEmpty()) }.getOrDefault(ServerSort.BEST),
+            byCountry = p[Keys.serversByCountry] ?: true,
+            favoritesOnly = p[Keys.serversFavorites] ?: false,
+            subscriptionId = p[Keys.serversSubscription]?.takeIf { it > 0 },
+            openCountries = if (p[Keys.serversOpenTouched] == true) p[Keys.serversOpen].orEmpty() else null
+        )
+    }
+
+    suspend fun setServersView(view: ServersView) {
+        context.dataStore.edit {
+            it[Keys.serversPool] = view.pool.name
+            it[Keys.serversQuery] = view.query
+            it[Keys.serversSort] = view.sort.name
+            it[Keys.serversByCountry] = view.byCountry
+            it[Keys.serversFavorites] = view.favoritesOnly
+            it[Keys.serversSubscription] = view.subscriptionId ?: 0L
+            it[Keys.serversOpenTouched] = view.openCountries != null
+            it[Keys.serversOpen] = view.openCountries.orEmpty()
+        }
     }
 
     /**
@@ -276,7 +332,7 @@ class AppPreferences(private val context: Context) {
     private val backupBooleans = listOf(
         Keys.autoFailover, Keys.pingOnStart, Keys.localDns, Keys.blockTorrents, Keys.sendHwid,
         Keys.batterySaver, Keys.autoConnect, Keys.refreshOnLaunch, Keys.followNetwork,
-        Keys.autoRecheck, Keys.hideBalancers, Keys.simpleMode
+        Keys.autoRecheck, Keys.hideBalancers, Keys.simpleMode, Keys.autoBySubscription
     )
     private val backupStrings = listOf(
         Keys.designTheme, Keys.perAppMode, Keys.defaultPingType, Keys.adBlock, Keys.connectMode

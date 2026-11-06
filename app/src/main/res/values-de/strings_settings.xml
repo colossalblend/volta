@@ -258,4 +258,8 @@
     <string name="settings_link_crypt_unknown_key">Der Link ist mit einem Schlüssel verschlüsselt, den diese Volta-Version nicht hat</string>
     <string name="settings_link_crypt_failed">Der Link ließ sich nicht entschlüsseln: Er ist beschädigt oder nicht für Volta</string>
     <string name="settings_link_damaged">Der Link ist beschädigt</string>
+
+    <!-- Auto by subscription -->
+    <string name="settings_auto_by_subscription_title">Auto nach Abo</string>
+    <string name="settings_auto_by_subscription_text">Unter dem Modus auf dem Startbildschirm: Die Automodi können nur aus den Servern eines Abos wählen</string>
 </resources>

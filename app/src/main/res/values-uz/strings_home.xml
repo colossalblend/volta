@@ -215,4 +215,7 @@
     <string name="home_switch_back">«%1$s» javob bermadi, «%2$s» serveriga qaytdik</string>
     <string name="home_switch_moved">«%1$s» javob bermay qo‘ydi, «%2$s» serveriga o‘tdik</string>
     <string name="home_switch_kept">«%1$s» serveriga o‘tib bo‘lmadi, «%2$s» serverida qolamiz</string>
+
+    <!-- Auto by subscription -->
+    <string name="home_auto_scope_label">Qayerdan tanlash</string>
 </resources>

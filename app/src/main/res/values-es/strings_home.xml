@@ -215,4 +215,7 @@
     <string name="home_switch_back">«%1$s» no respondió, de vuelta en «%2$s»</string>
     <string name="home_switch_moved">«%1$s» dejó de responder, pasamos a «%2$s»</string>
     <string name="home_switch_kept">No se pudo cambiar a «%1$s», seguimos en «%2$s»</string>
+
+    <!-- Auto by subscription -->
+    <string name="home_auto_scope_label">Elegir de</string>
 </resources>

@@ -215,4 +215,7 @@
     <string name="home_switch_back">«%1$s» پاسخ نداد، به «%2$s» برگشتیم</string>
     <string name="home_switch_moved">«%1$s» دیگر پاسخ نمی‌دهد، به «%2$s» رفتیم</string>
     <string name="home_switch_kept">رفتن به «%1$s» ممکن نشد، روی «%2$s» می‌مانیم</string>
+
+    <!-- Auto by subscription -->
+    <string name="home_auto_scope_label">انتخاب از</string>
 </resources>

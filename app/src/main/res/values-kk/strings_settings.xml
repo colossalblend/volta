@@ -258,4 +258,8 @@
     <string name="settings_link_crypt_unknown_key">Сілтеме Volta-ның осы нұсқасында жоқ кілтпен шифрланған</string>
     <string name="settings_link_crypt_failed">Сілтеменің шифрын ашу мүмкін болмады: ол бүлінген немесе Volta үшін емес</string>
     <string name="settings_link_damaged">Сілтеме бүлінген</string>
+
+    <!-- Auto by subscription -->
+    <string name="settings_auto_by_subscription_title">Жазылым бойынша авто</string>
+    <string name="settings_auto_by_subscription_text">Басты экрандағы режим астында: автоматты режимдер тек бір жазылымның серверлерінен таңдай алады</string>
 </resources>

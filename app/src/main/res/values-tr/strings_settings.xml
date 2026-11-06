@@ -258,4 +258,8 @@
     <string name="settings_link_crypt_unknown_key">Bağlantı, Volta\'nın bu sürümünde olmayan bir anahtarla şifrelenmiş</string>
     <string name="settings_link_crypt_failed">Bağlantının şifresi çözülemedi: bozuk ya da Volta için değil</string>
     <string name="settings_link_damaged">Bağlantı bozuk</string>
+
+    <!-- Auto by subscription -->
+    <string name="settings_auto_by_subscription_title">Aboneliğe göre otomatik</string>
+    <string name="settings_auto_by_subscription_text">Ana ekranda modun altında: otomatik modlar yalnızca tek bir aboneliğin sunucularından seçebilir</string>
 </resources>

@@ -27,6 +27,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.BatterySaver
 import androidx.compose.material.icons.rounded.CloudSync
@@ -125,6 +126,7 @@ fun SettingsScreen(vm: VoltaViewModel) {
     val refreshOnLaunch by vm.refreshOnLaunch.collectAsStateWithLifecycle()
     val followNetwork by vm.followNetwork.collectAsStateWithLifecycle()
     val autoRecheck by vm.autoRecheck.collectAsStateWithLifecycle()
+    val autoBySubscription by vm.autoBySubscription.collectAsStateWithLifecycle()
     val simpleMode by vm.simpleMode.collectAsStateWithLifecycle()
     val update by vm.updateState.collectAsStateWithLifecycle()
     val updateAutoCheck by vm.updateAutoCheck.collectAsStateWithLifecycle()
@@ -177,6 +179,14 @@ fun SettingsScreen(vm: VoltaViewModel) {
                         subtitle = stringResource(R.string.settings_recheck_text),
                         checked = autoRecheck,
                         onChecked = vm::setAutoRecheck
+                    )
+                    SwitchRow(
+                        icon = Icons.Rounded.FilterList,
+                        tint = primary,
+                        title = stringResource(R.string.settings_auto_by_subscription_title),
+                        subtitle = stringResource(R.string.settings_auto_by_subscription_text),
+                        checked = autoBySubscription,
+                        onChecked = vm::setAutoBySubscription
                     )
                     SwitchRow(
                         icon = Icons.Rounded.Autorenew,

@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.Uri
 import android.net.VpnService
 import androidx.annotation.StringRes
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.ars3nb.volta.BuildConfig
@@ -37,6 +38,7 @@ import com.ars3nb.volta.data.model.RoutingRuleDto
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.ServerPool
 import com.ars3nb.volta.data.model.ServerRole
+import com.ars3nb.volta.data.model.ServersView
 import com.ars3nb.volta.data.model.SiteProbeResult
 import com.ars3nb.volta.data.model.SubscriptionEntity
 import com.ars3nb.volta.data.model.SwitchTarget
@@ -55,6 +57,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -122,8 +126,8 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     private val _ip = MutableStateFlow<IpInfo?>(null)
     private val _needsVpnPermission = MutableStateFlow(false)
     private val _startupDone = MutableStateFlow(false)
-    private val _serverPool = MutableStateFlow(ServerPool.ALL)
-    private val _query = MutableStateFlow("")
+    /** Null until read from the settings: the list never shows unfiltered first. */
+    private val _serversView = MutableStateFlow<ServersView?>(null)
     private val _runningScope = MutableStateFlow<BalancerScope?>(null)
     private val _connectPhase = MutableStateFlow(ConnectPhase.IDLE)
 
@@ -137,8 +141,27 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
     private var connectJob: Job? = null
 
     val needsVpnPermission = _needsVpnPermission.asStateFlow()
-    val serverPool = _serverPool.asStateFlow()
-    val query = _query.asStateFlow()
+    /** The server list as it was left (filters, order, search, open countries). */
+    val serversView: StateFlow<ServersView?> = _serversView.asStateFlow()
+    val serverPool: StateFlow<ServerPool> = _serversView.map { it?.pool ?: ServerPool.ALL }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ServerPool.ALL)
+    val query: StateFlow<String> = _serversView.map { it?.query.orEmpty() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
+    /**
+     * Where the server list was scrolled to, one per layout (by country, flat). Held
+     * here, so a trip to another tab and back finds the list where it was left.
+     */
+    val serversByCountryList = LazyListState()
+    val serversFlatList = LazyListState()
+
+    /** «Авто по подпискам» is on (Settings): the choice under the mode selector shows. */
+    val autoBySubscription = repo.autoBySubscription
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    /** The subscription the auto modes pick from; 0: all of them. */
+    val autoSubscription = repo.autoSubscription
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
 
     /** Which balancer button is currently working, for the spinner in the UI. */
     val runningScope = _runningScope.asStateFlow()
@@ -333,6 +356,14 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         viewModelScope.launch(Dispatchers.IO) { _hwid.value = repo.hwid() }
+        viewModelScope.launch {
+            _serversView.value = repo.serversView.first()
+            // Written a moment after the last change: typing a search is one write.
+            _serversView.filterNotNull().drop(1).collectLatest { view ->
+                delay(VIEW_SAVE_DELAY_MS)
+                repo.setServersView(view)
+            }
+        }
         viewModelScope.launch {
             repo.ensureSeeded()
             // Last verdict first, so the home screen is not blank while the probe runs,
@@ -591,12 +622,38 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
 
     fun deleteServer(id: Long) = viewModelScope.launch { repo.deleteServer(id) }
 
-    fun setServerPool(pool: ServerPool) {
-        _serverPool.value = pool
+    fun setServerPool(pool: ServerPool) = updateServersView { it.copy(pool = pool) }
+
+    fun setQuery(value: String) = updateServersView { it.copy(query = value) }
+
+    /** Changes how the server list is looked at; kept for the next visit and restart. */
+    fun updateServersView(change: (ServersView) -> ServersView) {
+        val current = _serversView.value ?: return
+        _serversView.value = change(current)
     }
 
-    fun setQuery(value: String) {
-        _query.value = value
+    fun setAutoBySubscription(v: Boolean) = viewModelScope.launch {
+        repo.setAutoBySubscription(v)
+        // Switching it off lifts a limit the tunnel was picked under.
+        if (!v && repo.autoSubscription.first() > 0) moveIfAuto()
+    }
+
+    /**
+     * «Авто по подписке»: the auto modes pick only from [subscriptionId]'s servers (0:
+     * from all). A live tunnel moves into that subscription right away.
+     */
+    fun setAutoSubscription(subscriptionId: Long) = viewModelScope.launch {
+        if (repo.autoSubscription.first() == subscriptionId) return@launch
+        repo.setAutoSubscription(subscriptionId)
+        moveIfAuto()
+    }
+
+    private suspend fun moveIfAuto() {
+        if (uiState.value.isConnected && repo.connectMode.first() != ConnectMode.MANUAL &&
+            connectPhase.value == ConnectPhase.IDLE
+        ) {
+            doConnect()
+        }
     }
 
     /**
@@ -648,7 +705,7 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
      * Checks every server in [pool]. Results stream into [sweep]; the list re-sorts once
      * at the end. [cancelPingAll] stops it and keeps what was measured.
      */
-    fun pingAll(type: PingType? = null, pool: ServerPool = _serverPool.value) {
+    fun pingAll(type: PingType? = null, pool: ServerPool = serverPool.value) {
         if (sweepJob?.isActive == true) return
         sweepJob = viewModelScope.launch {
             try {
@@ -1198,6 +1255,9 @@ class VoltaViewModel(app: Application) : AndroidViewModel(app) {
 }
 
 private const val RETRY_DELAY_MS = 20_000L
+
+/** The list's look is saved this long after the last change to it. */
+private const val VIEW_SAVE_DELAY_MS = 400L
 
 /** Bigger than any server list or `.conf`; a wrong file is not read whole into memory. */
 private const val MAX_IMPORT_FILE_BYTES = 512 * 1024

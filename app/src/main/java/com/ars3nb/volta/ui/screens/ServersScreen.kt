@@ -98,6 +98,7 @@ import com.ars3nb.volta.data.model.BalancerScope
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.ServerPool
 import com.ars3nb.volta.data.model.ServerRole
+import com.ars3nb.volta.data.model.ServerSort
 import com.ars3nb.volta.data.model.matches
 import com.ars3nb.volta.ui.VoltaViewModel
 import com.ars3nb.volta.ui.collectQuietState
@@ -110,8 +111,6 @@ import com.ars3nb.volta.ui.components.shownSubscriptionName
 import com.ars3nb.volta.ui.share.BleSendSheet
 import com.ars3nb.volta.ui.share.rememberBleShareAvailable
 
-private enum class ServerSort { BEST, NAME, SUBSCRIPTION }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ServersScreen(
@@ -119,24 +118,34 @@ fun ServersScreen(
     onOpenImport: () -> Unit
 ) {
     val state by vm.collectQuietState()
-    val pool by vm.serverPool.collectAsStateWithLifecycle()
-    val query by vm.query.collectAsStateWithLifecycle()
+    // The list as it was left: read from the settings before anything is drawn, so it
+    // never shows unfiltered first and then jumps to the saved filters.
+    val savedView by vm.serversView.collectAsStateWithLifecycle()
+    val view = savedView ?: run {
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
+        return
+    }
+    val pool = view.pool
+    val query = view.query
+    val sort = view.sort
+    val byCountry = view.byCountry
+    val favoritesOnly = view.favoritesOnly
+    // A subscription filter outlives its subscription only until the list knows it's gone.
+    val subscriptionFilter = view.subscriptionId?.takeIf { id ->
+        state.subscriptions.isEmpty() || (state.subscriptions.size > 1 && state.subscriptions.any { it.id == id })
+    }
+    // null until the user folds something: then only the current server's country is open.
+    val openCountries = view.openCountries
     val runningScope by vm.runningScope.collectAsStateWithLifecycle()
     val hideBalancers by vm.hideBalancers.collectAsStateWithLifecycle()
     // Only whether a sweep runs: its progress is read by the strip and the rows alone, so
     // an answer redraws one row and the counter, not this whole screen.
     val sweeping by vm.sweepRunning.collectAsStateWithLifecycle()
-    var sort by remember { mutableStateOf(ServerSort.BEST) }
     var sortMenu by remember { mutableStateOf(false) }
-    var byCountry by remember { mutableStateOf(true) }
-    var favoritesOnly by remember { mutableStateOf(false) }
     var sheetServer by remember { mutableStateOf<ServerEntity?>(null) }
     val bluetooth = rememberBleShareAvailable()
     // The link being sent over Bluetooth, if any: remembered, never saved state.
     var bleSend by remember { mutableStateOf<String?>(null) }
-    var subscriptionFilter by remember { mutableStateOf<Long?>(null) }
-    // null until the user folds something: then only the current server's country is open.
-    var openCountries by remember { mutableStateOf<Set<String>?>(null) }
 
     val subsById = remember(state.subscriptions) { state.subscriptions.associateBy { it.id } }
 
@@ -246,7 +255,7 @@ fun ServersScreen(
                                     DropdownMenuItem(
                                         text = { Text(sortLabel(option)) },
                                         onClick = {
-                                            sort = option
+                                            vm.updateServersView { it.copy(sort = option) }
                                             sortMenu = false
                                         },
                                         trailingIcon = {
@@ -270,6 +279,8 @@ fun ServersScreen(
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
+            // Kept in the view model: back from another tab, the list is where it was.
+            state = if (byCountry) vm.serversByCountryList else vm.serversFlatList,
             contentPadding = PaddingValues(16.dp, 0.dp, 16.dp, 24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
@@ -310,7 +321,7 @@ fun ServersScreen(
                     VoltaChip(
                         text = stringResource(R.string.servers_favorites),
                         selected = favoritesOnly,
-                        onClick = { favoritesOnly = !favoritesOnly },
+                        onClick = { vm.updateServersView { it.copy(favoritesOnly = !favoritesOnly) } },
                         icon = Icons.Rounded.Star
                     )
                 }
@@ -326,14 +337,15 @@ fun ServersScreen(
                         VoltaChip(
                             text = stringResource(R.string.servers_all_subscriptions),
                             selected = subscriptionFilter == null,
-                            onClick = { subscriptionFilter = null }
+                            onClick = { vm.updateServersView { it.copy(subscriptionId = null) } }
                         )
                         state.subscriptions.forEach { sub ->
                             VoltaChip(
                                 text = shownSubscriptionName(sub),
                                 selected = subscriptionFilter == sub.id,
                                 onClick = {
-                                    subscriptionFilter = if (subscriptionFilter == sub.id) null else sub.id
+                                    val next = if (subscriptionFilter == sub.id) null else sub.id
+                                    vm.updateServersView { it.copy(subscriptionId = next) }
                                 },
                                 accent = subscriptionColor(sub)
                             )
@@ -382,7 +394,7 @@ fun ServersScreen(
                     SlidingChoice(
                         options = listOf(true, false),
                         selected = byCountry,
-                        onSelect = { byCountry = it },
+                        onSelect = { choice -> vm.updateServersView { it.copy(byCountry = choice) } },
                         label = { if (it) byCountryLabel else listLabel },
                         height = 36.dp,
                         modifier = Modifier.width(170.dp)
@@ -419,8 +431,8 @@ fun ServersScreen(
                         expanded = expanded,
                         current = country.code == currentCountry,
                         onToggle = {
-                            openCountries = if (country.code in open) open - country.code
-                            else open + country.code
+                            val next = if (country.code in open) open - country.code else open + country.code
+                            vm.updateServersView { it.copy(openCountries = next) }
                         }
                     ) {
                         servers.forEach { server ->

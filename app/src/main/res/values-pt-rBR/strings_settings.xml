@@ -264,4 +264,8 @@
     <string name="settings_link_crypt_unknown_key">O link foi criptografado com uma chave que esta versão do Volta não tem</string>
     <string name="settings_link_crypt_failed">Não foi possível descriptografar o link: ele está danificado ou não é para o Volta</string>
     <string name="settings_link_damaged">O link está danificado</string>
+
+    <!-- Auto by subscription -->
+    <string name="settings_auto_by_subscription_title">Auto por assinatura</string>
+    <string name="settings_auto_by_subscription_text">Abaixo do modo na tela inicial: os modos automáticos podem escolher só entre os servidores de uma assinatura</string>
 </resources>

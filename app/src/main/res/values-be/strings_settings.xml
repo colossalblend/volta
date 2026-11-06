@@ -270,4 +270,8 @@
     <string name="settings_link_crypt_unknown_key">Спасылка зашыфравана ключом, якога няма ў гэтай версіі Volta</string>
     <string name="settings_link_crypt_failed">Не атрымалася расшыфраваць спасылку: яна пашкоджаная або не для Volta</string>
     <string name="settings_link_damaged">Спасылка пашкоджаная</string>
+
+    <!-- Auto by subscription -->
+    <string name="settings_auto_by_subscription_title">Аўта па падпісках</string>
+    <string name="settings_auto_by_subscription_text">Пад рэжымам на галоўным экране: аўтаматычныя рэжымы могуць выбіраць толькі з сервераў адной падпіскі</string>
 </resources>

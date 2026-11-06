@@ -7,6 +7,7 @@ import com.ars3nb.volta.core.HwidProvider
 import com.ars3nb.volta.core.balancer.AutoBalancer
 import com.ars3nb.volta.core.balancer.GuardPolicy
 import com.ars3nb.volta.core.balancer.LastWins
+import com.ars3nb.volta.core.balancer.SubscriptionScope
 import com.ars3nb.volta.core.locale.UiText
 import com.ars3nb.volta.core.locale.UiTextException
 import com.ars3nb.volta.core.openflux.OpenFluxLink
@@ -45,6 +46,7 @@ import com.ars3nb.volta.data.model.RoutingRuleDto
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.ServerPool
 import com.ars3nb.volta.data.model.ServerRole
+import com.ars3nb.volta.data.model.ServersView
 import com.ars3nb.volta.data.model.SiteCategory
 import com.ars3nb.volta.data.model.SiteProbeResult
 import com.ars3nb.volta.data.model.SubscriptionEntity
@@ -168,9 +170,41 @@ class VoltaRepository(private val context: Context) {
      */
     val hasLteServers: Flow<Boolean> = servers.map(GuardPolicy::hasLte).distinctUntilChanged()
 
-    /** The stored mode, corrected for a library without LTE servers. */
-    private suspend fun effectiveMode(): ConnectMode =
-        GuardPolicy.effectiveMode(prefs.connectMode.first(), GuardPolicy.hasLte(serverDao.getAll()))
+    /**
+     * The stored mode, corrected for a library without LTE servers: those of the
+     * subscription the auto pick is limited to, when it is ([autoLimit]).
+     */
+    private suspend fun effectiveMode(): ConnectMode {
+        val mode = prefs.connectMode.first()
+        val servers = SubscriptionScope.pool(serverDao.getAll(), autoLimit(mode), scope = null)
+        return GuardPolicy.effectiveMode(mode, GuardPolicy.hasLte(servers))
+    }
+
+    val autoBySubscription = prefs.autoBySubscription
+    val autoSubscription = prefs.autoSubscription
+
+    suspend fun setAutoBySubscription(v: Boolean) = prefs.setAutoBySubscription(v)
+    suspend fun setAutoSubscription(id: Long) = prefs.setAutoSubscription(id)
+
+    /** The server list as it was left: filters, order, search, open countries. */
+    val serversView: Flow<ServersView> = prefs.serversView
+    suspend fun setServersView(view: ServersView) = prefs.setServersView(view)
+
+    /**
+     * The subscription the auto modes pick from, or null for all of them (see
+     * [SubscriptionScope.effective]: a gone subscription simply lifts the limit).
+     */
+    private suspend fun autoLimit(mode: ConnectMode? = null): Long? = SubscriptionScope.effective(
+        chosen = prefs.autoSubscription.first(),
+        enabled = prefs.autoBySubscription.first(),
+        mode = mode ?: prefs.connectMode.first(),
+        simpleMode = prefs.simpleMode.first(),
+        subscriptionIds = subDao.getAll().map { it.id }
+    )
+
+    /** What an auto pick for [scope] may choose from. */
+    private suspend fun autoPool(servers: List<ServerEntity>, scope: BalancerScope?): List<ServerEntity> =
+        SubscriptionScope.pool(servers, autoLimit(), scope)
 
     private val _autoPicking = MutableStateFlow(false)
 
@@ -501,6 +535,7 @@ class VoltaRepository(private val context: Context) {
         routingDao.deleteBySubscription(id)
         geoData.delete(id)
         subDao.deleteById(id)
+        if (prefs.autoSubscription.first() == id) prefs.setAutoSubscription(0)
         if (serverDao.getSelected() == null) {
             replacementFor(gone = null)?.let { serverDao.selectServer(it.id) }
         }
@@ -981,7 +1016,7 @@ class VoltaRepository(private val context: Context) {
             prefs.lastGoodLte.first().takeIf { it > 0 }?.let { put(BalancerScope.BYPASS, it) }
         }
         val decision = balancer.choose(
-            servers = serverDao.getAll().filter { it.id != exclude },
+            servers = autoPool(serverDao.getAll(), scope).filter { it.id != exclude },
             scope = scope,
             current = current,
             pingType = prefs.defaultPingType.first(),
@@ -1109,7 +1144,7 @@ class VoltaRepository(private val context: Context) {
                         failStreak = (failed.failStreak + 1).coerceAtMost(9)
                     )
                 }
-                val candidates = serverDao.getAll()
+                val candidates = autoPool(serverDao.getAll(), effectiveMode().scope)
                     .filter { it.id != failedServerId && ConfigBuilder.canDial(it) }
                 // Stay inside the group the user asked for: an LTE exit is no use on
                 // Wi-Fi and a Home exit dies on a whitelisted mobile network.
@@ -1438,7 +1473,7 @@ class VoltaRepository(private val context: Context) {
             // server's fault. Nothing to fix until the network is back.
             if (!network.hasAnyNetwork) return@withContext
             if (prefs.followNetwork.first()) {
-                val dialable = serverDao.getAll().filter { ConfigBuilder.canDial(it) }
+                val dialable = autoPool(serverDao.getAll(), BalancerScope.ALL).filter { ConfigBuilder.canDial(it) }
                 val fits = { outcome: NetworkProbe.Outcome ->
                     AutoBalancer.filterByRegime(dialable, outcome.regime).any { it.id == live.id }
                 }

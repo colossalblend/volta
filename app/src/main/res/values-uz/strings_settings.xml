@@ -258,4 +258,8 @@
     <string name="settings_link_crypt_unknown_key">Havola Voltaning bu versiyasida yoʻq kalit bilan shifrlangan</string>
     <string name="settings_link_crypt_failed">Havolani deshifrlab boʻlmadi: u buzilgan yoki Volta uchun emas</string>
     <string name="settings_link_damaged">Havola buzilgan</string>
+
+    <!-- Auto by subscription -->
+    <string name="settings_auto_by_subscription_title">Obuna bo‘yicha avto</string>
+    <string name="settings_auto_by_subscription_text">Bosh ekrandagi rejim ostida: avtomatik rejimlar faqat bitta obuna serverlaridan tanlashi mumkin</string>
 </resources>

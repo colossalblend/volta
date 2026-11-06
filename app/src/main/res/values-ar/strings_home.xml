@@ -227,4 +227,7 @@
     <string name="home_switch_back">لم يستجب «%1$s»، عدنا إلى «%2$s»</string>
     <string name="home_switch_moved">توقّف «%1$s» عن الاستجابة، انتقلنا إلى «%2$s»</string>
     <string name="home_switch_kept">تعذّر الانتقال إلى «%1$s»، نبقى على «%2$s»</string>
+
+    <!-- Auto by subscription -->
+    <string name="home_auto_scope_label">الاختيار من</string>
 </resources>

@@ -12,6 +12,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -64,6 +66,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ars3nb.volta.R
 import com.ars3nb.volta.core.balancer.AutoBalancer
+import com.ars3nb.volta.core.balancer.SubscriptionScope
 import com.ars3nb.volta.core.locale.UiText
 import com.ars3nb.volta.core.locale.asString
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
@@ -96,6 +99,8 @@ import com.ars3nb.volta.ui.components.SignalBars
 import com.ars3nb.volta.ui.components.SpeedGraph
 import com.ars3nb.volta.ui.components.TrafficCard
 import com.ars3nb.volta.ui.components.UpdateBanner
+import com.ars3nb.volta.ui.components.VoltaChip
+import com.ars3nb.volta.ui.components.subscriptionColor
 import com.ars3nb.volta.ui.components.InternetBanner
 import com.ars3nb.volta.ui.components.flagOf
 import com.ars3nb.volta.ui.components.formatDuration
@@ -137,6 +142,8 @@ fun HomeScreen(
     val openFlux by vm.openFluxStatus.collectAsStateWithLifecycle()
     val traffic by vm.trafficSummary.collectAsStateWithLifecycle()
     val switching by vm.switching.collectAsStateWithLifecycle()
+    val bySubscription by vm.autoBySubscription.collectAsStateWithLifecycle()
+    val autoSubscription by vm.autoSubscription.collectAsStateWithLifecycle()
     val internet by rememberInternetStatus()
     // On a TV with nothing set up yet, a phone nearby can send the subscription.
     val bluetooth = rememberBleShareAvailable()
@@ -154,6 +161,9 @@ fun HomeScreen(
         traffic = traffic,
         internet = internet,
         switching = switching,
+        autoBySubscription = bySubscription,
+        autoSubscription = autoSubscription,
+        onAutoSubscription = vm::setAutoSubscription,
         onToggle = vm::toggleConnect,
         onSelectMode = vm::setConnectMode,
         onOpenServers = onOpenServers,
@@ -207,19 +217,35 @@ fun HomeContent(
     /** «Получить по Bluetooth» under «add a subscription» (on a TV); null hides it. */
     onReceiveBluetooth: (() -> Unit)? = null,
     /** A live tunnel on its way to another node (see VoltaViewModel.switching). */
-    switching: SwitchTarget? = null
+    switching: SwitchTarget? = null,
+    /** «Авто по подпискам» is on: the auto modes may be limited to one subscription. */
+    autoBySubscription: Boolean = false,
+    /** The subscription the auto modes pick from; 0: all of them. */
+    autoSubscription: Long = 0,
+    onAutoSubscription: (Long) -> Unit = {}
 ) {
     val selected = state.selectedServer
     val subscriptionOf = remember(state.subscriptions) { state.subscriptions.associateBy { it.id } }
-    val homeCount = remember(state.servers) {
-        AutoBalancer.poolFor(state.servers, BalancerScope.NORMAL).size
+    // The choice is offered with two subscriptions or more, in an auto mode.
+    val limitShown = autoBySubscription && state.subscriptions.size >= 2 && mode != ConnectMode.MANUAL
+    val limit = SubscriptionScope.effective(
+        chosen = autoSubscription,
+        enabled = autoBySubscription,
+        mode = mode,
+        simpleMode = false,
+        subscriptionIds = state.subscriptions.map { it.id }
+    )
+    // The counts on the mode selector are of the servers the auto pick may use.
+    val scoped = remember(state.servers, limit) { SubscriptionScope.pool(state.servers, limit, scope = null) }
+    val homeCount = remember(scoped) {
+        AutoBalancer.poolFor(scoped, BalancerScope.NORMAL).size
     }
-    val lteCount = remember(state.servers) {
-        AutoBalancer.poolFor(state.servers, BalancerScope.BYPASS).size
+    val lteCount = remember(scoped) {
+        AutoBalancer.poolFor(scoped, BalancerScope.BYPASS).size
     }
     // Provider balancers are in no auto group, so they don't count here either.
-    val autoCount = remember(state.servers) {
-        AutoBalancer.poolFor(state.servers, BalancerScope.ALL).size
+    val autoCount = remember(scoped) {
+        AutoBalancer.poolFor(scoped, BalancerScope.ALL).size
     }
     val working = phase != ConnectPhase.IDLE
     // A live tunnel never looks off while it moves: a pick by hand, the guard, or the
@@ -342,6 +368,17 @@ fun HomeContent(
                                 onSelect = onSelectMode,
                                 onLteMissing = onLteMissing
                             )
+                            AnimatedVisibility(
+                                visible = limitShown,
+                                enter = fadeIn() + expandVertically(),
+                                exit = fadeOut() + shrinkVertically()
+                            ) {
+                                SubscriptionLimitRow(
+                                    subscriptions = state.subscriptions,
+                                    chosen = limit ?: 0L,
+                                    onChoose = onAutoSubscription
+                                )
+                            }
                             AnimatedVisibility(visible = mode == ConnectMode.MANUAL) {
                                 // The capsule above already names the server.
                                 ManualModeStrip(
@@ -630,6 +667,43 @@ private fun ServerIdentity(server: ServerEntity?, subscription: SubscriptionEnti
                     color = scheme.onSurfaceVariant
                 )
             }
+        }
+    }
+}
+
+/**
+ * «Авто по подписке»: which subscriptions the auto mode picks from. One compact row of
+ * chips under the mode selector, all of them first; scrolls sideways when long.
+ */
+@Composable
+private fun SubscriptionLimitRow(
+    subscriptions: List<SubscriptionEntity>,
+    chosen: Long,
+    onChoose: (Long) -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            stringResource(R.string.home_auto_scope_label),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp)
+        )
+        VoltaChip(
+            text = stringResource(R.string.servers_all_subscriptions),
+            selected = chosen == 0L,
+            onClick = { onChoose(0L) }
+        )
+        subscriptions.forEach { sub ->
+            VoltaChip(
+                text = shownSubscriptionName(sub),
+                selected = chosen == sub.id,
+                onClick = { onChoose(if (chosen == sub.id) 0L else sub.id) },
+                accent = subscriptionColor(sub)
+            )
         }
     }
 }

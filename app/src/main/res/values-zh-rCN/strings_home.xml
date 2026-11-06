@@ -212,4 +212,7 @@
     <string name="home_switch_back">“%1$s”没有响应，已切回“%2$s”</string>
     <string name="home_switch_moved">“%1$s”不再响应，已切换到“%2$s”</string>
     <string name="home_switch_kept">无法切换到“%1$s”，继续使用“%2$s”</string>
+
+    <!-- Auto by subscription -->
+    <string name="home_auto_scope_label">选择范围</string>
 </resources>

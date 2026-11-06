@@ -270,4 +270,8 @@
     <string name="settings_link_crypt_unknown_key">Посилання зашифровано ключем, якого немає в цій версії Volta</string>
     <string name="settings_link_crypt_failed">Не вдалося розшифрувати посилання: воно пошкоджене або не для Volta</string>
     <string name="settings_link_damaged">Посилання пошкоджене</string>
+
+    <!-- Auto by subscription -->
+    <string name="settings_auto_by_subscription_title">Авто за підписками</string>
+    <string name="settings_auto_by_subscription_text">Під режимом на головному екрані: автоматичні режими можуть вибирати лише з серверів однієї підписки</string>
 </resources>

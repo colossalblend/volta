@@ -260,4 +260,8 @@
     <string name="settings_link_crypt_unknown_key">The link is encrypted with a key this version of Volta doesn\'t have</string>
     <string name="settings_link_crypt_failed">Couldn\'t decrypt the link: it\'s damaged or not meant for Volta</string>
     <string name="settings_link_damaged">The link is damaged</string>
+
+    <!-- Auto by subscription -->
+    <string name="settings_auto_by_subscription_title">Auto by subscription</string>
+    <string name="settings_auto_by_subscription_text">Under the mode on the home screen: the auto modes can pick only from one subscription\'s servers</string>
 </resources>

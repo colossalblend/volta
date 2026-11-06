@@ -215,4 +215,7 @@
     <string name="home_switch_back">«%1$s» cavab vermədi, «%2$s» serverinə qayıtdıq</string>
     <string name="home_switch_moved">«%1$s» cavab vermir, «%2$s» serverinə keçdik</string>
     <string name="home_switch_kept">«%1$s» serverinə keçmək olmadı, «%2$s» serverində qalırıq</string>
+
+    <!-- Auto by subscription -->
+    <string name="home_auto_scope_label">Seçim mənbəyi</string>
 </resources>
