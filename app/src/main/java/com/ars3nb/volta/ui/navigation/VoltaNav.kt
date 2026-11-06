@@ -51,6 +51,8 @@ import com.ars3nb.volta.ui.tv.Tv
 import com.ars3nb.volta.ui.tv.focusRing
 import com.ars3nb.volta.ui.theme.Motion
 import com.ars3nb.volta.ui.theme.rememberReducedMotion
+import com.ars3nb.volta.ui.theme.LocalLiteMode
+import androidx.compose.runtime.CompositionLocalProvider
 import kotlin.math.absoluteValue
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -130,6 +132,7 @@ private val TABS = listOf(
 @Composable
 fun VoltaAppRoot(vm: VoltaViewModel = viewModel()) {
     val design by vm.designTheme.collectAsStateWithLifecycle()
+    val lite by vm.liteMode.collectAsStateWithLifecycle()
     // Only the message: the whole state changes every two seconds while connected.
     val message by vm.collectMessage()
     val simple by vm.simpleMode.collectAsStateWithLifecycle()
@@ -152,6 +155,7 @@ fun VoltaAppRoot(vm: VoltaViewModel = viewModel()) {
     }
 
     VoltaTheme(design = design) {
+      CompositionLocalProvider(LocalLiteMode provides lite) {
         ProvideTv(tv) {
             Crossfade(targetState = simple, animationSpec = tween(320), label = "simpleMode") { simpleMode ->
                 when (simpleMode) {
@@ -171,6 +175,7 @@ fun VoltaAppRoot(vm: VoltaViewModel = viewModel()) {
                 }
             }
         }
+    }
     }
 }
 

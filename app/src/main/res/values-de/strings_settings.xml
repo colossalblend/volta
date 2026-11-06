@@ -258,4 +258,6 @@
     <string name="settings_link_crypt_unknown_key">Der Link ist mit einem Schlüssel verschlüsselt, den diese Volta-Version nicht hat</string>
     <string name="settings_link_crypt_failed">Der Link ließ sich nicht entschlüsseln: Er ist beschädigt oder nicht für Volta</string>
     <string name="settings_link_damaged">Der Link ist beschädigt</string>
+    <string name="settings_lite_mode">Lite-Design</string>
+    <string name="settings_lite_mode_hint">Weniger Animationen, für langsamere Telefone</string>
 </resources>

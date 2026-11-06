@@ -260,4 +260,6 @@
     <string name="settings_link_crypt_unknown_key">The link is encrypted with a key this version of Volta doesn\'t have</string>
     <string name="settings_link_crypt_failed">Couldn\'t decrypt the link: it\'s damaged or not meant for Volta</string>
     <string name="settings_link_damaged">The link is damaged</string>
+    <string name="settings_lite_mode">Lite design</string>
+    <string name="settings_lite_mode_hint">Fewer animations, for slower phones</string>
 </resources>

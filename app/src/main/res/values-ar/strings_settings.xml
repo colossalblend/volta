@@ -282,4 +282,6 @@
     <string name="settings_link_crypt_unknown_key">الرابط مشفّر بمفتاح غير موجود في هذا الإصدار من Volta</string>
     <string name="settings_link_crypt_failed">تعذّر فك تشفير الرابط: إما أنه تالف أو ليس مخصصًا لـ Volta</string>
     <string name="settings_link_damaged">الرابط تالف</string>
+    <string name="settings_lite_mode">مظهر خفيف (Lite)</string>
+    <string name="settings_lite_mode_hint">رسوم متحركة أقل، للهواتف الأبطأ</string>
 </resources>
