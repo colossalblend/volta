@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gemini_check_action">Geminiʼni tekshirish</string>
+    <string name="gemini_check_action_text">gemini.google.com saytini shu server orqali ochadi</string>
+    <string name="gemini_checking">Gemini tekshirilmoqda…</string>
+    <string name="gemini_available">Gemini ishlaydi</string>
+    <string name="gemini_unsupported">Gemini server mamlakatida ishlamaydi</string>
+    <string name="gemini_failed">Tekshirib boʻlmadi</string>
+    <string name="gemini_home_checking">Gemini: tekshirilmoqda…</string>
+    <string name="gemini_home_available">Gemini: ishlaydi</string>
+    <string name="gemini_home_unsupported">Gemini: ishlamaydi (mamlakat qoʻllab-quvvatlanmaydi)</string>
+    <string name="gemini_home_failed">Gemini: tekshirib boʻlmadi</string>
+    <string name="gemini_check_again">Geminiʼni qayta tekshirish</string>
+    <string name="gemini_checked_at">Tekshirildi: %1$s</string>
+    <string name="gemini_reason_no_answer">Server orqali javob yoʻq</string>
+    <string name="gemini_reason_blocked">Google bu server manzilini rad etdi</string>
+    <string name="gemini_reason_consent">Google Gemini oʻrniga rozilik sahifasini koʻrsatdi</string>
+    <string name="gemini_reason_http">Google %1$d xatosi bilan javob berdi</string>
+    <string name="gemini_reason_unrecognized">Sahifa Gemini sahifasiga oʻxshamaydi</string>
+    <string name="gemini_reason_needs_connection">Tekshirish uchun shu serverga ulaning</string>
+    <string name="gemini_reason_cannot_dial">Bu serverni ushbu versiyada tekshirib boʻlmaydi</string>
+    <string name="gemini_settings_title">Ulangandan keyin Geminiʼni tekshirish</string>
+    <string name="gemini_settings_text">Ulangandan soʻng gemini.google.com saytini server orqali ochadi (taxminan 30 KB) va Gemini u yerda ishlashini bosh sahifada koʻrsatadi</string>
+</resources>

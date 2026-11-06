@@ -10,6 +10,8 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.ars3nb.volta.core.HwidProvider
+import com.ars3nb.volta.core.gemini.GeminiChecks
+import com.ars3nb.volta.data.db.VoltaDatabase
 import com.ars3nb.volta.core.helper.ProxyHelper
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.update.AppUpdater
@@ -57,6 +59,11 @@ class VoltaApp : Application() {
     /** New builds from GitHub: the settings screen, the home banner and the worker. */
     val updater: AppUpdater by lazy { AppUpdater(this, appScope) }
 
+    /** Whether Gemini works through each server: the checks and their last verdicts. */
+    val gemini: GeminiChecks by lazy {
+        GeminiChecks(this, appScope) { id -> VoltaDatabase.get(this).serverDao().getById(id) }
+    }
+
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -88,6 +95,9 @@ class VoltaApp : Application() {
         // only) and the server in use, pinged directly; a dead one or the wrong group
         // is replaced.
         ConnectionGuard(appScope, repository).start(this)
+
+        // Off by default; when switched on, checks Gemini on each server it connects to.
+        gemini.start()
 
         // Quiet background refresh. The worker itself honours each subscription's own
         // update interval, so waking hourly costs almost nothing; UPDATE (not KEEP) lets

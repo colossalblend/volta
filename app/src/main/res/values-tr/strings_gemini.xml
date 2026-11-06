@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gemini_check_action">Gemini\'yi kontrol et</string>
+    <string name="gemini_check_action_text">gemini.google.com\'u bu sunucu üzerinden açar</string>
+    <string name="gemini_checking">Gemini kontrol ediliyor…</string>
+    <string name="gemini_available">Gemini çalışıyor</string>
+    <string name="gemini_unsupported">Gemini sunucunun ülkesinde çalışmıyor</string>
+    <string name="gemini_failed">Kontrol edilemedi</string>
+    <string name="gemini_home_checking">Gemini: kontrol ediliyor…</string>
+    <string name="gemini_home_available">Gemini: çalışıyor</string>
+    <string name="gemini_home_unsupported">Gemini: çalışmıyor (ülke desteklenmiyor)</string>
+    <string name="gemini_home_failed">Gemini: kontrol edilemedi</string>
+    <string name="gemini_check_again">Gemini\'yi yeniden kontrol et</string>
+    <string name="gemini_checked_at">Kontrol edildi: %1$s</string>
+    <string name="gemini_reason_no_answer">Sunucu üzerinden yanıt yok</string>
+    <string name="gemini_reason_blocked">Google bu sunucunun adresini reddetti</string>
+    <string name="gemini_reason_consent">Google, Gemini yerine onay sayfasını gösterdi</string>
+    <string name="gemini_reason_http">Google %1$d hatasıyla yanıt verdi</string>
+    <string name="gemini_reason_unrecognized">Sayfa Gemini\'ye benzemiyor</string>
+    <string name="gemini_reason_needs_connection">Kontrol etmek için bu sunucuya bağlanın</string>
+    <string name="gemini_reason_cannot_dial">Bu sunucu bu sürümde kontrol edilemez</string>
+    <string name="gemini_settings_title">Bağlandıktan sonra Gemini\'yi kontrol et</string>
+    <string name="gemini_settings_text">Bağlantı kurulunca gemini.google.com\'u sunucu üzerinden açar (yaklaşık 30 KB) ve Gemini\'nin orada çalışıp çalışmadığını ana ekranda gösterir</string>
+</resources>

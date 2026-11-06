@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gemini_check_action">Vérifier Gemini</string>
+    <string name="gemini_check_action_text">Ouvre gemini.google.com via ce serveur</string>
+    <string name="gemini_checking">Vérification de Gemini…</string>
+    <string name="gemini_available">Gemini fonctionne</string>
+    <string name="gemini_unsupported">Gemini ne fonctionne pas dans le pays du serveur</string>
+    <string name="gemini_failed">Vérification impossible</string>
+    <string name="gemini_home_checking">Gemini : vérification…</string>
+    <string name="gemini_home_available">Gemini : fonctionne</string>
+    <string name="gemini_home_unsupported">Gemini : ne fonctionne pas (pays non pris en charge)</string>
+    <string name="gemini_home_failed">Gemini : vérification impossible</string>
+    <string name="gemini_check_again">Vérifier Gemini à nouveau</string>
+    <string name="gemini_checked_at">Vérifié %1$s</string>
+    <string name="gemini_reason_no_answer">Aucune réponse via le serveur</string>
+    <string name="gemini_reason_blocked">Google a refusé l\'adresse de ce serveur</string>
+    <string name="gemini_reason_consent">Google a affiché sa page de consentement au lieu de Gemini</string>
+    <string name="gemini_reason_http">Google a répondu avec l\'erreur %1$d</string>
+    <string name="gemini_reason_unrecognized">La page ne ressemblait pas à celle de Gemini</string>
+    <string name="gemini_reason_needs_connection">Connectez-vous à ce serveur pour le vérifier</string>
+    <string name="gemini_reason_cannot_dial">Ce serveur ne peut pas être vérifié dans cette version</string>
+    <string name="gemini_settings_title">Vérifier Gemini après la connexion</string>
+    <string name="gemini_settings_text">Après la connexion, ouvre gemini.google.com via le serveur (environ 30 Ko) et indique sur l\'accueil si Gemini y fonctionne</string>
+</resources>

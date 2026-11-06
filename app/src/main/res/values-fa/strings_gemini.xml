@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gemini_check_action">بررسی Gemini</string>
+    <string name="gemini_check_action_text">gemini.google.com را از طریق این سرور باز می‌کند</string>
+    <string name="gemini_checking">در حال بررسی Gemini…</string>
+    <string name="gemini_available">Gemini کار می‌کند</string>
+    <string name="gemini_unsupported">Gemini در کشور سرور کار نمی‌کند</string>
+    <string name="gemini_failed">بررسی ممکن نشد</string>
+    <string name="gemini_home_checking">Gemini: در حال بررسی…</string>
+    <string name="gemini_home_available">Gemini: کار می‌کند</string>
+    <string name="gemini_home_unsupported">Gemini: کار نمی‌کند (کشور پشتیبانی نمی‌شود)</string>
+    <string name="gemini_home_failed">Gemini: بررسی ممکن نشد</string>
+    <string name="gemini_check_again">بررسی دوباره Gemini</string>
+    <string name="gemini_checked_at">بررسی‌شده %1$s</string>
+    <string name="gemini_reason_no_answer">پاسخی از طریق سرور نیامد</string>
+    <string name="gemini_reason_blocked">Google نشانی این سرور را رد کرد</string>
+    <string name="gemini_reason_consent">Google به‌جای Gemini صفحهٔ رضایت را نشان داد</string>
+    <string name="gemini_reason_http">Google با خطای %1$d پاسخ داد</string>
+    <string name="gemini_reason_unrecognized">صفحه شبیه Gemini نبود</string>
+    <string name="gemini_reason_needs_connection">برای بررسی به این سرور وصل شوید</string>
+    <string name="gemini_reason_cannot_dial">این سرور در این نسخه قابل بررسی نیست</string>
+    <string name="gemini_settings_title">بررسی Gemini پس از اتصال</string>
+    <string name="gemini_settings_text">پس از اتصال، gemini.google.com را از طریق سرور باز می‌کند (حدود ۳۰ کیلوبایت) و در صفحهٔ اصلی نشان می‌دهد که Gemini آنجا کار می‌کند یا نه</string>
+</resources>

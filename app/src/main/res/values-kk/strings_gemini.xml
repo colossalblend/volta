@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gemini_check_action">Gemini-ді тексеру</string>
+    <string name="gemini_check_action_text">gemini.google.com сайтын осы сервер арқылы ашады</string>
+    <string name="gemini_checking">Gemini тексерілуде…</string>
+    <string name="gemini_available">Gemini жұмыс істейді</string>
+    <string name="gemini_unsupported">Gemini сервер елінде жұмыс істемейді</string>
+    <string name="gemini_failed">Тексеру мүмкін болмады</string>
+    <string name="gemini_home_checking">Gemini: тексерілуде…</string>
+    <string name="gemini_home_available">Gemini: жұмыс істейді</string>
+    <string name="gemini_home_unsupported">Gemini: жұмыс істемейді (ел қолдау көрсетілмейді)</string>
+    <string name="gemini_home_failed">Gemini: тексеру мүмкін болмады</string>
+    <string name="gemini_check_again">Gemini-ді қайта тексеру</string>
+    <string name="gemini_checked_at">Тексерілді: %1$s</string>
+    <string name="gemini_reason_no_answer">Сервер арқылы жауап жоқ</string>
+    <string name="gemini_reason_blocked">Google бұл сервердің мекенжайын қабылдамады</string>
+    <string name="gemini_reason_consent">Google Gemini орнына келісім бетін көрсетті</string>
+    <string name="gemini_reason_http">Google %1$d қатесімен жауап берді</string>
+    <string name="gemini_reason_unrecognized">Бет Gemini бетіне ұқсамайды</string>
+    <string name="gemini_reason_needs_connection">Тексеру үшін осы серверге қосылыңыз</string>
+    <string name="gemini_reason_cannot_dial">Бұл серверді осы нұсқада тексеру мүмкін емес</string>
+    <string name="gemini_settings_title">Қосылғаннан кейін Gemini-ді тексеру</string>
+    <string name="gemini_settings_text">Қосылғаннан кейін gemini.google.com сайтын сервер арқылы ашады (шамамен 30 КБ) және Gemini онда жұмыс істей ме, басты бетте көрсетеді</string>
+</resources>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gemini_check_action">检查 Gemini</string>
+    <string name="gemini_check_action_text">通过此服务器打开 gemini.google.com</string>
+    <string name="gemini_checking">正在检查 Gemini…</string>
+    <string name="gemini_available">Gemini 可用</string>
+    <string name="gemini_unsupported">Gemini 在服务器所在国家/地区不可用</string>
+    <string name="gemini_failed">无法检查</string>
+    <string name="gemini_home_checking">Gemini：正在检查…</string>
+    <string name="gemini_home_available">Gemini：可用</string>
+    <string name="gemini_home_unsupported">Gemini：不可用（国家/地区不受支持）</string>
+    <string name="gemini_home_failed">Gemini：无法检查</string>
+    <string name="gemini_check_again">重新检查 Gemini</string>
+    <string name="gemini_checked_at">检查于 %1$s</string>
+    <string name="gemini_reason_no_answer">通过服务器没有响应</string>
+    <string name="gemini_reason_blocked">Google 拒绝了此服务器的地址</string>
+    <string name="gemini_reason_consent">Google 显示了同意页面而非 Gemini</string>
+    <string name="gemini_reason_http">Google 返回错误 %1$d</string>
+    <string name="gemini_reason_unrecognized">页面看起来不像 Gemini</string>
+    <string name="gemini_reason_needs_connection">连接到此服务器后才能检查</string>
+    <string name="gemini_reason_cannot_dial">此版本无法检查此服务器</string>
+    <string name="gemini_settings_title">连接后检查 Gemini</string>
+    <string name="gemini_settings_text">连接后通过服务器打开 gemini.google.com（约 30 KB），并在主页显示 Gemini 在那里是否可用</string>
+</resources>

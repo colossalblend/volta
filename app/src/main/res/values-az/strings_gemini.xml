@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gemini_check_action">Gemini-ni yoxla</string>
+    <string name="gemini_check_action_text">gemini.google.com saytını bu server vasitəsilə açır</string>
+    <string name="gemini_checking">Gemini yoxlanılır…</string>
+    <string name="gemini_available">Gemini işləyir</string>
+    <string name="gemini_unsupported">Gemini serverin ölkəsində işləmir</string>
+    <string name="gemini_failed">Yoxlamaq alınmadı</string>
+    <string name="gemini_home_checking">Gemini: yoxlanılır…</string>
+    <string name="gemini_home_available">Gemini: işləyir</string>
+    <string name="gemini_home_unsupported">Gemini: işləmir (ölkə dəstəklənmir)</string>
+    <string name="gemini_home_failed">Gemini: yoxlamaq alınmadı</string>
+    <string name="gemini_check_again">Gemini-ni yenidən yoxla</string>
+    <string name="gemini_checked_at">Yoxlanılıb: %1$s</string>
+    <string name="gemini_reason_no_answer">Server vasitəsilə cavab yoxdur</string>
+    <string name="gemini_reason_blocked">Google bu serverin ünvanını rədd etdi</string>
+    <string name="gemini_reason_consent">Google Gemini əvəzinə razılıq səhifəsini göstərdi</string>
+    <string name="gemini_reason_http">Google %1$d xətası ilə cavab verdi</string>
+    <string name="gemini_reason_unrecognized">Səhifə Gemini səhifəsinə bənzəmir</string>
+    <string name="gemini_reason_needs_connection">Yoxlamaq üçün bu serverə qoşulun</string>
+    <string name="gemini_reason_cannot_dial">Bu serveri bu versiyada yoxlamaq olmur</string>
+    <string name="gemini_settings_title">Qoşulduqdan sonra Gemini-ni yoxla</string>
+    <string name="gemini_settings_text">Qoşulduqdan sonra gemini.google.com saytını server vasitəsilə açır (təxminən 30 KB) və Gemini-nin orada işləyib-işləmədiyini ana səhifədə göstərir</string>
+</resources>

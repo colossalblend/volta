@@ -27,6 +27,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.BatterySaver
 import androidx.compose.material.icons.rounded.CloudSync
@@ -76,6 +77,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ars3nb.volta.core.locale.UiText
 import androidx.annotation.StringRes
 import com.ars3nb.volta.BuildConfig
@@ -84,6 +86,7 @@ import com.ars3nb.volta.core.vpn.VoltaVpnService
 import com.ars3nb.volta.data.model.ConnectMode
 import com.ars3nb.volta.data.model.PingType
 import com.ars3nb.volta.data.prefs.DesignTheme
+import com.ars3nb.volta.ui.GeminiViewModel
 import com.ars3nb.volta.ui.VoltaViewModel
 import com.ars3nb.volta.ui.collectQuietState
 import com.ars3nb.volta.ui.components.AppIconPicker
@@ -130,6 +133,8 @@ fun SettingsScreen(vm: VoltaViewModel) {
     val updateAutoCheck by vm.updateAutoCheck.collectAsStateWithLifecycle()
     val updateBeta by vm.updateBeta.collectAsStateWithLifecycle()
     val alwaysOn by vm.alwaysOn.collectAsStateWithLifecycle()
+    val gemini = viewModel<GeminiViewModel>()
+    val geminiAfterConnect by gemini.afterConnect.collectAsStateWithLifecycle()
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val palette = VoltaTheme.palette
@@ -250,6 +255,14 @@ fun SettingsScreen(vm: VoltaViewModel) {
                         subtitle = stringResource(R.string.settings_ping_on_start_text),
                         checked = pingOnStart,
                         onChecked = vm::setPingOnStart
+                    )
+                    SwitchRow(
+                        icon = Icons.Rounded.AutoAwesome,
+                        tint = palette.good,
+                        title = stringResource(R.string.gemini_settings_title),
+                        subtitle = stringResource(R.string.gemini_settings_text),
+                        checked = geminiAfterConnect,
+                        onChecked = gemini::setAfterConnect
                     )
                     Column(Modifier.padding(start = 48.dp, top = 6.dp, bottom = 8.dp, end = 4.dp)) {
                         Text(stringResource(R.string.settings_ping_type_title), style = MaterialTheme.typography.titleSmall)
