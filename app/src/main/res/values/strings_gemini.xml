@@ -22,7 +22,7 @@
     <string name="gemini_reason_cannot_dial">This server can\'t be checked in this build</string>
     <string name="gemini_settings_title">Check Gemini after connecting</string>
     <string name="gemini_settings_text">Once connected, opens gemini.google.com through the server (about 30 KB) and shows on Home whether Gemini works there</string>
-    <string name="gemini_reason_flag_on">Gemini's own switch is on for this address</string>
+    <string name="gemini_reason_flag_on">Gemini\'s own switch is on for this address</string>
     <string name="gemini_reason_supported_region">Google placed the server in a country where Gemini is offered</string>
     <string name="gemini_reason_region_list">Google placed the server in a country where Gemini isn\'t offered</string>
     <string name="gemini_reason_text">Gemini said it isn\'t offered here</string>
