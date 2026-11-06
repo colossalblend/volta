@@ -722,10 +722,9 @@ class VoltaVpnService : VpnService() {
      */
     private suspend fun swapCore(plan: ConnectionPlan) {
         val name = plan.serverName
-        val fromId = _serverId.value
-        if (fromId != 0L && fromId != plan.serverId) {
-            _switching.value = Switching(fromId, _serverName.value, plan.serverId, name)
-        }
+        // From the node that carries the tunnel now, or back onto it when a move away
+        // never got as far as starting its core.
+        _switching.value = TunnelRequests.switchingFor(_serverId.value, _serverName.value, _switching.value, plan)
         wanted = plan
         watchdogJob?.cancel()
         synchronized(this) { healthJob?.cancel() }
@@ -842,6 +841,11 @@ class VoltaVpnService : VpnService() {
      * (and says so); anything else moves on to the next best node.
      */
     private suspend fun switchFailed(plan: ConnectionPlan, reason: UiText) {
+        // A newer request (another node, or off) is queued behind this: it does the work.
+        if (wanted != plan) {
+            Log.i(TAG, "switch to ${plan.serverName} failed, a newer request takes over")
+            return
+        }
         val back = lastGoodPlan
         when (TunnelRequests.fallbackFor(plan.origin, plan.serverId, back?.serverId)) {
             Fallback.BACK -> {
