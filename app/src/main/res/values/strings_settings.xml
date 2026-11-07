@@ -261,7 +261,7 @@
     <string name="settings_link_crypt_failed">Couldn\'t decrypt the link: it\'s damaged or not meant for Volta</string>
     <string name="settings_link_damaged">The link is damaged</string>
     <string name="settings_lite_mode">Lite design</string>
-    <string name="settings_lite_mode_hint">Fewer animations, for slower phones</string>
+    <string name="settings_lite_mode_hint">No animations at all — for slower phones</string>
 
     <!-- Auto by subscription -->
     <string name="settings_auto_by_subscription_title">Auto by subscription</string>

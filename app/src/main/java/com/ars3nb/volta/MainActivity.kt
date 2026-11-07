@@ -13,6 +13,10 @@ import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.ui.platform.createLifecycleAwareWindowRecomposer
+import androidx.lifecycle.lifecycleScope
+import com.ars3nb.volta.ui.theme.LiteMotionScale
+import kotlinx.coroutines.launch
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -30,6 +34,13 @@ import com.ars3nb.volta.ui.components.FormatText
 import com.ars3nb.volta.ui.navigation.VoltaAppRoot
 
 class MainActivity : ComponentActivity() {
+
+    private val motionScale by lazy { LiteMotionScale(applicationContext) }
+
+    override fun onResume() {
+        super.onResume()
+        motionScale.refreshSystem()
+    }
 
     /** In the language picked in Settings (Android 12 and older; 13+ does it itself). */
     override fun attachBaseContext(base: Context) {
@@ -57,7 +68,13 @@ class MainActivity : ComponentActivity() {
         // asking again each time would pop the dialog up after every turn of the phone.
         if (savedInstanceState == null) requestNotificationPermissionIfNeeded()
 
-        setContent {
+        // One Recomposer for this window whose animation clock follows «Lite-оформление»:
+        // with it on, every Compose animation is instant (see LiteMotionScale).
+        val recomposer = window.decorView.createLifecycleAwareWindowRecomposer(motionScale, lifecycle)
+        lifecycleScope.launch {
+            vm.liteMode.collect { motionScale.lite = it }
+        }
+        setContent(parent = recomposer) {
             val needsPermission by vm.needsVpnPermission.collectAsStateWithLifecycle()
             LaunchedEffect(needsPermission) {
                 if (needsPermission) {

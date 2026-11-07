@@ -259,7 +259,7 @@
     <string name="settings_link_crypt_failed">Сілтеменің шифрын ашу мүмкін болмады: ол бүлінген немесе Volta үшін емес</string>
     <string name="settings_link_damaged">Сілтеме бүлінген</string>
     <string name="settings_lite_mode">Lite безендіру</string>
-    <string name="settings_lite_mode_hint">Анимация азырақ — әлсіз телефондарға</string>
+    <string name="settings_lite_mode_hint">Анимациясыз — әлсіз телефондарға</string>
 
     <!-- Auto by subscription -->
     <string name="settings_auto_by_subscription_title">Жазылым бойынша авто</string>

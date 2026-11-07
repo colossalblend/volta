@@ -283,7 +283,7 @@
     <string name="settings_link_crypt_failed">تعذّر فك تشفير الرابط: إما أنه تالف أو ليس مخصصًا لـ Volta</string>
     <string name="settings_link_damaged">الرابط تالف</string>
     <string name="settings_lite_mode">مظهر خفيف (Lite)</string>
-    <string name="settings_lite_mode_hint">رسوم متحركة أقل، للهواتف الأبطأ</string>
+    <string name="settings_lite_mode_hint">بلا رسوم متحركة، للهواتف الأبطأ</string>
 
     <!-- Auto by subscription -->
     <string name="settings_auto_by_subscription_title">تلقائي حسب الاشتراك</string>

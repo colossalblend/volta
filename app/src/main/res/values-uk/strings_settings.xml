@@ -271,7 +271,7 @@
     <string name="settings_link_crypt_failed">Не вдалося розшифрувати посилання: воно пошкоджене або не для Volta</string>
     <string name="settings_link_damaged">Посилання пошкоджене</string>
     <string name="settings_lite_mode">Lite-оформлення</string>
-    <string name="settings_lite_mode_hint">Менше анімацій — для слабких телефонів</string>
+    <string name="settings_lite_mode_hint">Без анімацій — для слабких телефонів</string>
 
     <!-- Auto by subscription -->
     <string name="settings_auto_by_subscription_title">Авто за підписками</string>

@@ -259,7 +259,7 @@
     <string name="settings_link_crypt_failed">Keçidin şifrəsini açmaq alınmadı: o zədələnib və ya Volta üçün deyil</string>
     <string name="settings_link_damaged">Keçid zədələnib</string>
     <string name="settings_lite_mode">Lite görünüş</string>
-    <string name="settings_lite_mode_hint">Daha az animasiya — zəif telefonlar üçün</string>
+    <string name="settings_lite_mode_hint">Animasiyasız — zəif telefonlar üçün</string>
 
     <!-- Auto by subscription -->
     <string name="settings_auto_by_subscription_title">Abunəyə görə avto</string>

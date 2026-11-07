@@ -259,7 +259,7 @@
     <string name="settings_link_crypt_failed">Bağlantının şifresi çözülemedi: bozuk ya da Volta için değil</string>
     <string name="settings_link_damaged">Bağlantı bozuk</string>
     <string name="settings_lite_mode">Lite görünüm</string>
-    <string name="settings_lite_mode_hint">Daha az animasyon — yavaş telefonlar için</string>
+    <string name="settings_lite_mode_hint">Animasyon yok — yavaş telefonlar için</string>
 
     <!-- Auto by subscription -->
     <string name="settings_auto_by_subscription_title">Aboneliğe göre otomatik</string>

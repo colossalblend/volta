@@ -259,7 +259,7 @@
     <string name="settings_link_crypt_failed">رمزگشایی لینک انجام نشد: خراب است یا برای Volta نیست</string>
     <string name="settings_link_damaged">لینک خراب است</string>
     <string name="settings_lite_mode">ظاهر سبک (Lite)</string>
-    <string name="settings_lite_mode_hint">انیمیشن کمتر، برای گوشی‌های ضعیف</string>
+    <string name="settings_lite_mode_hint">بدون انیمیشن، برای گوشی‌های ضعیف</string>
 
     <!-- Auto by subscription -->
     <string name="settings_auto_by_subscription_title">خودکار بر اساس اشتراک</string>
