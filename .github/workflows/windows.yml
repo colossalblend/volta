@@ -108,6 +108,8 @@ jobs:
       # geosite.dat come out of the same AAR, so both apps route with the same lists.
       - name: Xray core
         id: core
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           W="$VOLTA_TMP/core"; mkdir -p "$W"
@@ -140,8 +142,14 @@ jobs:
           fi
           echo "Windows core: $TAG"
           BASE="https://github.com/XTLS/Xray-core/releases/download/$TAG"
-          curl -fsSL --retry 4 --retry-delay 5 -o "$W/xray.zip" "$BASE/Xray-windows-64.zip"
-          curl -fsSL --retry 4 --retry-delay 5 -o "$W/xray.zip.dgst" "$BASE/Xray-windows-64.zip.dgst"
+          # GitHub's download links sometimes answer 504 for a while: then the same files
+          # through the API (checked against the same SHA-256 below either way).
+          for f in Xray-windows-64.zip Xray-windows-64.zip.dgst; do
+            out="$W/${f/Xray-windows-64/xray}"
+            curl -fsSL --retry 4 --retry-delay 10 --retry-all-errors -o "$out" "$BASE/$f" \
+              || gh release download "$TAG" -R XTLS/Xray-core -p "$f" -O "$out" --clobber \
+              || { sleep 30; gh release download "$TAG" -R XTLS/Xray-core -p "$f" -O "$out" --clobber; }
+          done
           WANT=$(grep -i 'SHA2-256' "$W/xray.zip.dgst" | head -1 | awk -F'= *' '{print tolower($2)}' | tr -d '\r ')
           GOT=$(sha256sum "$W/xray.zip" | cut -d ' ' -f 1)
           if [ -z "$WANT" ] || [ "$WANT" != "$GOT" ]; then
