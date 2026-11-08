@@ -92,6 +92,14 @@ jobs:
           N=$(ls "$SHOTS"/*.png 2>/dev/null | wc -l)
           echo "installer pages drawn: $N"
           [ "$N" -ge 24 ] || { echo "::error title=Installer pages::only $N of 24 pages drawn"; exit 1; }
+          # On a test build the pages go to the branch's pre-release right away (if it exists yet).
+          if [ "$VOLTA_STABLE" != yes ] && gh release view "$VOLTA_UPDATE_TAG" > /dev/null 2>&1; then
+            (cd "$SHOTS" && 7z a -tzip "$(cygpath -w "$VOLTA_TMP/windows-installer-pages.zip")" ./*.png > /dev/null)
+            gh release upload "$VOLTA_UPDATE_TAG" "$VOLTA_TMP/windows-installer-pages.zip" --clobber || true
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
 
       # The very Xray release the Android app runs: its version is read from the core
       # committed in app/libs/libv2ray.aar (a Go pseudo-version names the commit), the
@@ -262,6 +270,22 @@ jobs:
           ./desktop/installer/ci/installer-test.ps1 -Setup (Join-Path $w "setup\VoltaSetup.exe") `
             -Shots (Join-Path $env:RUNNER_TEMP "screens") -Work (Join-Path $env:RUNNER_TEMP "itest") `
             -LegacyMsi (Join-Path $w "legacy.msi")
+
+      # The pictures of the real windows (installer, app, the «не отвечает» dialog) and the
+      # logs, to the branch's pre-release even when a check above failed.
+      - name: Installer pictures to the pre-release
+        if: always() && env.VOLTA_STABLE != 'yes'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cd "$VOLTA_TMP"
+          [ -d screens ] || exit 0
+          cp itest/*.log screens/ 2>/dev/null || true
+          7z a -tzip windows-installer-screens.zip screens/installer screens/real-*.png screens/*.log > /dev/null || true
+          ls -la windows-installer-screens.zip || exit 0
+          gh release view "$VOLTA_UPDATE_TAG" > /dev/null 2>&1 && gh release upload "$VOLTA_UPDATE_TAG" windows-installer-screens.zip --clobber || true
 
       - name: Collect files
         id: files
