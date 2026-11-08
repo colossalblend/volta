@@ -208,12 +208,13 @@ jobs:
             Write-Host "== $($_.FullName)"
             Select-String -Path $_.FullName -Pattern "RemoveFolder|RemoveFile|util:|INSTALLDIR|AppData|CreateFolder" | Select-Object -First 40 | ForEach-Object { Write-Host $_.Line.Trim() }
           }
-          ./gradlew --no-configuration-cache packageMsi 2>&1 | Select-Object -Last 5
+          $env:VOLTA_MSI = "1"
+          ./gradlew --no-configuration-cache packageMsi 2>&1 | Select-Object -Last 30
           $msi1 = Get-ChildItem build/compose/binaries/main/msi/*.msi | Select-Object -First 1
           Copy-Item $msi1 "$env:RUNNER_TEMP\v1.msi"
           $env:GITHUB_RUN_NUMBER = [string]([int]$env:GITHUB_RUN_NUMBER + 1)
           Remove-Item -Recurse -Force build/compose/binaries/main/msi
-          ./gradlew --no-configuration-cache packageMsi 2>&1 | Select-Object -Last 5
+          ./gradlew --no-configuration-cache packageMsi 2>&1 | Select-Object -Last 30
           $msi2 = Get-ChildItem build/compose/binaries/main/msi/*.msi | Select-Object -First 1
           Copy-Item $msi2 "$env:RUNNER_TEMP\v2.msi"
           Get-ChildItem build/compose/tmp -Recurse -Include *.wxs,*.wxf -ErrorAction SilentlyContinue | ForEach-Object {
@@ -232,6 +233,7 @@ jobs:
           $app = Start-Process $exe -PassThru
           Start-Sleep 15
           Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
+          Start-Sleep 2
           New-Item -ItemType Directory -Force $data | Out-Null
           Set-Content (Join-Path $data "user-marker.txt") "keep me"
           Show "after v1 + first run"
@@ -245,6 +247,9 @@ jobs:
           $p = Start-Process msiexec -ArgumentList @("/x", "`"$env:RUNNER_TEMP\v2.msi`"", "/qn", "/l*v", "`"$env:RUNNER_TEMP\u.log`"") -Wait -PassThru
           Write-Host "uninstall: $($p.ExitCode)"
           Show "after uninstall"
+          Write-Host "registry (Run, Classes\\volta):"
+          Get-ItemProperty "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" -ErrorAction SilentlyContinue | Out-String | Write-Host
+          Test-Path "HKCU:\\Software\\Classes\\volta" | Write-Host
           Select-String -Path "$env:RUNNER_TEMP\u.log" -Pattern "RemoveFolder|AppData|Roaming" | Select-Object -First 30 | ForEach-Object { Write-Host $_.Line }
 
       # The packaged app checks itself: the bundled core starts, accepts the configs Volta

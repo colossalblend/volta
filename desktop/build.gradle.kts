@@ -180,7 +180,8 @@ compose.desktop {
         )
 
         nativeDistributions {
-            targetFormats(TargetFormat.Exe)
+            // TEMPORARY (investigation): an MSI too when asked.
+            if (System.getenv("VOLTA_MSI") == "1") targetFormats(TargetFormat.Exe, TargetFormat.Msi) else targetFormats(TargetFormat.Exe)
             packageName = "Volta"
             packageVersion = voltaVersion
             description = "Volta VPN"
