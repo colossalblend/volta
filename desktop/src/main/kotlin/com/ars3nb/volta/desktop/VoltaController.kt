@@ -1496,18 +1496,21 @@ class VoltaController(
     /**
      * Starts the downloaded installer on its own (not as Volta's child, so it outlives
      * Volta), then quits so the installer can replace the files. The tunnel goes down and
-     * the user's proxy comes back on the way out.
+     * the user's proxy comes back on the way out. Volta's own installer runs unattended
+     * ([args]: `--silent --update --launch`): it waits for this Volta to close, replaces
+     * the program files only (never %APPDATA%\Volta) and starts the new Volta.
      */
-    private fun launchInstaller(file: java.io.File): Boolean {
+    private fun launchInstaller(file: java.io.File, args: List<String>): Boolean {
         if (!file.isFile) return false
         val started = runCatching {
-            if (com.ars3nb.volta.desktop.platform.WinApi.isWindows) {
-                ProcessBuilder("cmd.exe", "/c", "start", "\"\"", file.absolutePath).start()
-            } else {
-                ProcessBuilder(file.absolutePath).start()
-            }
+            ProcessBuilder(listOf(file.absolutePath) + args)
+                .directory(file.parentFile)
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                .redirectError(ProcessBuilder.Redirect.DISCARD)
+                .start()
         }.isSuccess
         if (started) {
+            StartupLog.line("update: installer ${file.name} started ${args.joinToString(" ")}")
             scope.launch {
                 delay(1_200)
                 quitApp()

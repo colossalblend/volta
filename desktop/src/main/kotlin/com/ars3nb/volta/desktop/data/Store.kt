@@ -105,14 +105,49 @@ class Store(private val file: File) {
         return List(count) { first + it }
     }
 
+    /**
+     * The saved state. Never silently empty when there is something on disk: an empty
+     * state would be written over the user's subscriptions with the next change. A file
+     * that can't be read (locked by an antivirus or a backup tool for a moment) is retried
+     * and otherwise stops the start with an error; a file that can't be parsed is kept
+     * aside and the last good copy (volta.json.bak, made at every good start) comes back.
+     */
     private fun load(): StoreData {
-        val text = runCatching { file.readText() }.getOrNull() ?: return StoreData()
-        return runCatching { sanitize(gson.fromJson(withDefaults(text), StoreData::class.java)) }
-            .getOrElse {
-                // Keep the unreadable file for a look later rather than losing it.
-                runCatching { file.copyTo(File(file.parentFile, file.name + ".broken"), overwrite = true) }
-                StoreData()
+        if (!file.exists()) return parse(backup())?.also { restoredFromBackup("missing") } ?: StoreData()
+        var text: String? = null
+        var failure: Exception? = null
+        for (attempt in 0 until 10) {
+            try {
+                text = file.readText(Charsets.UTF_8)
+                break
+            } catch (e: java.io.IOException) {
+                failure = e
+                Thread.sleep(300)
             }
+        }
+        if (text == null) throw java.io.IOException("can't read ${file.absolutePath}", failure)
+        parse(text)?.let { good ->
+            runCatching { file.copyTo(File(file.parentFile, file.name + ".bak"), overwrite = true) }
+            return good
+        }
+        // Keep the unreadable file for a look later rather than losing it.
+        val stamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
+        runCatching { file.copyTo(File(file.parentFile, "${file.name}.broken-$stamp"), overwrite = true) }
+        return parse(backup())?.also { restoredFromBackup("broken") } ?: StoreData()
+    }
+
+    private fun backup(): String? =
+        runCatching { File(file.parentFile, file.name + ".bak").takeIf { it.isFile }?.readText(Charsets.UTF_8) }.getOrNull()
+
+    private fun parse(text: String?): StoreData? = text?.takeIf { it.isNotBlank() }?.let {
+        runCatching { sanitize(gson.fromJson(withDefaults(it), StoreData::class.java)) }.getOrNull()
+    }
+
+    private fun restoredFromBackup(why: String) {
+        runCatching {
+            File(file.parentFile, "logs").mkdirs()
+            File(file.parentFile, "logs/volta.log").appendText("${java.time.LocalDateTime.now()} store: ${file.name} $why, restored from ${file.name}.bak\n")
+        }
     }
 
     /**

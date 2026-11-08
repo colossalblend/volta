@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Volta's own installer and uninstaller (one program; see README.md in this folder).
+    .NET Framework 4.7.2 is part of Windows 10 1803 and later, so the exe needs nothing
+    installed and stays small; the app itself rides inside as payload.zip.
+
+      dotnet build -c Release                                   the uninstaller (no payload)
+      dotnet build -c Release -p:VoltaPayload=<zip> -p:VoltaPayloadInfo=<json> -p:VoltaVersion=1.2.3
+                                                                the installer
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>VoltaSetup</AssemblyName>
+    <RootNamespace>Volta.Setup</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>../icons/volta.ico</ApplicationIcon>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <DebugType>none</DebugType>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
+    <GenerateSupportedRuntime>false</GenerateSupportedRuntime>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <VoltaVersion Condition="'$(VoltaVersion)' == ''">1.1.0</VoltaVersion>
+    <Version>$(VoltaVersion)</Version>
+    <FileVersion>$(VoltaVersion).0</FileVersion>
+    <AssemblyVersion>$(VoltaVersion).0</AssemblyVersion>
+    <InformationalVersion>$(VoltaVersion)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Product>Volta</Product>
+    <Company>Volta</Company>
+    <AssemblyTitle>Volta Setup</AssemblyTitle>
+    <Description>Volta Setup</Description>
+    <Copyright>Volta</Copyright>
+    <NoWarn>$(NoWarn);CS1591;CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="WindowsBase" />
+    <Reference Include="System.Xaml" />
+    <Reference Include="System.IO.Compression" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="../src/main/resources/font/onest-400.ttf" LogicalName="font/onest-400.ttf" />
+    <EmbeddedResource Include="../src/main/resources/font/onest-500.ttf" LogicalName="font/onest-500.ttf" />
+    <EmbeddedResource Include="../src/main/resources/font/onest-600.ttf" LogicalName="font/onest-600.ttf" />
+    <EmbeddedResource Include="../src/main/resources/font/unbounded-500.ttf" LogicalName="font/unbounded-500.ttf" />
+    <EmbeddedResource Include="../src/main/resources/font/unbounded-600.ttf" LogicalName="font/unbounded-600.ttf" />
+    <EmbeddedResource Include="../src/main/resources/icons/volta.png" LogicalName="icon.png" />
+    <EmbeddedResource Include="$(VoltaPayload)" LogicalName="payload.zip" Condition="'$(VoltaPayload)' != ''" />
+    <EmbeddedResource Include="$(VoltaPayloadInfo)" LogicalName="payload.json" Condition="'$(VoltaPayloadInfo)' != ''" />
+  </ItemGroup>
+</Project>

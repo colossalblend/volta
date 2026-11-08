@@ -186,6 +186,22 @@ fun SettingsScreen(
                     checked = st.minimizeToTray,
                     onChecked = controller::setMinimizeToTray
                 )
+                // «Безопасный режим графики»: read before the window exists, so it lives in its own file.
+                var safeGraphics by remember { mutableStateOf(com.ars3nb.volta.desktop.GraphicsMode.isSafe(controller.paths)) }
+                val graphicsText = com.ars3nb.volta.desktop.GraphicsMode.settingsText(
+                    com.ars3nb.volta.desktop.i18n.Lang.resolve(st.language).code
+                )
+                SwitchRow(
+                    icon = Icons.Rounded.Memory,
+                    tint = palette.home,
+                    title = graphicsText.first,
+                    subtitle = graphicsText.second,
+                    checked = safeGraphics,
+                    onChecked = {
+                        safeGraphics = it
+                        com.ars3nb.volta.desktop.GraphicsMode.setSafe(controller.paths, it)
+                    }
+                )
             }
         }
 
