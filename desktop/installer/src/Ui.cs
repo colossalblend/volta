@@ -250,10 +250,9 @@ namespace Volta.Setup
                 }
                 row.Children.Add(VersionPill(payload.Version, true));
                 p.Children.Add(row);
-                bool same = existing.Version == payload.Version;
-                p.Children.Add(Body(same ? string.Format(Text.T.Reinstall, payload.Version) : string.Format(Text.T.UpdateFromTo, existing.Version, payload.Version), 15, Theme.Cream, new Thickness(0, 18, 0, 0), Theme.Semi));
-                p.Children.Add(Card(IconRow(CheckIcon(), null, string.Format(Text.T.UpdateKeeps, existing.Version ?? "—")), new Thickness(0, 14, 0, 0)));
-                p.Children.Add(Chips(new Thickness(0, 16, 0, 0)));
+                if (existing.Version == payload.Version)
+                    p.Children.Add(Body(string.Format(Text.T.Reinstall, payload.Version), 14.5, Theme.CreamSoft, new Thickness(0, 14, 0, 0)));
+                p.Children.Add(Card(IconRow(CheckIcon(), null, string.Format(Text.T.UpdateKeeps, existing.Version ?? "—")), new Thickness(0, 22, 0, 0)));
                 SetPage(p);
                 SetButtons(Ghost(Text.T.Cancel, Close, cancel: true), Primary(Text.T.Update, StartInstall));
             }
@@ -710,7 +709,7 @@ namespace Volta.Setup
         private UIElement Chips(Thickness margin)
         {
             var w = new WrapPanel { Margin = margin };
-            foreach (var t in new[] { Text.T.FactNoAdmin, Text.T.FactWindows, string.Format(Text.T.FactSizeFormat, Text.Size(Math.Max(1, payload.Size))) })
+            foreach (var t in new[] { Text.T.FactNoAdmin, Text.T.FactWindows })
             {
                 var row = new StackPanel { Orientation = Orientation.Horizontal };
                 row.Children.Add(new Ellipse { Width = 6, Height = 6, Fill = Theme.Brush(Theme.Copper), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 1, 8, 0) });
