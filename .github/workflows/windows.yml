@@ -197,6 +197,56 @@ jobs:
           ./gradlew --no-configuration-cache --stacktrace createDistributable packageExe 2>&1 | tee -a "$VOLTA_TMP/gradle.log"
           ls -la build/compose/binaries/main/app/Volta build/compose/binaries/main/exe
 
+      # TEMPORARY investigation: what the jpackage/WiX installer deletes on upgrade and uninstall.
+      - name: Investigate jpackage installer data handling
+        continue-on-error: true
+        shell: pwsh
+        working-directory: desktop
+        run: |
+          $ErrorActionPreference = "Continue"
+          Get-ChildItem -Recurse build -Include *.wxs,*.wxf,*.wxi -ErrorAction SilentlyContinue | ForEach-Object {
+            Write-Host "== $($_.FullName)"
+            Select-String -Path $_.FullName -Pattern "RemoveFolder|RemoveFile|util:|INSTALLDIR|AppData|CreateFolder" | Select-Object -First 40 | ForEach-Object { Write-Host $_.Line.Trim() }
+          }
+          ./gradlew --no-configuration-cache packageMsi 2>&1 | Select-Object -Last 5
+          $msi1 = Get-ChildItem build/compose/binaries/main/msi/*.msi | Select-Object -First 1
+          Copy-Item $msi1 "$env:RUNNER_TEMP\v1.msi"
+          $env:GITHUB_RUN_NUMBER = [string]([int]$env:GITHUB_RUN_NUMBER + 1)
+          Remove-Item -Recurse -Force build/compose/binaries/main/msi
+          ./gradlew --no-configuration-cache packageMsi 2>&1 | Select-Object -Last 5
+          $msi2 = Get-ChildItem build/compose/binaries/main/msi/*.msi | Select-Object -First 1
+          Copy-Item $msi2 "$env:RUNNER_TEMP\v2.msi"
+          Get-ChildItem build/compose/tmp -Recurse -Include *.wxs,*.wxf -ErrorAction SilentlyContinue | ForEach-Object {
+            Write-Host "== $($_.FullName)"
+            Select-String -Path $_.FullName -Pattern "RemoveFolder|RemoveFile|util:|CreateFolder" | Select-Object -First 30 | ForEach-Object { Write-Host $_.Line.Trim() }
+          }
+          $data = Join-Path $env:APPDATA "Volta"
+          function Show($what) {
+            Write-Host "---- $what"
+            Write-Host "install dir:"; Get-ChildItem (Join-Path $env:LOCALAPPDATA "Volta") -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
+            Write-Host "data dir:"; Get-ChildItem -Recurse $data -ErrorAction SilentlyContinue | Select-Object FullName, Length | Format-Table -AutoSize | Out-String | Write-Host
+          }
+          $p = Start-Process msiexec -ArgumentList @("/i", "`"$env:RUNNER_TEMP\v1.msi`"", "/qn", "/l*v", "`"$env:RUNNER_TEMP\i1.log`"") -Wait -PassThru
+          Write-Host "install v1: $($p.ExitCode)"
+          $exe = Join-Path $env:LOCALAPPDATA "Volta\Volta.exe"
+          $app = Start-Process $exe -PassThru
+          Start-Sleep 15
+          Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force $data | Out-Null
+          Set-Content (Join-Path $data "user-marker.txt") "keep me"
+          Show "after v1 + first run"
+          $app = Start-Process $exe -PassThru
+          Start-Sleep 12
+          $p = Start-Process msiexec -ArgumentList @("/i", "`"$env:RUNNER_TEMP\v2.msi`"", "/qn", "/l*v", "`"$env:RUNNER_TEMP\i2.log`"") -Wait -PassThru
+          Write-Host "upgrade to v2 while running: $($p.ExitCode); app exited: $($app.HasExited)"
+          Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
+          Show "after upgrade"
+          Select-String -Path "$env:RUNNER_TEMP\i2.log" -Pattern "RemoveFolder|RemoveFiles|FilesInUse|RestartManager|Shutting down|RMSESSION|closing" | Select-Object -First 30 | ForEach-Object { Write-Host $_.Line }
+          $p = Start-Process msiexec -ArgumentList @("/x", "`"$env:RUNNER_TEMP\v2.msi`"", "/qn", "/l*v", "`"$env:RUNNER_TEMP\u.log`"") -Wait -PassThru
+          Write-Host "uninstall: $($p.ExitCode)"
+          Show "after uninstall"
+          Select-String -Path "$env:RUNNER_TEMP\u.log" -Pattern "RemoveFolder|AppData|Roaming" | Select-Object -First 30 | ForEach-Object { Write-Host $_.Line }
+
       # The packaged app checks itself: the bundled core starts, accepts the configs Volta
       # builds, carries real traffic through a local test server, the Windows proxy
       # settings are switched on and restored, and every screen draws (the pictures go
