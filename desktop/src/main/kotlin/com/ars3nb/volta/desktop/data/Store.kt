@@ -7,6 +7,9 @@ import com.ars3nb.volta.data.model.NetworkRegime
 import com.ars3nb.volta.data.model.PingType
 import com.ars3nb.volta.data.model.RoutingProfileEntity
 import com.ars3nb.volta.data.model.ServerEntity
+import com.ars3nb.volta.data.model.ServerPool
+import com.ars3nb.volta.data.model.ServerSort
+import com.ars3nb.volta.data.model.ServersView
 import com.ars3nb.volta.data.model.SubscriptionEntity
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
@@ -55,6 +58,19 @@ data class AppSettings(
     val updateNotified: Int = 0,
     /** Sites that skip Volta altogether (Windows' proxy bypass list). */
     val bypassSites: List<String> = emptyList(),
+    /** «Lite-оформление»: every animation off (see ui/theme/LiteMotion.kt). */
+    val liteMode: Boolean = false,
+    /**
+     * «Авто по подпискам»: the auto modes may be limited to one subscription's servers
+     * (the choice under the mode selector). Off hides that choice and ignores it.
+     */
+    val autoBySubscription: Boolean = true,
+    /** The subscription the auto modes pick from; 0: every subscription. */
+    val autoSubscription: Long = 0,
+    /** Open gemini.google.com through each server once it connects. Off: it costs traffic. */
+    val geminiAfterConnect: Boolean = false,
+    /** The server list as it was left: filters, order, grouping, search, open countries. */
+    val serversView: ServersView = ServersView(),
     /**
      * Android settings a backup brought that Windows has no use for (per-app lists, MTU,
      * battery saver…), kept so the next backup carries them back to a phone.
@@ -74,6 +90,8 @@ data class StoreData(
     val networkRegime: NetworkRegime = NetworkRegime.UNKNOWN,
     /** Bytes through the VPN server per day (see TrafficTally), the last 400 days. */
     val trafficDays: List<TrafficDayEntity> = emptyList(),
+    /** The last Gemini verdict per server, as GeminiChecks writes it (JSON). */
+    val geminiResults: String = "",
     val schema: Int = 1
 )
 
@@ -150,10 +168,21 @@ class Store(private val file: File) {
                     pingType = st.pingType ?: PingType.REAL_DELAY,
                     adBlock = st.adBlock ?: AdBlockMode.OFF,
                     bypassSites = (st.bypassSites ?: emptyList()).filterNotNull(),
-                    foreign = st.foreign ?: emptyMap()
+                    foreign = st.foreign ?: emptyMap(),
+                    autoSubscription = st.autoSubscription.coerceAtLeast(0),
+                    serversView = (st.serversView ?: ServersView()).let { v ->
+                        v.copy(
+                            pool = v.pool ?: ServerPool.ALL,
+                            query = v.query ?: "",
+                            sort = v.sort ?: ServerSort.BEST,
+                            subscriptionId = v.subscriptionId?.takeIf { it > 0 },
+                            openCountries = v.openCountries?.filterNotNull()?.toSet()
+                        )
+                    }
                 )
             },
             trafficDays = (d.trafficDays ?: emptyList()).filterNotNull(),
+            geminiResults = d.geminiResults ?: "",
             nextId = maxOf(d.nextId, maxId + 1),
             remembered = d.remembered ?: emptyMap(),
             networkRegime = d.networkRegime ?: NetworkRegime.UNKNOWN

@@ -47,6 +47,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.ars3nb.volta.desktop.ui.theme.ProvideLiteMotion
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -131,6 +132,8 @@ fun VoltaDesktopApp(
     val snackbar = remember { SnackbarHostState() }
     val update by controller.updater.state.collectAsState()
     val openFlux by OpenFluxRunner.status.collectAsState()
+    // «Lite-оформление» first, so every animation below it already runs on its clock.
+    ProvideLiteMotion(lite = state.settings.liteMode) {
     LaunchedEffect(controller) {
         controller.messages.collect { snackbar.showSnackbar(it) }
     }
@@ -178,10 +181,12 @@ fun VoltaDesktopApp(
                                     onLteMissing = { controller.message(strings.lteMissing) },
                                     onInstallUpdate = controller::installUpdate,
                                     onOpenCaptcha = bridge::openUrl,
-                                    onCaptchaDone = OpenFluxRunner::cancelCaptcha
+                                    onCaptchaDone = OpenFluxRunner::cancelCaptcha,
+                                    onAutoSubscription = controller::setAutoSubscription
                                 ),
                                 update = update,
-                                openFlux = openFlux
+                                openFlux = openFlux,
+                                gemini = controller.gemini
                             )
                             Page.SERVERS -> ServersScreen(
                                 state, controller, view.servers,
@@ -217,6 +222,7 @@ fun VoltaDesktopApp(
             }
         }
     }
+}
 }
 
 private class RailItem(val page: Page, val label: (Strings) -> String, val icon: ImageVector, val chosenIcon: ImageVector)

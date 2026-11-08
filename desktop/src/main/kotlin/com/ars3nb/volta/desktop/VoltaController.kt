@@ -3,6 +3,19 @@ package com.ars3nb.volta.desktop
 import com.ars3nb.volta.core.backup.BackupCodec
 import com.ars3nb.volta.core.backup.RestoreReport
 import com.ars3nb.volta.core.balancer.AutoBalancer
+import com.ars3nb.volta.core.balancer.LastWins
+import com.ars3nb.volta.core.balancer.SubscriptionScope
+import com.ars3nb.volta.core.gemini.GeminiChecks
+import com.ars3nb.volta.core.gemini.GeminiProbe
+import com.ars3nb.volta.core.locale.UiText
+import com.ars3nb.volta.core.locale.uiText
+import com.ars3nb.volta.core.ping.SweepBoard
+import com.ars3nb.volta.core.server.Countries
+import com.ars3nb.volta.core.vpn.Fallback
+import com.ars3nb.volta.core.vpn.SwitchOrigin
+import com.ars3nb.volta.core.vpn.TunnelRequests
+import com.ars3nb.volta.data.model.ServersView
+import com.ars3nb.volta.data.model.SwitchTarget
 import com.ars3nb.volta.core.helper.ProxyHelper
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
 import com.ars3nb.volta.core.stats.PendingTraffic
@@ -72,6 +85,9 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -141,6 +157,28 @@ class VoltaController(
         launchInstaller = ::launchInstaller
     )
 
+    /**
+     * Whether Gemini works through each server, as on Android: the checks and their last
+     * verdicts (kept in the store). The tunnel's server goes through its check port, any
+     * other through a short-lived xray.exe of its own.
+     */
+    val gemini = GeminiChecks(
+        scope = scope,
+        probe = GeminiProbe(core, paths.runDir),
+        serverById = { id -> store.value.servers.firstOrNull { it.id == id } },
+        live = {
+            val rt = runtime.value
+            val id = rt.connectedServerId
+            val port = tunnel.ports?.exitCheck
+            if (rt.vpnState == VpnConnectionState.CONNECTED && id != null && port != null) GeminiChecks.Live(id, port) else null
+        },
+        load = { store.value.geminiResults },
+        save = { json -> store.update { it.copy(geminiResults = json) } }
+    )
+
+    /** How [server] can be checked for Gemini right now. */
+    fun geminiRoute(server: ServerEntity): GeminiProbe.Route = gemini.routeFor(server, core.isPresent)
+
     private val pendingTraffic = PendingTraffic()
     @Volatile
     private var trafficFlushedAt = 0L
@@ -148,6 +186,7 @@ class VoltaController(
     private var connectJob: Job? = null
     private var trafficJob: Job? = null
     private var guardJob: Job? = null
+    private var refineJob: Job? = null
 
     init {
         I18n.use(settings.language)
@@ -162,6 +201,13 @@ class VoltaController(
             message(Res.string(R.string.servers_openflux_captcha_title))
             _notices.tryEmit(Res.string(R.string.servers_openflux_captcha_title))
         }
+        // «Проверять Gemini после подключения»: the server the tunnel settles on, once up.
+        gemini.start(
+            ui.map { st ->
+                val id = st.runtime.connectedServerId
+                if (st.settings.geminiAfterConnect && st.isConnected && st.runtime.switching == null && id != null) id else 0L
+            }.distinctUntilChanged()
+        )
     }
 
     fun message(text: String) {
@@ -238,6 +284,9 @@ class VoltaController(
     /** Before the process ends: the tunnel down and the user's proxy back. */
     fun shutdown() {
         connectJob?.cancel()
+        switcher.cancel()
+        refineJob?.cancel()
+        sweepJob?.cancel()
         trafficJob?.cancel()
         guardJob?.cancel()
         runCatching { tunnel.stop(restoreProxy = true) }
@@ -284,6 +333,36 @@ class VoltaController(
     fun setSendHwid(v: Boolean) = updateSettings { it.copy(sendHwid = v) }
     fun setHideBalancers(v: Boolean) = updateSettings { it.copy(hideBalancers = v) }
     fun markTrayHintShown() = updateSettings { it.copy(trayHintShown = true) }
+
+    /** «Lite-оформление»: every animation in the window off at once (ui/theme/LiteMotion.kt). */
+    fun setLiteMode(v: Boolean) = updateSettings { it.copy(liteMode = v) }
+
+    /** «Проверять Gemini после подключения». */
+    fun setGeminiAfterConnect(v: Boolean) = updateSettings { it.copy(geminiAfterConnect = v) }
+
+    /** Changes how the server list is looked at; kept for the next visit and the next start. */
+    fun updateServersView(change: (ServersView) -> ServersView) {
+        val now = settings.serversView
+        val next = change(now)
+        if (next != now) updateSettings { it.copy(serversView = next) }
+    }
+
+    /** «Авто по подпискам». Switching it off lifts a limit the tunnel was picked under. */
+    fun setAutoBySubscription(v: Boolean) {
+        val limited = settings.autoSubscription > 0
+        updateSettings { it.copy(autoBySubscription = v) }
+        if (!v && limited) moveIfAuto()
+    }
+
+    /**
+     * «Авто по подписке»: the auto modes pick only from [subscriptionId]'s servers (0: from
+     * all). A live tunnel moves into that subscription right away, as a switch.
+     */
+    fun setAutoSubscription(subscriptionId: Long) {
+        if (settings.autoSubscription == subscriptionId) return
+        updateSettings { it.copy(autoSubscription = subscriptionId.coerceAtLeast(0)) }
+        moveIfAuto()
+    }
 
     fun setLocalDns(v: Boolean) {
         updateSettings { it.copy(localDns = v) }
@@ -332,8 +411,8 @@ class VoltaController(
     // ================================================================ connection
 
     fun toggleConnect() {
-        if (runtime.value.phase != ConnectPhase.IDLE || connectJob?.isActive == true &&
-            runtime.value.vpnState == VpnConnectionState.CONNECTING
+        if (runtime.value.phase != ConnectPhase.IDLE && runtime.value.vpnState != VpnConnectionState.CONNECTED ||
+            connectJob?.isActive == true && runtime.value.vpnState == VpnConnectionState.CONNECTING
         ) {
             cancelConnect()
             return
@@ -351,6 +430,7 @@ class VoltaController(
             message(Res.string(R.string.network_connect_none))
             return
         }
+        refineJob?.cancel()
         connectJob = scope.launch { runConnect() }
         watchInternetWhileConnecting(connectJob)
     }
@@ -382,19 +462,29 @@ class VoltaController(
     fun disconnect() {
         connectJob?.cancel()
         connectJob = null
+        switcher.cancel()
+        refineJob?.cancel()
+        runtime.update {
+            it.copy(vpnState = VpnConnectionState.DISCONNECTING, phase = ConnectPhase.IDLE, switching = null)
+        }
         scope.launch(Dispatchers.IO) {
-            runtime.update { it.copy(vpnState = VpnConnectionState.DISCONNECTING, phase = ConnectPhase.IDLE) }
-            stopTunnel()
-            runtime.update {
-                it.copy(
-                    vpnState = VpnConnectionState.DISCONNECTED,
-                    connectedServerId = null,
-                    connectedSince = 0,
-                    traffic = TrafficStats(),
-                    ports = null,
-                    proxyActive = false,
-                    error = null
-                )
+            // After whatever still held the tunnel (a switch being checked) has let go.
+            connectLock.withLock {
+                stopTunnel()
+                lastGoodId = null
+                runtime.update {
+                    it.copy(
+                        vpnState = VpnConnectionState.DISCONNECTED,
+                        connectedServerId = null,
+                        connectedSince = 0,
+                        traffic = TrafficStats(),
+                        ports = null,
+                        proxyActive = false,
+                        error = null,
+                        switching = null,
+                        phase = ConnectPhase.IDLE
+                    )
+                }
             }
             refreshIp()
         }
@@ -435,42 +525,89 @@ class VoltaController(
 
     fun setConnectMode(mode: ConnectMode) {
         updateSettings { it.copy(connectMode = mode) }
-        if (ui.value.isConnected && mode != ConnectMode.MANUAL && connectJob?.isActive != true) {
-            connectJob = scope.launch { runConnect() }
-        }
+        // A live tunnel follows the new mode by itself, shown as a switch, never as off.
+        if (mode != ConnectMode.MANUAL) moveIfAuto()
     }
 
-    /** Choosing a server by hand switches the mode to "Свой сервер" and moves the tunnel there. */
+    /**
+     * Choosing a server by hand switches the mode to "Свой сервер". The list marks it at
+     * once; a live tunnel follows it once the clicks settle (clicking through five
+     * servers moves the tunnel once, to the last one), and the screen says "switching
+     * to …" from the first click on. The tunnel stays up all the while.
+     */
     fun selectServer(id: Long) {
         updateSettings { it.copy(connectMode = ConnectMode.MANUAL) }
         store.update { d -> d.copy(servers = d.servers.map { it.copy(isSelected = it.id == id) }) }
-        if ((ui.value.isConnected || runtime.value.vpnState == VpnConnectionState.CONNECTING) &&
-            runtime.value.connectedServerId != id
-        ) {
-            connectJob?.cancel()
-            connectJob = scope.launch { runConnect(fixed = id) }
+        refineJob?.cancel()
+        val rt = runtime.value
+        val server = store.value.servers.firstOrNull { it.id == id } ?: return
+        when {
+            rt.vpnState == VpnConnectionState.CONNECTED && (rt.connectedServerId != id || rt.switching != null) -> {
+                // An automatic move under way (a new mode, the guard) gives way to the click.
+                connectJob?.cancel()
+                runtime.update { it.copy(switching = SwitchTarget(id, server.remark), phase = ConnectPhase.IDLE) }
+                switcher.submit(id)
+            }
+
+            // A connect still on its way starts over on the new pick.
+            rt.vpnState == VpnConnectionState.CONNECTING && rt.connectedServerId != id -> {
+                switcher.cancel()
+                connectJob?.cancel()
+                connectJob = scope.launch { runConnect(fixed = id) }
+            }
+
+            else -> switcher.cancel()
         }
     }
 
-    /** Connects to [id] at once, whatever the mode. */
+    /** Connects to [id] at once, whatever the mode; a live tunnel moves there without a pause. */
     fun connectTo(id: Long) {
         updateSettings { it.copy(connectMode = ConnectMode.MANUAL) }
         store.update { d -> d.copy(servers = d.servers.map { it.copy(isSelected = it.id == id) }) }
+        refineJob?.cancel()
+        switcher.cancel()
+        val server = store.value.servers.firstOrNull { it.id == id } ?: return
+        if (runtime.value.vpnState == VpnConnectionState.CONNECTED) {
+            if (runtime.value.connectedServerId == id && runtime.value.switching == null) return
+            connectJob?.cancel()
+            runtime.update { it.copy(switching = SwitchTarget(id, server.remark), phase = ConnectPhase.IDLE) }
+            switcher.submit(id)
+            return
+        }
         connectJob?.cancel()
         connectJob = scope.launch { runConnect(fixed = id) }
     }
 
-    private fun engine() = PingEngine(tester)
+    private fun engine(sweep: Boolean = false) = PingEngine(tester, sweep = sweep)
 
     /**
-     * The whole connect: pick the server (auto modes measure first), raise the tunnel,
-     * check it carries traffic, point Windows at it. In an auto mode the next best
-     * servers are tried when the first one fails.
+     * The subscription the auto modes pick from, or null for all of them (see
+     * [SubscriptionScope.effective]: a gone subscription simply lifts the limit).
      */
-    private suspend fun runConnect(fixed: Long? = null) = connectLock.withLock {
+    private fun autoLimit(mode: ConnectMode = settings.connectMode): Long? = SubscriptionScope.effective(
+        chosen = settings.autoSubscription,
+        enabled = settings.autoBySubscription,
+        mode = mode,
+        simpleMode = false,
+        subscriptionIds = store.value.subscriptions.map { it.id }
+    )
+
+    /** What an auto pick for [scope] may choose from. */
+    private fun autoPool(servers: List<ServerEntity>, scope: BalancerScope?): List<ServerEntity> =
+        SubscriptionScope.pool(servers, autoLimit(), scope)
+
+    /**
+     * The whole connect: pick the server (auto modes race the best-known nodes), raise
+     * the tunnel, check it carries traffic, point Windows at it. In an auto mode the
+     * next best servers are tried when the first one fails, and a full comparison runs
+     * once the tunnel is up (it moves the tunnel when it finds a clearly faster node).
+     */
+    private suspend fun runConnect(fixed: Long? = null) = connectLock.withLock { connectLocked(fixed) }
+
+    private suspend fun connectLocked(fixed: Long? = null, exclude: Long? = null) {
         val s = I18n.s
         runtime.update {
-            it.copy(vpnState = VpnConnectionState.CONNECTING, phase = ConnectPhase.PREPARING, error = null)
+            it.copy(vpnState = VpnConnectionState.CONNECTING, phase = ConnectPhase.PREPARING, error = null, switching = null)
         }
         try {
             if (!core.isPresent) error(s.errCoreMissing)
@@ -483,7 +620,7 @@ class VoltaController(
                 mode == ConnectMode.MANUAL -> listOfNotNull(all.firstOrNull { it.isSelected } ?: run {
                     error(s.errChooseServer)
                 })
-                else -> pickForMode(mode)
+                else -> pickForMode(mode, exclude)
             }
             if (candidates.isEmpty()) error(s.errNoServerToConnect)
             runtime.update { it.copy(phase = ConnectPhase.IDLE) }
@@ -492,9 +629,11 @@ class VoltaController(
             for ((index, server) in candidates.withIndex()) {
                 val outcome = withContext(Dispatchers.IO) { raise(server, strict = candidates.size > 1) }
                 if (outcome == null) {
-                    onConnected(server, auto = fixed == null && mode != ConnectMode.MANUAL)
+                    val auto = fixed == null && mode != ConnectMode.MANUAL
+                    onConnected(server, auto = auto)
                     if (index > 0) message(s.msgPicked(server.remark))
-                    return@withLock
+                    if (auto && lastPickWasQuick) refineAfterConnect(mode)
+                    return
                 }
                 lastError = outcome
                 markFailed(server.id)
@@ -509,7 +648,8 @@ class VoltaController(
                     phase = ConnectPhase.IDLE,
                     connectedServerId = null,
                     ports = null,
-                    proxyActive = false
+                    proxyActive = false,
+                    switching = null
                 )
             }
             throw e
@@ -522,17 +662,31 @@ class VoltaController(
                     error = e.userMessage(s.errNothingAnswered),
                     connectedServerId = null,
                     ports = null,
-                    proxyActive = false
+                    proxyActive = false,
+                    switching = null
                 )
             }
         }
     }
 
-    /** Auto modes: measure the group, then the winner first and two runners-up behind it. */
-    private suspend fun pickForMode(mode: ConnectMode): List<ServerEntity> {
+    /** The last connect-time pick was the quick race: a full comparison should follow. */
+    @Volatile
+    private var lastPickWasQuick = false
+
+    /** The network as the last pick found it, so the comparison after it needn't ask again. */
+    @Volatile
+    private var lastNetwork: NetworkProbe.Outcome? = null
+
+    /**
+     * Auto modes, the Android way: the node that worked here last and the best ones on
+     * record race each other (a handshake each, all at once) and the winner goes first,
+     * the next best two behind it. Only when nothing was ever measured does the group
+     * get measured before connecting. [exclude]: a node that has just failed.
+     */
+    private suspend fun pickForMode(mode: ConnectMode, exclude: Long? = null): List<ServerEntity> {
         val s = I18n.s
         val scope = mode.scope ?: BalancerScope.ALL
-        val all = store.value.servers.map(WindowsCompat::adapt)
+        val all = autoPool(store.value.servers, scope).filter { it.id != exclude }.map(WindowsCompat::adapt)
         val current = all.firstOrNull { it.isSelected }
         val remembered = store.value.remembered.mapNotNull { (k, v) ->
             runCatching { BalancerScope.valueOf(k) to v }.getOrNull()
@@ -547,6 +701,7 @@ class VoltaController(
                 runtime.update { it.copy(probes = outcome.probes) }
             }
         } else null
+        lastNetwork = network
         val decision = balancer.choose(
             servers = all,
             scope = scope,
@@ -554,16 +709,100 @@ class VoltaController(
             pingType = settings.pingType,
             onPhase = { phase -> runtime.update { it.copy(phase = ConnectPhase.of(phase)) } },
             remembered = remembered,
-            quick = false,
+            quick = true,
             knownNetwork = network
         )
         applyDecision(decision)
+        lastPickWasQuick = decision.quick
         if (decision.regime == NetworkRegime.BLOCKED && decision.ranked.isEmpty()) error(s.errNoInternet)
         val selected = decision.selected ?: error(
             if (decision.ranked.isEmpty() && decision.probes.isEmpty()) s.errGroupEmpty else s.errNothingAnswered
         )
-        val alive = decision.ranked.filter { it.ok && it.server.id != selected.id }.map { it.server }
-        return (listOf(selected) + alive.take(2)).distinctBy { it.id }
+        val runnersUp = if (decision.quick) {
+            // No table yet: the next best on record in the same group stand behind it.
+            val dialable = all.filter { ConfigBuilder.canDial(it) }
+            val group = if (scope == BalancerScope.ALL) AutoBalancer.filterByRegime(dialable, decision.regime)
+            else AutoBalancer.poolFor(dialable, scope)
+            group.filter { it.id != selected.id && it.isHealthy && it.latencyMs > 0 }.sortedBy { it.score }
+        } else {
+            decision.ranked.filter { it.ok && it.server.id != selected.id }.map { it.server }
+        }
+        return (listOf(selected) + runnersUp.take(2)).distinctBy { it.id }
+    }
+
+    /**
+     * After a quick pick: once the tunnel is up, the group is measured properly (the
+     * user doesn't sit through it) and the tunnel moves to a clearly faster node, as a
+     * switch. Anything the user does meanwhile (another server, off) cancels it.
+     */
+    private fun refineAfterConnect(mode: ConnectMode) {
+        refineJob?.cancel()
+        refineJob = scope.launch(Dispatchers.IO) {
+            delay(REFINE_DELAY_MS)
+            if (!ui.value.isConnected || runtime.value.switching != null || settings.connectMode != mode) return@launch
+            val scopeOf = mode.scope ?: BalancerScope.ALL
+            val all = autoPool(store.value.servers, scopeOf).map(WindowsCompat::adapt)
+            val live = runtime.value.connectedServerId
+            val remembered = store.value.remembered.mapNotNull { (k, v) ->
+                runCatching { BalancerScope.valueOf(k) to v }.getOrNull()
+            }.toMap()
+            val decision = runCatching {
+                AutoBalancer(engine(), NetworkProbe()).choose(
+                    servers = all,
+                    scope = scopeOf,
+                    current = all.firstOrNull { it.id == live },
+                    pingType = settings.pingType,
+                    remembered = remembered,
+                    quick = false,
+                    knownNetwork = lastNetwork
+                )
+            }.getOrNull() ?: return@launch
+            if (!isActive || !ui.value.isConnected || settings.connectMode != mode) return@launch
+            applyDecision(decision)
+            val pick = decision.selected ?: return@launch
+            if (!decision.switched || pick.id == runtime.value.connectedServerId) return@launch
+            connectLock.withLock {
+                if (!ui.value.isConnected || runtime.value.switching != null || settings.connectMode != mode) return@withLock
+                if (runtime.value.connectedServerId == pick.id) return@withLock
+                val target = store.value.servers.firstOrNull { it.id == pick.id } ?: return@withLock
+                hotSwap(target, SwitchOrigin.AUTO)
+            }
+        }
+    }
+
+    /**
+     * A live tunnel in an auto mode picks again (a new mode, a new subscription limit):
+     * the race runs while the tunnel stays up, and the tunnel moves only when the winner
+     * is another node. Not connected: nothing to do, the next connect picks.
+     */
+    private fun moveIfAuto() {
+        if (!ui.value.isConnected || settings.connectMode == ConnectMode.MANUAL) return
+        if (connectJob?.isActive == true) return
+        refineJob?.cancel()
+        switcher.cancel()
+        val mode = settings.connectMode
+        connectJob = scope.launch {
+            connectLock.withLock {
+                if (!ui.value.isConnected) return@withLock
+                val picked = try {
+                    pickForMode(mode)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    runtime.update { it.copy(phase = ConnectPhase.IDLE) }
+                    message(e.userMessage(I18n.s.errNothingAnswered))
+                    return@withLock
+                }
+                runtime.update { it.copy(phase = ConnectPhase.IDLE) }
+                val target = picked.firstOrNull() ?: return@withLock
+                if (target.id == runtime.value.connectedServerId) {
+                    store.update { d -> d.copy(servers = d.servers.map { it.copy(isSelected = it.id == target.id) }) }
+                    return@withLock
+                }
+                hotSwap(store.value.servers.firstOrNull { it.id == target.id } ?: target, SwitchOrigin.AUTO)
+            }
+            if (lastPickWasQuick && ui.value.isConnected && runtime.value.switching == null) refineAfterConnect(mode)
+        }
     }
 
     /** Writes an auto pick back: the measurements, the network and the summary card. */
@@ -600,6 +839,28 @@ class VoltaController(
         }
     }
 
+    /** The core's config for [server] on [ports], as on Android (the same ConfigBuilder). */
+    private fun configFor(server: ServerEntity, routing: RoutingChoice, p: LocalPorts): String = ConfigBuilder.build(
+        server = server,
+        profile = routing.profile,
+        providerRoutingJson = routing.providerJson,
+        socksPort = p.socks,
+        httpPort = p.http,
+        batterySaver = true,
+        localDns = settings.localDns,
+        enableStats = true,
+        geo = routing.geo,
+        preferServerRouting = routing.preferServerRouting,
+        adBlock = settings.adBlock,
+        blockTorrents = settings.blockTorrents,
+        exitCheckPort = p.exitCheck,
+        metricsPort = p.metrics
+    )
+
+    /** Whether the last tunnel raised passed its traffic check (it may stay up without). */
+    @Volatile
+    private var lastRaiseChecked = false
+
     /**
      * Raises the tunnel on [server]. Null when it is up; otherwise why not. With [strict]
      * a server that doesn't pass the traffic check counts as failed (the next one is
@@ -616,24 +877,7 @@ class VoltaController(
             tunnel.start(
                 preferredSocks = settings.socksPort,
                 preferredHttp = settings.httpPort,
-                buildConfig = { p ->
-                    ConfigBuilder.build(
-                        server = pinned,
-                        profile = routing.profile,
-                        providerRoutingJson = routing.providerJson,
-                        socksPort = p.socks,
-                        httpPort = p.http,
-                        batterySaver = true,
-                        localDns = settings.localDns,
-                        enableStats = true,
-                        geo = routing.geo,
-                        preferServerRouting = routing.preferServerRouting,
-                        adBlock = settings.adBlock,
-                        blockTorrents = settings.blockTorrents,
-                        exitCheckPort = p.exitCheck,
-                        metricsPort = p.metrics
-                    )
-                },
+                buildConfig = { p -> configFor(pinned, routing, p) },
                 onExit = { code -> onCoreDied(code) }
             )
         } catch (e: Tunnel.StartException) {
@@ -643,7 +887,8 @@ class VoltaController(
             stopHelpers()
             return e.userMessage(s.errUnsupported)
         }
-        if (!tunnel.check()) {
+        lastRaiseChecked = tunnel.check()
+        if (!lastRaiseChecked) {
             if (strict) {
                 tunnel.stop(restoreProxy = false)
                 stopHelpers()
@@ -660,6 +905,7 @@ class VoltaController(
 
     private fun onConnected(server: ServerEntity, auto: Boolean) {
         val now = System.currentTimeMillis()
+        lastGoodId = if (lastRaiseChecked) server.id else null
         store.update { d ->
             val group = when (server.role) {
                 ServerRole.NORMAL -> BalancerScope.NORMAL.name
@@ -683,7 +929,8 @@ class VoltaController(
                 traffic = TrafficStats(),
                 speed = SpeedHistory(),
                 error = null,
-                routingDirty = false
+                routingDirty = false,
+                switching = null
             )
         }
         startTrafficPolling()
@@ -691,18 +938,230 @@ class VoltaController(
         scope.launch(Dispatchers.IO) { refreshIp() }
     }
 
+    // ================================================================ switching a live tunnel
+
+    /** The node that last proved it carries traffic in this run of the tunnel; where a failed pick by hand goes back to. */
+    @Volatile
+    private var lastGoodId: Long? = null
+
+    /** Manual picks on a live tunnel, settled: the last click wins (see [selectServer]). */
+    private val switcher = LastWins<Long>(scope, SWITCH_SETTLE_MS) { id -> switchByHand(id) }
+
+    /** Moves a live tunnel to [id] by hand, the clicks having settled. */
+    private suspend fun switchByHand(id: Long) {
+        connectLock.withLock {
+            val rt = runtime.value
+            if (rt.vpnState != VpnConnectionState.CONNECTED) {
+                runtime.update { it.copy(switching = null) }
+                return@withLock
+            }
+            // Clicked back to where the tunnel is (or an earlier move was cut short there):
+            // nothing to move, the guard watches it again.
+            if (rt.connectedServerId == id) {
+                runtime.update { it.copy(switching = null) }
+                startGuard()
+                return@withLock
+            }
+            val target = store.value.servers.firstOrNull { it.id == id }
+            if (target == null || !target.isSelected) {
+                runtime.update { it.copy(switching = null) }
+                startGuard()
+                return@withLock
+            }
+            // A node the core can't dial leaves the tunnel where it is, and the list goes
+            // back to the node in use.
+            val problem = ConfigBuilder.dialProblem(WindowsCompat.adapt(target))
+            if (problem != null) {
+                val live = store.value.servers.firstOrNull { it.id == rt.connectedServerId }
+                if (live != null) {
+                    store.update { d -> d.copy(servers = d.servers.map { it.copy(isSelected = it.id == live.id) }) }
+                }
+                runtime.update { it.copy(switching = null) }
+                message(
+                    Res.string(
+                        R.string.home_switch_kept,
+                        Countries.withoutLeadingFlag(target.remark),
+                        Countries.withoutLeadingFlag(live?.remark.orEmpty())
+                    )
+                )
+                return@withLock
+            }
+            hotSwap(target, SwitchOrigin.MANUAL)
+        }
+    }
+
+    /**
+     * Holding the connect lock, with the tunnel up: moves it to [target] without taking
+     * it down. The core is replaced on the same local ports (Windows keeps pointing at
+     * them), the new node is checked at once with short tries, and only then is the
+     * switch over. A node that doesn't come up or doesn't carry traffic: a pick by hand
+     * goes back to the node that worked before (and says so); anything else moves on.
+     */
+    private suspend fun hotSwap(target: ServerEntity, origin: SwitchOrigin) {
+        val s = I18n.s
+        guardJob?.cancel()
+        runtime.update { it.copy(switching = SwitchTarget(target.id, target.remark)) }
+        val problem = try {
+            withContext(Dispatchers.IO) { swapCore(target) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            e.userMessage(s.errUnsupported)
+        }
+        val verdict: Boolean? = if (problem == null) switchCheck() else false
+        if (verdict != false) {
+            onSwitched(target, origin, checked = verdict == true)
+            return
+        }
+        switchFailed(target, origin, problem ?: s.errServerSilent)
+    }
+
+    /** The new core under the running tunnel; null when it is up, otherwise why not. */
+    private suspend fun swapCore(target: ServerEntity): String? {
+        val s = I18n.s
+        val adapted = WindowsCompat.adapt(target)
+        ConfigBuilder.dialProblem(adapted)?.let { return it }
+        prepareHelper(adapted)?.let { return it }
+        val pinned = runCatching { CertPins.apply(adapted) }.getOrDefault(adapted)
+        val routing = routingFor(adapted)
+        val oldHttp = tunnel.ports?.http
+        fun start() = tunnel.swap(
+            buildConfig = { p -> configFor(pinned, routing, p) },
+            onExit = { code -> onCoreDied(code) },
+            fallbackSocks = settings.socksPort,
+            fallbackHttp = settings.httpPort
+        )
+        val ports = try {
+            start()
+        } catch (e: Tunnel.StartException) {
+            // The core before it has only just let go of the ports: one more try.
+            delay(SWAP_RETRY_PAUSE_MS)
+            try {
+                start()
+            } catch (e2: Tunnel.StartException) {
+                runtime.update { it.copy(ports = null) }
+                return s.errCoreStart(e2.message.orEmpty())
+            }
+        }
+        // The tunnel runs on this node now, checked or not: the screen names it.
+        runtime.update { it.copy(connectedServerId = target.id, ports = ports) }
+        if (settings.systemProxy && (ports.http != oldHttp || !tunnel.systemProxy.isApplied())) {
+            if (!tunnel.applySystemProxy(settings.bypassSites)) message(s.msgProxyFailed)
+        }
+        runtime.update { it.copy(proxyActive = tunnel.systemProxy.isApplied()) }
+        return null
+    }
+
+    /**
+     * Right after a swap: does a page load through the new node? Short tries, both probe
+     * hosts at once, so a working node is confirmed in about a second and a dead one is
+     * given up within a few tries instead of the half-minute of the guard. No network
+     * at all says nothing about the node: null, the switch stands.
+     */
+    private suspend fun switchCheck(): Boolean? {
+        delay(SWITCH_FIRST_PROBE_MS)
+        repeat(SWITCH_ATTEMPTS) { attempt ->
+            if (InternetCheck.status().blocksConnect) return null
+            if (tunnel.checkQuick()) return true
+            if (attempt < SWITCH_ATTEMPTS - 1) delay(SWITCH_RETRY_PAUSE_MS)
+        }
+        return false
+    }
+
+    private fun onSwitched(target: ServerEntity, origin: SwitchOrigin, checked: Boolean) {
+        if (checked) lastGoodId = target.id
+        val auto = origin == SwitchOrigin.AUTO && settings.connectMode != ConnectMode.MANUAL
+        store.update { d ->
+            val group = when (target.role) {
+                ServerRole.NORMAL -> BalancerScope.NORMAL.name
+                ServerRole.BYPASS_WHITELIST -> BalancerScope.BYPASS.name
+                ServerRole.AUTO -> null
+            }
+            d.copy(
+                servers = d.servers.map {
+                    if (it.id == target.id) it.copy(isSelected = true, failStreak = if (checked) 0 else it.failStreak)
+                    else it.copy(isSelected = false)
+                },
+                remembered = if (auto && checked && group != null) d.remembered + (group to target.id) else d.remembered
+            )
+        }
+        runtime.update {
+            it.copy(
+                vpnState = VpnConnectionState.CONNECTED,
+                phase = ConnectPhase.IDLE,
+                connectedServerId = target.id,
+                error = null,
+                routingDirty = false,
+                switching = null
+            )
+        }
+        startGuard()
+        scope.launch(Dispatchers.IO) { refreshIp() }
+    }
+
+    /** Holding the connect lock: the node the tunnel was just moved to didn't come up or doesn't answer. */
+    private suspend fun switchFailed(target: ServerEntity, origin: SwitchOrigin, reason: String) {
+        markFailed(target.id)
+        val back = lastGoodId?.let { id -> store.value.servers.firstOrNull { it.id == id } }
+        when (TunnelRequests.fallbackFor(origin, target.id, back?.id)) {
+            Fallback.BACK -> {
+                val home = back ?: return failForward(target, reason)
+                store.update { d -> d.copy(servers = d.servers.map { it.copy(isSelected = it.id == home.id) }) }
+                val text = Res.string(
+                    R.string.home_switch_back,
+                    Countries.withoutLeadingFlag(target.remark),
+                    Countries.withoutLeadingFlag(home.remark)
+                )
+                message(text)
+                _notices.tryEmit(text)
+                hotSwap(home, SwitchOrigin.FALLBACK)
+            }
+
+            Fallback.NEXT -> failForward(target, reason)
+        }
+    }
+
+    /**
+     * Nowhere to go back to. In an auto mode the next best node takes over (a connect
+     * without the failed one); otherwise the tunnel goes down with the reason, and the
+     * user's proxy comes back.
+     */
+    private suspend fun failForward(failed: ServerEntity, reason: String) {
+        runtime.update { it.copy(switching = null) }
+        if (settings.connectMode != ConnectMode.MANUAL && settings.autoFailover) {
+            connectLocked(exclude = failed.id)
+            return
+        }
+        withContext(Dispatchers.IO) { stopTunnel() }
+        lastGoodId = null
+        runtime.update {
+            it.copy(
+                vpnState = VpnConnectionState.ERROR,
+                phase = ConnectPhase.IDLE,
+                error = reason,
+                connectedServerId = null,
+                ports = null,
+                proxyActive = false,
+                switching = null
+            )
+        }
+    }
+
     private fun onCoreDied(code: Int) {
         if (runtime.value.vpnState != VpnConnectionState.CONNECTED) return
         trafficJob?.cancel()
         guardJob?.cancel()
+        refineJob?.cancel()
         stopHelpers()
         flushTraffic()
+        lastGoodId = null
         runtime.update {
             it.copy(
                 vpnState = VpnConnectionState.ERROR,
                 error = I18n.s.errCoreStopped + if (code != 0) " ($code)" else "",
                 ports = null,
-                proxyActive = false
+                proxyActive = false,
+                switching = null
             )
         }
         if (settings.autoFailover) {
@@ -713,30 +1172,38 @@ class VoltaController(
         }
     }
 
+    /**
+     * The core's counters, read every two seconds. They start at nothing with each core,
+     * so a switch (a new core under the same tunnel) carries on counting: a reading lower
+     * than the one before means a fresh core.
+     */
     private fun startTrafficPolling() {
         trafficJob?.cancel()
         trafficJob = scope.launch(Dispatchers.IO) {
             var last: TrafficMeter.Totals? = null
             var lastAt = System.nanoTime()
+            var sessionUp = 0L
+            var sessionDown = 0L
             while (isActive) {
                 delay(2_000)
                 val ports = tunnel.ports ?: continue
                 val now = TrafficMeter.read(ports.metrics) ?: continue
                 val t = System.nanoTime()
                 val seconds = ((t - lastAt) / 1e9).coerceAtLeast(0.5)
-                val prev = last
-                val up = if (prev == null) 0 else ((now.uplink - prev.uplink).coerceAtLeast(0) / seconds).toLong()
-                val down = if (prev == null) 0 else ((now.downlink - prev.downlink).coerceAtLeast(0) / seconds).toLong()
-                // The core's counters start at nothing with it: the first reading counts whole.
-                countTraffic(
-                    (now.uplink - (prev?.uplink ?: 0)).coerceAtLeast(0),
-                    (now.downlink - (prev?.downlink ?: 0)).coerceAtLeast(0)
-                )
+                val prev = last?.takeIf { now.uplink >= it.uplink && now.downlink >= it.downlink }
+                val dUp = (now.uplink - (prev?.uplink ?: 0)).coerceAtLeast(0)
+                val dDown = (now.downlink - (prev?.downlink ?: 0)).coerceAtLeast(0)
+                val up = if (last == null) 0 else (dUp / seconds).toLong()
+                val down = if (last == null) 0 else (dDown / seconds).toLong()
+                // A fresh core's first reading counts whole.
+                countTraffic(dUp, dDown)
+                sessionUp += dUp
+                sessionDown += dDown
                 last = now
                 lastAt = t
                 runtime.update {
                     it.copy(
-                        traffic = TrafficStats(now.uplink, now.downlink, up, down),
+                        traffic = TrafficStats(sessionUp, sessionDown, up, down),
                         speed = it.speed.push(down, up)
                     )
                 }
@@ -744,14 +1211,17 @@ class VoltaController(
         }
     }
 
-    /** Every 30 s while connected: does the tunnel still carry traffic? Two misses move it. */
+    /**
+     * Every 30 s while connected: does the tunnel still carry traffic? Two misses move it
+     * in an auto mode, as a switch: the tunnel stays up while the next node is found.
+     */
     private fun startGuard() {
         guardJob?.cancel()
         guardJob = scope.launch(Dispatchers.IO) {
             var misses = 0
             while (isActive) {
                 delay(30_000)
-                if (runtime.value.vpnState != VpnConnectionState.CONNECTED) continue
+                if (runtime.value.vpnState != VpnConnectionState.CONNECTED || runtime.value.switching != null) continue
                 if (tunnel.check(10_000)) {
                     misses = 0
                     continue
@@ -762,8 +1232,20 @@ class VoltaController(
                 val failed = runtime.value.connectedServerId
                 if (settings.autoFailover && settings.connectMode != ConnectMode.MANUAL && connectJob?.isActive != true) {
                     failed?.let(::markFailed)
+                    val mode = settings.connectMode
                     connectJob = scope.launch {
-                        runConnect()
+                        connectLock.withLock {
+                            if (!ui.value.isConnected) return@withLock
+                            val next = runCatching { pickForMode(mode, exclude = failed) }
+                                .onFailure { if (it is CancellationException) throw it }
+                                .getOrNull()?.firstOrNull()
+                            runtime.update { it.copy(phase = ConnectPhase.IDLE) }
+                            if (next == null || next.id == failed) {
+                                message(I18n.s.msgServerSilent)
+                                return@withLock
+                            }
+                            hotSwap(store.value.servers.firstOrNull { it.id == next.id } ?: next, SwitchOrigin.AUTO)
+                        }
                         val now = ui.value.selectedServer
                         if (now != null && now.id != failed && ui.value.isConnected) {
                             message(I18n.s.msgSwitched(now.remark))
@@ -820,28 +1302,97 @@ class VoltaController(
 
     // ================================================================ servers
 
+    private val _sweep = MutableStateFlow(SweepBoard.IDLE)
+
+    /** "Check all" as it goes; each row reads its own entry (see [SweepBoard]). */
+    val sweep: StateFlow<SweepBoard> = _sweep.asStateFlow()
+
+    private var sweepJob: Job? = null
+
+    /**
+     * Checks every server of [pool], a handful at a time. Results land in [sweep] as they
+     * come, so the list fills in row by row; the store gets them all at once at the end
+     * (one write, one new list), so a list sorted by speed is re-sorted once, not with
+     * every answer, and nothing jumps under the pointer. [cancelPingAll] stops it and
+     * keeps what was measured.
+     */
     fun pingAll(pool: ServerPool = ServerPool.ALL) {
-        scope.launch(Dispatchers.IO) {
-            busy {
-                val list = store.value.servers.filter { pool.matches(it.role) }.map(WindowsCompat::adapt)
-                if (list.isEmpty()) return@busy
-                val results = engine().pingServers(
+        if (sweepJob?.isActive == true) return
+        sweepJob = scope.launch(Dispatchers.IO) {
+            val list = store.value.servers.filter { pool.matches(it.role) }.map(WindowsCompat::adapt)
+            if (list.isEmpty()) return@launch
+            val landed = java.util.concurrent.ConcurrentHashMap<Long, PingResult>()
+            _sweep.value = SweepBoard.IDLE.start(list.map { it.id })
+            try {
+                engine(sweep = true).pingServers(
                     servers = list,
                     type = settings.pingType,
+                    maxParallel = PingEngine.SWEEP_PARALLEL,
                     realDelayTimeoutMs = PingEngine.SWEEP_TIMEOUT_MS
-                ) { id, r -> persistHealth(id, r) }
-                message(I18n.s.msgPingDone(results.count { it.second.success }, list.size))
+                ) { id, r ->
+                    landed[id] = r
+                    _sweep.update { it.record(id, r) }
+                }
+                message(I18n.s.msgPingDone(landed.count { it.value.success }, list.size))
+            } catch (e: CancellationException) {
+                val board = _sweep.value
+                if (board.total > 0) message(Res.string(R.string.servers_check_stopped, board.done, board.total))
+                throw e
+            } finally {
+                withContext(kotlinx.coroutines.NonCancellable) {
+                    persistHealthAll(landed)
+                    _sweep.update { it.finish() }
+                }
             }
         }
     }
 
+    /** Stops "check all"; what was measured stays. */
+    fun cancelPingAll() {
+        sweepJob?.cancel()
+        sweepJob = null
+    }
+
+    /**
+     * Checks one server. The menu that asked shows the answer in place
+     * ([RuntimeState.serverCheck]); closed meanwhile, the answer comes as a message instead.
+     */
     fun pingServer(id: Long) {
         scope.launch(Dispatchers.IO) {
             val server = store.value.servers.firstOrNull { it.id == id }?.let(WindowsCompat::adapt) ?: return@launch
-            val r = engine().pingServer(server, settings.pingType)
-            persistHealth(id, r)
-            message(if (r.success) "${server.remark}: ${I18n.s.ms(r.latencyMs)}" else "${server.remark}: ${r.message}")
+            runtime.update { it.copy(serverCheck = ServerCheck(id, running = true)) }
+            val done = try {
+                val r = engine().pingServer(server, settings.pingType)
+                persistHealth(id, r)
+                val text = when {
+                    r.success && r.estimate -> {
+                        // OpenFlux judged from outside: its carrier answered, the exit is
+                        // measured for real once traffic goes through it.
+                        val channel = r.message.takeIf { it.isNotBlank() }
+                        if (channel != null) UiText.of(R.string.home_ping_estimate_channel, "${r.latencyMs}", channel)
+                        else UiText.of(R.string.home_ping_estimate, "${r.latencyMs}")
+                    }
+                    r.success -> UiText.of(R.string.home_ping_result, "${r.latencyMs}")
+                    else -> r.message.takeIf { it.isNotBlank() }?.let(UiText::Raw)
+                        ?: UiText.of(R.string.home_server_not_responding)
+                }
+                ServerCheck(id, running = false, text = text, ok = r.success, latencyMs = r.latencyMs)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                ServerCheck(id, running = false, text = e.uiText(UiText.of(R.string.home_ping_failed)))
+            }
+            if (runtime.value.serverCheck?.serverId == id) {
+                runtime.update { it.copy(serverCheck = done) }
+            } else {
+                done.text?.let { message("${Countries.withoutLeadingFlag(server.remark)}: ${it.resolve()}") }
+            }
         }
+    }
+
+    /** The menu showing a check closed: a late answer goes to a message. */
+    fun clearServerCheck() {
+        runtime.update { it.copy(serverCheck = null) }
     }
 
     /** One of the three "best server in the group" pads. */
@@ -850,7 +1401,7 @@ class VoltaController(
             if (runtime.value.runningScope != null) return@launch
             runtime.update { it.copy(runningScope = scope) }
             try {
-                val all = store.value.servers.map(WindowsCompat::adapt)
+                val all = autoPool(store.value.servers, scope).map(WindowsCompat::adapt)
                 val decision = AutoBalancer(engine(), NetworkProbe()).choose(
                     servers = all,
                     scope = scope,
@@ -870,9 +1421,15 @@ class VoltaController(
                     updateSettings { it.copy(connectMode = mode) }
                     store.update { d -> d.copy(servers = d.servers.map { it.copy(isSelected = it.id == pick.id) }) }
                     message(I18n.s.msgPicked(pick.remark))
-                    if (ui.value.isConnected && runtime.value.connectedServerId != pick.id) {
-                        connectJob?.cancel()
-                        connectJob = this@VoltaController.scope.launch { runConnect(fixed = pick.id) }
+                    if (ui.value.isConnected && runtime.value.connectedServerId != pick.id && connectJob?.isActive != true) {
+                        refineJob?.cancel()
+                        switcher.cancel()
+                        val target = store.value.servers.firstOrNull { it.id == pick.id }
+                        if (target != null) {
+                            connectJob = this@VoltaController.scope.launch {
+                                connectLock.withLock { if (ui.value.isConnected) hotSwap(target, SwitchOrigin.AUTO) }
+                            }
+                        }
                     }
                 }
             } finally {
@@ -882,17 +1439,23 @@ class VoltaController(
     }
 
     private fun persistHealth(id: Long, result: PingResult) {
+        store.update { d -> d.copy(servers = d.servers.map { s -> if (s.id != id) s else healthOf(s, result) }) }
+    }
+
+    /** A whole sweep's answers in one write: the list changes (and re-sorts) once. */
+    private fun persistHealthAll(results: Map<Long, PingResult>) {
+        if (results.isEmpty()) return
+        store.update { d -> d.copy(servers = d.servers.map { s -> results[s.id]?.let { healthOf(s, it) } ?: s }) }
+    }
+
+    private fun healthOf(s: ServerEntity, result: PingResult): ServerEntity {
         val ok = result.success && result.latencyMs >= 0
-        store.update { d ->
-            d.copy(servers = d.servers.map { s ->
-                if (s.id != id) s else s.copy(
-                    latencyMs = if (ok) result.latencyMs else -1,
-                    ewmaMs = if (ok) AutoBalancer.blendEwma(s.ewmaMs, result.latencyMs) else s.ewmaMs,
-                    failStreak = if (ok) 0 else (s.failStreak + 1).coerceAtMost(9),
-                    lastPingAt = System.currentTimeMillis()
-                )
-            })
-        }
+        return s.copy(
+            latencyMs = if (ok) result.latencyMs else -1,
+            ewmaMs = if (ok && !result.estimate) AutoBalancer.blendEwma(s.ewmaMs, result.latencyMs) else s.ewmaMs,
+            failStreak = if (ok) 0 else (s.failStreak + 1).coerceAtMost(9),
+            lastPingAt = result.timestamp.takeIf { it > 0 } ?: System.currentTimeMillis()
+        )
     }
 
     fun toggleFavorite(id: Long) {
@@ -1313,6 +1876,8 @@ class VoltaController(
                 )
             }
             geoData.delete(id)
+            if (settings.autoSubscription == id) updateSettings { it.copy(autoSubscription = 0) }
+            gemini.forget(store.value.servers.map { it.id }.toSet())
             if (store.value.servers.none { it.isSelected }) selectReplacement(null)
             reconcileTunnel()
             message(I18n.s.msgDeleted)
@@ -1701,6 +2266,20 @@ class VoltaController(
     // ================================================================ helpers
 
     companion object {
+        /** Clicks on servers closer together than this move a live tunnel once, to the last. */
+        const val SWITCH_SETTLE_MS = 350L
+
+        /** After a core swap the new node is looked at after a moment, then briefly. */
+        private const val SWITCH_FIRST_PROBE_MS = 300L
+        private const val SWITCH_ATTEMPTS = 3
+        private const val SWITCH_RETRY_PAUSE_MS = 700L
+
+        /** One retry of a core that refused to start in a swap (its port still closing). */
+        private const val SWAP_RETRY_PAUSE_MS = 400L
+
+        /** The full comparison after a quick pick waits this long for the tunnel to settle. */
+        private const val REFINE_DELAY_MS = 4_000L
+
         val SUBSCRIPTION_COLORS = listOf("#C4784A", "#4A8FC4", "#5FB07A", "#B05FA8", "#C4A24A", "#4AC4B8")
 
         /** For tests and the self-test: the whole state at once. */
@@ -1711,6 +2290,11 @@ class VoltaController(
 
     /** Test hook: pretend a tunnel is up (the self-test draws the connected screens). */
     internal fun debugRuntime(change: (RuntimeState) -> RuntimeState) = runtime.update(change)
+
+    /** For the self-test's pictures: a "check all" as if under way. */
+    internal fun debugSweep(board: SweepBoard) {
+        _sweep.value = board
+    }
 
     /** Blocks until [block] finishes; for the self-test only. */
     fun <T> blocking(block: suspend () -> T): T = runBlocking { block() }

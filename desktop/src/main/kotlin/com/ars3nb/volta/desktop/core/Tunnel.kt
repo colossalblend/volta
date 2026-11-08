@@ -7,6 +7,13 @@ import java.net.HttpURLConnection
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.URI
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 
 /** The local ports of a running tunnel. */
 data class LocalPorts(val socks: Int, val http: Int, val exitCheck: Int, val metrics: Int)
@@ -92,6 +99,24 @@ class Tunnel(
         return ports
     }
 
+    /**
+     * Another node under the running tunnel: the old core goes, the new one comes up on
+     * the same local ports (the old one has just let go of them), so Windows' proxy
+     * setting keeps pointing at the right place and programs only see a short pause.
+     * When a port was taken meanwhile, a free one is used and [LocalPorts.http] differs
+     * from the old one: the caller then points Windows at the new port. Throws
+     * [StartException] like [start]; nothing runs then, and the caller decides.
+     */
+    fun swap(
+        buildConfig: (LocalPorts) -> String,
+        onExit: (Int) -> Unit,
+        fallbackSocks: Int,
+        fallbackHttp: Int
+    ): LocalPorts {
+        val old = ports
+        return start(old?.socks ?: fallbackSocks, old?.http ?: fallbackHttp, buildConfig, onExit)
+    }
+
     /** Points Windows at the tunnel. */
     fun applySystemProxy(bypass: List<String> = emptyList()): Boolean {
         val p = ports ?: return false
@@ -119,24 +144,46 @@ class Tunnel(
      */
     fun check(timeoutMs: Int = 8_000): Boolean {
         val p = ports ?: return false
-        for (url in CHECK_URLS) {
-            val ok = runCatching {
-                val proxy = Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", p.exitCheck))
-                val c = URI(url).toURL().openConnection(proxy) as HttpURLConnection
-                try {
-                    c.connectTimeout = timeoutMs
-                    c.readTimeout = timeoutMs
-                    c.instanceFollowRedirects = false
-                    c.setRequestProperty("Connection", "close")
-                    c.responseCode in 200..399
-                } finally {
-                    c.disconnect()
-                }
-            }.getOrDefault(false)
-            if (ok) return true
-        }
-        return false
+        return CHECK_URLS.any { url -> answers(p.exitCheck, url, timeoutMs) }
     }
+
+    /**
+     * The check right after a switch, short since the user is watching it: both hosts at
+     * once, the first answer wins, so a working node is confirmed in about a second and
+     * one slow host doesn't double the wait.
+     */
+    suspend fun checkQuick(timeoutMs: Int = 3_500): Boolean {
+        val p = ports ?: return false
+        val race = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val verdict = CompletableDeferred<Boolean>()
+        val runners = CHECK_URLS.map { url ->
+            race.launch { if (answers(p.exitCheck, url, timeoutMs)) verdict.complete(true) }
+        }
+        race.launch {
+            runners.joinAll()
+            verdict.complete(false)
+        }
+        return try {
+            verdict.await()
+        } finally {
+            // The calls still waiting are left to their own timeouts, not waited for.
+            race.cancel()
+        }
+    }
+
+    private fun answers(port: Int, url: String, timeoutMs: Int): Boolean = runCatching {
+        val proxy = Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port))
+        val c = URI(url).toURL().openConnection(proxy) as HttpURLConnection
+        try {
+            c.connectTimeout = timeoutMs
+            c.readTimeout = timeoutMs
+            c.instanceFollowRedirects = false
+            c.setRequestProperty("Connection", "close")
+            c.responseCode in 200..399
+        } finally {
+            c.disconnect()
+        }
+    }.getOrDefault(false)
 
     /** A core left running by a Volta that was killed: found by its pid file and ended. */
     fun killLeftover() {

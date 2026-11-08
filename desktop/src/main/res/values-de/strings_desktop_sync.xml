@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Volta for Windows: where the Android words speak of a phone or a finger (settings_lite_mode_hint, home_traffic_tap_hint). -->
+<resources>
+    <string name="desktop_lite_mode_hint">Keine Animationen – für langsamere Computer</string>
+    <string name="desktop_traffic_tap_hint">Klicken Sie auf einen Balken oder ziehen Sie darüber, um einen Tag zu sehen; die Pfeiltasten blättern durch die Tage</string>
+</resources>

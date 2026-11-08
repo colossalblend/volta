@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Volta for Windows: where the Android words speak of a phone or a finger (settings_lite_mode_hint, home_traffic_tap_hint). -->
+<resources>
+    <string name="desktop_lite_mode_hint">Без анимаций — для слабых компьютеров</string>
+    <string name="desktop_traffic_tap_hint">Нажмите на полоску или проведите по ним мышью, чтобы увидеть день; стрелки листают дни</string>
+</resources>

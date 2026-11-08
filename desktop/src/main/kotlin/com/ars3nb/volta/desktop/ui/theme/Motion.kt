@@ -4,6 +4,7 @@ import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 
 /**
  * How things move. Answers to a click are springs, so they settle by themselves; nothing
@@ -20,6 +21,13 @@ object Motion {
     fun <T> settle(): FiniteAnimationSpec<T> = spring(dampingRatio = 1f, stiffness = Spring.StiffnessMediumLow)
 }
 
-/** Windows has no app-level "remove animations" switch Compose can read: always animate. */
+/** «Lite-оформление» in Settings: every animation off (see LiteMotion.kt). */
+val LocalLiteMode = staticCompositionLocalOf { false }
+
+/**
+ * Volta's own «Lite-оформление»: then nothing loops and changes are instant. (Every
+ * Compose animation is instant then anyway, through the window's MotionDurationScale;
+ * this also stops the loops that would otherwise keep redrawing a still picture.)
+ */
 @Composable
-fun rememberReducedMotion(): Boolean = false
+fun rememberReducedMotion(): Boolean = LocalLiteMode.current

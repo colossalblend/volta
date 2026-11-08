@@ -31,6 +31,8 @@ object SettingsBackup {
         out["auto_connect"] = s.autoConnect
         out["refresh_on_launch"] = s.refreshOnLaunch
         out["hide_balancers"] = s.hideBalancers
+        out["auto_by_subscription"] = s.autoBySubscription
+        out["gemini_after_connect"] = s.geminiAfterConnect
         out["design_theme"] = s.designTheme.name
         out["default_ping_type"] = s.pingType.name
         out["ad_block"] = s.adBlock.name
@@ -66,6 +68,8 @@ object SettingsBackup {
         bool("auto_connect") { r.copy(autoConnect = it) }
         bool("refresh_on_launch") { r.copy(refreshOnLaunch = it) }
         bool("hide_balancers") { r.copy(hideBalancers = it) }
+        bool("auto_by_subscription") { r.copy(autoBySubscription = it) }
+        bool("gemini_after_connect") { r.copy(geminiAfterConnect = it) }
         bool("windows_system_proxy") { r.copy(systemProxy = it) }
         bool("windows_minimize_to_tray") { r.copy(minimizeToTray = it) }
         enum("design_theme", DesignTheme.entries) { r.copy(designTheme = it) }

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Volta for Windows: where the Android words speak of a phone or a finger (settings_lite_mode_hint, home_traffic_tap_hint). -->
+<resources>
+    <string name="desktop_lite_mode_hint">بلا رسوم متحركة، للحواسيب الأبطأ</string>
+    <string name="desktop_traffic_tap_hint">انقر على عمود أو اسحب الفأرة فوقها لرؤية يوم؛ تنتقل مفاتيح الأسهم بين الأيام</string>
+</resources>

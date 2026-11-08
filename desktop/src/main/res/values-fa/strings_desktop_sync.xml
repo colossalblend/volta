@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Volta for Windows: where the Android words speak of a phone or a finger (settings_lite_mode_hint, home_traffic_tap_hint). -->
+<resources>
+    <string name="desktop_lite_mode_hint">بدون انیمیشن، برای رایانه‌های ضعیف</string>
+    <string name="desktop_traffic_tap_hint">برای دیدن یک روز روی ستون کلیک کنید یا موس را روی ستون‌ها بکشید؛ کلیدهای جهت روزها را جابه‌جا می‌کنند</string>
+</resources>

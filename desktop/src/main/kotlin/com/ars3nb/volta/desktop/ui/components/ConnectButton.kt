@@ -79,6 +79,8 @@ import com.ars3nb.volta.data.model.TrafficStats
 import com.ars3nb.volta.data.model.VpnConnectionState
 import com.ars3nb.volta.desktop.ui.LocalStrings
 import com.ars3nb.volta.desktop.ui.theme.Metals
+import com.ars3nb.volta.desktop.i18n.R
+import com.ars3nb.volta.desktop.i18n.stringResource
 import com.ars3nb.volta.desktop.ui.theme.Motion
 import com.ars3nb.volta.desktop.ui.theme.TABULAR
 import com.ars3nb.volta.desktop.ui.theme.VoltaTheme
@@ -111,13 +113,20 @@ fun PowerButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     size: Dp = 260.dp,
-    activity: Float = 0f
+    activity: Float = 0f,
+    /**
+     * A live tunnel moving to another node: it stays up, so the disc stays green; a
+     * bright arc runs round the rim with the spark, and when the new node has answered
+     * one ring leaves the disc, as on connecting.
+     */
+    switching: Boolean = false
 ) {
     val connected = state == VpnConnectionState.CONNECTED
     val draining = state == VpnConnectionState.DISCONNECTING
-    val busy = working || state == VpnConnectionState.CONNECTING || draining
+    val moving = switching && (connected || state == VpnConnectionState.CONNECTING)
+    val busy = !moving && (working || state == VpnConnectionState.CONNECTING || draining)
     val failed = state == VpnConnectionState.ERROR && !busy
-    val up = connected && !busy
+    val up = (connected || moving) && !busy
     val still = rememberReducedMotion()
 
     // Where the patina starts: the last touch, in the disc's own coordinates (0..1).
@@ -159,7 +168,23 @@ fun PowerButton(
         }
     }
 
-    val sparkAlpha by animateFloatAsState(if (busy) 1f else 0f, tween(450), label = "spark")
+    // The same ring when a switch has landed on its new node.
+    var wasMoving by remember { mutableStateOf(false) }
+    LaunchedEffect(moving) {
+        if (wasMoving && !moving && up && !still) {
+            burst.snapTo(0f)
+            burst.animateTo(1f, tween(900, easing = FastOutSlowInEasing))
+        }
+        wasMoving = moving
+    }
+
+    val sparkAlpha by animateFloatAsState(if (busy || moving) 1f else 0f, tween(450), label = "spark")
+    // The switching arc: in quickly, out with the landing ring.
+    val arcAlpha by animateFloatAsState(
+        if (moving) 1f else 0f,
+        if (moving) tween(220) else tween(500),
+        label = "switchArc"
+    )
     val fieldAlpha by animateFloatAsState(
         targetValue = when {
             up -> 1f
@@ -177,12 +202,12 @@ fun PowerButton(
 
     // Two clocks: the spark's angle and the field rings' phase. Their speeds ease, so
     // nothing jumps when the state changes.
-    val sparkSpeed by animateFloatAsState(if (busy) 300f else 60f, tween(900), label = "sparkSpeed")
+    val sparkSpeed by animateFloatAsState(if (busy || moving) 300f else 60f, tween(900), label = "sparkSpeed")
     val fieldSpeed = 0.22f + 0.55f * activity.coerceIn(0f, 1f)
     val speeds by rememberUpdatedState(sparkSpeed to fieldSpeed)
     var spark by remember { mutableFloatStateOf(-90f) }
     var field by remember { mutableFloatStateOf(0f) }
-    val animating = !still && (busy || up || sparkAlpha > 0f || fieldAlpha > 0f)
+    val animating = !still && (busy || up || moving || sparkAlpha > 0f || fieldAlpha > 0f)
     LaunchedEffect(animating) {
         if (!animating) return@LaunchedEffect
         var last = 0L
@@ -205,6 +230,8 @@ fun PowerButton(
 
     val strings = LocalStrings.current
     val description = when {
+        // A click while the tunnel moves turns the VPN off, as when connected.
+        moving -> strings.discDisconnect
         busy -> strings.discCancel
         connected -> strings.discDisconnect
         else -> strings.discConnect
@@ -253,6 +280,20 @@ fun PowerButton(
                     radius = disc + (outer - disc) * t,
                     center = c,
                     style = Stroke(width = (3f * (1f - t) + 1f).dp.toPx())
+                )
+            }
+
+            if (arcAlpha > 0f) {
+                // A bright arc trailing the spark round the rim, while the node changes.
+                val orbit = disc + 7.dp.toPx()
+                drawArc(
+                    color = Metals.patinaLight.copy(alpha = 0.75f * arcAlpha),
+                    startAngle = spark - ARC_SWEEP,
+                    sweepAngle = ARC_SWEEP,
+                    useCenter = false,
+                    topLeft = Offset(c.x - orbit, c.y - orbit),
+                    size = Size(orbit * 2, orbit * 2),
+                    style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
                 )
             }
 
@@ -315,6 +356,9 @@ fun PowerButton(
 
 private const val DISC = 0.62f
 private const val RINGS = 3
+
+/** How much of the rim the switching arc covers, in degrees. */
+private const val ARC_SWEEP = 110f
 
 /** How wide the patina's soft front is, as a share of the disc's radius. */
 private const val EDGE = 0.12f
@@ -524,12 +568,20 @@ fun ConnectionHeadline(
     phaseCaption: String,
     serverName: String,
     modifier: Modifier = Modifier,
-    idleCaption: String = LocalStrings.current.tapToConnect
+    idleCaption: String = LocalStrings.current.tapToConnect,
+    /**
+     * A live tunnel moving to another node: the node's name, or blank while the auto
+     * pick still chooses it ([phaseCaption] says what it does). Null: nothing moves.
+     */
+    switchingTo: String? = null
 ) {
     val palette = VoltaTheme.palette
     val scheme = MaterialTheme.colorScheme
     val s = LocalStrings.current
+    val moving = switchingTo != null &&
+        (state == VpnConnectionState.CONNECTED || state == VpnConnectionState.CONNECTING)
     val title = when {
+        moving -> stringResource(R.string.home_state_switching)
         phaseCaption.isNotBlank() -> s.stateConnecting
         state == VpnConnectionState.CONNECTED -> s.stateConnected
         state == VpnConnectionState.CONNECTING -> s.stateConnecting
@@ -538,6 +590,7 @@ fun ConnectionHeadline(
         else -> s.stateOff
     }
     val caption = when {
+        moving && !switchingTo.isNullOrBlank() -> stringResource(R.string.home_caption_switching_to, switchingTo)
         phaseCaption.isNotBlank() -> phaseCaption
         state == VpnConnectionState.CONNECTED -> serverName
         state == VpnConnectionState.CONNECTING -> serverName.ifBlank { s.raisingTunnel }
@@ -546,9 +599,10 @@ fun ConnectionHeadline(
         else -> idleCaption
     }
     val titleColor by animateColorAsState(
-        when (state) {
-            VpnConnectionState.CONNECTED -> palette.good
-            VpnConnectionState.ERROR -> palette.poor
+        when {
+            moving -> scheme.primary
+            state == VpnConnectionState.CONNECTED -> palette.good
+            state == VpnConnectionState.ERROR -> palette.poor
             else -> scheme.onBackground
         },
         tween(600),
@@ -581,7 +635,9 @@ fun ConnectionHeadline(
             )
         }
         AnimatedVisibility(
-            visible = phaseCaption.isNotBlank() || state == VpnConnectionState.CONNECTING,
+            // A click during the auto pick stops it; during a switch it would turn the VPN off.
+            visible = (phaseCaption.isNotBlank() && state != VpnConnectionState.CONNECTED) ||
+                (state == VpnConnectionState.CONNECTING && !moving),
             enter = fadeIn(tween(400, delayMillis = 600)) + expandVertically(),
             exit = fadeOut(tween(160)) + shrinkVertically()
         ) {
