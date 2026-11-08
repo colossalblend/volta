@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Volta's own installer and uninstaller (one program; see README.md in this folder).
+    Volta's own installer and uninstaller (one program; see desktop/README.md).
     .NET Framework 4.7.2 is part of Windows 10 1803 and later, so the exe needs nothing
     installed and stays small; the app itself rides inside as payload.zip.
 
