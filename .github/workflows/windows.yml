@@ -66,6 +66,40 @@ jobs:
             echo "VOLTA_STABLE=no" >> "$GITHUB_ENV"
           fi
           echo "VOLTA_TMP=$(cygpath -m "$RUNNER_TEMP")" >> "$GITHUB_ENV"
+          # The version Windows shows (Apps & Features, the installer): numbers only, as
+          # desktop/build.gradle.kts makes it.
+          RAW="${VOLTA_VERSION_NAME:-}"
+          [ -n "$RAW" ] || RAW=$( [ "$GITHUB_REF_TYPE" = tag ] && echo "${GITHUB_REF_NAME#v}" || echo "1.1.$GITHUB_RUN_NUMBER")
+          NUM=$(python -c "import re,sys; p=[int(x) for x in re.findall(r'\d+', sys.argv[1].split('-')[0])][:3]; p+=[0]*(3-len(p)); print('%d.%d.%d' % (min(max(p[0],1),255), min(p[1],255), min(p[2],65535)))" "$RAW")
+          echo "VOLTA_NUM=$NUM" >> "$GITHUB_ENV"
+          echo "Windows version: $NUM"
+
+      # Volta's own installer (desktop/installer, C#/WPF on .NET Framework 4.7.2, which every
+      # Windows 10 1803+ has). Built here without the app first: that build is the
+      # uninstaller, and it draws every installer page to PNG so the design can be looked
+      # at (installer-*.png in the screens).
+      - name: Installer program and its pages
+        run: |
+          set -euo pipefail
+          dotnet --version
+          dotnet build desktop/installer/VoltaSetup.csproj -c Release -nologo -v:minimal \
+            -p:VoltaVersion="$VOLTA_NUM" -o "$VOLTA_TMP/uninstaller"
+          ls -la "$VOLTA_TMP/uninstaller"
+          SHOTS="$VOLTA_TMP/screens/installer"
+          mkdir -p "$SHOTS"
+          "$VOLTA_TMP/uninstaller/VoltaSetup.exe" --screenshots "$(cygpath -w "$SHOTS")" --log "$(cygpath -w "$VOLTA_TMP/installer-shots.log")" || true
+          cat "$VOLTA_TMP/installer-shots.log" || true
+          N=$(ls "$SHOTS"/*.png 2>/dev/null | wc -l)
+          echo "installer pages drawn: $N"
+          [ "$N" -ge 24 ] || { echo "::error title=Installer pages::only $N of 24 pages drawn"; exit 1; }
+          # On a test build the pages go to the branch's pre-release right away (if it exists yet).
+          if [ "$VOLTA_STABLE" != yes ] && gh release view "$VOLTA_UPDATE_TAG" > /dev/null 2>&1; then
+            (cd "$SHOTS" && 7z a -tzip "$(cygpath -w "$VOLTA_TMP/windows-installer-pages.zip")" ./*.png > /dev/null)
+            gh release upload "$VOLTA_UPDATE_TAG" "$VOLTA_TMP/windows-installer-pages.zip" --clobber || true
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
 
       # The very Xray release the Android app runs: its version is read from the core
       # committed in app/libs/libv2ray.aar (a Go pseudo-version names the commit), the
@@ -74,6 +108,8 @@ jobs:
       # geosite.dat come out of the same AAR, so both apps route with the same lists.
       - name: Xray core
         id: core
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           W="$VOLTA_TMP/core"; mkdir -p "$W"
@@ -106,8 +142,14 @@ jobs:
           fi
           echo "Windows core: $TAG"
           BASE="https://github.com/XTLS/Xray-core/releases/download/$TAG"
-          curl -fsSL --retry 4 --retry-delay 5 -o "$W/xray.zip" "$BASE/Xray-windows-64.zip"
-          curl -fsSL --retry 4 --retry-delay 5 -o "$W/xray.zip.dgst" "$BASE/Xray-windows-64.zip.dgst"
+          # GitHub's download links sometimes answer 504 for a while: then the same files
+          # through the API (checked against the same SHA-256 below either way).
+          for f in Xray-windows-64.zip Xray-windows-64.zip.dgst; do
+            out="$W/${f/Xray-windows-64/xray}"
+            curl -fsSL --retry 4 --retry-delay 10 --retry-all-errors -o "$out" "$BASE/$f" \
+              || gh release download "$TAG" -R XTLS/Xray-core -p "$f" -O "$out" --clobber \
+              || { sleep 30; gh release download "$TAG" -R XTLS/Xray-core -p "$f" -O "$out" --clobber; }
+          done
           WANT=$(grep -i 'SHA2-256' "$W/xray.zip.dgst" | head -1 | awk -F'= *' '{print tolower($2)}' | tr -d '\r ')
           GOT=$(sha256sum "$W/xray.zip" | cut -d ' ' -f 1)
           if [ -z "$WANT" ] || [ "$WANT" != "$GOT" ]; then
@@ -190,59 +232,68 @@ jobs:
           done
           exit $bad
 
-      - name: Build installer and portable app
+      # The app folder (Volta.exe with its Java runtime, xray.exe and the helpers). The
+      # jpackage MSI of earlier builds is made too, only so the test below can check that
+      # an existing install moves over to the new installer with the user's data intact.
+      - name: Build the app
         working-directory: desktop
+        env:
+          VOLTA_MSI: "1"
         run: |
           set -o pipefail
-          ./gradlew --no-configuration-cache --stacktrace createDistributable packageExe 2>&1 | tee -a "$VOLTA_TMP/gradle.log"
-          ls -la build/compose/binaries/main/app/Volta build/compose/binaries/main/exe
+          ./gradlew --no-configuration-cache --stacktrace createDistributable packageMsi 2>&1 | tee -a "$VOLTA_TMP/gradle.log"
+          ls -la build/compose/binaries/main/app/Volta build/compose/binaries/main/msi
 
-      # The packaged app checks itself: the bundled core starts, accepts the configs Volta
-      # builds, carries real traffic through a local test server, the Windows proxy
-      # settings are switched on and restored, and every screen draws (the pictures go
-      # into the artifacts). A broken bundle fails the build here.
-      - name: Self-test of the packaged app
+      # The portable zip is the app folder as it is. The installer carries the same folder
+      # plus «Uninstall Volta.exe» (the build above) as payload.zip, and its version.
+      - name: Installer
+        run: |
+          set -euo pipefail
+          APP=desktop/build/compose/binaries/main/app/Volta
+          W="$VOLTA_TMP/package"; mkdir -p "$W"
+          (cd "$(dirname "$APP")" && 7z a -tzip -mx=7 "$(cygpath -w "$W/portable.zip")" Volta > /dev/null)
+          cp -r "$APP" "$W/payload"
+          cp "$VOLTA_TMP/uninstaller/VoltaSetup.exe" "$W/payload/Uninstall Volta.exe"
+          (cd "$W/payload" && 7z a -tzip -mx=9 -mm=Deflate "$(cygpath -w "$W/payload.zip")" . > /dev/null)
+          SIZE=$(du -sb "$W/payload" | cut -f 1)
+          FILES=$(find "$W/payload" -type f | wc -l)
+          jq -n --arg version "$VOLTA_NUM" --argjson code "$VOLTA_VERSION_CODE" --argjson size "$SIZE" --argjson files "$FILES" \
+            '{version: $version, versionCode: $code, size: $size, files: $files}' > "$W/payload.json"
+          cat "$W/payload.json"
+          dotnet build desktop/installer/VoltaSetup.csproj -c Release -nologo -v:minimal \
+            -p:VoltaVersion="$VOLTA_NUM" -p:VoltaPayload="$(cygpath -w "$W/payload.zip")" -p:VoltaPayloadInfo="$(cygpath -w "$W/payload.json")" \
+            -o "$W/setup"
+          ls -la "$W" "$W/setup"
+          cp desktop/build/compose/binaries/main/msi/*.msi "$W/legacy.msi"
+
+      # The installer, the installed app and the uninstaller, end to end, under a user name
+      # with Cyrillic letters and spaces (desktop/installer/ci/installer-test.ps1): install,
+      # the app's self-test from there, its window, a second start, a hung instance, an
+      # update over a running Volta, uninstall with and without the data, and the move from
+      # the old MSI install.
+      - name: Install, run, update and uninstall
         shell: pwsh
         run: |
-          $app = "desktop/build/compose/binaries/main/app/Volta/Volta.exe"
-          $log = Join-Path $env:RUNNER_TEMP "self-test.log"
-          $shots = Join-Path $env:RUNNER_TEMP "screens"
-          New-Item -ItemType Directory -Force -Path $shots | Out-Null
-          $p = Start-Process -FilePath $app -ArgumentList @("--self-test", "`"$log`"", "--shots", "`"$shots`"", "--proxy") -Wait -PassThru
-          if (Test-Path $log) { Get-Content $log }
-          Write-Host "Exit code: $($p.ExitCode)"
-          if ($p.ExitCode -ne 0) { Write-Host "::error title=Self-test failed::exit code $($p.ExitCode)"; exit 1 }
+          $w = Join-Path $env:RUNNER_TEMP "package"
+          ./desktop/installer/ci/installer-test.ps1 -Setup (Join-Path $w "setup\VoltaSetup.exe") `
+            -Shots (Join-Path $env:RUNNER_TEMP "screens") -Work (Join-Path $env:RUNNER_TEMP "itest") `
+            -LegacyMsi (Join-Path $w "legacy.msi")
 
-      # The real thing once more: Volta.exe started as a user would, with its window and
-      # tray icon. It must still be running after a while (no crash at start), and a
-      # picture of the desktop goes with the screens.
-      - name: Start the app like a user
-        shell: pwsh
+      # The pictures of the real windows (installer, app, the «не отвечает» dialog) and the
+      # logs, to the branch's pre-release even when a check above failed.
+      - name: Installer pictures to the pre-release
+        if: always() && env.VOLTA_STABLE != 'yes'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          $env:APPDATA = Join-Path $env:RUNNER_TEMP "appdata"
-          New-Item -ItemType Directory -Force -Path $env:APPDATA | Out-Null
-          $shots = Join-Path $env:RUNNER_TEMP "screens"
-          New-Item -ItemType Directory -Force -Path $shots | Out-Null
-          $p = Start-Process -FilePath "desktop/build/compose/binaries/main/app/Volta/Volta.exe" -PassThru
-          Start-Sleep -Seconds 15
-          if ($p.HasExited) {
-            Write-Host "::error title=Volta.exe exited at start::exit code $($p.ExitCode)"
-            Get-ChildItem -Recurse (Join-Path $env:APPDATA "Volta") -ErrorAction SilentlyContinue | Select-Object FullName, Length
-            exit 1
-          }
-          try {
-            Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-            $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-            $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
-            $g = [System.Drawing.Graphics]::FromImage($bmp)
-            $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
-            $bmp.Save((Join-Path $shots "desktop.png"))
-            Write-Host "Screen $($b.Width)x$($b.Height) saved"
-          } catch {
-            Write-Host "No screenshot: $_"
-          }
-          Get-ChildItem (Join-Path $env:APPDATA "Volta") -ErrorAction SilentlyContinue | Select-Object Name, Length
-          Stop-Process -Id $p.Id -Force
+          cd "$VOLTA_TMP"
+          [ -d screens ] || exit 0
+          cp itest/*.log screens/ 2>/dev/null || true
+          7z a -tzip windows-installer-screens.zip screens/installer screens/real-*.png screens/*.log > /dev/null || true
+          ls -la windows-installer-screens.zip || exit 0
+          gh release view "$VOLTA_UPDATE_TAG" > /dev/null 2>&1 && gh release upload "$VOLTA_UPDATE_TAG" windows-installer-screens.zip --clobber || true
 
       - name: Collect files
         id: files
@@ -257,10 +308,11 @@ jobs:
           VERSION="${VOLTA_VERSION_NAME:-1.1.$GITHUB_RUN_NUMBER}"
           STEM=$([ "$VOLTA_STABLE" = yes ] && echo "volta-$VERSION" || echo "volta-$SHORT")
           OUT="$VOLTA_TMP/out"; mkdir -p "$OUT"
-          cp desktop/build/compose/binaries/main/exe/*.exe "$OUT/$STEM-windows-x64-setup.exe"
-          (cd desktop/build/compose/binaries/main/app && 7z a -tzip -mx=7 "$(cygpath -w "$OUT/$STEM-windows-x64-portable.zip")" Volta > /dev/null)
+          cp "$VOLTA_TMP/package/setup/VoltaSetup.exe" "$OUT/$STEM-windows-x64-setup.exe"
+          cp "$VOLTA_TMP/package/portable.zip" "$OUT/$STEM-windows-x64-portable.zip"
           # What the in-app updater reads (desktop/…/update/AppUpdater.kt), as update.json is
-          # for the APKs: this build's number and the installer with its size and SHA-256.
+          # for the APKs: this build's number and the installer with its size, SHA-256 and
+          # how to run it unattended (it closes Volta, keeps %APPDATA%\Volta, starts it again).
           SETUP="$STEM-windows-x64-setup.exe"
           PORTABLE="$STEM-windows-x64-portable.zip"
           jq -n --argjson code "$VOLTA_VERSION_CODE" --arg name "$VERSION" --arg tag "$VOLTA_UPDATE_TAG" \
@@ -268,7 +320,7 @@ jobs:
             --arg setup "$SETUP" --argjson setupSize "$(stat -c %s "$OUT/$SETUP")" --arg setupSha "$(sha256sum "$OUT/$SETUP" | cut -d ' ' -f 1)" \
             --arg portable "$PORTABLE" --argjson portableSize "$(stat -c %s "$OUT/$PORTABLE")" --arg portableSha "$(sha256sum "$OUT/$PORTABLE" | cut -d ' ' -f 1)" \
             '{versionCode: $code, versionName: $name, tag: $tag, commit: $commit, branch: $branch, xray: $xray, openflux: $openflux,
-              installer: {name: $setup, size: $setupSize, sha256: $setupSha},
+              installer: {name: $setup, size: $setupSize, sha256: $setupSha, silent: ["--silent", "--update", "--launch"]},
               portable: {name: $portable, size: $portableSize, sha256: $portableSha}}' > "$OUT/windows-update.json"
           cat "$OUT/windows-update.json"
           ls -la "$OUT"
@@ -292,7 +344,8 @@ jobs:
           name: volta-windows-screens
           path: |
             ${{ runner.temp }}/screens
-            ${{ runner.temp }}/self-test.log
+            ${{ runner.temp }}/itest/*.log
+            ${{ runner.temp }}/installer-shots.log
           retention-days: 14
           if-no-files-found: ignore
 
@@ -321,6 +374,10 @@ jobs:
 
           Windows:
           - **\`$STEM-windows-x64-setup.exe\`** — установщик для Windows 10 и 11 (64 бит), ставьте этот.
+            Права администратора не нужны; Volta ставится в %LOCALAPPDATA%\\Programs\\Volta.
+            Обновляет прежнюю установку на месте, подписки и настройки (%APPDATA%\\Volta) не трогает.
+            Удаление — «Параметры → Приложения» или «Uninstall Volta.exe»: данные удаляются,
+            только если отметить «Удалить также подписки и настройки».
           - \`$STEM-windows-x64-portable.zip\` — без установки: распакуйте и запустите Volta.exe.
 
           Обновляется само: Настройки → О приложении (файл windows-update.json рядом).
@@ -350,8 +407,10 @@ jobs:
           # The self-test's pictures of every screen ride along on test builds, so a design
           # change can be looked at before anyone installs it.
           if [ "$VOLTA_STABLE" != yes ] && [ -d "$VOLTA_TMP/screens" ]; then
-            (cd "$VOLTA_TMP" && 7z a -tzip windows-screens.zip screens self-test.log > /dev/null) \
+            (cd "$VOLTA_TMP" && 7z a -tzip windows-screens.zip screens > /dev/null) \
               && gh release upload "$TAG" "$VOLTA_TMP/windows-screens.zip" --clobber || true
+            (cd "$VOLTA_TMP/screens" && 7z a -tzip ../windows-installer-screens.zip installer real-*.png > /dev/null) \
+              && gh release upload "$TAG" "$VOLTA_TMP/windows-installer-screens.zip" --clobber || true
           fi
           echo "### Windows: https://github.com/$GH_REPO/releases/tag/$TAG" >> "$GITHUB_STEP_SUMMARY"
           gh release view "$TAG" --json assets --jq '.assets[].name'

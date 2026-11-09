@@ -110,6 +110,21 @@ object SelfTest {
             "Xray ${core.version().ifBlank { error("xray version gave nothing") }}"
         }
 
+        // Where the user's things live, even under a name like C:\Users\Арсений Иванов\…:
+        // the folder from %APPDATA%, text in and out in UTF-8, and where the app itself runs from.
+        check("data and app folders work (non-ASCII paths, spaces)") {
+            val real = AppPaths.default()
+            real.ensure()
+            val probe = File(real.dataDir, "self-test-probe-${UUID.randomUUID()}.json")
+            val text = "{\"проверка\": \"Арсений ✓ ${probe.name}\"}"
+            probe.writeText(text, Charsets.UTF_8)
+            require(probe.readText(Charsets.UTF_8) == text) { "read back differs in ${probe}" }
+            require(probe.delete()) { "can't delete ${probe}" }
+            val app = System.getProperty("jpackage.app-path").orEmpty()
+            fun mark(p: String) = if (p.any { it.code > 127 }) "non-ASCII" else "ASCII"
+            "data ${real.dataDir} (${mark(real.dataDir.path)}), work ${work} (${mark(work.path)}), app ${app.ifBlank { "-" }} (${mark(app)})"
+        }
+
         check("the network is seen (internet check)") {
             val status = com.ars3nb.volta.core.vpn.InternetCheck.status()
             require(status == com.ars3nb.volta.core.vpn.InternetCheck.Status.OK) { "$status" }

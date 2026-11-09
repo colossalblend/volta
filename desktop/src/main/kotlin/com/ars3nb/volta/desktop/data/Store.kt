@@ -123,14 +123,83 @@ class Store(private val file: File) {
         return List(count) { first + it }
     }
 
+    /**
+     * The saved state. Never silently empty when there is something on disk: an empty
+     * state would be written over the user's subscriptions with the next change. A file
+     * that can't be read (locked by an antivirus or a backup tool for a moment) is retried
+     * and otherwise stops the start with an error; a file that can't be parsed is kept
+     * aside and the last good copy (volta.json.bak, made at every good start) comes back.
+     */
     private fun load(): StoreData {
-        val text = runCatching { file.readText() }.getOrNull() ?: return StoreData()
-        return runCatching { sanitize(gson.fromJson(withDefaults(text), StoreData::class.java)) }
-            .getOrElse {
-                // Keep the unreadable file for a look later rather than losing it.
-                runCatching { file.copyTo(File(file.parentFile, file.name + ".broken"), overwrite = true) }
-                StoreData()
+        if (!file.exists()) return parse(backup())?.also { restoredFromBackup("missing, restored from ${file.name}.bak") } ?: StoreData()
+        var text: String? = null
+        var failure: Exception? = null
+        for (attempt in 0 until 10) {
+            try {
+                text = file.readText(Charsets.UTF_8)
+                break
+            } catch (e: java.io.IOException) {
+                failure = e
+                Thread.sleep(300)
             }
+        }
+        if (text == null) throw java.io.IOException("can't read ${file.absolutePath}", failure)
+        parse(text)?.let { good ->
+            runCatching { file.copyTo(File(file.parentFile, file.name + ".bak"), overwrite = true) }
+            return good
+        }
+        // Keep the unreadable file for a look later rather than losing it.
+        val stamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
+        runCatching { file.copyTo(File(file.parentFile, "${file.name}.broken-$stamp"), overwrite = true) }
+        return parse(backup())?.also { restoredFromBackup("broken, restored from ${file.name}.bak") } ?: StoreData()
+    }
+
+    private fun backup(): String? =
+        runCatching { File(file.parentFile, file.name + ".bak").takeIf { it.isFile }?.readText(Charsets.UTF_8) }.getOrNull()
+
+    private fun parse(text: String?): StoreData? = text?.takeIf { it.isNotBlank() }?.let {
+        runCatching { sanitize(gson.fromJson(withDefaults(it), StoreData::class.java)) }.getOrNull()
+            ?: salvage(it)
+    }
+
+    /**
+     * A file this version can't read whole (a field whose shape changed, one bad entry):
+     * everything that still reads is kept, field by field and list entry by list entry,
+     * rather than the user's subscriptions going with the one part that doesn't.
+     */
+    private fun salvage(text: String): StoreData? = runCatching {
+        val root = JsonParser.parseString(text).asJsonObject
+        val base = gson.toJsonTree(StoreData()).asJsonObject
+        fun reads(key: String, value: com.google.gson.JsonElement): Boolean = runCatching {
+            val probe = base.deepCopy().apply { add(key, value) }
+            gson.fromJson(probe, StoreData::class.java)
+        }.isSuccess
+        val kept = com.google.gson.JsonObject()
+        val dropped = mutableListOf<String>()
+        for ((key, value) in root.entrySet()) {
+            when {
+                reads(key, value) -> kept.add(key, value)
+                value.isJsonArray -> {
+                    val good = com.google.gson.JsonArray()
+                    value.asJsonArray.forEach { e ->
+                        if (reads(key, com.google.gson.JsonArray().apply { add(e) })) good.add(e) else dropped += "$key[]"
+                    }
+                    kept.add(key, good)
+                }
+                else -> dropped += key
+            }
+        }
+        val stamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
+        runCatching { file.copyTo(File(file.parentFile, "${file.name}.unreadable-$stamp"), overwrite = true) }
+        restoredFromBackup("partly unreadable (left out: ${dropped.joinToString()}; the file as it was: ${file.name}.unreadable-$stamp)")
+        sanitize(gson.fromJson(withDefaults(kept.toString()), StoreData::class.java))
+    }.getOrNull()
+
+    private fun restoredFromBackup(why: String) {
+        runCatching {
+            File(file.parentFile, "logs").mkdirs()
+            File(file.parentFile, "logs/volta.log").appendText("${java.time.LocalDateTime.now()} store: ${file.name} $why\n")
+        }
     }
 
     /**

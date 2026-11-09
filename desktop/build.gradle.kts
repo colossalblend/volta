@@ -176,11 +176,22 @@ compose.desktop {
             "-Dvolta.version=$voltaVersion",
             "-Dvolta.versionCode=$voltaVersionCode",
             // Volta's own requests go straight out, never through the proxy it sets.
-            "-Djava.net.useSystemProxies=false"
+            "-Djava.net.useSystemProxies=false",
+            // Java2D (the few Swing dialogs, the tray menu) without Direct3D/DirectDraw: the
+            // window itself draws through Skia, and old drivers, Remote Desktop and VMs
+            // trip over Java2D's own GPU path. Compose's renderer is picked at start-up
+            // (Startup.kt: GraphicsMode, «Безопасный режим графики»).
+            "-Dsun.java2d.d3d=false",
+            "-Dsun.java2d.noddraw=true",
+            "-Dsun.stdout.encoding=UTF-8",
+            "-Dsun.stderr.encoding=UTF-8"
         )
 
         nativeDistributions {
-            targetFormats(TargetFormat.Exe)
+            // Volta ships its own installer (desktop/installer), made from createDistributable's
+            // app folder. jpackage's MSI is built only in CI (VOLTA_MSI=1), as the "old install"
+            // the installer test moves over from.
+            if (System.getenv("VOLTA_MSI") == "1") targetFormats(TargetFormat.Exe, TargetFormat.Msi) else targetFormats(TargetFormat.Exe)
             packageName = "Volta"
             packageVersion = voltaVersion
             description = "Volta VPN"

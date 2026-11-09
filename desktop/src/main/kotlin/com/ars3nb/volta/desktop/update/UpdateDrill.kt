@@ -60,7 +60,7 @@ object UpdateDrill {
                 site = site,
                 currentCode = 400,
                 beta = { beta },
-                launchInstaller = { started = it; true }
+                launchInstaller = { f, _ -> started = f; true }
             )
             // Stable only: the published release.
             val stable = runBlocking { updater.check() }
@@ -80,7 +80,7 @@ object UpdateDrill {
 
             // A file that doesn't match its checksum is never started.
             var badStarted = false
-            val bad = AppUpdater(scope, File(work, "bad"), "bad", site, currentCode = 1, launchInstaller = { badStarted = true; true })
+            val bad = AppUpdater(scope, File(work, "bad"), "bad", site, currentCode = 1, launchInstaller = { _, _ -> badStarted = true; true })
             require(runBlocking { bad.check() } is UpdateState.Available) { "bad manifest not offered" }
             bad.downloadAndInstall()
             require(waitFor { bad.state.value is UpdateState.Failed }) { "bad: ${bad.state.value}" }

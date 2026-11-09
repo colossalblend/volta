@@ -21,8 +21,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** The installer of a Windows build, as the build's windows-update.json lists it. */
-data class UpdateAsset(val name: String, val size: Long, val sha256: String)
+/**
+ * The installer of a Windows build, as the build's windows-update.json lists it.
+ * [silentArgs]: how to run it unattended as an update (Volta's own installer: `--silent
+ * --update --launch`, it closes Volta, keeps %APPDATA%\Volta and starts the new one);
+ * empty for an installer that only knows its own window.
+ */
+data class UpdateAsset(val name: String, val size: Long, val sha256: String, val silentArgs: List<String> = emptyList())
 
 /** A build on GitHub and its installer. */
 data class UpdateInfo(
@@ -73,8 +78,8 @@ class AppUpdater(
     private val userAgent: String = "Volta/Windows",
     private val tunnelPort: () -> Int? = { null },
     private val beta: () -> Boolean = { false },
-    /** Starts the installer and quits Volta; false when it could not be started. */
-    private val launchInstaller: (File) -> Boolean = { false }
+    /** Starts the installer (with these arguments) and quits Volta; false when it could not be started. */
+    private val launchInstaller: (File, List<String>) -> Boolean = { _, _ -> false }
 ) {
     private val _state = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val state: StateFlow<UpdateState> = _state.asStateFlow()
@@ -174,7 +179,7 @@ class AppUpdater(
 
     private fun install(info: UpdateInfo) {
         _state.value = UpdateState.Ready(info)
-        val ok = runCatching { launchInstaller(file(info)) }.getOrDefault(false)
+        val ok = runCatching { launchInstaller(file(info), info.asset.silentArgs) }.getOrDefault(false)
         if (!ok) _state.value = UpdateState.Failed(R.string.settings_update_error_installer, info)
     }
 
@@ -315,14 +320,19 @@ class AppUpdater(
 
         /**
          * windows-update.json: `versionCode`, `versionName`, `tag`, `xray`, and the
-         * installer as `installer: {name, size, sha256}`. An installer without a proper
+         * installer as `installer: {name, size, sha256, silent}` (`silent`: the arguments
+         * for an unattended update, absent for an older build's installer). An installer without a proper
          * checksum is never taken: nothing could tell a broken download from it.
          */
         fun parseManifest(json: String): Manifest? = runCatching {
             val root = JsonParser.parseString(json).asJsonObject
             fun JsonObject.str(k: String) = get(k)?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
             val installer = root.get("installer")?.takeIf { it.isJsonObject }?.asJsonObject?.let { o ->
-                UpdateAsset(o.str("name"), o.get("size")?.asLong ?: 0L, o.str("sha256"))
+                val silent = o.get("silent")?.takeIf { it.isJsonArray }?.asJsonArray
+                    ?.mapNotNull { e -> e.takeIf { it.isJsonPrimitive }?.asString }
+                    ?.filter { it.startsWith("-") || it.startsWith("/") }
+                    .orEmpty()
+                UpdateAsset(o.str("name"), o.get("size")?.asLong ?: 0L, o.str("sha256"), silent)
             }?.takeIf { it.name.endsWith(".exe", true) && it.sha256.length == 64 && it.size > 0 }
             Manifest(
                 versionCode = root.get("versionCode").asInt,
