@@ -73,6 +73,8 @@ public static class W {
         return all.ToString();
     }
     public static int ForegroundPid() { uint p; GetWindowThreadProcessId(GetForegroundWindow(), out p); return (int)p; }
+    [DllImport("wininet.dll")] public static extern bool InternetSetOption(IntPtr h, int option, IntPtr buffer, int length);
+    public static void ProxyChanged() { InternetSetOption(IntPtr.Zero, 39, IntPtr.Zero, 0); InternetSetOption(IntPtr.Zero, 37, IntPtr.Zero, 0); }
 }
 "@
 
@@ -105,6 +107,33 @@ function Run($exe, [string[]]$arguments, [int]$seconds = 300) {
 
 function Quote($s) { return '"' + $s + '"' }
 
+function Step($what) { Write-Host "== $(Get-Date -Format HH:mm:ss) $what" }
+
+$inetKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
+function ProxyState() {
+    $k = Get-ItemProperty $inetKey -ErrorAction SilentlyContinue
+    $c = (Get-ItemProperty (Join-Path $inetKey "Connections") -Name DefaultConnectionSettings -ErrorAction SilentlyContinue).DefaultConnectionSettings
+    return [pscustomobject]@{ Enable = $k.ProxyEnable; Server = $k.ProxyServer; Override = $k.ProxyOverride; Pac = $k.AutoConfigURL; Conn = $c }
+}
+$proxyAtStart = ProxyState
+Write-Host "Windows proxy at start: enable=$($proxyAtStart.Enable) server=$($proxyAtStart.Server)"
+function ProxyBack($when) {
+    $now = ProxyState
+    if ($now.Enable -eq 1 -and "$($now.Server)" -like "127.0.0.1:*" -and "$($now.Server)" -ne "$($proxyAtStart.Server)") {
+        Fail "$when left the Windows proxy on ($($now.Server)); put back"
+        $enable = if ($proxyAtStart.Enable) { [int]$proxyAtStart.Enable } else { 0 }
+        Set-ItemProperty $inetKey -Name ProxyEnable -Value $enable -Type DWord
+        foreach ($pair in @(@("ProxyServer", $proxyAtStart.Server), @("ProxyOverride", $proxyAtStart.Override), @("AutoConfigURL", $proxyAtStart.Pac))) {
+            if ($null -eq $pair[1]) { Remove-ItemProperty $inetKey -Name $pair[0] -ErrorAction SilentlyContinue }
+            else { Set-ItemProperty $inetKey -Name $pair[0] -Value $pair[1] }
+        }
+        if ($null -ne $proxyAtStart.Conn) {
+            Set-ItemProperty (Join-Path $inetKey "Connections") -Name DefaultConnectionSettings -Value $proxyAtStart.Conn -Type Binary
+        }
+        [W]::ProxyChanged()
+    }
+}
+
 # ---------------------------------------------------------------- a Cyrillic user
 
 $user = Join-Path $Work "Арсений Тестов"
@@ -132,6 +161,8 @@ Write-Host ("installer size: {0:N1} MB" -f ($bytes.Length / 1MB))
 
 # ---------------------------------------------------------------- the window itself
 
+Step "the installer window"
+
 $ui = Start-Process -FilePath $Setup -ArgumentList @("--lang", "ru", "--log", (Quote (Join-Path $Work "ui.log"))) -PassThru
 Start-Sleep -Seconds 6
 Check ([W]::Find($ui.Id, "Установка Volta") -ne [IntPtr]::Zero) "the installer window opens ($([W]::Titles($ui.Id)))"
@@ -140,14 +171,16 @@ Stop-Process -Id $ui.Id -Force -ErrorAction SilentlyContinue
 
 # ---------------------------------------------------------------- 1. the old MSI Volta
 
+Step "1. the old MSI Volta"
+
 $legacyDir = Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "Volta"
 function DataList() {
     if (-not (Test-Path $data)) { return "(no data folder)" }
     return ((Get-ChildItem -Recurse -File $data | ForEach-Object { $_.FullName.Substring($data.Length + 1) + " " + $_.Length }) -join "; ")
 }
 if ($LegacyMsi -and (Test-Path $LegacyMsi)) {
-    $code = Run "msiexec.exe" @("/i", (Quote $LegacyMsi), "/qn", "/l*v", (Quote (Join-Path $Work "legacy-install.log"))) 300
-    Check ($code -eq 0) "the old jpackage/MSI Volta installs (exit $code)"
+    $code = Run "msiexec.exe" @("/i", (Quote $LegacyMsi), "/qn", "/norestart", "REBOOT=ReallySuppress", "/l*v", (Quote (Join-Path $Work "legacy-install.log"))) 180
+    Check ($code -eq 0 -or $code -eq 3010) "the old jpackage/MSI Volta installs (exit $code)"
     Check (Test-Path (Join-Path $legacyDir "Volta.exe")) "old Volta at $legacyDir"
 
     # What the old (jpackage/WiX) uninstaller does to the user's things, with Volta running
@@ -158,7 +191,7 @@ if ($LegacyMsi -and (Test-Path $LegacyMsi)) {
     $null = WaitFor { $old.HasExited -or (Test-Path (Join-Path $data "volta.json")) } 60
     Start-Sleep -Seconds 5
     Write-Host "data before the old uninstaller: $(DataList)"
-    $code = Run "msiexec.exe" @("/x", (Quote $LegacyMsi), "/qn", "/l*v", (Quote (Join-Path $Work "legacy-uninstall.log"))) 300
+    $code = Run "msiexec.exe" @("/x", (Quote $LegacyMsi), "/qn", "/norestart", "REBOOT=ReallySuppress", "/l*v", (Quote (Join-Path $Work "legacy-uninstall.log"))) 300
     Write-Host "old uninstaller (msiexec /x, Volta running): exit $code; Volta still running: $(-not $old.HasExited)"
     Write-Host "install folder after: $(if (Test-Path $legacyDir) { (Get-ChildItem $legacyDir -Name) -join ', ' } else { '(gone)' })"
     Write-Host "data after the old uninstaller: $(DataList)"
@@ -168,8 +201,8 @@ if ($LegacyMsi -and (Test-Path $LegacyMsi)) {
     Write-Host "proxy backup left behind: $(Test-Path (Join-Path $data 'proxy-backup.json')); Run entry: $((Get-ItemProperty $runKey -Name Volta -ErrorAction SilentlyContinue).Volta)"
 
     # Back again: the new installer must move this install over.
-    $code = Run "msiexec.exe" @("/i", (Quote $LegacyMsi), "/qn", "/l*v", (Quote (Join-Path $Work "legacy-install2.log"))) 300
-    Check ($code -eq 0) "the old Volta installs again for the migration test (exit $code)"
+    $code = Run "msiexec.exe" @("/i", (Quote $LegacyMsi), "/qn", "/norestart", "REBOOT=ReallySuppress", "/l*v", (Quote (Join-Path $Work "legacy-install2.log"))) 300
+    Check ($code -eq 0 -or $code -eq 3010) "the old Volta installs again for the migration test (exit $code)"
 } else {
     Write-Host "no legacy MSI given; migration not tested"
 }
@@ -177,6 +210,9 @@ New-Item -ItemType Directory -Force -Path $data | Out-Null
 Set-Content -Path (Join-Path $data "user-marker.txt") -Value "подписки пользователя" -Encoding utf8
 
 # ---------------------------------------------------------------- 2. silent install
+
+ProxyBack "the old MSI Volta"
+Step "2. silent install"
 
 $code = Run $Setup @("--silent", "--dir", (Quote $dir), "--log", (Quote $setupLog))
 Check ($code -eq 0) "silent install (exit $code)"
@@ -209,14 +245,19 @@ if ($LegacyMsi) {
 
 # ---------------------------------------------------------------- 3. self-test from the installed folder
 
+Step "3. self-test"
+
 $selfLog = Join-Path $Work "self-test.log"
 $screens = Join-Path $Shots "app"
-$code = Run $exe @("--self-test", (Quote $selfLog), "--shots", (Quote $screens), "--proxy") 600
+$code = Run $exe @("--self-test", (Quote $selfLog), "--shots", (Quote $screens), "--proxy") 300
 if (Test-Path $selfLog) { Get-Content $selfLog -Encoding utf8 }
 Check ($code -eq 0) "self-test of the installed app (exit $code)"
 Copy-Item $selfLog (Join-Path $Shots "self-test.log") -ErrorAction SilentlyContinue
 
 # ---------------------------------------------------------------- 4. smoke test
+
+ProxyBack "the self-test"
+Step "4. smoke test"
 
 function StartVolta() {
     $p = Start-Process -FilePath $exe -PassThru
@@ -284,6 +325,9 @@ Check (-not (Get-ChildItem (Join-Path $data "logs") -Filter "crash-*.log" -Error
 
 # ---------------------------------------------------------------- 5. update over a running Volta
 
+ProxyBack "the smoke test"
+Step "5. update"
+
 $volta = StartVolta
 $jsonBefore = Get-Item (Join-Path $data "volta.json") -ErrorAction SilentlyContinue
 Check ($null -ne $jsonBefore) "volta.json exists before the update ($($jsonBefore.Length) bytes)"
@@ -317,6 +361,9 @@ Copy-Item $appLog (Join-Path $Shots "volta.log") -ErrorAction SilentlyContinue
 
 # ---------------------------------------------------------------- 6. uninstall, keeping the data
 
+ProxyBack "the update"
+Step "6. uninstall"
+
 function Cleaned($what) {
     Check (-not (Test-Path $uninstallKey)) "${what}: Apps & Features entry removed"
     Check (-not (Test-Path $startLink)) "${what}: Start menu shortcut removed"
@@ -338,6 +385,8 @@ Check (Test-Path (Join-Path $data "volta.json")) "uninstall keeps volta.json"
 
 # ---------------------------------------------------------------- 7. install again, then uninstall with the data
 
+Step "7. install again, uninstall with the data"
+
 $code = Run $Setup @("--silent", "--dir", (Quote $dir), "--autostart", "--no-desktop-shortcut", "--log", (Quote $setupLog))
 Check ($code -eq 0) "install again (exit $code)"
 $run = (Get-ItemProperty $runKey -Name Volta -ErrorAction SilentlyContinue).Volta
@@ -350,6 +399,9 @@ Cleaned "uninstall --remove-data"
 Check (-not (Test-Path $data)) "%APPDATA%\Volta removed when asked"
 
 # ---------------------------------------------------------------- logs
+
+ProxyBack "the uninstallers"
+Step "logs"
 
 Write-Host "---- setup.log"
 if (Test-Path $setupLog) { Get-Content $setupLog -Encoding utf8 }

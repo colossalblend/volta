@@ -356,6 +356,8 @@ jobs:
       # the old MSI install.
       - name: Install, run, update and uninstall
         shell: pwsh
+        # Its own limit, so the pictures and logs below still go up if it hangs.
+        timeout-minutes: 25
         run: |
           $w = Join-Path $env:RUNNER_TEMP "package"
           ./desktop/installer/ci/installer-test.ps1 -Setup (Join-Path $w "setup\VoltaSetup.exe") `
