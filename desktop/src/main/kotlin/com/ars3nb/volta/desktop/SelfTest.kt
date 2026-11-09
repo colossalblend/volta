@@ -335,7 +335,10 @@ object SelfTest {
                     controller.selectServer(5)
                     controller.selectServer(3)
                     controller.selectServer(4)
-                    require(controller.ui.value.runtime.switching?.serverId == 4L) {
+                    // ui is derived from the runtime on the controller's scope and follows it a
+                    // moment later; the mark must be there before the clicks settle and the
+                    // move itself begins.
+                    require(waitFor(VoltaController.SWITCH_SETTLE_MS - 50) { controller.ui.value.runtime.switching?.serverId == 4L }) {
                         "no «switching» mark at once: ${controller.ui.value.runtime.switching}"
                     }
                     require(waitFor(25_000) {
