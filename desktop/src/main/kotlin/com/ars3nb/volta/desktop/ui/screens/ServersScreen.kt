@@ -1,6 +1,17 @@
 package com.ars3nb.volta.desktop.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.SignalCellularAlt
@@ -36,11 +48,15 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -50,20 +66,27 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.ars3nb.volta.core.ping.SweepBoard
 import com.ars3nb.volta.core.server.Countries
 import com.ars3nb.volta.core.vpn.ConfigBuilder
 import com.ars3nb.volta.data.model.BalancerScope
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.ServerPool
 import com.ars3nb.volta.data.model.ServerRole
+import com.ars3nb.volta.data.model.ServerSort
 import com.ars3nb.volta.data.model.matches
 import com.ars3nb.volta.desktop.VoltaController
 import com.ars3nb.volta.desktop.VoltaUiState
 import com.ars3nb.volta.desktop.core.WindowsCompat
+import com.ars3nb.volta.desktop.i18n.R
+import com.ars3nb.volta.desktop.i18n.Res
 import com.ars3nb.volta.desktop.i18n.Strings
+import com.ars3nb.volta.desktop.i18n.stringResource
 import com.ars3nb.volta.desktop.ui.LocalLang
 import com.ars3nb.volta.desktop.ui.LocalStrings
+import com.ars3nb.volta.desktop.ui.components.CheckMenuRow
 import com.ars3nb.volta.desktop.ui.components.CountryCard
+import com.ars3nb.volta.desktop.ui.components.GeminiMenuRow
 import com.ars3nb.volta.desktop.ui.components.EmptyState
 import com.ars3nb.volta.desktop.ui.components.PageHeader
 import com.ars3nb.volta.desktop.ui.components.ScrollPage
@@ -77,19 +100,23 @@ import com.ars3nb.volta.desktop.ui.components.VoltaChip
 import com.ars3nb.volta.desktop.ui.components.VoltaSearchField
 import com.ars3nb.volta.desktop.ui.components.countryName
 import com.ars3nb.volta.desktop.ui.components.subscriptionColor
+import com.ars3nb.volta.desktop.ui.theme.Motion
+import com.ars3nb.volta.desktop.ui.theme.TABULAR
 import com.ars3nb.volta.desktop.ui.theme.VoltaTheme
+import com.ars3nb.volta.desktop.ui.theme.rememberReducedMotion
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
-internal enum class ServerSort { BEST, NAME, SUBSCRIPTION }
-
-/** What the server list keeps while the user moves between pages. */
+/**
+ * Where the server list was scrolled to, one per layout (by country, flat), kept while
+ * the window lives: back from another page, the list is where it was left. Its filters,
+ * order, grouping, search and open countries are kept in the settings
+ * (AppSettings.serversView), so they come back after a restart too.
+ */
 class ServersViewState {
-    var pool by mutableStateOf(ServerPool.ALL)
-    var query by mutableStateOf("")
-    var byCountry by mutableStateOf(true)
-    var favoritesOnly by mutableStateOf(false)
-    var subscriptionFilter by mutableStateOf<Long?>(null)
-    var openCountries by mutableStateOf<Set<String>?>(null)
-    internal var sort by mutableStateOf(ServerSort.BEST)
+    val byCountryList = LazyListState()
+    val flatList = LazyListState()
 }
 
 /**
@@ -107,6 +134,19 @@ fun ServersScreen(
 ) {
     val s = LocalStrings.current
     val lang = LocalLang.current
+    val saved = state.settings.serversView
+    val pool = saved.pool
+    // The search box is the only one to change the query: it keeps its own text, so typing
+    // never waits for the settings to come back round (they are saved as it goes).
+    var typed by remember { mutableStateOf(saved.query) }
+    val query = typed
+    val sort = saved.sort
+    val byCountry = saved.byCountry
+    val favoritesOnly = saved.favoritesOnly
+    // A subscription filter outlives its subscription only until the list knows it's gone.
+    val subscriptionFilter = saved.subscriptionId?.takeIf { id ->
+        state.subscriptions.isEmpty() || (state.subscriptions.size > 1 && state.subscriptions.any { it.id == id })
+    }
     val subsById = remember(state.subscriptions) { state.subscriptions.associateBy { it.id } }
     val supported = remember(state.servers) {
         state.servers.associate { it.id to ConfigBuilder.canDial(WindowsCompat.adapt(it)) }
@@ -116,18 +156,24 @@ fun ServersScreen(
     val codeOf = remember(state.servers) { state.servers.associate { it.id to Countries.of(it.remark).code } }
     val hideBalancers = state.settings.hideBalancers
     var sortMenu by remember { mutableStateOf(false) }
+    // Only whether a sweep runs: its progress is read by the strip and the rows alone, so
+    // an answer redraws one row and the counter, not this whole page.
+    val sweepRunning = remember(controller) { controller.sweep.map { it.running }.distinctUntilChanged() }
+    val sweeping by sweepRunning.collectAsState(initial = controller.sweep.value.running)
+    // How old the stored figures are is judged against the time the list last changed.
+    val now = remember(state.servers) { System.currentTimeMillis() }
 
-    val visible = remember(state.servers, view.pool, view.query, view.sort, view.favoritesOnly, supported, view.subscriptionFilter, hideBalancers, lang) {
+    val visible = remember(state.servers, pool, query, sort, favoritesOnly, supported, subscriptionFilter, hideBalancers, lang) {
         state.servers
-            .filter { view.pool.matches(it.role) }
-            .filter { !(hideBalancers && view.pool != ServerPool.AUTO && it.role == ServerRole.AUTO) }
-            .filter { view.subscriptionFilter == null || it.subscriptionId == view.subscriptionFilter }
-            .filter { !view.favoritesOnly || it.isFavorite }
+            .filter { pool.matches(it.role) }
+            .filter { !(hideBalancers && pool != ServerPool.AUTO && it.role == ServerRole.AUTO) }
+            .filter { subscriptionFilter == null || it.subscriptionId == subscriptionFilter }
+            .filter { !favoritesOnly || it.isFavorite }
             .filter {
-                matchesQuery(it, view.query, subsById[it.subscriptionId]?.name.orEmpty(), countryName(codeOf[it.id] ?: Countries.UNKNOWN_CODE, lang, s))
+                matchesQuery(it, query, subsById[it.subscriptionId]?.name.orEmpty(), countryName(codeOf[it.id] ?: Countries.UNKNOWN_CODE, lang, s))
             }
             .sortedWith(
-                when (view.sort) {
+                when (sort) {
                     ServerSort.BEST -> compareBy<ServerEntity> { supported[it.id] == false }
                         .thenBy { it.failStreak > 0 }
                         .thenBy { measuredMs(it).let { ms -> if (ms < 0) Long.MAX_VALUE else ms } }
@@ -143,12 +189,18 @@ fun ServersScreen(
             .sortedWith(compareBy<Triple<String, String, List<ServerEntity>>> { it.first == Countries.UNKNOWN_CODE }.thenBy { it.second })
     }
     val currentCode = state.selectedServer?.let { codeOf[it.id] }
-    val open = view.openCountries ?: setOfNotNull(currentCode)
+    // null until the user folds something: then only the current server's country is open.
+    val open = saved.openCountries ?: setOfNotNull(currentCode)
     val running = state.runtime.runningScope
+    val liveId = state.runtime.connectedServerId.takeIf { state.isConnected }
 
     fun actionsFor(server: ServerEntity): List<ServerAction> = buildList {
         add(ServerAction(s.actionConnect, Icons.Rounded.Bolt) { controller.connectTo(server.id) })
-        add(ServerAction(s.actionPing, Icons.Rounded.Speed) { controller.pingServer(server.id) })
+        add(
+            ServerAction(s.actionPing, Icons.Rounded.Speed, content = {
+                CheckMenuRow(state.runtime.serverCheck?.takeIf { it.serverId == server.id }) { controller.pingServer(server.id) }
+            })
+        )
         add(
             if (server.isFavorite) ServerAction(s.actionUnfavorite, Icons.Rounded.StarBorder) { controller.toggleFavorite(server.id) }
             else ServerAction(s.actionFavorite, Icons.Rounded.Star) { controller.toggleFavorite(server.id) }
@@ -160,17 +212,54 @@ fun ServersScreen(
         if (server.rawLink.isNotBlank() && sub?.urlHidden != true) {
             add(ServerAction(s.actionCopyLink, Icons.Rounded.ContentCopy) { copyToClipboard(server.rawLink); controller.message(s.linkCopied) })
         }
+        // «Проверить Gemini», its verdict shown in the menu (as in Android's sheet).
+        add(
+            ServerAction(Res.string(R.string.gemini_check_action), content = {
+                val route = remember(server, liveId) { controller.geminiRoute(server) }
+                GeminiMenuRow(server, controller.gemini, route)
+            })
+        )
         if (server.subscriptionId == null) add(ServerAction(s.actionDelete, Icons.Rounded.Delete, danger = true) { controller.deleteServer(server.id) })
     }
 
-    ScrollPage {
+    @Composable
+    fun row(server: ServerEntity, modifier: Modifier, inGroup: Boolean) {
+        LiveServerRow(
+            sweep = controller.sweep,
+            server = server,
+            selected = state.selectedServer?.id == server.id,
+            subscriptionName = subsById[server.subscriptionId]?.name.orEmpty(),
+            supported = supported[server.id] != false,
+            onClick = { controller.selectServer(server.id) },
+            actions = { actionsFor(server) },
+            onMenuClosed = {
+                if (state.runtime.serverCheck?.serverId == server.id) controller.clearServerCheck()
+            },
+            now = now,
+            modifier = modifier,
+            inGroup = inGroup
+        )
+    }
+
+    // Kept in the page state: back from another page, the list is where it was.
+    ScrollPage(state = if (byCountry) view.byCountryList else view.flatList) {
         item(key = "header") {
             PageHeader(s.navServers) {
-                IconButton(onClick = { controller.pingAll(view.pool) }, enabled = !state.busy && state.servers.isNotEmpty()) {
-                    if (state.busy && running == null) {
-                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    } else {
-                        Icon(Icons.Rounded.Speed, s.pingAll)
+                // One button: starts the check, and stops it while it runs.
+                IconButton(
+                    onClick = { if (sweeping) controller.cancelPingAll() else controller.pingAll(pool) },
+                    enabled = sweeping || (!state.busy && running == null && state.servers.isNotEmpty())
+                ) {
+                    AnimatedContent(
+                        targetState = sweeping,
+                        transitionSpec = { (scaleIn(Motion.press(), initialScale = 0.7f) + fadeIn()) togetherWith fadeOut() },
+                        label = "pingAll"
+                    ) { busyNow ->
+                        if (busyNow) {
+                            Icon(Icons.Rounded.Close, stringResource(R.string.servers_check_stop))
+                        } else {
+                            Icon(Icons.Rounded.Speed, s.pingAll)
+                        }
                     }
                 }
                 Box {
@@ -179,20 +268,44 @@ fun ServersScreen(
                         ServerSort.entries.forEach { option ->
                             DropdownMenuItem(
                                 text = { Text(sortLabel(option, s)) },
-                                onClick = { view.sort = option; sortMenu = false },
-                                trailingIcon = { if (view.sort == option) Icon(Icons.Rounded.Check, null) }
+                                onClick = {
+                                    controller.updateServersView { it.copy(sort = option) }
+                                    sortMenu = false
+                                },
+                                trailingIcon = { if (sort == option) Icon(Icons.Rounded.Check, null) }
                             )
                         }
                     }
                 }
             }
         }
+        item(key = "sweep") {
+            AnimatedVisibility(
+                visible = sweeping,
+                enter = fadeIn() + expandVertically(Motion.settle()),
+                exit = fadeOut() + shrinkVertically(Motion.settle())
+            ) {
+                SweepStrip(controller.sweep, onStop = controller::cancelPingAll)
+            }
+        }
         item(key = "best") { SectionHeader(s.bestInGroup) }
         item(key = "pads") {
-            BestPickPads(running = running, enabled = state.servers.isNotEmpty() && !state.busy, hasLte = hasLte, onRun = controller::runBalancer)
+            BestPickPads(
+                running = running,
+                enabled = state.servers.isNotEmpty() && !state.busy && !sweeping,
+                hasLte = hasLte,
+                onRun = controller::runBalancer
+            )
         }
         item(key = "search") {
-            VoltaSearchField(value = view.query, onValueChange = { view.query = it }, placeholder = s.searchPlaceholder)
+            VoltaSearchField(
+                value = query,
+                onValueChange = { text ->
+                    typed = text
+                    controller.updateServersView { it.copy(query = text) }
+                },
+                placeholder = s.searchPlaceholder
+            )
         }
         item(key = "chips") {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -201,30 +314,42 @@ fun ServersScreen(
                     if (option == ServerPool.BYPASS_WHITELIST && !hasLte) return@forEach
                     VoltaChip(
                         text = if (option == ServerPool.AUTO) "${poolLabel(option, s)} $balancerCount" else poolLabel(option, s),
-                        selected = view.pool == option,
-                        onClick = { view.pool = option },
+                        selected = pool == option,
+                        onClick = { controller.updateServersView { it.copy(pool = option) } },
                         accent = poolAccent(option)
                     )
                 }
-                VoltaChip(text = s.favorites, selected = view.favoritesOnly, onClick = { view.favoritesOnly = !view.favoritesOnly }, icon = Icons.Rounded.Star)
+                VoltaChip(
+                    text = s.favorites,
+                    selected = favoritesOnly,
+                    onClick = { controller.updateServersView { it.copy(favoritesOnly = !favoritesOnly) } },
+                    icon = Icons.Rounded.Star
+                )
             }
         }
         if (state.subscriptions.size > 1) {
             item(key = "subs") {
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    VoltaChip(text = s.allSubscriptions, selected = view.subscriptionFilter == null, onClick = { view.subscriptionFilter = null })
+                    VoltaChip(
+                        text = s.allSubscriptions,
+                        selected = subscriptionFilter == null,
+                        onClick = { controller.updateServersView { it.copy(subscriptionId = null) } }
+                    )
                     state.subscriptions.forEach { sub ->
                         VoltaChip(
                             text = sub.name,
-                            selected = view.subscriptionFilter == sub.id,
-                            onClick = { view.subscriptionFilter = if (view.subscriptionFilter == sub.id) null else sub.id },
+                            selected = subscriptionFilter == sub.id,
+                            onClick = {
+                                val next = if (subscriptionFilter == sub.id) null else sub.id
+                                controller.updateServersView { it.copy(subscriptionId = next) }
+                            },
                             accent = subscriptionColor(sub)
                         )
                     }
                 }
             }
         }
-        if (view.pool == ServerPool.AUTO && balancerCount > 0) {
+        if (pool == ServerPool.AUTO && balancerCount > 0) {
             item(key = "hide") {
                 VoltaCard(contentPadding = 10) {
                     SwitchRow(
@@ -242,7 +367,7 @@ fun ServersScreen(
             Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        if (view.byCountry) s.serversAndCountries(visible.size, countries.size) else s.servers(visible.size),
+                        if (byCountry) s.serversAndCountries(visible.size, countries.size) else s.servers(visible.size),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -252,8 +377,8 @@ fun ServersScreen(
                 }
                 SlidingChoice(
                     options = listOf(true, false),
-                    selected = view.byCountry,
-                    onSelect = { view.byCountry = it },
+                    selected = byCountry,
+                    onSelect = { choice -> controller.updateServersView { it.copy(byCountry = choice) } },
                     label = { if (it) s.viewCountries else s.viewList },
                     height = 36.dp,
                     modifier = Modifier.width(190.dp)
@@ -276,9 +401,9 @@ fun ServersScreen(
                 )
             }
         }
-        if (view.byCountry) {
+        if (byCountry) {
             items(countries, key = { "country-${it.first}" }) { (code, name, servers) ->
-                val expanded = view.query.isNotBlank() || code in open
+                val expanded = query.isNotBlank() || code in open
                 CountryCard(
                     code = code,
                     name = name,
@@ -286,33 +411,80 @@ fun ServersScreen(
                     bestMs = servers.map(::measuredMs).filter { it >= 0 }.minOrNull() ?: -1,
                     expanded = expanded,
                     current = code == currentCode,
-                    onToggle = { view.openCountries = if (code in open) open - code else open + code }
+                    onToggle = {
+                        val next = if (code in open) open - code else open + code
+                        controller.updateServersView { it.copy(openCountries = next) }
+                    }
                 ) {
                     servers.forEach { server ->
-                        ServerRow(
-                            server = server,
-                            selected = state.selectedServer?.id == server.id,
-                            subscriptionName = subsById[server.subscriptionId]?.name.orEmpty(),
-                            supported = supported[server.id] != false,
-                            onClick = { controller.selectServer(server.id) },
-                            actions = { actionsFor(server) },
-                            inGroup = true
-                        )
+                        key(server.id) { row(server, Modifier, inGroup = true) }
                     }
                 }
             }
         } else {
             items(visible, key = { it.id }) { server ->
-                ServerRow(
-                    server = server,
-                    selected = state.selectedServer?.id == server.id,
-                    subscriptionName = subsById[server.subscriptionId]?.name.orEmpty(),
-                    supported = supported[server.id] != false,
-                    onClick = { controller.selectServer(server.id) },
-                    actions = { actionsFor(server) }
-                )
+                // The order changes once, when a sweep's results are in: rows glide there.
+                row(server, Modifier.animateItem(), inGroup = false)
             }
         }
+    }
+}
+
+/**
+ * A server row that follows its own entry of a running sweep: an answer redraws this
+ * row only. Outside a sweep it is the plain row with the stored figure.
+ */
+@Composable
+private fun LiveServerRow(
+    sweep: StateFlow<SweepBoard>,
+    server: ServerEntity,
+    selected: Boolean,
+    subscriptionName: String,
+    supported: Boolean,
+    onClick: () -> Unit,
+    actions: () -> List<ServerAction>,
+    onMenuClosed: () -> Unit,
+    now: Long,
+    modifier: Modifier = Modifier,
+    inGroup: Boolean = false
+) {
+    val cell = remember(sweep, server.id) { sweep.map { it.cell(server.id) }.distinctUntilChanged() }
+    val live by cell.collectAsState(initial = sweep.value.cell(server.id))
+    ServerRow(
+        server = server,
+        selected = selected,
+        subscriptionName = subscriptionName,
+        supported = supported,
+        onClick = onClick,
+        actions = actions,
+        modifier = modifier,
+        inGroup = inGroup,
+        live = live,
+        now = now,
+        onMenuClosed = onMenuClosed
+    )
+}
+
+/** «Проверено N из M», a bar, and a way to stop: at the top of the list while a sweep runs. */
+@Composable
+private fun SweepStrip(sweep: StateFlow<SweepBoard>, onStop: () -> Unit) {
+    val board by sweep.collectAsState()
+    val still = rememberReducedMotion()
+    val progress by animateFloatAsState(board.fraction, if (still) snap() else Motion.slide(), label = "sweepProgress")
+    Column(Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.servers_check_progress, board.done, board.total),
+                style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = TABULAR),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(onClick = onStop) { Text(stringResource(R.string.servers_check_stop)) }
+        }
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape)
+        )
     }
 }
 

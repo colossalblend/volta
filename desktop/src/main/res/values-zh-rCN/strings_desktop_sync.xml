@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Volta for Windows: where the Android words speak of a phone or a finger (settings_lite_mode_hint, home_traffic_tap_hint). -->
+<resources>
+    <string name="desktop_lite_mode_hint">关闭所有动画，适合性能较弱的电脑</string>
+    <string name="desktop_traffic_tap_hint">点击柱条或用鼠标在上面拖动，查看某一天；方向键可逐日切换</string>
+</resources>

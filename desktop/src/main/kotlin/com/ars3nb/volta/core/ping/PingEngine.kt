@@ -1,5 +1,6 @@
 package com.ars3nb.volta.core.ping
 
+import com.ars3nb.volta.core.balancer.RaceJudge
 import com.ars3nb.volta.core.helper.ProxyHelper
 import com.ars3nb.volta.core.openflux.OpenFluxLink
 import com.ars3nb.volta.core.openflux.OpenFluxRunner
@@ -24,6 +25,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.joinAll
@@ -42,7 +44,12 @@ import kotlinx.coroutines.withTimeoutOrNull
  */
 class PingEngine(
     private val tester: DelayTester?,
-    private val batterySaver: Boolean = false
+    private val batterySaver: Boolean = false,
+    /**
+     * A whole-list sweep someone watches: a handshake slower than [SWEEP_CONNECT_TIMEOUT_MS]
+     * is a dead node for practical purposes, and waiting longer only holds the batch up.
+     */
+    private val sweep: Boolean = false
 ) {
     companion object {
         const val DELAY_TEST_URL = DelayTester.DEFAULT_URL
@@ -51,6 +58,21 @@ class PingEngine(
         const val TCP_PARALLEL = 48
         const val HEAVY_PARALLEL = 8
         const val RACE_DEADLINE_MS = 3_000L
+
+        /**
+         * "Check all": this many handshakes at once. More only queue up behind each other
+         * and add their wait to each other's figure, so the numbers get worse, not faster.
+         */
+        const val SWEEP_PARALLEL = 16
+
+        /** A sweep's handshake deadline (see [sweep]). */
+        const val SWEEP_CONNECT_TIMEOUT_MS = 2_000
+
+        /** The connect-time race among the few best-known nodes: how long it may take… */
+        const val RANKED_RACE_DEADLINE_MS = 2_500L
+
+        /** …and how long a better-ranked node may be behind the first answer and still win. */
+        const val RACE_GRACE_MS = 250L
         private const val UDP_FINALISTS = 2
 
         /** QUIC/UDP nodes: a TCP handshake says nothing about them, so they get a real round trip. */
@@ -74,7 +96,7 @@ class PingEngine(
             tcpResults.asSequence().filter { it.second.success }.map { it.first }.toSet()
     }
 
-    private val connectTimeoutMs = if (batterySaver) 2000 else 3000
+    private val connectTimeoutMs = if (batterySaver || sweep) SWEEP_CONNECT_TIMEOUT_MS else 3000
 
     suspend fun pingServer(server: ServerEntity, type: PingType = PingType.TCP): PingResult =
         when {
@@ -107,22 +129,29 @@ class PingEngine(
         }
     }
 
-    /** First node to answer a TCP handshake wins; null when none does in time. */
+    /**
+     * First node to answer wins (a handshake; the carriers for OpenFlux); its figure comes
+     * along. Nobody in time: no winner.
+     */
     suspend fun firstToAnswer(
         servers: List<ServerEntity>,
         deadlineMs: Long = RACE_DEADLINE_MS
-    ): ServerEntity? {
+    ): RaceOutcome {
         val candidates = servers.filterNot(::speaksUdp)
-        if (candidates.isEmpty()) return null
+        if (candidates.isEmpty()) return RaceOutcome.NONE
         val race = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-        val winner = CompletableDeferred<ServerEntity?>()
+        val winner = CompletableDeferred<Pair<ServerEntity, Long>?>()
         val gate = Semaphore(TCP_PARALLEL)
         val runners = candidates.map { server ->
             race.launch {
                 gate.withPermit {
-                    if (!winner.isCompleted && tcpPing(server.address, server.port).success) {
-                        winner.complete(server)
+                    if (winner.isCompleted) return@withPermit
+                    val result = if (judgedByCarriers(server)) {
+                        openFluxDelay(server, deadlineMs)
+                    } else {
+                        tcpPing(server.address, server.port)
                     }
+                    if (result.success) winner.complete(server to result.latencyMs)
                 }
             }
         }
@@ -130,11 +159,79 @@ class PingEngine(
             runners.joinAll()
             winner.complete(null)
         }
-        return try {
+        val first = try {
             withTimeoutOrNull(deadlineMs) { winner.await() }
         } finally {
             race.cancel()
         }
+        return RaceOutcome(first?.first, first?.second ?: -1, candidates.size, if (first != null) 1 else 0)
+    }
+
+    /** How a connect-time race ended: the winner (null: nobody answered) and its figure. */
+    data class RaceOutcome(
+        val winner: ServerEntity?,
+        val latencyMs: Long,
+        val asked: Int,
+        val answered: Int
+    ) {
+        companion object {
+            val NONE = RaceOutcome(null, -1, 0, 0)
+        }
+    }
+
+    /**
+     * The few best-known nodes at once, [contenders] best first (see [RaceJudge]): each
+     * with its cheapest honest check (a handshake; a real round trip for UDP nodes; the
+     * carriers for OpenFlux). Ends as soon as the verdict can't change, at most after
+     * [deadlineMs]; a dead node in the list costs nothing but its own slot.
+     */
+    suspend fun raceRanked(
+        contenders: List<ServerEntity>,
+        deadlineMs: Long = RANKED_RACE_DEADLINE_MS,
+        graceMs: Long = RACE_GRACE_MS
+    ): RaceOutcome {
+        if (contenders.isEmpty()) return RaceOutcome.NONE
+        val judge = RaceJudge(contenders.size, graceMs)
+        val events = Channel<Triple<Int, Boolean, Long>>(Channel.UNLIMITED)
+        val race = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val start = System.nanoTime()
+        fun elapsed() = (System.nanoTime() - start) / 1_000_000
+        contenders.forEachIndexed { rank, server ->
+            race.launch {
+                val result = runCatching {
+                    when {
+                        judgedByCarriers(server) -> openFluxDelay(server, deadlineMs)
+                        speaksUdp(server) -> realDelay(listOf(server), deadlineMs)[server.id]
+                        else -> tcpPing(server.address, server.port)
+                    }
+                }.getOrNull()
+                val ok = result != null && result.success && result.latencyMs >= 0
+                events.trySend(Triple(rank, ok, result?.latencyMs ?: -1))
+            }
+        }
+        try {
+            withTimeoutOrNull(deadlineMs) {
+                while (!judge.decided(elapsed())) {
+                    val limit = judge.waitLimit(elapsed())
+                    val event = if (limit == null) {
+                        events.receive()
+                    } else {
+                        withTimeoutOrNull(limit) { events.receive() } ?: continue
+                    }
+                    judge.record(event.first, event.second, event.third, elapsed())
+                }
+            }
+        } finally {
+            race.cancel()
+            events.close()
+        }
+        val lead = judge.leader()
+        return RaceOutcome(
+            winner = lead?.let { contenders[it] },
+            latencyMs = lead?.let(judge::latencyOf) ?: -1,
+            asked = contenders.size,
+            answered = judge.answers
+        )
     }
 
     /** Real round trips for many servers at once, one sample each. */

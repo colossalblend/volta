@@ -12,6 +12,11 @@ data class TrafficSummary(
     val lastMonth: Long = 0,
     /** Bytes per day for the last [TrafficTally.RECENT_DAYS] days, oldest first, today last. */
     val recent: List<Long> = emptyList(),
+    /** The same days split into what came in and what went out, for the day the user taps. */
+    val recentDown: List<Long> = emptyList(),
+    val recentUp: List<Long> = emptyList(),
+    /** The first bar's day as `LocalDate.toEpochDay()`; bar i is that day plus i. */
+    val firstDay: Long = 0,
     /** The months the two totals are for; the card names them in the app's language. */
     val thisMonthOf: Month = Month.JANUARY,
     val lastMonthOf: Month = Month.DECEMBER
@@ -51,6 +56,8 @@ object TrafficTally {
         val monthStart = today.withDayOfMonth(1)
         val lastMonthStart = monthStart.minusMonths(1)
         val byDay = HashMap<Long, Long>()
+        val downByDay = HashMap<Long, Long>()
+        val upByDay = HashMap<Long, Long>()
         var thisMonth = 0L
         var lastMonth = 0L
         for (d in days) {
@@ -58,6 +65,8 @@ object TrafficTally {
             // A day after today means the clock was set back; it belongs to no total.
             if (d.day > todayKey) continue
             byDay[d.day] = (byDay[d.day] ?: 0L) + bytes
+            downByDay[d.day] = (downByDay[d.day] ?: 0L) + d.downlinkBytes.coerceAtLeast(0)
+            upByDay[d.day] = (upByDay[d.day] ?: 0L) + d.uplinkBytes.coerceAtLeast(0)
             val date = LocalDate.ofEpochDay(d.day)
             if (!date.isBefore(monthStart)) {
                 thisMonth += bytes
@@ -70,6 +79,9 @@ object TrafficTally {
             thisMonth = thisMonth,
             lastMonth = lastMonth,
             recent = (RECENT_DAYS - 1 downTo 0).map { back -> byDay[todayKey - back] ?: 0L },
+            recentDown = (RECENT_DAYS - 1 downTo 0).map { back -> downByDay[todayKey - back] ?: 0L },
+            recentUp = (RECENT_DAYS - 1 downTo 0).map { back -> upByDay[todayKey - back] ?: 0L },
+            firstDay = todayKey - (RECENT_DAYS - 1),
             thisMonthOf = today.month,
             lastMonthOf = lastMonthStart.month
         )

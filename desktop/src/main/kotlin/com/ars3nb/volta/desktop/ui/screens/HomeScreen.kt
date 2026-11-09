@@ -2,6 +2,8 @@ package com.ars3nb.volta.desktop.ui.screens
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -10,6 +12,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -30,6 +34,7 @@ import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.SettingsEthernet
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -49,6 +54,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import com.ars3nb.volta.core.balancer.AutoBalancer
+import com.ars3nb.volta.core.balancer.SubscriptionScope
+import com.ars3nb.volta.core.gemini.GeminiChecks
+import com.ars3nb.volta.data.model.VpnConnectionState
+import com.ars3nb.volta.desktop.i18n.R
+import com.ars3nb.volta.desktop.i18n.stringResource
+import com.ars3nb.volta.desktop.ui.components.GeminiHomeLine
+import com.ars3nb.volta.desktop.ui.components.VoltaChip
+import com.ars3nb.volta.desktop.ui.components.subscriptionColor
+import com.ars3nb.volta.desktop.ui.theme.Motion
+import com.ars3nb.volta.desktop.ui.theme.rememberReducedMotion
 import com.ars3nb.volta.core.server.Countries
 import com.ars3nb.volta.data.model.BalancerScope
 import com.ars3nb.volta.data.model.ConnectMode
@@ -99,7 +114,9 @@ class HomeActions(
     val onLteMissing: () -> Unit,
     val onInstallUpdate: () -> Unit = {},
     val onOpenCaptcha: (String) -> Unit = {},
-    val onCaptchaDone: () -> Unit = {}
+    val onCaptchaDone: () -> Unit = {},
+    /** «Авто по подписке»: the subscription the auto modes pick from; 0: all of them. */
+    val onAutoSubscription: (Long) -> Unit = {}
 )
 
 /**
@@ -112,7 +129,9 @@ fun HomeScreen(
     state: VoltaUiState,
     actions: HomeActions,
     update: UpdateState = UpdateState.Idle,
-    openFlux: OpenFluxRunner.Status = OpenFluxRunner.Status.Idle
+    openFlux: OpenFluxRunner.Status = OpenFluxRunner.Status.Idle,
+    /** The Gemini checks, for the line under the server in use; null leaves it out. */
+    gemini: GeminiChecks? = null
 ) {
     val s = LocalStrings.current
     val rt = state.runtime
@@ -120,10 +139,26 @@ fun HomeScreen(
     val phase = rt.phase
     val selected = state.selectedServer
     val subscriptionOf = remember(state.subscriptions) { state.subscriptions.associateBy { it.id } }
-    val homeCount = remember(state.servers) { AutoBalancer.poolFor(state.servers, BalancerScope.NORMAL).size }
-    val lteCount = remember(state.servers) { AutoBalancer.poolFor(state.servers, BalancerScope.BYPASS).size }
-    val autoCount = remember(state.servers) { AutoBalancer.poolFor(state.servers, BalancerScope.ALL).size }
+    // «Авто по подписке»: offered with two subscriptions or more, in an auto mode.
+    val limitShown = state.settings.autoBySubscription && state.subscriptions.size >= 2 && mode != ConnectMode.MANUAL
+    val limit = SubscriptionScope.effective(
+        chosen = state.settings.autoSubscription,
+        enabled = state.settings.autoBySubscription,
+        mode = mode,
+        simpleMode = false,
+        subscriptionIds = state.subscriptions.map { it.id }
+    )
+    // The counts on the mode selector are of the servers the auto pick may use.
+    val scoped = remember(state.servers, limit) { SubscriptionScope.pool(state.servers, limit, scope = null) }
+    val homeCount = remember(scoped) { AutoBalancer.poolFor(scoped, BalancerScope.NORMAL).size }
+    val lteCount = remember(scoped) { AutoBalancer.poolFor(scoped, BalancerScope.BYPASS).size }
+    val autoCount = remember(scoped) { AutoBalancer.poolFor(scoped, BalancerScope.ALL).size }
     val working = phase != ConnectPhase.IDLE
+    val switching = rt.switching
+    // A live tunnel never looks off while it moves: a pick by hand, the guard, or the
+    // auto pick choosing again after a mode change all show as "switching".
+    val moving = state.isConnected && (switching != null || working) ||
+        (switching != null && state.vpnState == VpnConnectionState.CONNECTING)
     val hasServers = state.servers.isNotEmpty()
     val traffic = remember(state.trafficDays, state.isConnected) {
         TrafficTally.summarize(state.trafficDays, java.time.LocalDate.now())
@@ -174,21 +209,24 @@ fun HomeScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(vertical = 8.dp)) {
                         PowerButton(
                             state = state.vpnState,
-                            working = working,
+                            working = working && !moving,
                             enabled = hasServers || state.isConnected,
                             onClick = actions.onToggle,
                             size = discSize,
-                            activity = trafficActivity(rt.traffic)
+                            activity = trafficActivity(rt.traffic),
+                            switching = moving
                         )
                         ConnectionHeadline(
                             state = state.vpnState,
                             phaseCaption = phase.caption(s),
                             serverName = (state.servers.firstOrNull { it.id == rt.connectedServerId } ?: selected)
                                 ?.let { Countries.withoutLeadingFlag(it.remark) }.orEmpty(),
-                            idleCaption = if (hasServers) s.tapToConnect else s.addSubscriptionFirst
+                            idleCaption = if (hasServers) s.tapToConnect else s.addSubscriptionFirst,
+                            switchingTo = if (moving) switching?.let { Countries.withoutLeadingFlag(it.name) }.orEmpty() else null
                         )
                         AnimatedVisibility(
-                            visible = state.isConnected && !working,
+                            // Up while it switches: the tunnel and its clock carry on.
+                            visible = state.isConnected && (!working || moving),
                             enter = fadeIn() + expandVertically(),
                             exit = fadeOut() + shrinkVertically()
                         ) {
@@ -197,6 +235,9 @@ fun HomeScreen(
                                 traffic = rt.traffic,
                                 modifier = Modifier.padding(top = 12.dp)
                             )
+                        }
+                        if (gemini != null) {
+                            GeminiHomeLine(gemini, liveId = rt.connectedServerId.takeIf { state.isConnected && switching == null })
                         }
                         AnimatedVisibility(
                             visible = rt.error != null && !state.isConnected && !working,
@@ -221,7 +262,8 @@ fun HomeScreen(
                                 server = selected,
                                 subscription = selected?.subscriptionId?.let { subscriptionOf[it] },
                                 manual = mode == ConnectMode.MANUAL,
-                                onClick = actions.onOpenServers
+                                onClick = actions.onOpenServers,
+                                switching = moving
                             )
                             ModeSelector(
                                 mode = mode,
@@ -231,6 +273,17 @@ fun HomeScreen(
                                 onSelect = actions.onSelectMode,
                                 onLteMissing = actions.onLteMissing
                             )
+                            AnimatedVisibility(
+                                visible = limitShown,
+                                enter = fadeIn() + expandVertically(),
+                                exit = fadeOut() + shrinkVertically()
+                            ) {
+                                SubscriptionLimitRow(
+                                    subscriptions = state.subscriptions,
+                                    chosen = limit ?: 0L,
+                                    onChoose = actions.onAutoSubscription
+                                )
+                            }
                             AnimatedVisibility(visible = mode == ConnectMode.MANUAL) {
                                 ManualModeStrip(serverName = "", onBackToAuto = { actions.onSelectMode(ConnectMode.AUTO_HOME_LTE) })
                             }
@@ -342,17 +395,29 @@ private fun TopBar(regime: NetworkRegime, ip: String?, country: String?, onAdd: 
 
 /** The server the tunnel goes through. Clicking it opens the list. */
 @Composable
-private fun ServerCapsule(server: ServerEntity?, subscription: SubscriptionEntity?, manual: Boolean, onClick: () -> Unit) {
+private fun ServerCapsule(
+    server: ServerEntity?,
+    subscription: SubscriptionEntity?,
+    manual: Boolean,
+    onClick: () -> Unit,
+    switching: Boolean = false
+) {
     val palette = VoltaTheme.palette
     val scheme = MaterialTheme.colorScheme
     val s = LocalStrings.current
+    val still = rememberReducedMotion()
     Surface(onClick = onClick, shape = RoundedCornerShape(28.dp), color = scheme.surface, modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(start = 8.dp, end = 10.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             AnimatedContent(
                 targetState = server,
                 contentKey = { it?.id },
                 transitionSpec = {
-                    (slideInVertically { it } + fadeIn()) togetherWith (slideOutVertically { -it } + fadeOut())
+                    if (still) {
+                        EnterTransition.None togetherWith ExitTransition.None
+                    } else {
+                        (slideInVertically(Motion.settle()) { it } + fadeIn(Motion.settle())) togetherWith
+                            (slideOutVertically(Motion.settle()) { -it } + fadeOut(Motion.settle()))
+                    }
                 },
                 modifier = Modifier.weight(1f),
                 label = "server"
@@ -360,14 +425,30 @@ private fun ServerCapsule(server: ServerEntity?, subscription: SubscriptionEntit
                 ServerIdentity(shown, subscription, manual)
             }
             val ms = server?.let { it.ewmaMs.takeIf { v -> v >= 0 } ?: it.latencyMs } ?: -1
-            if (ms >= 0) {
-                Column(horizontalAlignment = Alignment.End) {
-                    SignalBars(ms)
-                    Text(
-                        s.ms(ms),
-                        style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = TABULAR),
-                        color = palette.latency(ms)
+            // While the tunnel moves, a small ring stands where the figure will be.
+            AnimatedContent(
+                targetState = if (switching) -2L else ms,
+                transitionSpec = {
+                    if (still) EnterTransition.None togetherWith ExitTransition.None
+                    else fadeIn(Motion.settle()) togetherWith fadeOut(Motion.settle())
+                },
+                label = "capsuleFigure"
+            ) { figure ->
+                when {
+                    figure == -2L -> CircularProgressIndicator(
+                        Modifier.padding(horizontal = 6.dp).size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = scheme.primary
                     )
+                    figure >= 0 -> Column(horizontalAlignment = Alignment.End) {
+                        SignalBars(figure)
+                        Text(
+                            s.ms(figure),
+                            style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = TABULAR),
+                            color = palette.latency(figure)
+                        )
+                    }
+                    else -> Spacer(Modifier.size(0.dp))
                 }
             }
             Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = scheme.onSurfaceVariant)
@@ -409,6 +490,43 @@ private fun ServerIdentity(server: ServerEntity?, subscription: SubscriptionEnti
                     color = scheme.onSurfaceVariant
                 )
             }
+        }
+    }
+}
+
+/**
+ * «Авто по подписке»: which subscriptions the auto mode picks from. One compact row of
+ * chips under the mode selector, all of them first; scrolls sideways when long.
+ */
+@Composable
+private fun SubscriptionLimitRow(
+    subscriptions: List<SubscriptionEntity>,
+    chosen: Long,
+    onChoose: (Long) -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            stringResource(R.string.home_auto_scope_label),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp)
+        )
+        VoltaChip(
+            text = stringResource(R.string.servers_all_subscriptions),
+            selected = chosen == 0L,
+            onClick = { onChoose(0L) }
+        )
+        subscriptions.forEach { sub ->
+            VoltaChip(
+                text = sub.name,
+                selected = chosen == sub.id,
+                onClick = { onChoose(if (chosen == sub.id) 0L else sub.id) },
+                accent = subscriptionColor(sub)
+            )
         }
     }
 }

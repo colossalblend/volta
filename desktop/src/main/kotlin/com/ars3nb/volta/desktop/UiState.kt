@@ -1,6 +1,7 @@
 package com.ars3nb.volta.desktop
 
 import com.ars3nb.volta.core.balancer.AutoBalancer
+import com.ars3nb.volta.core.locale.UiText
 import com.ars3nb.volta.core.stats.TrafficDayEntity
 import com.ars3nb.volta.core.vpn.InternetCheck
 import com.ars3nb.volta.data.model.BalancerScope
@@ -10,6 +11,7 @@ import com.ars3nb.volta.data.model.RoutingProfileEntity
 import com.ars3nb.volta.data.model.ServerEntity
 import com.ars3nb.volta.data.model.SiteProbeResult
 import com.ars3nb.volta.data.model.SubscriptionEntity
+import com.ars3nb.volta.data.model.SwitchTarget
 import com.ars3nb.volta.data.model.TrafficStats
 import com.ars3nb.volta.data.model.VpnConnectionState
 import com.ars3nb.volta.desktop.core.LocalPorts
@@ -64,6 +66,8 @@ data class PickRow(
 
 /** The finalists of the last auto pick, for the "why this server" card. */
 data class PickSummary(
+    /** Which node and why, in a sentence; a quick pick has only this, no table yet. */
+    val reason: UiText,
     val rows: List<PickRow>,
     val measured: Int,
     val alive: Int,
@@ -72,13 +76,24 @@ data class PickSummary(
     companion object {
         fun of(decision: AutoBalancer.Decision): PickSummary? {
             val alive = decision.ranked.filter { it.ok }
-            if (alive.isEmpty()) return null
+            if (alive.isEmpty()) {
+                // A quick pick has no table yet, only its reason: which node and why.
+                if (!decision.quick || decision.selected == null) return null
+                return PickSummary(
+                    reason = decision.reason,
+                    rows = emptyList(),
+                    measured = 0,
+                    alive = 0,
+                    at = System.currentTimeMillis()
+                )
+            }
             val chosenId = decision.selected?.id
             val top = alive.take(3).toMutableList()
             alive.firstOrNull { it.server.id == chosenId }
                 ?.takeIf { c -> top.none { it.server.id == c.server.id } }
                 ?.let { top[top.lastIndex] = it }
             return PickSummary(
+                reason = decision.reason,
                 rows = top.map {
                     PickRow(
                         serverId = it.server.id,
@@ -118,7 +133,24 @@ data class RuntimeState(
     /** Routing or filters changed while connected: they reach the tunnel with a reconnect. */
     val routingDirty: Boolean = false,
     /** Is there a network at all (see InternetCheck). */
-    val internet: InternetCheck.Status = InternetCheck.Status.OK
+    val internet: InternetCheck.Status = InternetCheck.Status.OK,
+    /**
+     * A live tunnel on its way to another node: from the click (or the guard's decision)
+     * until the new node carried a page. The tunnel stays up meanwhile.
+     */
+    val switching: SwitchTarget? = null,
+    /** The one-server check started from its menu, while the menu shows it. */
+    val serverCheck: ServerCheck? = null
+)
+
+/** A one-server check from its menu: running, then its answer in words. */
+data class ServerCheck(
+    val serverId: Long,
+    val running: Boolean,
+    /** In words, read in the window's language when shown. */
+    val text: UiText? = null,
+    val ok: Boolean = false,
+    val latencyMs: Long = -1
 )
 
 data class VoltaUiState(

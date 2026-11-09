@@ -35,6 +35,7 @@ import java.net.URI
 import java.nio.file.Files
 import java.util.Base64
 import java.util.UUID
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.skia.EncodedImageFormat
 
@@ -168,6 +169,26 @@ object SelfTest {
             "${sampleConfigs().size} configs"
         }
 
+        check("Gemini: the page rules on saved fixtures") {
+            com.ars3nb.volta.desktop.SelfTestFixtures.gemini()
+        }
+
+        check("traffic summary: each day with its date, in and out") {
+            com.ars3nb.volta.desktop.SelfTestFixtures.traffic()
+        }
+
+        check("connect-time race: the referee and the contenders") {
+            com.ars3nb.volta.desktop.SelfTestFixtures.raceJudge()
+        }
+
+        check("Lite: every animation ends at once") {
+            val lite = com.ars3nb.volta.desktop.ui.theme.LiteMotion.valueAfterTwoFrames(lite = true)
+            val normal = com.ars3nb.volta.desktop.ui.theme.LiteMotion.valueAfterTwoFrames(lite = false)
+            require(lite == 1f) { "a 10 s animation under Lite stood at $lite after 48 ms" }
+            require(normal in 0f..0.05f) { "without Lite it stood at $normal after 48 ms" }
+            "10 s animation after 48 ms: Lite $lite, normal $normal"
+        }
+
         // A VLESS server on this machine, run by the very same core.
         val uuid = UUID.randomUUID().toString()
         val serverPort = Ports.pick(0)
@@ -189,6 +210,19 @@ object SelfTest {
             }
             val link = "vless://$uuid@127.0.0.1:$serverPort?type=tcp&security=none&encryption=none#Local%20test"
             val parsed = ConfigParser.parseShareLink(link)!!.copy(id = 1)
+            // Nothing listens there: a server that never answers.
+            val deadPort = Ports.pick(0)
+
+            check("connect-time race against real servers: the living one wins") {
+                val alive = parsed.copy(id = 11)
+                val dead = parsed.copy(id = 12, port = deadPort)
+                val race = runBlocking {
+                    com.ars3nb.volta.core.ping.PingEngine(DelayTester(core, paths.runDir)).raceRanked(listOf(dead, alive))
+                }
+                require(race.winner?.id == 11L) { "$race" }
+                require(race.asked == 2 && race.answered == 1) { "$race" }
+                "${race.latencyMs} ms, ${race.answered} of ${race.asked} answered"
+            }
 
             check("real delay through a server") {
                 val ms = runBlocking { DelayTester(core, paths.runDir).measure(listOf(parsed), 10_000, rounds = 2) }[1L].orEmpty()
@@ -205,7 +239,11 @@ object SelfTest {
                 controller,
                 StoreData(
                     subscriptions = listOf(sub),
-                    servers = listOf(parsed.copy(id = 3, subscriptionId = 2, role = ServerRole.NORMAL, isSelected = true)),
+                    servers = listOf(
+                        parsed.copy(id = 3, subscriptionId = 2, role = ServerRole.NORMAL, isSelected = true),
+                        parsed.copy(id = 4, subscriptionId = 2, role = ServerRole.NORMAL, remark = "Local test 2"),
+                        parsed.copy(id = 5, subscriptionId = 2, role = ServerRole.NORMAL, remark = "Silent", port = deadPort)
+                    ),
                     routingProfiles = controller.store.value.routingProfiles,
                     settings = AppSettings(connectMode = ConnectMode.MANUAL, systemProxy = testProxy, localDns = true),
                     nextId = 10
@@ -236,6 +274,24 @@ object SelfTest {
                 "${totals.downlink} B down, ${totals.uplink} B up, screen ${controller.ui.value.runtime.traffic.downlinkBytes}"
             }
 
+            check("Gemini through the tunnel and through a core of its own") {
+                val live = controller.ui.value.runtime.connectedServerId ?: error("not connected")
+                val port = controller.tunnel.ports?.exitCheck ?: error("no check port")
+                val probe = com.ars3nb.volta.core.gemini.GeminiProbe(core, paths.runDir)
+                val server = controller.store.value.servers.first { it.id == live }
+                val tunnel = runBlocking { probe.check(server, live, port) }
+                // Another server than the live one: a short-lived xray.exe of its own.
+                val other = controller.store.value.servers.first { it.id == 4L }
+                val own = runBlocking { probe.check(other, live, port) }
+                // What Google says depends on where the build machine is; the request
+                // itself must have been made and judged, not refused by Volta.
+                listOf(tunnel, own).forEach {
+                    require(it.reason != com.ars3nb.volta.core.gemini.GeminiReason.CANNOT_DIAL &&
+                        it.reason != com.ars3nb.volta.core.gemini.GeminiReason.NEEDS_CONNECTION) { "$it" }
+                }
+                "tunnel: ${tunnel.status}/${tunnel.reason} ${tunnel.region ?: ""}, own core: ${own.status}/${own.reason} ${own.region ?: ""}"
+            }
+
             if (testProxy) {
                 check("Windows proxy points at Volta while connected") {
                     val now = WindowsApi.read()
@@ -244,6 +300,52 @@ object SelfTest {
                     val flags = WinApi.queryPerConnectionFlags()
                     require(flags == null || flags and WinApi.PROXY_TYPE_PROXY != 0) { "WinINet flags $flags" }
                     "ProxyServer=${now.proxyServer}, flags=$flags"
+                }
+            }
+
+            check("a live tunnel moves to another server without going down") {
+                val first = controller.ui.value.runtime.connectedServerId ?: error("not connected")
+                val httpBefore = controller.tunnel.ports?.http
+                val seen = java.util.Collections.synchronizedSet(mutableSetOf<VpnConnectionState>())
+                val notes = java.util.Collections.synchronizedList(mutableListOf<String>())
+                val listen = controller.scope.launch { controller.messages.collect { notes += it } }
+                val watcher = Thread {
+                    while (true) {
+                        seen += controller.ui.value.vpnState
+                        try { Thread.sleep(15) } catch (_: InterruptedException) { break }
+                    }
+                }.apply { isDaemon = true; start() }
+                try {
+                    // Three clicks in a row: the tunnel moves once, to the last one.
+                    controller.selectServer(5)
+                    controller.selectServer(3)
+                    controller.selectServer(4)
+                    require(controller.ui.value.runtime.switching?.serverId == 4L) {
+                        "no «switching» mark at once: ${controller.ui.value.runtime.switching}"
+                    }
+                    require(waitFor(25_000) {
+                        controller.ui.value.runtime.connectedServerId == 4L && controller.ui.value.runtime.switching == null
+                    }) { "runtime ${controller.ui.value.runtime.copy(speed = SpeedHistory())}" }
+                    val http = controller.tunnel.ports?.http ?: error("no tunnel after the switch")
+                    val through = get("https://www.gstatic.com/generate_204", Proxy(Proxy.Type.HTTP, InetSocketAddress("127.0.0.1", http)))
+                    require(through in 200..399) { "HTTP $through through the new node" }
+                    if (testProxy) {
+                        val now = WindowsApi.read()
+                        require(now.proxyEnable == 1 && now.proxyServer == "127.0.0.1:$http") { "Windows proxy $now" }
+                    }
+                    // A server that doesn't answer, picked by hand: back to the one that worked.
+                    controller.selectServer(5)
+                    require(waitFor(40_000) {
+                        val rt = controller.ui.value.runtime
+                        rt.switching == null && rt.connectedServerId == 4L && controller.ui.value.selectedServer?.id == 4L
+                    }) { "runtime ${controller.ui.value.runtime.copy(speed = SpeedHistory())}, selected ${controller.ui.value.selectedServer?.id}" }
+                    require(waitFor(3_000) { notes.any { it.contains("Silent") } }) { "no word of the way back: $notes" }
+                    require(seen.all { it == VpnConnectionState.CONNECTED }) { "the tunnel went through $seen" }
+                    require(controller.ui.value.runtime.traffic.downlinkBytes > 0) { "the session's traffic was lost" }
+                    "$first → 4 on HTTP port $http (was $httpBefore); a silent pick went back: «${notes.last { it.contains("Silent") }}»"
+                } finally {
+                    watcher.interrupt()
+                    listen.cancel()
                 }
             }
 
@@ -384,7 +486,10 @@ object SelfTest {
             Triple("settings-be", Page.SETTINGS, AppSettings(language = "be")),
             Triple("home-on-update-pt", Page.HOME, AppSettings(language = "pt-BR")),
             Triple("home-off-nonet-az", Page.HOME, AppSettings(language = "az")),
-            Triple("home-off-openflux", Page.HOME, AppSettings())
+            Triple("home-off-openflux", Page.HOME, AppSettings()),
+            Triple("home-on-switching", Page.HOME, AppSettings(autoSubscription = 1)),
+            Triple("home-on-gemini-lite", Page.HOME, AppSettings(liteMode = true, geminiAfterConnect = true)),
+            Triple("servers-sweep", Page.SERVERS, AppSettings(serversView = com.ars3nb.volta.data.model.ServersView(byCountry = false)))
         )
         for ((name, page, settings) in cases) {
             check("draw $name") {
@@ -413,7 +518,37 @@ object SelfTest {
                 } else {
                     com.ars3nb.volta.core.openflux.OpenFluxRunner.reset()
                 }
-                val base = if (name.startsWith("home-on")) connectedRuntime(controller) else RuntimeState(coreVersion = "26.7.28")
+                val connected = if (name.startsWith("home-on")) connectedRuntime(controller) else RuntimeState(coreVersion = "26.7.28")
+                val base = when {
+                    name.contains("switching") -> connected.copy(
+                        switching = com.ars3nb.volta.data.model.SwitchTarget(101, "🇩🇪 Germany · Frankfurt")
+                    )
+                    else -> connected
+                }
+                if (name.contains("gemini")) {
+                    controller.gemini.pretend(
+                        mapOf(
+                            connected.connectedServerId!! to com.ars3nb.volta.core.gemini.GeminiResult(
+                                com.ars3nb.volta.core.gemini.GeminiStatus.AVAILABLE,
+                                com.ars3nb.volta.core.gemini.GeminiReason.FLAG_ON,
+                                region = "NLD",
+                                httpCode = 200,
+                                checkedAt = System.currentTimeMillis()
+                            )
+                        )
+                    )
+                }
+                controller.debugSweep(
+                    if (name.contains("sweep")) {
+                        d.servers.map { it.id }.let { ids ->
+                            ids.drop(ids.size / 2).fold(com.ars3nb.volta.core.ping.SweepBoard.IDLE.start(ids)) { board, id ->
+                                board.record(id, com.ars3nb.volta.data.model.PingResult("", com.ars3nb.volta.data.model.PingType.REAL_DELAY, 40 + id % 90, id % 5 != 0L))
+                            }
+                        }
+                    } else {
+                        com.ars3nb.volta.core.ping.SweepBoard.IDLE
+                    }
+                )
                 val state = VoltaUiState(
                     subscriptions = d.subscriptions,
                     servers = d.servers,
@@ -506,6 +641,9 @@ object SelfTest {
             proxyActive = true,
             coreVersion = "26.7.28",
             pick = PickSummary(
+                reason = com.ars3nb.volta.core.locale.UiText.of(
+                    com.ars3nb.volta.desktop.i18n.R.string.servers_pick_why_race, server.remark, 9, 38
+                ),
                 rows = listOf(
                     PickRow(server.id, server.remark, 38, 4, 3, true),
                     PickRow(-2, "🇩🇪 Germany · Frankfurt", 61, 9, 3, false),

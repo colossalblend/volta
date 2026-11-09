@@ -111,11 +111,13 @@ fun StatusPill(
     text: String,
     color: Color,
     modifier: Modifier = Modifier,
-    icon: ImageVector? = null
+    icon: ImageVector? = null,
+    /** More than one line for a longer sentence; the pill then rounds less. */
+    maxLines: Int = 1
 ) {
     Surface(
         modifier = modifier,
-        shape = CircleShape,
+        shape = if (maxLines > 1) RoundedCornerShape(14.dp) else CircleShape,
         color = color.copy(alpha = 0.14f)
     ) {
         Row(
@@ -132,7 +134,7 @@ fun StatusPill(
                 text,
                 style = MaterialTheme.typography.labelMedium,
                 color = color,
-                maxLines = 1,
+                maxLines = maxLines,
                 overflow = TextOverflow.Ellipsis
             )
         }

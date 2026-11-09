@@ -18,7 +18,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Autorenew
+import androidx.compose.material.icons.rounded.FilterList
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.DesktopWindows
@@ -162,6 +165,14 @@ fun SettingsScreen(
                     checked = st.autoFailover,
                     onChecked = controller::setAutoFailover
                 )
+                SwitchRow(
+                    icon = Icons.Rounded.FilterList,
+                    tint = primary,
+                    title = stringResource(R.string.settings_auto_by_subscription_title),
+                    subtitle = stringResource(R.string.settings_auto_by_subscription_text),
+                    checked = st.autoBySubscription,
+                    onChecked = controller::setAutoBySubscription
+                )
             }
         }
 
@@ -207,6 +218,14 @@ fun SettingsScreen(
                     subtitle = s.probeOnStartHint,
                     checked = st.pingOnStart,
                     onChecked = controller::setPingOnStart
+                )
+                SwitchRow(
+                    icon = Icons.Rounded.AutoAwesome,
+                    tint = palette.good,
+                    title = stringResource(R.string.gemini_settings_title),
+                    subtitle = stringResource(R.string.gemini_settings_text),
+                    checked = st.geminiAfterConnect,
+                    onChecked = controller::setGeminiAfterConnect
                 )
                 Column(Modifier.padding(start = 48.dp, top = 6.dp, bottom = 8.dp, end = 4.dp)) {
                     Text(s.howToCheck, style = MaterialTheme.typography.titleSmall)
@@ -270,6 +289,15 @@ fun SettingsScreen(
                         )
                     }
                 }
+                Spacer(Modifier.height(8.dp))
+                SwitchRow(
+                    icon = Icons.Rounded.Speed,
+                    tint = MaterialTheme.colorScheme.primary,
+                    title = stringResource(R.string.settings_lite_mode),
+                    subtitle = stringResource(R.string.desktop_lite_mode_hint),
+                    checked = st.liteMode,
+                    onChecked = controller::setLiteMode
+                )
             }
         }
 

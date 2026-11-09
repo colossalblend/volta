@@ -60,7 +60,9 @@ import com.ars3nb.volta.core.server.Countries
 import com.ars3nb.volta.desktop.PickSummary
 import com.ars3nb.volta.desktop.SpeedHistory
 import com.ars3nb.volta.data.model.TrafficStats
+import com.ars3nb.volta.desktop.ui.LocalLang
 import com.ars3nb.volta.desktop.ui.LocalStrings
+import com.ars3nb.volta.desktop.ui.theme.rememberReducedMotion
 import com.ars3nb.volta.desktop.ui.theme.TABULAR
 import com.ars3nb.volta.desktop.ui.theme.VoltaTheme
 
@@ -80,19 +82,23 @@ fun SpeedGraph(history: SpeedHistory, modifier: Modifier = Modifier, totals: Tra
     // The scale eases to a new peak instead of snapping, so a burst doesn't jolt the curve.
     val scale by animateFloatAsState(peak * 1.15f, tween(700, easing = FastOutSlowInEasing), label = "scale")
 
+    val still = rememberReducedMotion()
     val slide = remember { Animatable(0f) }
     LaunchedEffect(history.version) {
+        if (still) return@LaunchedEffect
         slide.snapTo(1f)
         slide.animateTo(0f, tween(1_900, easing = LinearEasing))
     }
 
+    // The live dot pulses; with «Lite» it simply stays lit.
     val pulse = rememberInfiniteTransition(label = "pulse")
-    val dot by pulse.animateFloat(
+    val pulsing by pulse.animateFloat(
         initialValue = 0.35f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
         label = "dot"
     )
+    val dot = if (still) 1f else pulsing
 
     val strings = LocalStrings.current
     VoltaCard(modifier = modifier) {
@@ -264,6 +270,12 @@ fun AutoPickCard(summary: PickSummary, modifier: Modifier = Modifier) {
     val strings = LocalStrings.current
     VoltaCard(modifier = modifier) {
         Text(strings.whyThisServer, style = MaterialTheme.typography.titleSmall)
+        // Which node and why, in a sentence; a quick pick has only this, no table yet.
+        val reason = summary.reason.resolve(LocalLang.current.tag)
+        if (reason.isNotBlank()) {
+            Text(reason, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp))
+        }
+        if (summary.rows.isNotEmpty()) {
         Text(
             strings.checkedAnswered(summary.measured, summary.alive),
             style = MaterialTheme.typography.bodySmall,
@@ -322,6 +334,7 @@ fun AutoPickCard(summary: PickSummary, modifier: Modifier = Modifier) {
                     }
                 }
             }
+        }
         }
     }
 }

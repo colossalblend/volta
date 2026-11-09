@@ -402,3 +402,29 @@ data class SubscriptionImportResult(
     /** Links the parser recognised but the core cannot dial (tuic://, ssr://…). */
     val skipped: List<String> = emptyList()
 )
+
+/** One server's new measurement, written together with others (ServerDao.updateHealthAll). */
+data class HealthUpdate(val id: Long, val latency: Long, val ewma: Long, val failStreak: Int)
+
+/** Where a live tunnel is on its way to, as the screen names it. */
+data class SwitchTarget(val serverId: Long, val name: String)
+
+/** How the server list is ordered. */
+enum class ServerSort { BEST, NAME, SUBSCRIPTION }
+
+/**
+ * How the server list is looked at: its filters, order, grouping and search, and which
+ * countries are open. Kept in the settings, so the list comes back as it was left,
+ * after another tab and after a restart.
+ */
+data class ServersView(
+    val pool: ServerPool = ServerPool.ALL,
+    val query: String = "",
+    val sort: ServerSort = ServerSort.BEST,
+    val byCountry: Boolean = true,
+    val favoritesOnly: Boolean = false,
+    /** Only this subscription's servers; null: all of them. */
+    val subscriptionId: Long? = null,
+    /** Null until the user folds a country: then only the current server's is open. */
+    val openCountries: Set<String>? = null
+)

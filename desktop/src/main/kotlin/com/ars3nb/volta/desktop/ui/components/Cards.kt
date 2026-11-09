@@ -1,6 +1,14 @@
 package com.ars3nb.volta.desktop.ui.components
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
@@ -49,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.isSecondaryPressed
@@ -58,6 +67,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ars3nb.volta.core.ping.LiveCheck
+import com.ars3nb.volta.core.ping.SweepBoard
 import com.ars3nb.volta.core.server.Countries
 import com.ars3nb.volta.data.model.NetworkRegime
 import com.ars3nb.volta.data.model.ProtocolType
@@ -68,7 +79,9 @@ import com.ars3nb.volta.desktop.i18n.Lang
 import com.ars3nb.volta.desktop.i18n.Strings
 import com.ars3nb.volta.desktop.ui.LocalLang
 import com.ars3nb.volta.desktop.ui.LocalStrings
+import com.ars3nb.volta.desktop.ui.theme.Motion
 import com.ars3nb.volta.desktop.ui.theme.VoltaTheme
+import com.ars3nb.volta.desktop.ui.theme.rememberReducedMotion
 import java.util.Locale
 
 /**
@@ -134,8 +147,18 @@ fun transportLabel(server: ServerEntity): String {
     return listOf(server.protocol.label, security, transport).filter { it.isNotBlank() }.joinToString(" · ")
 }
 
-/** One action in a server's menu. */
-data class ServerAction(val label: String, val icon: ImageVector? = null, val danger: Boolean = false, val run: () -> Unit)
+/**
+ * One action in a server's menu. [content], when given, is drawn in its place instead of
+ * a plain item and keeps the menu open (a check that shows its answer right there);
+ * [close] shuts the menu from inside it.
+ */
+data class ServerAction(
+    val label: String,
+    val icon: ImageVector? = null,
+    val danger: Boolean = false,
+    val content: (@Composable (close: () -> Unit) -> Unit)? = null,
+    val run: () -> Unit = {}
+)
 
 /**
  * One server. On its own it is a card with the country badge; inside a country card
@@ -150,12 +173,22 @@ fun ServerRow(
     onClick: () -> Unit,
     actions: () -> List<ServerAction>,
     modifier: Modifier = Modifier,
-    inGroup: Boolean = false
+    inGroup: Boolean = false,
+    /** This row's answer in a running "check all" (see SweepBoard); null: the stored one. */
+    live: LiveCheck? = null,
+    /** The clock the stored figure's age is judged by; 0 never dims it. */
+    now: Long = 0,
+    /** The menu closed (to forget an answer shown in it). */
+    onMenuClosed: () -> Unit = {}
 ) {
     val palette = VoltaTheme.palette
     val scheme = MaterialTheme.colorScheme
     val s = LocalStrings.current
     var menu by remember { mutableStateOf(false) }
+    fun closeMenu() {
+        menu = false
+        onMenuClosed()
+    }
     val container by animateColorAsState(
         when {
             selected -> scheme.primary.copy(alpha = if (inGroup) 0.14f else 0.12f)
@@ -164,8 +197,16 @@ fun ServerRow(
         },
         label = "serverRow"
     )
-    val shown = server.latencyMs.takeIf { it >= 0 } ?: server.ewmaMs
-    val latencyColor = palette.latency(shown)
+    // The last measurement, the same figure the auto pick compares; during a sweep the
+    // fresh answer, until the stored one catches up with it.
+    val fresh = live?.takeIf { it.shownOver(server.lastPingAt) }
+    val shown = when {
+        fresh == null -> server.latencyMs.takeIf { it >= 0 } ?: server.ewmaMs
+        fresh.pending -> PENDING_FIGURE
+        else -> fresh.latencyMs
+    }
+    // A figure from long ago is faint: the network it was measured on may be gone.
+    val stale = fresh == null && now > 0 && SweepBoard.isStale(server.lastPingAt, now)
     val shape = if (inGroup) RoundedCornerShape(14.dp) else CardShape
 
     Box(modifier) {
@@ -271,18 +312,7 @@ fun ServerRow(
                 }
                 Spacer(Modifier.width(8.dp))
                 Column(horizontalAlignment = Alignment.End) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (shown >= 0) {
-                            SignalBars(shown)
-                            Spacer(Modifier.width(5.dp))
-                        }
-                        Text(
-                            formatLatency(shown),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (shown >= 0) latencyColor else scheme.onSurfaceVariant
-                        )
-                    }
+                    LatencyChip(shown, stale, animate = live != null)
                     Spacer(Modifier.height(3.dp))
                     if (selected) {
                         Icon(
@@ -312,26 +342,82 @@ fun ServerRow(
             }
         }
         if (menu) {
-            DropdownMenu(expanded = true, onDismissRequest = { menu = false }) {
+            DropdownMenu(expanded = true, onDismissRequest = { closeMenu() }) {
                 actions().forEach { action ->
-                    val ink = if (action.danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
-                    val icon = action.icon
-                    // Typed slot: a lambda built inside ?.let would not be @Composable.
-                    val leading: (@Composable () -> Unit)? = if (icon == null) null else ({ Icon(icon, null, tint = ink) })
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                action.label,
-                                color = if (action.danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-                            )
-                        },
-                        leadingIcon = leading,
-                        onClick = {
-                            menu = false
-                            action.run()
-                        }
-                    )
+                    val custom = action.content
+                    if (custom != null) {
+                        custom { closeMenu() }
+                    } else {
+                        val ink = if (action.danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                        val icon = action.icon
+                        // Typed slot: a lambda built inside ?.let would not be @Composable.
+                        val leading: (@Composable () -> Unit)? = if (icon == null) null else ({ Icon(icon, null, tint = ink) })
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    action.label,
+                                    color = if (action.danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            leadingIcon = leading,
+                            onClick = {
+                                closeMenu()
+                                action.run()
+                            }
+                        )
+                    }
                 }
+            }
+        }
+    }
+}
+
+/** What a row shows while its server waits its turn in a sweep. */
+private const val PENDING_FIGURE = -2L
+
+/**
+ * A row's figure: signal bars and the time. In a sweep it waits as a faint dot and the
+ * answer pops in (a short settle, nothing with «Lite»); a stale figure is faint.
+ */
+@Composable
+private fun LatencyChip(shown: Long, stale: Boolean, animate: Boolean) {
+    val palette = VoltaTheme.palette
+    val scheme = MaterialTheme.colorScheme
+    val still = rememberReducedMotion()
+    val fade by animateFloatAsState(if (stale) 0.45f else 1f, Motion.settle(), label = "stale")
+    AnimatedContent(
+        targetState = shown,
+        transitionSpec = {
+            if (still || !animate) {
+                EnterTransition.None togetherWith ExitTransition.None
+            } else {
+                (scaleIn(Motion.press(), initialScale = 0.6f) + fadeIn(Motion.settle())) togetherWith
+                    fadeOut(Motion.settle()) using SizeTransform(clip = false)
+            }
+        },
+        modifier = Modifier.graphicsLayer { alpha = fade },
+        label = "latency"
+    ) { figure ->
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (figure == PENDING_FIGURE) {
+                Box(
+                    Modifier
+                        .padding(vertical = 4.dp, horizontal = 6.dp)
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(scheme.onSurfaceVariant.copy(alpha = 0.4f))
+                )
+            } else {
+                if (figure >= 0) {
+                    SignalBars(figure)
+                    Spacer(Modifier.width(5.dp))
+                }
+                Text(
+                    formatLatency(figure),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (figure >= 0) palette.latency(figure) else scheme.onSurfaceVariant
+                )
             }
         }
     }

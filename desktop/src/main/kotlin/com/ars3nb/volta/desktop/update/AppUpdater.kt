@@ -108,8 +108,8 @@ class AppUpdater(
         if (current is UpdateState.Checking || current is UpdateState.Downloading) return current
         _state.value = UpdateState.Checking
         val now = System.currentTimeMillis()
-        val next = withContext(Dispatchers.IO) {
-            try {
+        val next = try {
+            withContext(Dispatchers.IO) {
                 val found = findNewest()
                 when {
                     found == null -> UpdateState.UpToDate(now)
@@ -121,9 +121,15 @@ class AppUpdater(
                     verified(found) -> UpdateState.Ready(found)
                     else -> UpdateState.Available(found)
                 }
-            } catch (e: IOException) {
-                UpdateState.Failed(R.string.settings_update_error_check)
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Whoever asked went away mid-check. Left at Checking, every later check would
+            // think one is still running and never look again (as fixed on Android).
+            if (_state.value is UpdateState.Checking) _state.value = current
+            throw e
+        } catch (e: Exception) {
+            // Not only network errors: a malformed answer must not leave it at Checking.
+            UpdateState.Failed(R.string.settings_update_error_check)
         }
         lastCheck = now
         _state.value = next

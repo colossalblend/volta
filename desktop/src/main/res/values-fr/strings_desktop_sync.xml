@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Volta for Windows: where the Android words speak of a phone or a finger (settings_lite_mode_hint, home_traffic_tap_hint). -->
+<resources>
+    <string name="desktop_lite_mode_hint">Aucune animation, pour les ordinateurs plus lents</string>
+    <string name="desktop_traffic_tap_hint">Cliquez sur une barre ou glissez dessus pour voir un jour ; les flèches passent d\'un jour à l\'autre</string>
+</resources>
