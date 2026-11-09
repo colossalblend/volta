@@ -327,6 +327,67 @@ jobs:
           ./gradlew --no-configuration-cache --stacktrace createDistributable packageMsi 2>&1 | tee -a "$VOLTA_TMP/gradle.log"
           ls -la build/compose/binaries/main/app/Volta build/compose/binaries/main/msi
 
+      # The Java launcher and the JVM find their own folder through Windows' ANSI functions.
+      # In a folder whose letters the system's code page lacks (a Cyrillic user name on an
+      # English Windows: C:\Users\Арсений\AppData\Local\…) they read «?» and Volta.exe ends
+      # at once with exit code 2 («could not find Java SE Runtime Environment»): Volta
+      # doesn't start, with no window and no log. With UTF-8 as Volta.exe's code page
+      # (activeCodePage in its manifest, Windows 10 1903 and later) those functions see every
+      # path as it is. The installer test below starts Volta from such a folder.
+      - name: Volta.exe with UTF-8 as its code page
+        env:
+          MSYS_NO_PATHCONV: "1"
+        run: |
+          set -euo pipefail
+          EXE=desktop/build/compose/binaries/main/app/Volta/Volta.exe
+          MT=$(ls -1d "/c/Program Files (x86)/Windows Kits/10/bin/"10.*/x64/mt.exe 2>/dev/null | sort -V | tail -1 || true)
+          [ -n "$MT" ] || { echo "::error title=mt.exe::no Windows SDK mt.exe on this runner"; exit 1; }
+          echo "mt: $MT"
+          W="$VOLTA_TMP/manifest"; mkdir -p "$W"
+          chmod u+w "$EXE"
+          WEXE=$(cygpath -w "$EXE")
+          if "$MT" -nologo "-inputresource:$WEXE;#1" "-out:$(cygpath -w "$W/launcher.manifest")"; then
+            echo "---- the launcher's manifest"; cat "$W/launcher.manifest"; echo
+          else
+            echo "the launcher has no manifest of its own"; rm -f "$W/launcher.manifest"
+          fi
+          python - "$W/launcher.manifest" "$W/volta.manifest" <<'EOF'
+          import os, re, sys
+          src, out = sys.argv[1], sys.argv[2]
+          acp = '<activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>'
+          if os.path.exists(src):
+              text = open(src, encoding='utf-8-sig').read()
+          else:
+              text = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+                      '<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">\n'
+                      '  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3"><security><requestedPrivileges>'
+                      '<requestedExecutionLevel level="asInvoker" uiAccess="false"/></requestedPrivileges></security></trustInfo>\n'
+                      '</assembly>\n')
+          if 'activeCodePage' in text:
+              pass
+          elif re.search(r'<(\w+:)?windowsSettings\b[^>]*/>', text):
+              text = re.sub(r'<((\w+:)?windowsSettings)\b([^>]*)/>', lambda m: '<%s%s>%s</%s>' % (m.group(1), m.group(3), acp, m.group(1)), text, count=1)
+          elif re.search(r'<(\w+:)?windowsSettings\b[^>]*>', text):
+              text = re.sub(r'(<(\w+:)?windowsSettings\b[^>]*>)', lambda m: m.group(1) + acp, text, count=1)
+          else:
+              v3 = re.search(r'<((\w+:)?application)\s+xmlns="urn:schemas-microsoft-com:asm\.v3"\s*>', text) \
+                   or re.search(r'<(asmv3:application)\s*>', text)
+              if v3:
+                  prefix = 'asmv3:' if v3.group(1).startswith('asmv3:') else ''
+                  block = '<%swindowsSettings>%s</%swindowsSettings>' % (prefix, acp, prefix)
+                  text = text[:v3.end()] + block + text[v3.end():]
+              else:
+                  block = ('  <application xmlns="urn:schemas-microsoft-com:asm.v3"><windowsSettings>%s'
+                           '</windowsSettings></application>\n') % acp
+                  text = re.sub(r'</assembly>\s*$', block + '</assembly>\n', text.rstrip() + '\n', count=1)
+          open(out, 'w', encoding='utf-8').write(text)
+          EOF
+          "$MT" -nologo -manifest "$(cygpath -w "$W/volta.manifest")" "-outputresource:$WEXE;#1"
+          "$MT" -nologo "-inputresource:$WEXE;#1" "-out:$(cygpath -w "$W/check.manifest")"
+          echo "---- Volta.exe's manifest now"; cat "$W/check.manifest"; echo
+          grep -q '>UTF-8</activeCodePage>' "$W/check.manifest" \
+            || { echo "::error title=Volta.exe manifest::no activeCodePage UTF-8"; exit 1; }
+
       # The portable zip is the app folder as it is. The installer carries the same folder
       # plus «Uninstall Volta.exe» (the build above) as payload.zip, and its version.
       - name: Installer

@@ -151,7 +151,13 @@ $uninstallKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Volta
 $runKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
 $startLink = Join-Path ([Environment]::GetFolderPath("Programs")) "Volta.lnk"
 $desktopLink = Join-Path ([Environment]::GetFolderPath("DesktopDirectory")) "Volta.lnk"
-$shell = New-Object -ComObject WScript.Shell
+# WScript.Shell reads a shortcut's target through the ANSI code page (Cyrillic comes back as
+# «?» on an English Windows); the Shell's own objects read it as it is.
+$shellApp = New-Object -ComObject Shell.Application
+function LinkTarget($lnk) {
+    if (-not (Test-Path $lnk)) { return $null }
+    try { return $shellApp.Namespace((Split-Path $lnk)).ParseName((Split-Path $lnk -Leaf)).GetLink.Path } catch { return "($_)" }
+}
 Write-Host "user folders under $user; install into $dir"
 
 $bytes = [System.IO.File]::ReadAllBytes($Setup)
@@ -231,8 +237,8 @@ if ($k) {
     Check ($k.UninstallString -like "*Uninstall Volta.exe*--uninstall*") "UninstallString = $($k.UninstallString)"
     Check ($k.QuietUninstallString -like "*--uninstall --silent*") "QuietUninstallString = $($k.QuietUninstallString)"
 }
-Check ((Test-Path $startLink) -and ($shell.CreateShortcut($startLink).TargetPath -eq $exe)) "Start menu shortcut -> $($shell.CreateShortcut($startLink).TargetPath)"
-Check ((Test-Path $desktopLink) -and ($shell.CreateShortcut($desktopLink).TargetPath -eq $exe)) "desktop shortcut"
+Check ((LinkTarget $startLink) -eq $exe) "Start menu shortcut -> $(LinkTarget $startLink)"
+Check ((LinkTarget $desktopLink) -eq $exe) "desktop shortcut -> $(LinkTarget $desktopLink)"
 $cmd = (Get-ItemProperty "HKCU:\Software\Classes\volta\shell\open\command" -ErrorAction SilentlyContinue).'(default)'
 Check ($cmd -like "*$exe*%1*") "volta:// opens Volta ($cmd)"
 Check (Test-Path (Join-Path $data "user-marker.txt")) "user data kept through the install"
