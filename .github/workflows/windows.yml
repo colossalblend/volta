@@ -106,15 +106,11 @@ jobs:
       # release tag on that commit is looked up, and the official Windows build of it is
       # downloaded and checked against the release's own SHA-256. geoip.dat and
       # geosite.dat come out of the same AAR, so both apps route with the same lists.
-      - name: Xray core
-        id: core
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Xray version
+        id: xver
         run: |
           set -euo pipefail
           W="$VOLTA_TMP/core"; mkdir -p "$W"
-          OUT=desktop/resources/windows-x64
-          mkdir -p "$OUT"
           python - <<'EOF' > "$W/aar-version"
           import re, zipfile
           with zipfile.ZipFile('app/libs/libv2ray.aar') as z:
@@ -124,7 +120,8 @@ jobs:
           EOF
           AAR_VER=$(tr -d '\r\n' < "$W/aar-version")
           echo "Android core: ${AAR_VER:-unknown}"
-          REFS=$(git ls-remote --tags https://github.com/XTLS/Xray-core)
+          REFS=$(git ls-remote --tags https://github.com/XTLS/Xray-core \
+            || { sleep 20; git ls-remote --tags https://github.com/XTLS/Xray-core; })
           HASH=""
           if [[ "$AAR_VER" =~ -([0-9a-f]{12})$ ]]; then
             HASH="${BASH_REMATCH[1]}"
@@ -141,22 +138,53 @@ jobs:
             echo "::warning title=Xray version::no release tag on the Android core ($AAR_VER); using $TAG from desktop/xray.version"
           fi
           echo "Windows core: $TAG"
-          BASE="https://github.com/XTLS/Xray-core/releases/download/$TAG"
-          # GitHub's download links sometimes answer 504 for a while: then the same files
-          # through the API (checked against the same SHA-256 below either way).
-          for f in Xray-windows-64.zip Xray-windows-64.zip.dgst; do
-            out="$W/${f/Xray-windows-64/xray}"
-            curl -fsSL --retry 4 --retry-delay 10 --retry-all-errors -o "$out" "$BASE/$f" \
-              || gh release download "$TAG" -R XTLS/Xray-core -p "$f" -O "$out" --clobber \
-              || { sleep 30; gh release download "$TAG" -R XTLS/Xray-core -p "$f" -O "$out" --clobber; }
-          done
-          WANT=$(grep -i 'SHA2-256' "$W/xray.zip.dgst" | head -1 | awk -F'= *' '{print tolower($2)}' | tr -d '\r ')
-          GOT=$(sha256sum "$W/xray.zip" | cut -d ' ' -f 1)
-          if [ -z "$WANT" ] || [ "$WANT" != "$GOT" ]; then
-            echo "::error title=Xray download::SHA-256 mismatch (want '$WANT', got '$GOT')"
-            exit 1
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      # The release archive is kept between runs: GitHub's download links answer 504 now
+      # and then, and a build shouldn't fail on that.
+      - name: Restore Xray archive
+        id: xcache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/xray-dl
+          key: xray-windows-${{ steps.xver.outputs.tag }}
+
+      - name: Xray core
+        id: core
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.xver.outputs.tag }}
+        run: |
+          set -euo pipefail
+          W="$VOLTA_TMP/core"; mkdir -p "$W"
+          D="$VOLTA_TMP/xray-dl"; mkdir -p "$D"
+          OUT=desktop/resources/windows-x64
+          mkdir -p "$OUT"
+          sha_ok() {
+            [ -s "$D/xray.zip" ] && [ -s "$D/xray.zip.dgst" ] || return 1
+            WANT=$(grep -i 'SHA2-256' "$D/xray.zip.dgst" | head -1 | awk -F'= *' '{print tolower($2)}' | tr -d '\r ')
+            GOT=$(sha256sum "$D/xray.zip" | cut -d ' ' -f 1)
+            [ -n "$WANT" ] && [ "$WANT" = "$GOT" ]
+          }
+          if sha_ok; then
+            echo "Xray $TAG from the cache"
+          else
+            BASE="https://github.com/XTLS/Xray-core/releases/download/$TAG"
+            # GitHub's download links sometimes answer 504 for a while: then the same files
+            # through the API (checked against the same SHA-256 below either way).
+            for f in Xray-windows-64.zip Xray-windows-64.zip.dgst; do
+              out="$D/${f/Xray-windows-64/xray}"
+              curl -fsSL --retry 4 --retry-delay 10 --retry-all-errors -o "$out" "$BASE/$f" \
+                || gh release download "$TAG" -R XTLS/Xray-core -p "$f" -O "$out" --clobber \
+                || { sleep 30; gh release download "$TAG" -R XTLS/Xray-core -p "$f" -O "$out" --clobber; }
+            done
+            if ! sha_ok; then
+              echo "::error title=Xray download::SHA-256 mismatch (want '${WANT:-}', got '${GOT:-}')"
+              rm -f "$D/xray.zip" "$D/xray.zip.dgst"
+              exit 1
+            fi
           fi
-          python -c "import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$W/xray.zip" "$W/xray"
+          python -c "import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$D/xray.zip" "$W/xray"
           ls -la "$W/xray"
           cp "$W/xray/xray.exe" "$OUT/xray.exe"
           cp "$W/xray/LICENSE" "$OUT/xray-LICENSE.txt" 2>/dev/null || true
@@ -170,6 +198,14 @@ jobs:
           ls -la "$OUT"
           "$OUT/xray.exe" version | head -1
           echo "xray=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Save Xray archive
+        if: steps.xcache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/xray-dl
+          key: xray-windows-${{ steps.xver.outputs.tag }}
 
       # The Android app's helpers, built for Windows and shipped next to xray.exe, run the
       # same way as on the phone (core/helper/ProxyHelper.kt, core/openflux/OpenFluxRunner.kt):
@@ -207,6 +243,53 @@ jobs:
           grep -q '"event":"error"' "$VOLTA_TMP/of.txt"
           ls -la "$OUT"
           echo "openflux=$COMMIT" >> "$GITHUB_OUTPUT"
+
+      # jpackage needs the WiX Toolset for the MSI the app build makes. The Compose plugin
+      # would download it from GitHub on every run (and fail the build on a 504); here it
+      # is fetched once with the same fallbacks as the Xray core, checked, kept between
+      # runs and handed over through WIX_PATH before Gradle first starts (so its daemon
+      # has it): the plugin then downloads nothing.
+      - name: Restore WiX Toolset
+        id: wixcache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/wix
+          key: wix3112rtm-binaries
+
+      - name: WiX Toolset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # wix311-binaries.zip of the wix3112rtm release (WiX 3.11.2).
+          WIX_SHA256: 2c1888d5d1dba377fc7fa14444cf556963747ff9a0a289a3599cf09da03b9e2e
+        run: |
+          set -euo pipefail
+          WIX="$VOLTA_TMP/wix"
+          if [ ! -f "$WIX/candle.exe" ] || [ ! -f "$WIX/light.exe" ]; then
+            rm -rf "$WIX"; mkdir -p "$WIX"
+            ZIP="$VOLTA_TMP/wix311-binaries.zip"
+            curl -fsSL --retry 4 --retry-delay 10 --retry-all-errors -o "$ZIP" \
+                https://github.com/wixtoolset/wix3/releases/download/wix3112rtm/wix311-binaries.zip \
+              || gh release download wix3112rtm -R wixtoolset/wix3 -p wix311-binaries.zip -O "$ZIP" --clobber \
+              || { sleep 30; gh release download wix3112rtm -R wixtoolset/wix3 -p wix311-binaries.zip -O "$ZIP" --clobber; }
+            GOT=$(sha256sum "$ZIP" | cut -d ' ' -f 1)
+            if [ "$GOT" != "$WIX_SHA256" ]; then
+              echo "::error title=WiX download::SHA-256 mismatch (want '$WIX_SHA256', got '$GOT')"
+              exit 1
+            fi
+            python -c "import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$ZIP" "$WIX"
+          else
+            echo "WiX from the cache"
+          fi
+          ls "$WIX" | head -5
+          echo "WIX_PATH=$(cygpath -w "$WIX")" >> "$GITHUB_ENV"
+
+      - name: Save WiX Toolset
+        if: steps.wixcache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/wix
+          key: wix3112rtm-binaries
 
       # Unit tests also write every kind of config Volta builds; the core about to be
       # shipped must accept each one, or the build stops here.
