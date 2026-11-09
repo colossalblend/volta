@@ -51,17 +51,21 @@ public static class W {
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
     [DllImport("ntdll.dll")] public static extern int NtSuspendProcess(IntPtr h);
     [DllImport("ntdll.dll")] public static extern int NtResumeProcess(IntPtr h);
+    // A visible window first: Java keeps hidden helper windows (the tray's, for one) too.
     public static IntPtr Find(int pid, string title) {
-        IntPtr found = IntPtr.Zero;
+        IntPtr found = IntPtr.Zero, hidden = IntPtr.Zero;
         EnumWindows((h, l) => {
             uint p; GetWindowThreadProcessId(h, out p);
             if (p == (uint)pid) {
                 var sb = new StringBuilder(512); GetWindowText(h, sb, 512);
-                if (title == null ? sb.Length > 0 : sb.ToString().StartsWith(title)) { found = h; return false; }
+                if (title == null ? sb.Length > 0 : sb.ToString().StartsWith(title)) {
+                    if (IsWindowVisible(h)) { found = h; return false; }
+                    if (hidden == IntPtr.Zero) hidden = h;
+                }
             }
             return true;
         }, IntPtr.Zero);
-        return found;
+        return found != IntPtr.Zero ? found : hidden;
     }
     public static string Titles(int pid) {
         var all = new StringBuilder();
@@ -73,6 +77,8 @@ public static class W {
         return all.ToString();
     }
     public static int ForegroundPid() { uint p; GetWindowThreadProcessId(GetForegroundWindow(), out p); return (int)p; }
+    public static int PidOf(IntPtr h) { uint p; GetWindowThreadProcessId(h, out p); return (int)p; }
+    [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
     [DllImport("wininet.dll")] public static extern bool InternetSetOption(IntPtr h, int option, IntPtr buffer, int length);
     public static void ProxyChanged() { InternetSetOption(IntPtr.Zero, 39, IntPtr.Zero, 0); InternetSetOption(IntPtr.Zero, 37, IntPtr.Zero, 0); }
 }
@@ -108,6 +114,25 @@ function Run($exe, [string[]]$arguments, [int]$seconds = 300) {
 function Quote($s) { return '"' + $s + '"' }
 
 function Step($what) { Write-Host "== $(Get-Date -Format HH:mm:ss) $what" }
+
+# jpackage's Volta.exe puts its folder on PATH and starts itself once more as a child, which
+# runs Java (and so the window, the tray and the answer to a second start) while the first
+# one waits for it. Windows are looked for in the whole tree.
+function TreePids([int]$root) {
+    $ids = @($root)
+    $kids = @(Get-CimInstance Win32_Process -Filter "ParentProcessId=$root" -ErrorAction SilentlyContinue | ForEach-Object { [int]$_.ProcessId })
+    foreach ($k in $kids) {
+        $ids += $k
+        $ids += @(Get-CimInstance Win32_Process -Filter "ParentProcessId=$k" -ErrorAction SilentlyContinue | ForEach-Object { [int]$_.ProcessId })
+    }
+    return $ids
+}
+function FindWin($p, $title) {
+    foreach ($id in (TreePids $p.Id)) { $h = [W]::Find($id, $title); if ($h -ne [IntPtr]::Zero) { return $h } }
+    return [IntPtr]::Zero
+}
+function TreeTitles($p) { return ((TreePids $p.Id) | ForEach-Object { [W]::Titles($_) }) -join "" }
+function StopTree($p) { foreach ($id in (TreePids $p.Id)) { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue } }
 
 $inetKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
 function ProxyState() {
@@ -268,7 +293,7 @@ Step "4. smoke test"
 function StartVolta() {
     $p = Start-Process -FilePath $exe -PassThru
     $script:shownBefore = if (Test-Path $appLog) { (Select-String -Path $appLog -Pattern "window shown").Count } else { 0 }
-    $okWindow = WaitFor { $p.HasExited -or ([W]::Find($p.Id, "Volta") -ne [IntPtr]::Zero) } 90
+    $okWindow = WaitFor { $p.HasExited -or ((FindWin $p "Volta") -ne [IntPtr]::Zero) } 90
     if ($p.HasExited) { Fail "Volta.exe ended at start (exit $($p.ExitCode))"; return $p }
     Check $okWindow "Volta's window appears (pid $($p.Id))"
     $drawn = WaitFor { (Test-Path $appLog) -and ((Select-String -Path $appLog -Pattern "window shown").Count -gt $script:shownBefore) } 60
@@ -279,7 +304,9 @@ function StartVolta() {
 $volta = StartVolta
 Start-Sleep -Seconds 3
 Shot "real-app-installed"
-$hwnd = [W]::Find($volta.Id, "Volta")
+$hwnd = FindWin $volta "Volta"
+$voltaJava = if ($hwnd -ne [IntPtr]::Zero) { [W]::PidOf($hwnd) } else { $volta.Id }
+Write-Host "Volta's window $hwnd belongs to pid $voltaJava (Volta.exe started as pid $($volta.Id))"
 
 # Something else in front, then a second start.
 $np = Start-Process notepad.exe -PassThru
@@ -292,12 +319,12 @@ $acked = WaitFor { (Select-String -Path $appLog -Pattern "another start asked").
 Check $acked "the running Volta took the second start's message (ack path)"
 Start-Sleep -Seconds 2
 $fg = [W]::ForegroundPid()
-if ($fg -eq $volta.Id) { Ok "Volta's window got the focus" } else { Write-Host "::warning title=Focus::the foreground window belongs to pid $fg, not Volta ($($volta.Id)); CI desktops often refuse focus changes" }
+if ($fg -eq $voltaJava) { Ok "Volta's window got the focus" } else { Write-Host "::warning title=Focus::the foreground window belongs to pid $fg, not Volta ($voltaJava); CI desktops often refuse focus changes" }
 Select-String -Path $appLog -Pattern "instance:" | Select-Object -Last 4 | ForEach-Object { Write-Host "   $($_.Line)" }
 Stop-Process -Id $np.Id -Force -ErrorAction SilentlyContinue
 
 # Hidden to the tray (the window's ✕), then a second start brings it back.
-$null = $volta.CloseMainWindow()
+$null = [W]::PostMessage($hwnd, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)   # WM_CLOSE, as the window's ✕
 $hidden = WaitFor { -not [W]::IsWindowVisible($hwnd) } 10
 Check $hidden "✕ hides the window to the tray"
 Check (-not $volta.HasExited) "… and Volta keeps running"
@@ -309,14 +336,15 @@ Start-Sleep -Seconds 1
 Shot "real-app-back-from-tray"
 
 # A hung Volta: frozen, it can't answer; the next start says so instead of nothing.
-[W]::NtSuspendProcess($volta.Handle) | Out-Null
+$javaProc = Get-Process -Id $voltaJava
+[W]::NtSuspendProcess($javaProc.Handle) | Out-Null
 $third = Start-Process -FilePath $exe -PassThru
-$dialog = WaitFor { ([W]::Find($third.Id, "Volta уже запущена") -ne [IntPtr]::Zero) -or ([W]::Find($third.Id, "Volta is already running") -ne [IntPtr]::Zero) } 25
-Check $dialog "a hung Volta: the next start shows «Volta уже запущена, но не отвечает» ($([W]::Titles($third.Id)))"
+$dialog = WaitFor { ((FindWin $third "Volta уже запущена") -ne [IntPtr]::Zero) -or ((FindWin $third "Volta is already running") -ne [IntPtr]::Zero) } 25
+Check $dialog "a hung Volta: the next start shows «Volta уже запущена, но не отвечает» ($(TreeTitles $third))"
 Start-Sleep -Seconds 1
 Shot "real-hung-dialog"
-Stop-Process -Id $third.Id -Force -ErrorAction SilentlyContinue
-[W]::NtResumeProcess($volta.Handle) | Out-Null
+StopTree $third
+[W]::NtResumeProcess($javaProc.Handle) | Out-Null
 Start-Sleep -Seconds 2
 
 # --quit: out the way «Выход» goes.
