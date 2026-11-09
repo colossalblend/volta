@@ -1,7 +1,6 @@
 package com.ars3nb.volta.core.vpn
 
 import android.content.Context
-import android.util.Base64
 import android.util.Log
 import com.ars3nb.volta.R
 import com.ars3nb.volta.core.HwidProvider
@@ -171,10 +170,20 @@ class XrayCore(
 
         /** Stable per-device XUDP base key so UDP over VLESS is not sent in the clear. */
         private fun xudpBaseKey(context: Context): String = runCatching {
-            val digest = MessageDigest.getInstance("SHA-256")
-                .digest(HwidProvider.getHwid(context).toByteArray(Charsets.UTF_8))
-            Base64.encodeToString(digest, Base64.NO_WRAP or Base64.NO_PADDING)
+            xudpBaseKeyFor(HwidProvider.getHwid(context))
         }.getOrDefault("")
+
+        /**
+         * The 32 bytes of the key in the only form the core reads: base64 with the URL
+         * alphabet and no padding (Go's RawURLEncoding in common/xudp). The core checks it on
+         * every start and refuses to start with anything else, so a key with "+" or "/" —
+         * most devices' — stopped every connection with «BaseKey must be 32 bytes». The bytes
+         * are the same as before, so devices whose key happened to work keep it.
+         */
+        internal fun xudpBaseKeyFor(hwid: String): String {
+            val digest = MessageDigest.getInstance("SHA-256").digest(hwid.toByteArray(Charsets.UTF_8))
+            return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(digest)
+        }
     }
 
     private var controller: Any? = null
